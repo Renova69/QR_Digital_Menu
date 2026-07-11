@@ -37,6 +37,9 @@ export interface MyposNotificationResult {
   transactionRef: string;
   requestStan: string;
   requestDateTime: string;
+  // myPOS IPC purchase status: '0' = success. Any other value is a decline /
+  // reversal / error and must NOT be claimed as a successful payment (#M4).
+  status: string;
 }
 
 export const MYPOS_TEST_CLIENT_NUMBER = '61938166610';
@@ -167,6 +170,7 @@ export class MyposProvider {
       transactionRef: getField(body, 'IPC_Trnref'),
       requestStan: getField(body, 'RequestSTAN'),
       requestDateTime: getField(body, 'RequestDateTime'),
+      status: getField(body, 'Status'),
     };
   }
 

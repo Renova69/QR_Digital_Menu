@@ -375,6 +375,36 @@ export class MyposCheckoutService {
       result.requestDateTime || '',
     ].join(':');
 
+    // #M4: myPOS IPC purchase Status '0' is success; any other value is a
+    // decline/reversal/error. A signature-valid non-success notification must be
+    // recorded as FAILED, never claimed as a paid bill. (An absent Status is
+    // treated as success to preserve behavior for notification variants that
+    // omit it — signature + full reconciliation already gate this path.)
+    if (result.status && result.status !== '0') {
+      this.logger.warn('myPOS notify: non-success purchase status', {
+        paymentId: payment.id,
+        status: result.status,
+      });
+      await this.prisma.$transaction(async (tx) => {
+        const recorded = await this.core.recordProviderEvent(
+          tx,
+          PaymentProvider.MYPOS,
+          eventKey,
+          {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            payload: { orderId, status: result.status },
+          },
+        );
+        if (!recorded) return;
+        await tx.payment.updateMany({
+          where: { id: payment.id, status: 'PENDING' },
+          data: { status: 'FAILED', providerStatus: 'DECLINED' },
+        });
+      });
+      return 'OK';
+    }
+
     const claim = await this.prisma.$transaction(async (tx) => {
       const recorded = await this.core.recordProviderEvent(
         tx,

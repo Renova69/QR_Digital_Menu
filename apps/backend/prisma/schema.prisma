@@ -676,6 +676,10 @@ model TableSession {
   @@index([token])
   @@index([tableId, status])
   @@index([restaurantId, status])
+  // Covers the nightly retention sweep (status='OPEN', createdAt < cutoff,
+  // ordered by createdAt) which is restaurant-agnostic — no existing index
+  // serves it, so it seq-scans an ever-growing table.
+  @@index([status, createdAt])
   @@map("table_session")
 }
 

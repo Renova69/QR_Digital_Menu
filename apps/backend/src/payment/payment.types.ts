@@ -22,6 +22,13 @@ export type PaymentClaimResult = {
   sessionPaid: boolean;
   remaining?: number;
   splitMode?: SplitMode;
+  // #H4: the captured payment was recorded but underpays the remaining bill, so
+  // the session stays OPEN. Drives a bill:updated (not payment:confirmed) emit.
+  partial?: boolean;
+  // #M1: a scoped payment was captured for units already settled out-of-band
+  // (double-pay). Recorded SUCCEEDED + flagged for refund; no allocation change,
+  // no payment:confirmed. Surfaces a reconciliation signal instead.
+  needsRefund?: boolean;
 };
 
 export type CashPaymentRequestDto = {

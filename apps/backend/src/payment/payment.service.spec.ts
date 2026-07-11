@@ -116,9 +116,11 @@ describe('PaymentService', () => {
         count: jest.fn(),
       },
       restaurantTable: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValue({ id: 'table1', restaurantId: 'rest1' }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'table1',
+          restaurantId: 'rest1',
+          type: 'TABLE',
+        }),
         findUnique: jest.fn().mockResolvedValue({ name: 'T1' }),
       },
       restaurant: {
@@ -161,6 +163,10 @@ describe('PaymentService', () => {
       },
       orderItem: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        // Default empty: the #M1 scope pre-check treats an item absent from this
+        // read as "not observed settled" and defers to the conditional
+        // updateMany guard. Tests exercising the conflict path mock this.
+        findMany: jest.fn().mockResolvedValue([]),
       },
       paymentAllocation: {
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -309,7 +315,11 @@ describe('PaymentService', () => {
       );
 
       expect(mockPrisma.tableSession.create).toHaveBeenCalledWith({
-        data: { tableId: 'table1', restaurantId: 'rest1' },
+        data: {
+          tableId: 'table1',
+          restaurantId: 'rest1',
+          isServicePoint: false,
+        },
       });
       expect(result.token).toBe('tok2');
     });
@@ -342,7 +352,12 @@ describe('PaymentService', () => {
 
       expect(result).toEqual({ session: existing, token: 'tok-race' });
       expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith({
-        where: { tableId: 'table1', restaurantId: 'rest1', status: 'OPEN' },
+        where: {
+          tableId: 'table1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+          isServicePoint: false,
+        },
       });
     });
   });
@@ -1286,6 +1301,37 @@ describe('PaymentService', () => {
         }),
       );
     });
+
+    it('marks FAILED and does NOT claim a signature-valid but declined notification (#M4)', async () => {
+      mockMyposProvider.verifyNotification!.mockReturnValue({
+        verified: true,
+        method: 'IPCPurchaseNotify',
+        orderId: 'MP123',
+        amount: '20.00',
+        currency: 'EUR',
+        storeId: '000000000000010',
+        transactionRef: '813705',
+        requestStan: '000006',
+        requestDateTime: '2015-08-21 10:39:37',
+        status: '1', // non-zero = decline/reversal
+      });
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.handleMyposNotification(validBody);
+
+      // Acknowledge to myPOS (stop retries) but never mark the bill paid.
+      expect(result).toBe('OK');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-mypos', status: 'PENDING' },
+        data: { status: 'FAILED', providerStatus: 'DECLINED' },
+      });
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.anything(),
+      );
+    });
   });
 
   describe('handleWebhookEvent', () => {
@@ -1460,7 +1506,82 @@ describe('PaymentService', () => {
       );
     });
 
-    it('does NOT mark the session PAID when the payment underpays the current bill (#2)', async () => {
+    it('records a scoped payment for already-settled units as SUCCEEDED-for-refund without double-settling (#M1)', async () => {
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        id: 'evt_conflict',
+        data: { object: { id: 'pi_conflict' } },
+      });
+      const payment = {
+        id: 'pay-conflict',
+        amount: 10,
+        tipAmount: 0,
+        status: 'ABANDONED', // customer abandoned, but the intent still captured
+        tableSessionId: 's1',
+        restaurantId: 'rest1',
+        providerPayload: {
+          checkoutScope: {
+            kind: 'ORDER_ITEMS',
+            orderIds: ['order-owned'],
+            chargeSubtotal: 10,
+            allocations: [
+              {
+                orderItemId: 'oi-soup',
+                quantity: 1,
+                amount: 10,
+                snapshotPaid: 0,
+              },
+            ],
+          },
+        },
+        tableSession: {
+          id: 's1',
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          table: { name: '3' },
+        },
+      };
+      mockPrisma.payment.findFirst.mockResolvedValue(payment);
+      mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      // The soup was settled out-of-band (paidQuantity moved 0 -> 1) after the
+      // scope snapshot was taken.
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        { id: 'oi-soup', paidQuantity: 1 },
+      ]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      // Money recorded SUCCEEDED + flagged for refund; NOT thrown (which would
+      // roll back the dedup and make Stripe retry forever).
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-conflict', status: { in: ['PENDING', 'ABANDONED'] } },
+        data: expect.objectContaining({
+          status: 'SUCCEEDED',
+          providerStatus: 'SCOPE_CONFLICT_NEEDS_REFUND',
+        }),
+      });
+      // No second settlement of the already-paid unit, no allocations, no
+      // session flip, no payment:confirmed.
+      expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentAllocation.createMany).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:refundRequired',
+        expect.objectContaining({
+          paymentId: 'pay-conflict',
+          reason: 'SCOPE_CONFLICT',
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.anything(),
+      );
+    });
+
+    it('records an underpayment as a partial and leaves the session OPEN (#H4)', async () => {
       mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_test' } },
@@ -1480,12 +1601,30 @@ describe('PaymentService', () => {
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
       // Bill grew to 110 after the intent was created (e.g. pricey item added).
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 110 }]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
 
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
-      // Session is NOT released, and no "confirmed" event is emitted.
+      // The captured €10 IS recorded (never left PENDING → the session would
+      // otherwise be bricked and the money lost on the books)...
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+        }),
+      );
+      // ...but the session is NOT flipped to PAID and no payment:confirmed fires.
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
-      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      // Staff are notified via bill:updated (partial), not payment:confirmed.
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'bill:updated',
+        expect.objectContaining({ sessionPaid: false }),
+      );
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.anything(),
+      );
     });
 
     it('is idempotent: a double-delivered succeeded event skips socket emission (#H3)', async () => {

@@ -10,6 +10,6 @@ WHERE session."tableId" = location."id"
 
 DROP INDEX IF EXISTS "table_session_one_open_per_table_restaurant_idx";
 
-CREATE UNIQUE INDEX "table_session_one_open_per_table_restaurant_idx"
+CREATE UNIQUE INDEX IF NOT EXISTS "table_session_one_open_per_table_restaurant_idx"
   ON "table_session" ("restaurantId", "tableId")
   WHERE "status" = 'OPEN' AND "isServicePoint" = false;
