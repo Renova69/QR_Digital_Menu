@@ -2249,6 +2249,7 @@
       "menu:edit": "Menu Management",
       "menu:import": "Menu Import",
       "qr:manage": "QR Codes",
+      "servicePoints": "Service Points",
       "orders:receive": "Online Orders",
       "orders:call-waiter": "Call Waiter",
       "analytics:basic": "Basic Analytics",

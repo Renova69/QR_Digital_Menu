@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Star, ChefHat, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { useSocket } from "../context/SocketContext";
 import { useTranslation } from "react-i18next";
+import { buildMenuReturnUrl } from "../lib/menuUrl";
 
 const STATUS_STEP: Record<string, number> = {
   NEW: 1,
@@ -161,9 +162,10 @@ const OrderConfirmationPage = () => {
   const orderId = location.state?.orderId || "";
   const orderTrackToken = location.state?.orderTrackToken || "";
   const tableNumber = location.state?.tableNumber || "";
+  const servicePointToken = location.state?.servicePointToken || "";
   const menuReturnUrl =
     location.state?.menuReturnUrl ||
-    `/menu/public/${restaurantId}${tableNumber ? `?table=${encodeURIComponent(tableNumber)}` : ""}`;
+    buildMenuReturnUrl(restaurantId, tableNumber, servicePointToken);
   const tier = (location.state?.tier as string) || "FREE";
 
   const [orderStatus, setOrderStatus] = useState<StatusKey>("NEW");
@@ -173,11 +175,16 @@ const OrderConfirmationPage = () => {
     if (!socket || !isConnected || !orderId || !orderTrackToken) return;
     socket.emit("joinOrderRoom", { orderId, token: orderTrackToken });
     const handleStatusChanged = (updatedOrder: any) => {
+      // Only react to events for THIS order. Placing a second order on the same
+      // tab re-runs this effect for order B while the socket may still be in
+      // order A's room; without this guard A's status update would overwrite B.
+      if (updatedOrder?.id && updatedOrder.id !== orderId) return;
       setOrderStatus(updatedOrder.status);
     };
     socket.on("orderStatusChanged", handleStatusChanged);
     return () => {
       socket.off("orderStatusChanged", handleStatusChanged);
+      socket.emit("leaveOrderRoom", { orderId });
     };
   }, [socket, isConnected, orderId, orderTrackToken]);
 

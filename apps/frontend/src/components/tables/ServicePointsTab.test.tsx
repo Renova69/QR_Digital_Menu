@@ -54,7 +54,13 @@ vi.mock("@tanstack/react-query", () => ({
 
 describe("ServicePointsTab editing", () => {
   it("updates fulfillment and payment settings without recreating the QR", async () => {
-    render(<ServicePointsTab restaurantId="restaurant-1" onShowQr={vi.fn()} />);
+    render(
+      <ServicePointsTab
+        restaurantId="restaurant-1"
+        paymentsEnabled
+        onShowQr={vi.fn()}
+      />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const editor = within(screen.getByTestId("service-point-editor"));
@@ -69,5 +75,17 @@ describe("ServicePointsTab editing", () => {
         paymentMethods: ["PAY_ON_DELIVERY", "ONLINE"],
       }),
     );
+  });
+
+  it("does not allow online payment when restaurant payments are disabled", () => {
+    render(
+      <ServicePointsTab
+        restaurantId="restaurant-1"
+        paymentsEnabled={false}
+        onShowQr={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Pay online" })).toBeDisabled();
   });
 });

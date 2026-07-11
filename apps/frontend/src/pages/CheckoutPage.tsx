@@ -24,6 +24,7 @@ import { Toggle } from "../components/ui/Toggle";
 import type { FeatureFlag } from "../hooks/useFeature";
 import { isHappyHourActive } from "../lib/happyHour";
 import { rememberOwnedOrder } from "../lib/publicOrderOwnership";
+import { buildMenuReturnUrl } from "../lib/menuUrl";
 import {
   resolveCartChoiceName,
   resolveCartItemName,
@@ -199,15 +200,11 @@ const CheckoutPage = () => {
   const paymentOptionsKey = paymentOptions.join("|");
   const locationDisplayLabel =
     tableNumber ?? orderLocation?.label ?? t("checkout.notSpecified");
-  const menuReturnUrl = restaurantId
-    ? `/menu/public/${restaurantId}${
-        tableNumber
-          ? `?table=${encodeURIComponent(tableNumber)}`
-          : orderLocation?.token
-            ? `?sp=${encodeURIComponent(orderLocation.token)}`
-            : ""
-      }`
-    : "/";
+  const menuReturnUrl = buildMenuReturnUrl(
+    restaurantId,
+    tableNumber,
+    orderLocation?.token,
+  );
   const locationTypeLabel = tableNumber
     ? t("checkout.table")
     : orderLocation?.type === "ROOM"

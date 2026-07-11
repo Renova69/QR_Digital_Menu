@@ -83,6 +83,7 @@ const FEATURE_GROUPS: Array<{ key: string; features: FeatureFlag[] }> = [
   {
     key: "orders",
     features: [
+      "service-points",
       "orders:receive",
       "orders:call-waiter",
       "dayparting",
@@ -133,6 +134,10 @@ const FEATURE_LABELS: Record<FeatureFlag, { key: string; fallback: string }> = {
     fallback: "Menu import",
   },
   "qr:manage": { key: "subscription.features.qrManage", fallback: "QR codes" },
+  "service-points": {
+    key: "subscription.features.servicePoints",
+    fallback: "Service points",
+  },
   "orders:receive": {
     key: "subscription.features.ordersReceive",
     fallback: "Online orders",

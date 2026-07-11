@@ -45,7 +45,11 @@ import ServicePointsTab from "./ServicePointsTab";
 import QrCodeModal, { type QrCodeTarget } from "./QrCodeModal";
 import RestaurantContext from "../../context/RestaurantContext";
 import LiveTablesView from "../../pages/Dashboard/LiveTablesView";
-import { useTier } from "../../hooks/useFeature";
+import {
+  useFeature,
+  useTier,
+  type FeatureFlag,
+} from "../../hooks/useFeature";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
 import { copyToClipboard, normalizeTableName } from "../../lib/tableViewUtils";
@@ -59,6 +63,13 @@ const templateOptions: Array<{ value: PrintTemplate; label: string }> = [
 const orientationOptions: Array<{ value: PrintOrientation; label: string }> = [
   { value: "portrait", label: "Portrait" },
   { value: "landscape", label: "Landscape" },
+];
+
+const ONLINE_PAYMENT_FEATURES: FeatureFlag[] = [
+  "payments:stripe",
+  "payments:epay",
+  "payments:borica",
+  "payments:mypos",
 ];
 
 type TablesSubTab = "live" | "qr" | "zones" | "service-points";
@@ -77,7 +88,11 @@ const TableView: React.FC = () => {
   const [copiedTableId, setCopiedTableId] = useState<string | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const { t } = useTranslation();
-  const { tier } = useTier();
+  const { tier, features } = useTier();
+  const canManageServicePoints = useFeature("service-points");
+  const canAcceptOnlinePayments =
+    !!restaurant?.paymentsEnabled &&
+    ONLINE_PAYMENT_FEATURES.some((feature) => features.includes(feature));
   const { user } = useAuth();
   const isManagerOrOwner = user?.role === "OWNER" || user?.role === "MANAGER";
   const isFree = tier === "FREE";
@@ -90,6 +105,20 @@ const TableView: React.FC = () => {
   const [printTemplate, setPrintTemplate] = useState<PrintTemplate>("classic");
   const [printOrientation, setPrintOrientation] =
     useState<PrintOrientation>("portrait");
+
+  // `subTab` is seeded once from `isFree`, which resolves asynchronously
+  // (useTier falls back to a cached tier first). If the authoritative tier
+  // arrives as FREE after mount, the "Live" tab button is hidden — redirect
+  // away so a FREE user isn't stranded on a view with no active nav (#M12).
+  useEffect(() => {
+    if (isFree && subTab === "live") setSubTab("qr");
+  }, [isFree, subTab]);
+
+  useEffect(() => {
+    if (subTab === "service-points" && !canManageServicePoints) {
+      setSubTab(isFree ? "qr" : "live");
+    }
+  }, [canManageServicePoints, isFree, subTab]);
 
   const { data: tables, isLoading } = useQuery({
     queryKey: ["tables", restaurantId],
@@ -314,9 +343,11 @@ const TableView: React.FC = () => {
     setIsQrModalOpen(true);
   };
 
-  const logoUrl = restaurant.logoUrl?.startsWith("http")
+  // restaurant may be null while the context resolves; guard every deref (#M14)
+  // so a future caller that doesn't gate on activeRestaurant can't crash here.
+  const logoUrl = restaurant?.logoUrl?.startsWith("http")
     ? restaurant.logoUrl
-    : restaurant.logoUrl
+    : restaurant?.logoUrl
       ? `${(import.meta as any).env.VITE_API_URL || "http://localhost:3000/api"}`.replace(
           "/api",
           "",
@@ -438,19 +469,21 @@ const TableView: React.FC = () => {
                 <MapPin className="h-4 w-4" />
                 {t("auto.zones", "Zones")}
               </button>
-              <button
-                type="button"
-                onClick={() => setSubTab("service-points")}
-                className={cn(
-                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
-                  subTab === "service-points"
-                    ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <Hotel className="h-4 w-4" />
-                {t("servicePoints.title", "Service Points")}
-              </button>
+              {canManageServicePoints && (
+                <button
+                  type="button"
+                  onClick={() => setSubTab("service-points")}
+                  className={cn(
+                    "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                    subTab === "service-points"
+                      ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <Hotel className="h-4 w-4" />
+                  {t("servicePoints.title", "Service Points")}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -664,8 +697,12 @@ const TableView: React.FC = () => {
             )}
           </div>
         </div>
-      ) : subTab === "service-points" ? (
-        <ServicePointsTab restaurantId={restaurantId} onShowQr={handleShowQr} />
+      ) : subTab === "service-points" && canManageServicePoints ? (
+        <ServicePointsTab
+          restaurantId={restaurantId}
+          paymentsEnabled={canAcceptOnlinePayments}
+          onShowQr={handleShowQr}
+        />
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">

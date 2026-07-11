@@ -5,6 +5,8 @@ import { vi } from "vitest";
 import TableView from "./TableView";
 import RestaurantContext from "../../context/RestaurantContext";
 
+const featureState = vi.hoisted(() => ({ servicePointsEnabled: true }));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (_key: string, fallback?: string | { defaultValue?: string }) =>
@@ -13,7 +15,8 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("../../hooks/useFeature", () => ({
-  useTier: () => ({ tier: "PRO" }),
+  useTier: () => ({ tier: "PRO", features: ["payments:stripe"] }),
+  useFeature: () => featureState.servicePointsEnabled,
 }));
 
 vi.mock("../../context/AuthContext", () => ({
@@ -84,6 +87,10 @@ vi.mock("../ui/modal", () => ({
 }));
 
 describe("TableView service-point QR", () => {
+  beforeEach(() => {
+    featureState.servicePointsEnabled = true;
+  });
+
   it("opens the QR dialog while the Service Points tab is active", () => {
     render(
       <RestaurantContext.Provider
@@ -109,5 +116,30 @@ describe("TableView service-point QR", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText(/\?sp=room-token$/)).toBeInTheDocument();
+  });
+
+  it("hides service points when the active plan does not include them", () => {
+    featureState.servicePointsEnabled = false;
+
+    render(
+      <RestaurantContext.Provider
+        value={
+          {
+            activeRestaurant: {
+              id: "restaurant-1",
+              name: "Free Restaurant",
+              accentColor: "#000000",
+              logoUrl: null,
+            },
+          } as any
+        }
+      >
+        <TableView />
+      </RestaurantContext.Provider>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Service Points" }),
+    ).not.toBeInTheDocument();
   });
 });

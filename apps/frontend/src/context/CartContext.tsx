@@ -187,13 +187,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, 100);
   }, [items]);
 
-  // Flush pending cart write immediately on unmount
+  // Flush pending cart write immediately on unmount AND when the tab is hidden
+  // or closed. CartProvider is mounted at the app root and effectively never
+  // unmounts mid-session, so without a pagehide/visibilitychange flush a tab
+  // closed within the 100ms debounce window loses its last cart mutation.
   useEffect(() => {
-    return () => {
-      if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
+    const flush = () => {
+      if (cartSaveTimerRef.current) {
+        clearTimeout(cartSaveTimerRef.current);
+        cartSaveTimerRef.current = null;
+      }
       if (pendingCartRef.current !== null) {
         localStorage.setItem("cartItems", pendingCartRef.current);
+        pendingCartRef.current = null;
       }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
     };
   }, []);
 

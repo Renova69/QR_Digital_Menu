@@ -2348,6 +2348,7 @@
       "menu:edit": "Управление на меню",
       "menu:import": "Импорт на меню",
       "qr:manage": "QR кодове",
+      "servicePoints": "Точки на обслужване",
       "orders:receive": "Онлайн поръчки",
       "orders:call-waiter": "Повикване на сервитьор",
       "analytics:basic": "Основна аналитика",
