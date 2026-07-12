@@ -788,6 +788,14 @@ describe('RestaurantsService', () => {
   });
 
   describe('getLogoBase64', () => {
+    beforeEach(() => {
+      // L4: getLogoBase64 now verifies owner/manager access first. These tests
+      // exercise the SSRF hardening, not authz, so stub the ownership check.
+      jest
+        .spyOn(service, 'findOneForManagement')
+        .mockResolvedValue({ id: 'rest1' } as any);
+    });
+
     afterEach(() => {
       jest.restoreAllMocks();
       (http.request as jest.Mock).mockReset();
@@ -802,7 +810,7 @@ describe('RestaurantsService', () => {
         .spyOn(dns.promises, 'lookup')
         .mockResolvedValue({ address: '169.254.169.254', family: 4 } as any);
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
       expect(lookupSpy).toHaveBeenCalledTimes(1);
@@ -816,7 +824,7 @@ describe('RestaurantsService', () => {
       });
       const lookupSpy = jest.spyOn(dns.promises, 'lookup');
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
       // Rejected on the hostname string check, before even resolving DNS.
@@ -832,7 +840,7 @@ describe('RestaurantsService', () => {
         family: 6,
       } as any);
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
       expect(http.request as jest.Mock).not.toHaveBeenCalled();
@@ -847,7 +855,7 @@ describe('RestaurantsService', () => {
         family: 6,
       } as dns.LookupAddress);
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
       expect(http.request as jest.Mock).not.toHaveBeenCalled();
@@ -862,7 +870,7 @@ describe('RestaurantsService', () => {
         family: 6,
       } as dns.LookupAddress);
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
       expect(http.request as jest.Mock).not.toHaveBeenCalled();
@@ -877,7 +885,7 @@ describe('RestaurantsService', () => {
         family: 6,
       } as dns.LookupAddress);
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
       expect(http.request as jest.Mock).not.toHaveBeenCalled();
@@ -895,7 +903,7 @@ describe('RestaurantsService', () => {
         body: Buffer.from('logo-bytes'),
       });
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toEqual({
         dataUrl: expect.stringContaining('data:image/png;base64,'),
@@ -919,7 +927,7 @@ describe('RestaurantsService', () => {
         .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
       mockPinnedHttpResponse({ contentType: 'image/png' });
 
-      await service.getLogoBase64('rest1');
+      await service.getLogoBase64('rest1', 'owner1');
 
       expect(lookupSpy).toHaveBeenCalledTimes(1);
     });
@@ -936,7 +944,7 @@ describe('RestaurantsService', () => {
         body: Buffer.alloc(6 * 1024 * 1024), // over the 5MB cap
       });
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
     });
@@ -950,7 +958,7 @@ describe('RestaurantsService', () => {
         .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
       mockPinnedHttpResponse({ statusCode: 404 });
 
-      const result = await service.getLogoBase64('rest1');
+      const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
     });

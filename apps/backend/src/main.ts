@@ -47,7 +47,6 @@ function validateFrontendUrl(logger: Logger) {
 }
 
 async function bootstrap() {
-  // Trigger hot reload for Prisma schema update
   const appLogger = new AppLogger();
   const logger = new Logger('Bootstrap');
   try {
@@ -186,9 +185,19 @@ async function bootstrap() {
       const isWebhook =
         req.path === '/api/v1/payments/webhook' ||
         req.path === '/api/v1/payments/epay/notify' ||
+        req.path === '/api/v1/payments/mypos/notify' ||
         req.path === '/api/v1/payments/borica/callback' ||
         req.path === '/api/v1/subscription/webhook';
-      const isCsrfExempt = isCsrfExemptPath(req.path, req.method);
+      // H3: POST /orders uses OptionalJwtAuthGuard, so when the caller presents
+      // an auth cookie the request IS cookie-authenticated (POS staff, or a
+      // logged-in customer redeeming loyalty points) and must NOT skip CSRF —
+      // otherwise a forged cross-site POST rides the victim's ambient cookie
+      // (sameSite=none in prod) to drain points / forge staff orders. Truly
+      // anonymous QR orders carry no token cookie and stay exempt.
+      const carriesAuthCookie = Boolean(req.cookies?.token);
+      const isCsrfExempt =
+        isCsrfExemptPath(req.path, req.method) &&
+        !(req.path === '/api/v1/orders' && carriesAuthCookie);
 
       if (
         safeMethods.includes(req.method) ||

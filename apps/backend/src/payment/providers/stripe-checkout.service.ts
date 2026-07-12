@@ -414,23 +414,38 @@ export class StripeCheckoutService {
       return;
     }
 
-    const recorded = await this.prisma.$transaction((tx) =>
-      this.core.recordProviderEvent(tx, PaymentProvider.STRIPE, event.id, {
-        paymentId: payment.id,
-        restaurantId: payment.restaurantId,
-        payload: { type: event.type, refundId: refundObj.id, status },
-      }),
-    );
-    if (!recorded) return;
-
     if (status === 'succeeded') {
-      const finalized = await this.finalizeRefundSuccess(
-        payment.id,
-        this.parseAllocationSnapshot(attempt.allocationSnapshot),
-        attempt.id,
-        refundObj.id,
+      // #M3: record the dedup event AND finalize the refund in ONE transaction.
+      // If finalize fails (crash or a persistent allocation-invariant throw), the
+      // dedup rolls back too, so Stripe's retry re-runs this path instead of
+      // being skipped as "already recorded" and leaving the refund stuck PENDING
+      // (SUCCEEDED on the books) until only the reconcile cron can rescue it.
+      const snapshot = this.parseAllocationSnapshot(attempt.allocationSnapshot);
+      const { recorded, finalized } = await this.prisma.$transaction(
+        async (tx) => {
+          const rec = await this.core.recordProviderEvent(
+            tx,
+            PaymentProvider.STRIPE,
+            event.id,
+            {
+              paymentId: payment.id,
+              restaurantId: payment.restaurantId,
+              payload: { type: event.type, refundId: refundObj.id, status },
+            },
+          );
+          if (!rec) return { recorded: false, finalized: false };
+          const done = await this.finalizeRefundSuccessTx(
+            tx,
+            payment.id,
+            snapshot,
+            attempt.id,
+            refundObj.id,
+          );
+          return { recorded: true, finalized: done };
+        },
       );
-      if (finalized) {
+      // Emit only after the transaction commits (emit-after-commit invariant).
+      if (recorded && finalized) {
         this.events.emitToRestaurant(payment.restaurantId, 'payment:refunded', {
           paymentId: payment.id,
           tableSessionId: payment.tableSessionId,
@@ -443,6 +458,15 @@ export class StripeCheckoutService {
     }
 
     // failed / canceled — payment stays SUCCEEDED, allocations untouched.
+    const recorded = await this.prisma.$transaction((tx) =>
+      this.core.recordProviderEvent(tx, PaymentProvider.STRIPE, event.id, {
+        paymentId: payment.id,
+        restaurantId: payment.restaurantId,
+        payload: { type: event.type, refundId: refundObj.id, status },
+      }),
+    );
+    if (!recorded) return;
+
     await this.prisma.refundAttempt.updateMany({
       where: { id: attempt.id, status: 'PENDING' },
       data: {
@@ -774,45 +798,68 @@ export class StripeCheckoutService {
     attemptId: string,
     refundId: string,
   ): Promise<boolean> {
-    return this.prisma.$transaction(async (tx) => {
-      const claim = await tx.payment.updateMany({
-        where: { id: paymentId, status: 'SUCCEEDED' },
-        data: { status: 'REFUNDED' },
-      });
-      if (claim.count !== 1) {
-        // Already finalized by another path — just make sure the attempt row
-        // reflects success. No allocation change (the winner did it).
-        await tx.refundAttempt.updateMany({
-          where: { id: attemptId, status: 'PENDING' },
-          data: { status: 'SUCCEEDED', providerRefundId: refundId },
-        });
-        return false;
-      }
+    return this.prisma.$transaction((tx) =>
+      this.finalizeRefundSuccessTx(
+        tx,
+        paymentId,
+        snapshot,
+        attemptId,
+        refundId,
+      ),
+    );
+  }
 
-      for (const allocation of snapshot) {
-        const reversal = await tx.orderItem.updateMany({
-          where: {
-            id: allocation.orderItemId,
-            paidQuantity: { gte: allocation.quantity },
-          },
-          data: { paidQuantity: { decrement: allocation.quantity } },
-        });
-        if (reversal.count !== 1) {
-          // Fail closed. Because this runs in the same transaction as the
-          // SUCCEEDED -> REFUNDED claim, throwing restores the paid status and
-          // leaves all allocations intact for reconciliation/manual repair.
-          throw new InternalServerErrorException(
-            `Refund allocation invariant failed for order item ${allocation.orderItemId}`,
-          );
-        }
-      }
-      await tx.paymentAllocation.deleteMany({ where: { paymentId } });
+  /**
+   * The finalize body, runnable inside a caller-provided transaction. The
+   * webhook path (#M3) runs this in the SAME transaction as its dedup
+   * recordProviderEvent so a finalize failure rolls back the dedup too and the
+   * next Stripe retry re-attempts — instead of committing the dedup, skipping
+   * retries, and leaving the refund stuck PENDING until the reconcile cron.
+   */
+  private async finalizeRefundSuccessTx(
+    tx: Prisma.TransactionClient,
+    paymentId: string,
+    snapshot: AllocationSnapshot[],
+    attemptId: string,
+    refundId: string,
+  ): Promise<boolean> {
+    const claim = await tx.payment.updateMany({
+      where: { id: paymentId, status: 'SUCCEEDED' },
+      data: { status: 'REFUNDED' },
+    });
+    if (claim.count !== 1) {
+      // Already finalized by another path — just make sure the attempt row
+      // reflects success. No allocation change (the winner did it).
       await tx.refundAttempt.updateMany({
-        where: { id: attemptId },
+        where: { id: attemptId, status: 'PENDING' },
         data: { status: 'SUCCEEDED', providerRefundId: refundId },
       });
-      return true;
+      return false;
+    }
+
+    for (const allocation of snapshot) {
+      const reversal = await tx.orderItem.updateMany({
+        where: {
+          id: allocation.orderItemId,
+          paidQuantity: { gte: allocation.quantity },
+        },
+        data: { paidQuantity: { decrement: allocation.quantity } },
+      });
+      if (reversal.count !== 1) {
+        // Fail closed. Because this runs in the same transaction as the
+        // SUCCEEDED -> REFUNDED claim, throwing restores the paid status and
+        // leaves all allocations intact for reconciliation/manual repair.
+        throw new InternalServerErrorException(
+          `Refund allocation invariant failed for order item ${allocation.orderItemId}`,
+        );
+      }
+    }
+    await tx.paymentAllocation.deleteMany({ where: { paymentId } });
+    await tx.refundAttempt.updateMany({
+      where: { id: attemptId },
+      data: { status: 'SUCCEEDED', providerRefundId: refundId },
     });
+    return true;
   }
 
   /** Parse the persisted snapshot fail-closed; refund accounting is all-or-nothing. */

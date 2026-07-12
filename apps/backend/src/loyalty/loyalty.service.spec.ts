@@ -31,9 +31,10 @@ const mockPrisma = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
     groupBy: jest.fn(),
+    aggregate: jest.fn(),
   },
   loyaltyPointLedger: { findMany: jest.fn() },
-  order: { findMany: jest.fn(), groupBy: jest.fn() },
+  order: { findMany: jest.fn(), groupBy: jest.fn(), aggregate: jest.fn() },
 };
 
 const mockFeatureService = { canAccess: jest.fn().mockResolvedValue(true) };
@@ -69,20 +70,27 @@ describe('LoyaltyService', () => {
 
     it('reads accounts without opening a write transaction', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(restaurant);
-      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
-        { id: 'a1', points: 100 },
-        { id: 'a2', points: 200 },
-      ]);
-      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.loyaltyAccount.aggregate.mockResolvedValue({
+        _count: { _all: 2 },
+        _sum: { points: 300 },
+      });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { pointsRedeemed: 0 },
+      });
       mockPrisma.order.groupBy.mockResolvedValue([]);
       mockPrisma.loyaltyAccount.findFirst.mockResolvedValue(null);
 
-      await service.getAnalytics('r1', 'owner1');
+      const result = await service.getAnalytics('r1', 'owner1');
 
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-      expect(mockPrisma.loyaltyAccount.findMany).toHaveBeenCalledWith({
+      // #M10: aggregates in the DB, never loading all accounts into memory.
+      expect(mockPrisma.loyaltyAccount.aggregate).toHaveBeenCalledWith({
         where: { restaurantId: 'r1' },
+        _count: { _all: true },
+        _sum: { points: true },
       });
+      expect(result.totalMembers).toBe(2);
+      expect(result.totalPointsOutstanding).toBe(300);
     });
 
     it('throws ForbiddenException when restaurant not found', async () => {
@@ -315,16 +323,22 @@ describe('LoyaltyService', () => {
         id: 'r1',
         isLoyaltyEnabled: true,
       });
-      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([]);
-      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.loyaltyAccount.aggregate.mockResolvedValue({
+        _count: { _all: 0 },
+        _sum: { points: null },
+      });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { pointsRedeemed: null },
+      });
       mockPrisma.order.groupBy.mockResolvedValue([]);
       mockPrisma.loyaltyAccount.findFirst.mockResolvedValue(null);
 
       const result = await service.getAnalytics('r1', 'owner1');
       expect(result).toBeDefined();
-      expect(mockPrisma.loyaltyAccount.findMany).toHaveBeenCalledWith({
-        where: { restaurantId: 'r1' },
-      });
+      // Null _sum (no rows) must coalesce to 0, not leak null.
+      expect(result.totalMembers).toBe(0);
+      expect(result.totalPointsOutstanding).toBe(0);
+      expect(result.totalPointsRedeemed).toBe(0);
     });
 
     it('notifyExpiryReminders returns early when no candidates are found', async () => {

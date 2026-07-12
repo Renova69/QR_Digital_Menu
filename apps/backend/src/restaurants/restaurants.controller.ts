@@ -194,10 +194,11 @@ export class RestaurantsController {
 
   /** Return the restaurant logo as a base64 data URL so the QR PNG download
    *  can embed it inline without cross-origin canvas taint (Issue 18). */
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @UseGuards(JwtAuthGuard)
   @Get(':restaurantId/logo-base64')
   getLogoBase64(@Param('restaurantId') id: string, @Request() req: any) {
-    return this.restaurantsService.getLogoBase64(id);
+    return this.restaurantsService.getLogoBase64(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)

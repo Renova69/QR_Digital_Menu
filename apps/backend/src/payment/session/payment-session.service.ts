@@ -52,61 +52,78 @@ export class PaymentSessionService {
       },
     });
 
-    const staleSessions = await this.prisma.tableSession.findMany({
-      where: {
-        status: 'OPEN',
-        createdAt: { lt: staleSessionCutoff },
-        payments: { none: { status: PaymentStatus.PENDING } },
-      },
-      select: { id: true, restaurantId: true, tableId: true },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    });
-
     let closedNoPayment = 0;
     let markedPaid = 0;
     let partialLeftOpen = 0;
 
-    // M-PAY-5: one batched balance query for the whole page instead of two
-    // queries per session inside the loop.
-    const balances = await this.core.computeSessionAmountBalances(
-      this.prisma,
-      staleSessions.map((s) => s.id),
-    );
+    // Drain in pages instead of a single take:100 cap. A busy service-point
+    // kiosk can abandon >100 sessions/day; a fixed cap lets the backlog grow
+    // faster than cleanup removes it, leaving live token-addressable bills
+    // forever. Partial (part-paid) sessions stay OPEN by design, so exclude
+    // already-seen ones to guarantee forward progress and termination. The
+    // page cap bounds a single run's work.
+    const MAX_CLEANUP_PAGES = 50;
+    const seenPartialIds: string[] = [];
 
-    for (const session of staleSessions) {
-      const balance = balances.get(session.id) ?? {
-        billSubtotal: 0,
-        paidSubtotal: 0,
-        remaining: 0,
-      };
-      if (balance.paidSubtotal > 0 && balance.remaining > 0.01) {
-        partialLeftOpen++;
-        continue;
+    for (let page = 0; page < MAX_CLEANUP_PAGES; page++) {
+      const staleSessions = await this.prisma.tableSession.findMany({
+        where: {
+          status: 'OPEN',
+          createdAt: { lt: staleSessionCutoff },
+          payments: { none: { status: PaymentStatus.PENDING } },
+          ...(seenPartialIds.length ? { id: { notIn: seenPartialIds } } : {}),
+        },
+        select: { id: true, restaurantId: true, tableId: true },
+        orderBy: { createdAt: 'asc' },
+        take: 100,
+      });
+
+      if (staleSessions.length === 0) break;
+
+      // M-PAY-5: one batched balance query for the whole page instead of two
+      // queries per session inside the loop.
+      const balances = await this.core.computeSessionAmountBalances(
+        this.prisma,
+        staleSessions.map((s) => s.id),
+      );
+
+      for (const session of staleSessions) {
+        const balance = balances.get(session.id) ?? {
+          billSubtotal: 0,
+          paidSubtotal: 0,
+          remaining: 0,
+        };
+        if (balance.paidSubtotal > 0 && balance.remaining > 0.01) {
+          partialLeftOpen++;
+          seenPartialIds.push(session.id);
+          continue;
+        }
+
+        const status =
+          balance.billSubtotal > 0 && balance.remaining <= 0.01
+            ? 'PAID'
+            : 'CLOSED_NO_PAYMENT';
+
+        const updated = await this.prisma.tableSession.updateMany({
+          where: { id: session.id, status: 'OPEN' },
+          data: {
+            status,
+            ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+          },
+        });
+        if (updated.count === 0) continue;
+
+        if (status === 'PAID') markedPaid++;
+        else closedNoPayment++;
+
+        this.events.emitTableStatusChanged(
+          session.restaurantId,
+          session.tableId,
+          session.id,
+        );
       }
 
-      const status =
-        balance.billSubtotal > 0 && balance.remaining <= 0.01
-          ? 'PAID'
-          : 'CLOSED_NO_PAYMENT';
-
-      const updated = await this.prisma.tableSession.updateMany({
-        where: { id: session.id, status: 'OPEN' },
-        data: {
-          status,
-          ...(status === 'PAID' ? { paidAt: new Date() } : {}),
-        },
-      });
-      if (updated.count === 0) continue;
-
-      if (status === 'PAID') markedPaid++;
-      else closedNoPayment++;
-
-      this.events.emitTableStatusChanged(
-        session.restaurantId,
-        session.tableId,
-        session.id,
-      );
+      if (staleSessions.length < 100) break;
     }
 
     if (
@@ -139,22 +156,41 @@ export class PaymentSessionService {
     if (!table)
       throw new NotFoundException('Table not found for this restaurant');
 
+    // Service points (type !== 'TABLE') are isolated per customer: the partial
+    // unique index only applies to isServicePoint=false, so multiple OPEN
+    // sessions per counter are legal. Without a session token we must NEVER
+    // reuse another customer's OPEN session by tableId (that leaks their bill
+    // token / lets an attacker attach orders) — always mint a fresh isolated
+    // session instead. Regular tables keep the one-open-session-per-table
+    // get-or-create.
+    if (table.type !== 'TABLE') {
+      const session = await this.prisma.tableSession.create({
+        data: { tableId, restaurantId, isServicePoint: true },
+      });
+      return { session, token: session.token };
+    }
+
     let session: any;
     try {
       session = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.tableSession.findFirst({
-          where: { tableId, restaurantId, status: 'OPEN' },
+          where: {
+            tableId,
+            restaurantId,
+            status: 'OPEN',
+            isServicePoint: false,
+          },
         });
         if (existing) return existing;
         return tx.tableSession.create({
-          data: { tableId, restaurantId },
+          data: { tableId, restaurantId, isServicePoint: false },
         });
       });
     } catch (error) {
       if (!this.core.isUniqueConstraintError(error)) throw error;
 
       const existing = await this.prisma.tableSession.findFirst({
-        where: { tableId, restaurantId, status: 'OPEN' },
+        where: { tableId, restaurantId, status: 'OPEN', isServicePoint: false },
       });
       if (!existing) throw error;
       session = existing;
@@ -591,7 +627,11 @@ export class PaymentSessionService {
           });
         }
         const created = await tx.tableSession.create({
-          data: { tableId, restaurantId },
+          data: {
+            tableId,
+            restaurantId,
+            isServicePoint: table.type !== 'TABLE',
+          },
         });
         return { session: created, closedSession: existingInTx };
       },

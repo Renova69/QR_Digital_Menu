@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { TablesController } from './tables.controller';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { REQUIRE_FEATURE_KEY } from '../subscription/require-feature.decorator';
 
 describe('TablesController subtype contracts', () => {
   const tablesService = { create: jest.fn() } as any;
@@ -32,4 +34,16 @@ describe('TablesController subtype contracts', () => {
     ).toThrow(BadRequestException);
     expect(tablesService.create).not.toHaveBeenCalled();
   });
+
+  it.each(['createServicePoint', 'findServicePoints'] as const)(
+    'requires the service-points feature for %s',
+    (method) => {
+      expect(
+        Reflect.getMetadata(
+          REQUIRE_FEATURE_KEY,
+          TablesController.prototype[method],
+        ),
+      ).toEqual([FeatureFlag.SERVICE_POINTS]);
+    },
+  );
 });

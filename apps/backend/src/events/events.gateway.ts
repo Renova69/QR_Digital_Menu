@@ -472,6 +472,23 @@ export class EventsGateway
     return { event: 'joinedOrderRoom', data: orderId };
   }
 
+  /**
+   * Leave a single order's room. Emitted by the confirmation page on cleanup so
+   * a socket that places a second order stops receiving the previous order's
+   * status updates. Leaving only removes the caller from the room, so no token
+   * check is needed.
+   */
+  @SubscribeMessage('leaveOrderRoom')
+  handleLeaveOrderRoom(
+    @MessageBody() body: { orderId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const orderId = body?.orderId;
+    if (!orderId) return { event: 'leftOrderRoom', data: null };
+    void client.leave(`order_${orderId}`);
+    return { event: 'leftOrderRoom', data: orderId };
+  }
+
   private async resolveReservationRoom(
     restaurantId: string | undefined,
     token: string | undefined,

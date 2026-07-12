@@ -7,6 +7,7 @@ import RestaurantContext from "../../context/RestaurantContext";
 import type { FeatureFlag, SubscriptionTier } from "../../hooks/useFeature";
 
 const FEATURE_MIN_TIER: Partial<Record<FeatureFlag, SubscriptionTier>> = {
+  "service-points": "STARTER",
   "orders:receive": "STARTER",
   "analytics:basic": "STARTER",
   "analytics:full": "PROFESSIONAL",
@@ -28,6 +29,7 @@ const FEATURE_MIN_TIER: Partial<Record<FeatureFlag, SubscriptionTier>> = {
 };
 
 const FEATURE_DISPLAY: Partial<Record<FeatureFlag, string>> = {
+  "service-points": "Service Points",
   "orders:receive": "Online Ordering",
   "analytics:basic": "Basic Analytics",
   "analytics:full": "Full Analytics",
@@ -65,6 +67,7 @@ const TIERS: Array<{
     price: 15,
     bullets: [
       "Online ordering",
+      "Service points for rooms and pickup",
       "Basic analytics",
       "Multi-language menu",
       "1 staff member",

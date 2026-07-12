@@ -59,6 +59,21 @@ describe('FeatureService', () => {
       );
     });
 
+    it('gates service points to STARTER and above', () => {
+      expect(service.hasFeature('FREE', FeatureFlag.SERVICE_POINTS)).toBe(
+        false,
+      );
+      expect(service.hasFeature('STARTER', FeatureFlag.SERVICE_POINTS)).toBe(
+        true,
+      );
+      expect(
+        service.hasFeature('PROFESSIONAL', FeatureFlag.SERVICE_POINTS),
+      ).toBe(true);
+      expect(service.hasFeature('ENTERPRISE', FeatureFlag.SERVICE_POINTS)).toBe(
+        true,
+      );
+    });
+
     it('returns all features for ENTERPRISE tier', () => {
       const features = service.getFeatures('ENTERPRISE');
       expect(features).toContain(FeatureFlag.POS);

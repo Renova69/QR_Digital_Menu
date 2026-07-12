@@ -3,6 +3,7 @@ export enum FeatureFlag {
   MENU_EDIT = 'menu:edit',
   MENU_IMPORT = 'menu:import',
   QR_MANAGE = 'qr:manage',
+  SERVICE_POINTS = 'service-points',
   ORDERS_RECEIVE = 'orders:receive',
   ORDERS_CALL_WAITER = 'orders:call-waiter',
   ANALYTICS_BASIC = 'analytics:basic',

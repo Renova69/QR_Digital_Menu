@@ -12,6 +12,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { PrintStationService } from '../print-station/print-station.service';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -799,6 +800,30 @@ describe('OrdersService', () => {
       );
     });
 
+    it('rejects a service-point order when the restaurant plan does not include service points', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ tier: 'FREE' }),
+      );
+      featureService.hasFeature.mockImplementation(
+        (_tier: string, feature: FeatureFlag) =>
+          feature !== FeatureFlag.SERVICE_POINTS,
+      );
+
+      await expect(
+        service.create({
+          customerName: 'Guest',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          servicePointToken: 'sp-token',
+          fulfillmentType: 'ROOM_DELIVERY',
+          paymentPreference: 'PAY_ON_DELIVERY',
+        } as CreateOrderDto),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+      });
+      expect(prisma.restaurantTable.findFirst).not.toHaveBeenCalled();
+    });
+
     it('creates a separate session for each service-point guest', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue({
@@ -833,6 +858,50 @@ describe('OrdersService', () => {
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ paymentsEnabled: false }),
       );
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-cuid-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        isActive: true,
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['ONLINE'],
+      });
+
+      await expect(
+        service.create({
+          customerName: 'Guest',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          servicePointToken: 'sp-token',
+          fulfillmentType: 'ROOM_DELIVERY',
+          paymentPreference: 'ONLINE',
+        } as CreateOrderDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects online preference when the restaurant tier has no payment provider', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ tier: 'STARTER', paymentsEnabled: true }),
+      );
+      featureService.hasFeature.mockImplementation(
+        (_tier: string, feature: FeatureFlag) =>
+          ![
+            FeatureFlag.PAYMENTS_STRIPE,
+            FeatureFlag.PAYMENTS_EPAY,
+            FeatureFlag.PAYMENTS_BORICA,
+            FeatureFlag.PAYMENTS_MYPOS,
+          ].includes(feature),
+      );
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-cuid-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        isActive: true,
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['ONLINE'],
+      });
 
       await expect(
         service.create({

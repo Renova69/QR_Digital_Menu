@@ -100,6 +100,7 @@ const paymentOptions: Array<{
 
 interface ServicePointsTabProps {
   restaurantId: string;
+  paymentsEnabled: boolean;
   onShowQr: (point: {
     id: string;
     name: string;
@@ -110,6 +111,7 @@ interface ServicePointsTabProps {
 
 const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
   restaurantId,
+  paymentsEnabled,
   onShowQr,
 }) => {
   const { t } = useTranslation();
@@ -123,7 +125,7 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
   >(["ROOM_DELIVERY", "PICKUP"]);
   const [newPaymentMethods, setNewPaymentMethods] = useState<
     ServicePointPaymentMethod[]
-  >(["ONLINE", "PAY_ON_DELIVERY"]);
+  >(paymentsEnabled ? ["ONLINE", "PAY_ON_DELIVERY"] : ["PAY_ON_DELIVERY"]);
   const [servicePointSearch, setServicePointSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingServicePoint, setEditingServicePoint] = useState<{
@@ -227,15 +229,19 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
   useEffect(() => {
     if (newServicePointType === "ROOM") {
       setNewFulfillmentModes(["ROOM_DELIVERY", "PICKUP"]);
-      setNewPaymentMethods(["ONLINE", "PAY_ON_DELIVERY"]);
+      setNewPaymentMethods(
+        paymentsEnabled ? ["ONLINE", "PAY_ON_DELIVERY"] : ["PAY_ON_DELIVERY"],
+      );
     } else if (newServicePointType === "PICKUP") {
       setNewFulfillmentModes(["PICKUP"]);
-      setNewPaymentMethods(["ONLINE", "PAY_AT_PICKUP"]);
+      setNewPaymentMethods(
+        paymentsEnabled ? ["ONLINE", "PAY_AT_PICKUP"] : ["PAY_AT_PICKUP"],
+      );
     } else {
       setNewFulfillmentModes(["PICKUP"]);
-      setNewPaymentMethods(["ONLINE", "CASH"]);
+      setNewPaymentMethods(paymentsEnabled ? ["ONLINE", "CASH"] : ["CASH"]);
     }
-  }, [newServicePointType]);
+  }, [newServicePointType, paymentsEnabled]);
 
   const duplicateServicePoint = useMemo(() => {
     const normalized = normalizeTableName(newServicePointName);
@@ -268,6 +274,7 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
 
   const togglePaymentMethod = (method: ServicePointPaymentMethod) => {
     setNewPaymentMethods((current) => {
+      if (method === "ONLINE" && !paymentsEnabled) return current;
       if (current.includes(method)) {
         return current.length === 1
           ? current
@@ -325,6 +332,7 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
     setEditingServicePoint((current) => {
       if (!current) return current;
       const selected = current.paymentMethods.includes(method);
+      if (method === "ONLINE" && !paymentsEnabled && !selected) return current;
       if (selected && current.paymentMethods.length === 1) return current;
       return {
         ...current,
@@ -440,8 +448,9 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                   key={option.value}
                   type="button"
                   onClick={() => togglePaymentMethod(option.value)}
+                  disabled={option.value === "ONLINE" && !paymentsEnabled}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-xs font-black transition",
+                    "rounded-lg border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40",
                     newPaymentMethods.includes(option.value)
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-muted-foreground hover:bg-muted",
@@ -582,23 +591,32 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                       ))}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {paymentOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => toggleEditingPayment(option.value)}
-                          className={cn(
-                            "rounded border px-2 py-1 text-[10px] font-black",
-                            editingServicePoint.paymentMethods.includes(
-                              option.value,
-                            )
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border text-muted-foreground",
-                          )}
-                        >
-                          {t(option.labelKey, option.fallback)}
-                        </button>
-                      ))}
+                      {paymentOptions.map((option) => {
+                        const selected =
+                          editingServicePoint.paymentMethods.includes(
+                            option.value,
+                          );
+                        const disabled =
+                          option.value === "ONLINE" &&
+                          !paymentsEnabled &&
+                          !selected;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => toggleEditingPayment(option.value)}
+                            disabled={disabled}
+                            className={cn(
+                              "rounded border px-2 py-1 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-40",
+                              selected
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground",
+                            )}
+                          >
+                            {t(option.labelKey, option.fallback)}
+                          </button>
+                        );
+                      })}
                     </div>
                     <div className="flex gap-2">
                       <button

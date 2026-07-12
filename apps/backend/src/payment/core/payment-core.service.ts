@@ -578,6 +578,25 @@ export class PaymentCoreService {
       billScopeFromCheckoutScope(scope),
       options,
     );
+
+    // #M2: resolveCheckoutCharge computed this amount from the balance BEFORE
+    // this lock. If a POS settlement / cash confirmation committed in that
+    // window the bill shrank, and creating this intent would overcharge (the
+    // claim path only rejects UNDERpayment, so an overpaying intent is claimed
+    // and the customer double-pays the already-settled portion). Recompute
+    // under the lock and refuse a payment whose net exceeds what's still owed so
+    // the client refreshes. (billSubtotal === 0 means we can't see a bill —
+    // nothing to overpay against — so skip.)
+    const net = this.roundMoney(
+      (Number(data.amount) || 0) - (Number(data.tipAmount) || 0),
+    );
+    const balance = await this.computeSessionBalance(tx, sessionId);
+    if (balance.billSubtotal > 0 && net > balance.remaining + 0.01) {
+      throw new ConflictException(
+        'The bill changed while starting payment. Please refresh and try again.',
+      );
+    }
+
     return tx.payment.create({ data });
   }
 
@@ -923,19 +942,19 @@ export class PaymentCoreService {
     tx: any,
     payment: any,
     data: Record<string, any>,
-  ): Promise<boolean> {
-    if (!this.isPaymentClaimable(payment)) return false;
+  ): Promise<PaymentClaimResult> {
+    if (!this.isPaymentClaimable(payment)) {
+      return { claimed: false, sessionPaid: false };
+    }
 
-    // Underpay guard (#2): never release a session for a payment that no longer
-    // covers the REMAINING balance. Orders can be added after a low PaymentIntent
-    // was created, and POS split settlements may have already paid part of the
-    // bill — confirming a stale/short intent must not flip the session to PAID
-    // for a fraction of what's still owed. The remaining excludes this payment
-    // (still PENDING here, so not counted as succeeded); the net compared is
-    // amount − tip, since tips never reduce what's owed. Online checkout charges
-    // the full remaining, so a normal full payment always clears it; only an
-    // added-items / tampered / partial-online case falls short and we leave the
-    // session OPEN (payment unclaimed) so staff collect the rest.
+    // Underpay handling (#2 / #H4): a payment may no longer cover the REMAINING
+    // balance — orders added after a low PaymentIntent was created, or a
+    // partial online payment. The money WAS captured by the provider, so we must
+    // never leave it PENDING (that both loses it on the books and bricks the
+    // session: closes/settles all throw while a PENDING payment exists). Instead
+    // record it as a partial SUCCEEDED payment and leave the session OPEN —
+    // computeSessionBalance counts it toward paid, staff collect the rest. The
+    // net compared is amount − tip, since tips never reduce what's owed.
     const balance = await this.computeSessionBalance(
       tx,
       payment.tableSessionId,
@@ -944,17 +963,35 @@ export class PaymentCoreService {
       (payment.amount ?? 0) - (payment.tipAmount ?? 0),
     );
     if (paymentNet + 0.01 < balance.remaining) {
+      const partialClaim = await tx.payment.updateMany({
+        where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+        data,
+      });
+      if (partialClaim.count === 0) {
+        // Another path already claimed this exact payment row — not an error.
+        return { claimed: false, sessionPaid: false };
+      }
+      const after = await this.computeSessionBalance(
+        tx,
+        payment.tableSessionId,
+      );
       this.logger.warn(
-        'Refusing to mark session PAID: payment does not cover remaining bill',
+        'Recorded partial payment (underpays remaining bill); session left OPEN',
         {
           paymentId: payment.id,
           tableSessionId: payment.tableSessionId,
           paymentNet,
-          remaining: balance.remaining,
+          remainingBefore: balance.remaining,
+          remainingAfter: after.remaining,
           provider: payment.provider,
         },
       );
-      return false;
+      return {
+        claimed: true,
+        sessionPaid: false,
+        partial: true,
+        remaining: Math.max(0, after.remaining),
+      };
     }
 
     const sessionUpdate = await tx.tableSession.updateMany({
@@ -979,7 +1016,7 @@ export class PaymentCoreService {
           provider: payment.provider,
         },
       );
-      return false;
+      return { claimed: false, sessionPaid: false };
     }
 
     const paymentUpdate = await tx.payment.updateMany({
@@ -990,7 +1027,7 @@ export class PaymentCoreService {
       throw new Error('Payment success claim lost race after session claim');
     }
 
-    return true;
+    return { claimed: true, sessionPaid: true };
   }
 
   async claimSuccessfulPayment(
@@ -1008,12 +1045,7 @@ export class PaymentCoreService {
       );
     }
 
-    const claimed = await this.claimSuccessfulPaymentForOpenSession(
-      tx,
-      payment,
-      data,
-    );
-    return { claimed, sessionPaid: claimed };
+    return this.claimSuccessfulPaymentForOpenSession(tx, payment, data);
   }
 
   async claimSuccessfulScopedCheckoutPayment(
@@ -1057,6 +1089,58 @@ export class PaymentCoreService {
 
     await this.lockOpenSessionForSettlement(tx, payment.tableSessionId);
 
+    // #M1: check ALL selected units are still unsettled BEFORE applying any.
+    // The session FOR UPDATE lock above serializes this against POS settlement
+    // (which also locks the session), so this read is race-free. If a unit was
+    // settled out-of-band (customer abandoned → staff took cash → the original
+    // intent still captured), throwing here would roll back the dedup event and
+    // make Stripe retry forever while the card was already charged — a double
+    // pay stuck PENDING. Instead record the captured money as SUCCEEDED flagged
+    // for refund, leave the bill untouched, and let the dedup commit (no retry
+    // storm). The overpayment is surfaced for reconciliation/refund.
+    const targetItems = await tx.orderItem.findMany({
+      where: {
+        id: { in: checkoutScope.allocations.map((a) => a.orderItemId) },
+      },
+      select: { id: true, paidQuantity: true },
+    });
+    const paidById = new Map<string, number>(
+      targetItems.map((it: { id: string; paidQuantity: number | null }) => [
+        it.id,
+        it.paidQuantity ?? 0,
+      ]),
+    );
+    // Only a positively-observed mismatch is a conflict. An item missing from
+    // the read (e.g. deleted) falls through to the conditional updateMany below,
+    // which stays the authoritative guard.
+    const hasScopeConflict = checkoutScope.allocations.some(
+      (a) =>
+        paidById.has(a.orderItemId) &&
+        paidById.get(a.orderItemId) !== a.snapshotPaid,
+    );
+    if (hasScopeConflict) {
+      this.logger.error(
+        'Scoped payment captured for already-settled units — recording SUCCEEDED for refund, not applying allocations (#M1)',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          provider: payment.provider,
+        },
+      );
+      const flagged = await tx.payment.updateMany({
+        where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+        data: {
+          ...data,
+          providerStatus: 'SCOPE_CONFLICT_NEEDS_REFUND',
+        },
+      });
+      return {
+        claimed: flagged.count > 0,
+        sessionPaid: false,
+        needsRefund: true,
+      };
+    }
+
     for (const allocation of checkoutScope.allocations) {
       const updated = await tx.orderItem.updateMany({
         where: {
@@ -1066,6 +1150,7 @@ export class PaymentCoreService {
         data: { paidQuantity: { increment: allocation.quantity } },
       });
       if (updated.count === 0) {
+        // Safety net: the pre-check under the lock should already prevent this.
         this.logger.warn(
           'Refusing scoped payment claim: selected item units changed',
           {
@@ -1245,6 +1330,61 @@ export class PaymentCoreService {
 
   async emitPaymentClaimEvents(payment: any, claim: PaymentClaimResult) {
     if (!claim.claimed) return;
+
+    // #M1: a payment captured for already-settled units is recorded but is an
+    // overpayment awaiting refund — never emit payment:confirmed. Signal the
+    // dashboard so staff reconcile/refund it.
+    if (claim.needsRefund) {
+      this.events.emitToRestaurant(
+        payment.restaurantId,
+        'payment:refundRequired',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          amount: payment.amount,
+          reason: 'SCOPE_CONFLICT',
+        },
+      );
+      return;
+    }
+
+    // #H4: a partial payment recorded against a still-OPEN session must NOT emit
+    // payment:confirmed (which signals the table is fully paid). Emit a
+    // bill:updated with the new remaining so staff see the partial and know to
+    // collect the rest.
+    if (claim.partial) {
+      const tableSession =
+        payment.tableSession ??
+        (await this.prisma.tableSession.findFirst({
+          where: { id: payment.tableSessionId },
+          include: { table: { select: { name: true } } },
+        }));
+      if (!tableSession) return;
+      this.events.emitTableStatusChanged(
+        tableSession.restaurantId,
+        tableSession.tableId,
+        payment.tableSessionId,
+      );
+      const payload = {
+        tableSessionId: payment.tableSessionId,
+        tableId: tableSession.tableId,
+        paymentId: payment.id,
+        splitMode: null,
+        remaining: Math.max(0, claim.remaining ?? 0),
+        sessionPaid: false,
+      };
+      this.events.emitToRestaurant(
+        tableSession.restaurantId,
+        'bill:updated',
+        payload,
+      );
+      this.events.emitToTableSession(
+        payment.tableSessionId,
+        'bill:updated',
+        payload,
+      );
+      return;
+    }
 
     if (!claim.splitMode) {
       await this.emitPaymentConfirmed(payment);

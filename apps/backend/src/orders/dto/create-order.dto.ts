@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsArray,
+  ArrayMaxSize,
   ValidateNested,
   IsNumber,
   IsBoolean,
@@ -52,6 +53,7 @@ class OrderItemDto {
 
   @IsArray()
   @IsOptional()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => OrderItemOptionDto)
   selectedOptions?: OrderItemOptionDto[];
@@ -59,15 +61,18 @@ class OrderItemDto {
   /** Per-item note (e.g. "no onions"). Printed on kitchen tickets (Issue 33). */
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   notes?: string;
 }
 
 export class CreateOrderDto {
   @IsString()
+  @MaxLength(200)
   customerName: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   customerPhone?: string;
 
   @IsString()
@@ -124,6 +129,7 @@ export class CreateOrderDto {
   source?: 'CUSTOMER' | 'POS';
 
   @IsArray()
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];

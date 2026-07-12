@@ -52,6 +52,13 @@ const POS_STAFF_ROLES = new Set([
 /** Roles permitted to cancel an order (and trigger loyalty reversal). */
 const CANCEL_ORDER_ROLES = new Set(['OWNER', 'MANAGER']);
 
+const ONLINE_PAYMENT_FEATURES = [
+  FeatureFlag.PAYMENTS_STRIPE,
+  FeatureFlag.PAYMENTS_EPAY,
+  FeatureFlag.PAYMENTS_BORICA,
+  FeatureFlag.PAYMENTS_MYPOS,
+] as const;
+
 /**
  * Allowed order-status transitions. CANCELED and COMPLETED are terminal —
  * neither can transition anywhere except CANCELED can additionally be
@@ -184,15 +191,6 @@ export class OrdersService {
     }
 
     if (
-      createOrderDto.paymentPreference === 'ONLINE' &&
-      !restaurant.paymentsEnabled
-    ) {
-      throw new BadRequestException(
-        'Online payment is not available for this restaurant.',
-      );
-    }
-
-    if (
       !this.featureService.restaurantHasFeature(
         restaurant,
         FeatureFlag.ORDERS_RECEIVE,
@@ -201,6 +199,20 @@ export class OrdersService {
       throw new ForbiddenException({
         code: 'FEATURE_LOCKED',
         message: 'Online ordering is not available on this plan',
+      });
+    }
+
+    if (
+      createOrderDto.servicePointToken &&
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.SERVICE_POINTS,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        requiredFeatures: [FeatureFlag.SERVICE_POINTS],
+        message: 'Service-point ordering is not available on this plan',
       });
     }
 
@@ -289,6 +301,27 @@ export class OrdersService {
         );
     }
 
+    // #M8: check the RESOLVED payment preference, not the raw DTO. A service
+    // point with a single allowed method ['ONLINE'] auto-selects ONLINE when
+    // the client omits the field, which the earlier raw-DTO check missed —
+    // persisting an ONLINE order while payments are disabled.
+    const effectivePaymentPreference = servicePoint
+      ? paymentPreference
+      : (createOrderDto.paymentPreference ?? null);
+    const onlinePaymentsAvailable =
+      restaurant.paymentsEnabled &&
+      ONLINE_PAYMENT_FEATURES.some((feature) =>
+        this.featureService.restaurantHasFeature(restaurant, feature),
+      );
+    if (
+      effectivePaymentPreference === 'ONLINE' &&
+      !onlinePaymentsAvailable
+    ) {
+      throw new BadRequestException(
+        'Online payment is not available for this restaurant.',
+      );
+    }
+
     if (sessionToken) {
       const existingSession = await this.prisma.tableSession.findFirst({
         where: {
@@ -297,6 +330,7 @@ export class OrdersService {
           restaurantId,
           isServicePoint: !!servicePoint,
         },
+        include: { table: { select: { name: true } } },
       });
       if (
         existingSession &&
@@ -304,6 +338,15 @@ export class OrdersService {
       ) {
         tableSessionId = existingSession.id;
         resolvedTableCuid = existingSession.tableId;
+        // Re-derive the display name from the session's real table rather than
+        // trusting the client-sent tableId string (#M7). A 2nd+ order on an
+        // already-open session otherwise persists whatever tableName the client
+        // sent — spoofable, and stale if the table was renamed mid-session —
+        // onto the kitchen ticket. Service points already set the name above.
+        if (!servicePoint && existingSession.table?.name) {
+          tableNameSnapshot = existingSession.table.name;
+          servicePointLabel = existingSession.table.name;
+        }
       } else {
         sessionToken = undefined;
       }
