@@ -34,6 +34,7 @@ describe('StripeProvider', () => {
         }),
         retrieve: jest.fn().mockResolvedValue({
           client_secret: 'cs_reused_secret',
+          status: 'requires_payment_method',
         }),
       },
       webhooks: {
@@ -97,7 +98,10 @@ describe('StripeProvider', () => {
       expect(mockStripe.paymentIntents.retrieve).toHaveBeenCalledWith(
         'pi_existing',
       );
-      expect(result).toEqual({ clientSecret: 'cs_reused_secret' });
+      expect(result).toEqual({
+        clientSecret: 'cs_reused_secret',
+        status: 'requires_payment_method',
+      });
     });
 
     it('returns null only when Stripe reports the intent is missing', async () => {

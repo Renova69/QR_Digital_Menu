@@ -3092,6 +3092,175 @@ describe('PaymentService', () => {
     });
   });
 
+  describe('reconcilePendingPayments (stuck-payment cron)', () => {
+    function buildStripeCheckout() {
+      const _prisma = mockPrisma as unknown as PrismaService;
+      const _stripe = mockStripeProvider as unknown as StripeProvider;
+      const _events = mockEvents as unknown as EventsGateway;
+      const config = new PaymentProviderConfigService(mockFeatureService);
+      const core = new PaymentCoreService(_prisma, _events, mockFeatureService);
+      return new StripeCheckoutService(
+        _prisma,
+        _stripe,
+        _events,
+        mockFeatureService,
+        core,
+        config,
+      );
+    }
+
+    const stalePending = {
+      id: 'pay-recover',
+      restaurantId: 'rest1',
+      tableSessionId: 's1',
+      stripePaymentIntentId: 'pi_recover',
+    };
+
+    it('recovers a succeeded-but-unclaimed intent (lost webhook) by claiming it', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
+        clientSecret: null,
+        status: 'succeeded',
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-recover',
+        amount: 20,
+        tipAmount: 0,
+        status: 'PENDING',
+        tableSessionId: 's1',
+        restaurantId: 'rest1',
+        providerPayload: {},
+        tableSession: {
+          restaurantId: 'rest1',
+          tableId: 't1',
+          table: { name: '3' },
+        },
+      });
+      mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      expect(mockStripeProvider.retrievePaymentIntent).toHaveBeenCalledWith(
+        'pi_recover',
+      );
+      // Claimed → payment flipped SUCCEEDED, session flipped PAID.
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+        }),
+      );
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PAID' }),
+        }),
+      );
+    });
+
+    it('marks a canceled intent FAILED', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
+        clientSecret: null,
+        status: 'canceled',
+      });
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-recover', status: 'PENDING' },
+        data: { status: 'FAILED', providerStatus: 'canceled' },
+      });
+    });
+
+    it('abandons an intent that no longer exists at Stripe (nothing captured)', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue(null);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-recover', status: 'PENDING' },
+        data: { status: 'ABANDONED', providerStatus: 'NOT_FOUND' },
+      });
+    });
+
+    it('leaves a still-live (processing) intent PENDING — never blind-expires a possible success', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
+        clientSecret: 'cs',
+        status: 'processing',
+      });
+
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('leaves the payment PENDING on a transient retrieve error', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
+      mockStripeProvider.retrievePaymentIntent!.mockRejectedValue(
+        new Error('network'),
+      );
+
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reconcileStuckSession (POS force-resolve)', () => {
+    it('verifies POS access, abandons, and returns reconcile counts', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner1',
+        isActive: true,
+        deletedAt: null,
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'rest1',
+        role: 'WAITER',
+      });
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      const result = await service.reconcileStuckSession('tok', 'waiter1');
+
+      expect(result).toEqual({ recovered: 0, expired: 0, stillPending: 0 });
+    });
+
+    it('rejects a caller without POS operator access (KITCHEN)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner1',
+        isActive: true,
+        deletedAt: null,
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'rest1',
+        role: 'KITCHEN',
+      });
+
+      await expect(
+        service.reconcileStuckSession('tok', 'kitchen1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws NotFoundException when the session token is unknown', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(null);
+      await expect(
+        service.reconcileStuckSession('bad', 'owner1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('closeSessionWithCard', () => {
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);

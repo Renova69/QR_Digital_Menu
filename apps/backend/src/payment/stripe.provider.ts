@@ -92,10 +92,13 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
 
   async retrievePaymentIntent(
     paymentIntentId: string,
-  ): Promise<{ clientSecret: string | null } | null> {
+  ): Promise<{ clientSecret: string | null; status: string | null } | null> {
     try {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-      return { clientSecret: intent.client_secret ?? null };
+      return {
+        clientSecret: intent.client_secret ?? null,
+        status: intent.status ?? null,
+      };
     } catch (err) {
       if (this.isResourceMissingError(err)) {
         this.logger.warn(

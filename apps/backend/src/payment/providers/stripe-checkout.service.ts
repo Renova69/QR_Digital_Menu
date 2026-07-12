@@ -1035,4 +1035,172 @@ export class StripeCheckoutService {
       }
     }
   }
+
+  /**
+   * Ask Stripe for the authoritative status of one stuck PENDING intent and
+   * resolve it (a+b robustness). A PENDING payment blocks POS close/settle and
+   * is skipped by the retention cron, so a lost webhook or an abandoned checkout
+   * can strand a session. Never blindly time-expire — that would ignore a
+   * genuinely-succeeded charge; always poll the provider first.
+   *   succeeded  → claim it (recover the lost webhook) — full H4/M1/#5 invariants
+   *   canceled   → FAILED
+   *   not found  → ABANDONED (nothing was captured)
+   *   live/other → leave PENDING (could still succeed) / transient error → retry
+   */
+  private async reconcileStripePendingPayment(payment: {
+    id: string;
+    restaurantId: string;
+    tableSessionId: string | null;
+    stripePaymentIntentId: string | null;
+  }): Promise<'claimed' | 'expired' | 'pending'> {
+    if (!payment.stripePaymentIntentId) return 'pending';
+
+    let intent: { clientSecret: string | null; status: string | null } | null;
+    try {
+      intent = await this.stripe.retrievePaymentIntent(
+        payment.stripePaymentIntentId,
+      );
+    } catch {
+      // Transient (network / 5xx): do NOT resolve — retry next tick.
+      return 'pending';
+    }
+
+    const clearBill = () => {
+      if (payment.tableSessionId) {
+        this.core.emitBillPaymentCleared(
+          payment.tableSessionId,
+          payment.id,
+          'ONLINE_PAYMENT',
+        );
+      }
+    };
+
+    if (!intent) {
+      // Intent does not exist at Stripe → nothing was captured, safe to abandon.
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: { status: 'ABANDONED', providerStatus: 'NOT_FOUND' },
+      });
+      clearBill();
+      return 'expired';
+    }
+
+    if (intent.status === 'succeeded') {
+      const full = await this.prisma.payment.findFirst({
+        where: { id: payment.id },
+        include: {
+          tableSession: { include: { table: { select: { name: true } } } },
+        },
+      });
+      if (!full) return 'pending';
+      const claim = await this.prisma.$transaction((tx) =>
+        this.core.claimSuccessfulPayment(tx, full, {
+          status: 'SUCCEEDED',
+          stripePaymentIntentId: payment.stripePaymentIntentId,
+        }),
+      );
+      await this.core.emitPaymentClaimEvents(full, claim);
+      if (claim.claimed) {
+        this.logger.warn(
+          `Reconciliation: recovered succeeded payment ${payment.id} via Stripe API poll`,
+        );
+      }
+      return claim.claimed ? 'claimed' : 'pending';
+    }
+
+    if (intent.status === 'canceled') {
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: { status: 'FAILED', providerStatus: 'canceled' },
+      });
+      clearBill();
+      return 'expired';
+    }
+
+    // requires_payment_method / requires_action / processing → still live; a
+    // capture could still land, so leave PENDING and let the webhook or the next
+    // cron tick resolve it.
+    return 'pending';
+  }
+
+  /**
+   * Reconciliation cron for stuck PENDING Stripe payments — recovers money from
+   * lost webhooks and frees sessions whose checkout was abandoned.
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async reconcilePendingPayments(): Promise<void> {
+    const STALE_MINUTES = 15;
+    const staleBefore = new Date(Date.now() - STALE_MINUTES * 60 * 1000);
+    const stuck = await this.prisma.payment.findMany({
+      where: {
+        provider: 'STRIPE',
+        status: 'PENDING',
+        createdAt: { lt: staleBefore },
+        stripePaymentIntentId: { not: null },
+      },
+      select: {
+        id: true,
+        restaurantId: true,
+        tableSessionId: true,
+        stripePaymentIntentId: true,
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+
+    let recovered = 0;
+    let expired = 0;
+    for (const payment of stuck) {
+      try {
+        const outcome = await this.reconcileStripePendingPayment(payment);
+        if (outcome === 'claimed') recovered++;
+        else if (outcome === 'expired') expired++;
+      } catch (err) {
+        this.logger.error(
+          `Pending-payment reconciliation failed for ${payment.id}`,
+          err,
+        );
+      }
+    }
+    if (recovered > 0 || expired > 0) {
+      this.logger.log(
+        `Pending-payment reconcile: recovered=${recovered}, expired=${expired}`,
+      );
+    }
+  }
+
+  /**
+   * On-demand version of the cron for a single session — the POS "force-resolve
+   * stuck payment" action polls Stripe for each PENDING intent so staff can then
+   * close the session. Returns counts for the caller to surface.
+   */
+  async forceReconcileSessionPending(
+    sessionId: string,
+  ): Promise<{ recovered: number; expired: number; stillPending: number }> {
+    const pending = await this.prisma.payment.findMany({
+      where: {
+        tableSessionId: sessionId,
+        status: 'PENDING',
+        provider: 'STRIPE',
+        stripePaymentIntentId: { not: null },
+      },
+      select: {
+        id: true,
+        restaurantId: true,
+        tableSessionId: true,
+        stripePaymentIntentId: true,
+      },
+    });
+
+    let recovered = 0;
+    let expired = 0;
+    let stillPending = 0;
+    for (const payment of pending) {
+      const outcome = await this.reconcileStripePendingPayment(payment);
+      if (outcome === 'claimed') recovered++;
+      else if (outcome === 'expired') expired++;
+      else stillPending++;
+    }
+    return { recovered, expired, stillPending };
+  }
 }

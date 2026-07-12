@@ -100,12 +100,11 @@ describe("OrderProvider service-point visibility", () => {
   });
 
   it("loads service-point orders and refetches them after a live event", async () => {
-    vi.mocked(getOrders)
-      .mockResolvedValueOnce([roomOrder])
-      .mockResolvedValueOnce([
-        roomOrder,
-        { ...roomOrder, id: "order-room-302", servicePointLabel: "302" },
-      ]);
+    // State-based mock: the provider fetches on mount AND on socket (re)connect,
+    // so the exact number of initial calls isn't fixed — always return the
+    // current list rather than a brittle Once-sequence.
+    let currentOrders: (typeof roomOrder)[] = [roomOrder];
+    vi.mocked(getOrders).mockImplementation(async () => currentOrders);
 
     render(
       <OrderProvider>
@@ -122,6 +121,10 @@ describe("OrderProvider service-point visibility", () => {
       expect(socketState.handlers.newOrder).toBeTypeOf("function"),
     );
 
+    currentOrders = [
+      roomOrder,
+      { ...roomOrder, id: "order-room-302", servicePointLabel: "302" },
+    ];
     act(() => socketState.handlers.newOrder());
 
     await waitFor(() =>

@@ -163,6 +163,17 @@ export class PaymentService {
     return this.sessions.closeSessionWithCash(token, restaurantId, userId);
   }
 
+  /**
+   * POS "force-resolve stuck payment": abandon the session's cancellable pending
+   * payments, then poll Stripe for any intent that couldn't be cancelled and
+   * either claim it (it actually succeeded — recovers a lost webhook) or expire
+   * it. Lets staff unblock a session whose customer walked away mid-checkout.
+   */
+  async reconcileStuckSession(token: string, userId: string) {
+    const sessionId = await this.sessions.abandonAndAuthorize(token, userId);
+    return this.stripeCheckout.forceReconcileSessionPending(sessionId);
+  }
+
   settlePartial(
     token: string,
     restaurantId: string,

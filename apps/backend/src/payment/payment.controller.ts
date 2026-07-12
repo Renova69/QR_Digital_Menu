@@ -170,6 +170,14 @@ export class PaymentController {
     );
   }
 
+  @Post('session/reconcile-pending')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.POS)
+  reconcileStuckSession(@Req() req: any, @TableSessionToken() token: string) {
+    return this.paymentService.reconcileStuckSession(token, req.user.id);
+  }
+
   @Post('session/settle-partial')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
