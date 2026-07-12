@@ -42,7 +42,7 @@ export class MyposCheckoutService {
       where: { token, status: 'OPEN' },
       include: {
         restaurant: true,
-        table: { select: { name: true } },
+        table: { select: { name: true, publicToken: true } },
       },
     });
 

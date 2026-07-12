@@ -293,6 +293,19 @@ export class PrintStationService {
     restaurantId: string,
     stationId: string,
   ): Promise<void> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { tier: true, forceTier: true },
+    });
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PRINTERS_THERMAL,
+      )
+    ) {
+      return;
+    }
+
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
 
     const jobs = await this.prisma.printJob.findMany({

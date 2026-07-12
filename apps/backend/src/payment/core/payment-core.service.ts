@@ -942,11 +942,14 @@ export class PaymentCoreService {
   private async releasePendingPaymentOrders(
     tx: any,
     tableSessionId: string,
+    scopedOrderIds?: string[],
   ): Promise<string[]> {
+    if (scopedOrderIds && scopedOrderIds.length === 0) return [];
     const pendingOrders = await tx.order.findMany({
       where: {
         tableSessionId,
         status: OrderStatus.PENDING_PAYMENT,
+        ...(scopedOrderIds ? { id: { in: scopedOrderIds } } : {}),
       },
       select: { id: true },
     });
@@ -1234,6 +1237,12 @@ export class PaymentCoreService {
           payment.tableSessionId,
         );
       }
+    } else {
+      releasedOrderIds = await this.releasePendingPaymentOrders(
+        tx,
+        payment.tableSessionId,
+        checkoutScope.orderIds,
+      );
     }
 
     return {

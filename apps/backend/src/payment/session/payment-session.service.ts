@@ -20,6 +20,8 @@ import {
   PendingBillPaymentDto,
   STALE_OPEN_SESSION_HOURS,
 } from '../payment.types';
+import { FeatureService } from '../../subscription/feature.service';
+import { FeatureFlag } from '../../subscription/feature-flag.enum';
 
 @Injectable()
 export class PaymentSessionService {
@@ -31,6 +33,7 @@ export class PaymentSessionService {
     private readonly events: EventsGateway,
     private readonly core: PaymentCoreService,
     private readonly config: PaymentProviderConfigService,
+    private readonly featureService: FeatureService,
   ) {}
 
   @Cron('0 20 3 * * *', {
@@ -143,18 +146,42 @@ export class PaymentSessionService {
     restaurantId: string,
     token?: string,
   ): Promise<{ session: any; token: string }> {
+    const table = await this.prisma.restaurantTable.findFirst({
+      where: { id: tableId, restaurantId },
+      include: { restaurant: true },
+    });
+    if (
+      !table ||
+      table.isActive === false ||
+      table.restaurant.isActive === false ||
+      table.restaurant.deletedAt
+    ) {
+      throw new NotFoundException('Table not found for this restaurant');
+    }
+
+    const isServicePoint = table.type !== 'TABLE';
+    if (
+      isServicePoint &&
+      !this.featureService.restaurantHasFeature(
+        table.restaurant,
+        FeatureFlag.SERVICE_POINTS,
+      )
+    ) {
+      throw new NotFoundException('Table not found for this restaurant');
+    }
+
     if (token) {
       const existing = await this.prisma.tableSession.findFirst({
-        where: { token, restaurantId, status: 'OPEN' },
+        where: {
+          token,
+          restaurantId,
+          tableId,
+          status: 'OPEN',
+          isServicePoint,
+        },
       });
       if (existing) return { session: existing, token };
     }
-
-    const table = await this.prisma.restaurantTable.findFirst({
-      where: { id: tableId, restaurantId },
-    });
-    if (!table)
-      throw new NotFoundException('Table not found for this restaurant');
 
     // Service points (type !== 'TABLE') are isolated per customer: the partial
     // unique index only applies to isServicePoint=false, so multiple OPEN
@@ -163,7 +190,7 @@ export class PaymentSessionService {
     // token / lets an attacker attach orders) — always mint a fresh isolated
     // session instead. Regular tables keep the one-open-session-per-table
     // get-or-create.
-    if (table.type !== 'TABLE') {
+    if (isServicePoint) {
       const session = await this.prisma.tableSession.create({
         data: { tableId, restaurantId, isServicePoint: true },
       });

@@ -39,6 +39,7 @@ import {
   type FulfillmentMode,
   type ServicePointPaymentMethod,
 } from '../tables/service-point.constants';
+import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
 const POS_STAFF_ROLES = new Set([
@@ -51,13 +52,6 @@ const POS_STAFF_ROLES = new Set([
 
 /** Roles permitted to cancel an order (and trigger loyalty reversal). */
 const CANCEL_ORDER_ROLES = new Set(['OWNER', 'MANAGER']);
-
-const ONLINE_PAYMENT_FEATURES = [
-  FeatureFlag.PAYMENTS_STRIPE,
-  FeatureFlag.PAYMENTS_EPAY,
-  FeatureFlag.PAYMENTS_BORICA,
-  FeatureFlag.PAYMENTS_MYPOS,
-] as const;
 
 /**
  * Allowed order-status transitions. CANCELED and COMPLETED are terminal —
@@ -100,6 +94,7 @@ export class OrdersService {
     private readonly eventsGateway: EventsGateway,
     private readonly featureService: FeatureService,
     private readonly printStationService: PrintStationService,
+    private readonly paymentProviderConfig: PaymentProviderConfigService,
   ) {}
 
   async create(
@@ -307,10 +302,7 @@ export class OrdersService {
       ? paymentPreference
       : (createOrderDto.paymentPreference ?? null);
     const onlinePaymentsAvailable =
-      restaurant.paymentsEnabled &&
-      ONLINE_PAYMENT_FEATURES.some((feature) =>
-        this.featureService.restaurantHasFeature(restaurant, feature),
-      );
+      this.paymentProviderConfig.hasAnyConfiguredProvider(restaurant);
     if (effectivePaymentPreference === 'ONLINE' && !onlinePaymentsAvailable) {
       throw new BadRequestException(
         'Online payment is not available for this restaurant.',

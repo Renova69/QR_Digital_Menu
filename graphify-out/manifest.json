@@ -92,8 +92,8 @@
     "hash": "291c6592d390c0f73cb1bbdf6bbb1492"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\query.js": {
-    "mtime": 1783709473.7871492,
-    "hash": "75ccb42bb35336b36396ce897af1bac5"
+    "mtime": 1783855218.16467,
+    "hash": "4e8e040a49604aef381295bb9bb0903a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\query_order.js": {
     "mtime": 1780128370.7062602,
@@ -620,12 +620,12 @@
     "hash": "103419874e83f9369681b72e6b63412a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\events\\events.gateway.spec.ts": {
-    "mtime": 1783837892.2041698,
-    "hash": "c95cbeda27e7b48f3dffaaf339fa6df6"
+    "mtime": 1783855218.165536,
+    "hash": "0819807b24626adb6d22e0550257daf6"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\events\\events.gateway.ts": {
-    "mtime": 1783837759.9541197,
-    "hash": "b46a8a0d5da933f8017923c129493b19"
+    "mtime": 1783855218.1665258,
+    "hash": "46ac4e386d1604ced59202c27785030a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\events\\events.module.ts": {
     "mtime": 1783614256.5154936,
@@ -752,12 +752,12 @@
     "hash": "e710741c91028522b1794c0dc271be3c"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\menu\\menu-crud.service.spec.ts": {
-    "mtime": 1783838453.567313,
-    "hash": "e182361a17f79a1308b4da8b353138cf"
+    "mtime": 1783855218.1675255,
+    "hash": "fdba2fc12ab395f7fc255341dc9689c9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\menu\\menu-crud.service.ts": {
-    "mtime": 1783838203.8976724,
-    "hash": "b32f57b8c16eff2ecf877a6d72d8457d"
+    "mtime": 1783855218.1685226,
+    "hash": "4a521d1e0c02a7dfcd070a810c94c798"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\menu\\menu-option.controller.ts": {
     "mtime": 1783614257.1432428,
@@ -872,24 +872,24 @@
     "hash": "f1b289d15f9f8d700789f95c791c1ca9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\orders\\orders.controller.spec.ts": {
-    "mtime": 1783838206.1479025,
-    "hash": "308e733195ec19077183d7b6ffb45855"
+    "mtime": 1783855218.169526,
+    "hash": "e69f7c46494d5b8771eb8f404fc71dae"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\orders\\orders.controller.ts": {
-    "mtime": 1783838329.9557629,
-    "hash": "1f93d444654c8203b180f156ed9aa6da"
+    "mtime": 1783855218.1705258,
+    "hash": "9df4c66e7ae070c339b29dcd401a2421"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\orders\\orders.module.ts": {
-    "mtime": 1783614257.2526977,
-    "hash": "c6037f34fce6b9db2aab235b2dec04a6"
+    "mtime": 1783855595.3910823,
+    "hash": "c40b46447de64400b2c97809e5b78b1d"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\orders\\orders.service.spec.ts": {
-    "mtime": 1783837889.9721875,
-    "hash": "c1c4b37cd2adb291636abda551382223"
+    "mtime": 1783855856.1883428,
+    "hash": "9375efee068fc8fc92eb78f980f0f342"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\orders\\orders.service.ts": {
-    "mtime": 1783837888.835992,
-    "hash": "52b103a1ccddb467f498aa88d2943e62"
+    "mtime": 1783855856.0453954,
+    "hash": "6984695e93121024ed13f01a99fbb7ef"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\orders\\dto\\create-order.dto.spec.ts": {
     "mtime": 1783614257.2149067,
@@ -935,9 +935,13 @@
     "mtime": 1783802377.8775978,
     "hash": "5ae79677a54f8bbcc178d9c76c40953e"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment-provider-config.service.spec.ts": {
+    "mtime": 1783855806.029645,
+    "hash": "a165e14720cf350bf2247548d7529778"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment-provider-config.service.ts": {
-    "mtime": 1783614257.584336,
-    "hash": "7b6deed271b468f1d68a3bc9fbe3920c"
+    "mtime": 1783855591.5102837,
+    "hash": "793a1d3c53765d3a37ef9d144091b39d"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment-provider.interface.ts": {
     "mtime": 1782885721.6880815,
@@ -948,8 +952,8 @@
     "hash": "c468370db37c787ad68dc85172e2fb30"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment.behavior-proof.spec.ts": {
-    "mtime": 1783614257.6332297,
-    "hash": "c118d55680ed83f4a88837aebb5afa5c"
+    "mtime": 1783855717.8004434,
+    "hash": "0e7c2a141620d8c9e904e5243f232238"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment.controller.spec.ts": {
     "mtime": 1782992931.1549003,
@@ -960,20 +964,20 @@
     "hash": "cf3f61fed9e1547de7b2cd1347cef2cf"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment.module.ts": {
-    "mtime": 1783614257.6594634,
-    "hash": "81ca90704a8ad2287d868728f92d2458"
+    "mtime": 1783855592.839811,
+    "hash": "ae8527aa4525be77c11e146af4593ac7"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment.service.spec.ts": {
-    "mtime": 1783836065.7141292,
-    "hash": "ff743d29fa0d05c80134bd0a152f45fb"
+    "mtime": 1783855939.3552077,
+    "hash": "2f901de370860e7aadaf58f04c725e79"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment.service.ts": {
     "mtime": 1783614257.8233948,
     "hash": "3e5ed640ff2b0aae64d879c70619dc9e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\payment.types.ts": {
-    "mtime": 1783837891.0959303,
-    "hash": "c6c3ef062a2111d76bdc4c9aa19b5ca8"
+    "mtime": 1783855218.175905,
+    "hash": "bf5410b74dee9b120cfb58d7700cc2cd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\refund-migration.spec.ts": {
     "mtime": 1782974614.0357802,
@@ -988,12 +992,12 @@
     "hash": "9ea5686f00d48efff193821f9b62168a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\core\\payment-core.service.spec.ts": {
-    "mtime": 1783837695.4004512,
-    "hash": "31ed882cdf7908b67dcfe8866d6c2e13"
+    "mtime": 1783855855.629961,
+    "hash": "10abf230e964560ca98d498d5928a901"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\core\\payment-core.service.ts": {
-    "mtime": 1783837758.80259,
-    "hash": "a85c51ba84901ae95d1df8a81c918392"
+    "mtime": 1783855886.451526,
+    "hash": "0e144365b09fdf4d5f1834b6af20b75a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\dto\\create-cash-request.dto.ts": {
     "mtime": 1783614257.4815722,
@@ -1024,16 +1028,16 @@
     "hash": "50744d9da4a2776fcaf2cc29737c140b"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\providers\\borica-checkout.service.ts": {
-    "mtime": 1783614257.855656,
-    "hash": "0abcdb7806c76ed33eaf2e4b13da87cb"
+    "mtime": 1783855616.527031,
+    "hash": "0a4a829af3eb736bcc756703c68d1253"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\providers\\epay-checkout.service.ts": {
-    "mtime": 1783614257.8779123,
-    "hash": "724ecc4fd9a19eb26a465d21fd326309"
+    "mtime": 1783855613.9815626,
+    "hash": "1750bd5ea73e9440fa11a07649fbd3f4"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\providers\\mypos-checkout.service.ts": {
-    "mtime": 1783802407.0265043,
-    "hash": "e665f657eeeacced901c83904e2e1fec"
+    "mtime": 1783855615.2085536,
+    "hash": "1c84bbc80260e17a5167d959e3fc768b"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\providers\\stripe-checkout.service.ts": {
     "mtime": 1783802640.8005838,
@@ -1044,8 +1048,8 @@
     "hash": "51be25e0212d942cc4a9574a70cce737"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\session\\payment-session.service.ts": {
-    "mtime": 1783800486.8937342,
-    "hash": "0c7ad711bce94e4979690575bb7f4789"
+    "mtime": 1783855633.905977,
+    "hash": "fd3bf56f3703312f4aab94b8fcdc13fe"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\payment\\session\\payment-settlement.service.ts": {
     "mtime": 1783697291.4755776,
@@ -1076,24 +1080,24 @@
     "hash": "0e1d724e09040459fee2e033d0846aa8"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\print-station\\print-station.controller.spec.ts": {
-    "mtime": 1783838207.3629656,
-    "hash": "dba2ab57e075d0a2ef7fe437dada6662"
+    "mtime": 1783855218.175905,
+    "hash": "c0078c677cdcd99124a8a1813c5e2029"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\print-station\\print-station.controller.ts": {
-    "mtime": 1783838198.9933896,
-    "hash": "969cc45c7655f1ec30a65bf14bc576e8"
+    "mtime": 1783855218.1769016,
+    "hash": "fb42070828b077b050b539822475f2b3"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\print-station\\print-station.module.ts": {
-    "mtime": 1783838200.1194482,
-    "hash": "e468fc5265d8d488ea20a8ccfd83468b"
+    "mtime": 1783855218.1769016,
+    "hash": "0c4a71a24b674b9a2d5791d555ed55c4"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\print-station\\print-station.service.spec.ts": {
-    "mtime": 1783838333.4996626,
-    "hash": "22030fb5d93251c184253370ed1c5ac1"
+    "mtime": 1783855856.254358,
+    "hash": "de8e733734e357d817efe83cec518720"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\print-station\\print-station.service.ts": {
-    "mtime": 1783838201.5915759,
-    "hash": "da96e6a7aa87bf312881db44903a17a4"
+    "mtime": 1783855856.229342,
+    "hash": "84440e2adfea6ae529f81bf42370b9e1"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\print-station\\dto\\create-print-station.dto.ts": {
     "mtime": 1783614258.1152961,
@@ -1328,8 +1332,8 @@
     "hash": "bdb927584f3c173419306c4a602670dc"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\subscription\\feature.guard.ts": {
-    "mtime": 1783838331.1254535,
-    "hash": "137be4ae58e9b50e00877a030790ec61"
+    "mtime": 1783855218.1789043,
+    "hash": "2f9205c73744ca994bc479b342726be8"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\subscription\\feature.service.spec.ts": {
     "mtime": 1783800429.4606955,
@@ -1448,16 +1452,16 @@
     "hash": "7483586e15bdf24ec150a6dc595c1821"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\tables.module.ts": {
-    "mtime": 1780426488.8422346,
-    "hash": "2b35ac8bac08a711db17a22d86a3edfb"
+    "mtime": 1783855594.1403062,
+    "hash": "ba11970b7d90e2654e29ce3d16d1b532"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\tables.service.spec.ts": {
-    "mtime": 1783835906.0813208,
-    "hash": "a4bdd72c699ed204936149d23b3d86f4"
+    "mtime": 1783855855.9602158,
+    "hash": "4031e18b4fb0947f0fd4fd4165ab53b9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\tables.service.ts": {
-    "mtime": 1783835906.082321,
-    "hash": "97e599b712609b3ebf971b109932f3c5"
+    "mtime": 1783855855.9272182,
+    "hash": "eb0a1758218d5468236f522e157b592e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\dto\\create-table.dto.ts": {
     "mtime": 1783706721.1938355,
@@ -1712,8 +1716,8 @@
     "hash": "8beffa535fccb0569c677833100cf1f9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\menu\\CategorySettingsModal.tsx": {
-    "mtime": 1783838292.3763537,
-    "hash": "c708b0da81d3b847dc92ce5864799907"
+    "mtime": 1783855218.1809065,
+    "hash": "36d0eec40c8fb3d0e22c224423ca4655"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\menu\\CreateCategoryForm.tsx": {
     "mtime": 1783614259.8651545,
@@ -1868,8 +1872,8 @@
     "hash": "ccd3d887b220169e54320da8cf421e04"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\tables\\TableDetailModal.tsx": {
-    "mtime": 1783837765.5153913,
-    "hash": "f9622b3b0b7de72898f29a10490b8b85"
+    "mtime": 1783855218.181903,
+    "hash": "cfc83a8c7e98ab221c99e02b5f6b2423"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\tables\\TableView.test.tsx": {
     "mtime": 1783801749.740126,
@@ -1980,12 +1984,12 @@
     "hash": "01ed8130a6dfb87ab4d9ea3c2820ac0d"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\OrderContext.test.tsx": {
-    "mtime": 1783781174.5590913,
-    "hash": "a3925ee3f410faf6d02a11857b91b67a"
+    "mtime": 1783855499.7846074,
+    "hash": "a8c8e14ba9c18e401450351cbe152b33"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\OrderContext.tsx": {
-    "mtime": 1783837761.0800176,
-    "hash": "974ef7bbefd359d98a299383b321445a"
+    "mtime": 1783855499.7846074,
+    "hash": "6c44e2d490b609354a244404867cbf86"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\PosContext.test.tsx": {
     "mtime": 1783614260.7064693,
@@ -2092,8 +2096,8 @@
     "hash": "a73f446ee13b45df9a227da46bbc9cbd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\api.ts": {
-    "mtime": 1783838351.5076697,
-    "hash": "bc6f59d2d7207cf8cc0199fee312b521"
+    "mtime": 1783855218.1839066,
+    "hash": "55d747bb8b08f1dd1ac6815a7fa06a1a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\brandingFonts.ts": {
     "mtime": 1783614261.0845797,
@@ -2276,8 +2280,8 @@
     "hash": "95776fe3999e50e9b46825e8092937db"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\DashboardPage.tsx": {
-    "mtime": 1783837893.3323529,
-    "hash": "837169009229a2ea8dc653370ce752e1"
+    "mtime": 1783855218.1939015,
+    "hash": "f9904bcc6a5c028b1b3fac6a1f37728f"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\DeviceEnrollPage.test.tsx": {
     "mtime": 1781763827.308964,
@@ -2380,12 +2384,12 @@
     "hash": "84a51e76c1eb7c4b980ee84f7b34ec44"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\OperationsView.tsx": {
-    "mtime": 1783837894.4273727,
-    "hash": "d8d35242e940e250038dddb5a69ad584"
+    "mtime": 1783855218.190914,
+    "hash": "e77aa019e96b04b079d21d8e5757ad2f"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\OrdersView.tsx": {
-    "mtime": 1783838351.3345935,
-    "hash": "6d4e4dcef810871039c0504179b6b1d2"
+    "mtime": 1783855218.190914,
+    "hash": "ff4328ee3aed79771934e6b7a1f4ebbf"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\PaymentDrawer.tsx": {
     "mtime": 1783614261.7594028,
@@ -2400,8 +2404,8 @@
     "hash": "4f7d43cebe50d7cbbdbd19a0cefaffa8"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\PrintStationsView.tsx": {
-    "mtime": 1783838351.2595954,
-    "hash": "b207990c2858afbcfbd66892e22c37e6"
+    "mtime": 1783855218.1919022,
+    "hash": "6b2d6bdaedc0ce38cbff02e16aa9d311"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\ReservationsView.test.tsx": {
     "mtime": 1783346945.1802926,
@@ -2412,12 +2416,12 @@
     "hash": "978e6824ce6fc1a48ab3432e7d9dc4c0"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SettingsView.test.tsx": {
-    "mtime": 1783838293.5020719,
-    "hash": "8da38287383c2f8e7f4470ecc7b1acda"
+    "mtime": 1783855218.1929047,
+    "hash": "c79d1de200606709f54949704f563b9b"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SettingsView.tsx": {
-    "mtime": 1783838252.514321,
-    "hash": "38c0ba0e9c38619bce65219358a8a972"
+    "mtime": 1783855218.1929047,
+    "hash": "0596e092590c8945517f999117e1d940"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SummaryView.tsx": {
     "mtime": 1783781222.1698563,
@@ -2580,12 +2584,12 @@
     "hash": "0be66a2d8ec9439088c100e68dcc60dc"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\staff\\KitchenPage.test.tsx": {
-    "mtime": 1783837796.7414465,
-    "hash": "5ef1957140b1493b362806e91f6f64e6"
+    "mtime": 1783855499.785607,
+    "hash": "edc228718a67488370441c22154012e5"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\staff\\KitchenPage.tsx": {
-    "mtime": 1783837906.3803365,
-    "hash": "7b1668eb0d8ccae4404ac48b8167b0f6"
+    "mtime": 1783855499.785607,
+    "hash": "ed7c32492f2bb00090b5414a5519884e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\super-admin\\DataRequestsPage.tsx": {
     "mtime": 1782575688.6471236,
@@ -2628,8 +2632,8 @@
     "hash": "0f32d33a521f46eb2b485b67486ae925"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\types\\index.ts": {
-    "mtime": 1783837762.1733136,
-    "hash": "ec5b2724c9d67a97b6306197a968382d"
+    "mtime": 1783855218.195906,
+    "hash": "212d37a3bce09cdfcad747e043f573ae"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\types\\reservations.ts": {
     "mtime": 1783614263.138458,
@@ -2804,12 +2808,12 @@
     "hash": "cf650ae5df68776787de90f7768471ba"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\CLAUDE.md": {
-    "mtime": 1783614247.5459638,
-    "hash": "c0cfae46bdd868da95b9b9e2a6b96123"
+    "mtime": 1783855218.16467,
+    "hash": "054bdf4654ca9efa50c5a9fe4bfe21c6"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\codex-work.md": {
-    "mtime": 1783700283.4941347,
-    "hash": "e51015df96a067c9ea1ee3369596f18f"
+    "mtime": 1783855218.1969016,
+    "hash": "23f700fcb215aed6f5847fddc21efa3e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\diff.txt": {
     "mtime": 1783662311.2914002,

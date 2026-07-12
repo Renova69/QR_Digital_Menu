@@ -58,6 +58,7 @@ describe('PaymentService', () => {
       _events,
       core,
       config,
+      featureService,
     );
     const settlement = new PaymentSettlementService(
       _prisma,
@@ -120,6 +121,13 @@ describe('PaymentService', () => {
           id: 'table1',
           restaurantId: 'rest1',
           type: 'TABLE',
+          isActive: true,
+          restaurant: {
+            tier: 'PROFESSIONAL',
+            forceTier: null,
+            isActive: true,
+            deletedAt: null,
+          },
         }),
         findUnique: jest.fn().mockResolvedValue({ name: 'T1' }),
       },
@@ -259,6 +267,7 @@ describe('PaymentService', () => {
       emitToRestaurant: jest.fn(),
       emitToTableSession: jest.fn(),
       emitTableStatusChanged: jest.fn(),
+      dispatchPaidOrder: jest.fn().mockResolvedValue(undefined),
     } as unknown as DeepPartial<EventsGateway>;
 
     mockFeatureService = {
@@ -301,8 +310,37 @@ describe('PaymentService', () => {
       await service.getOrCreateSession('table1', 'rest1', 'tok1');
 
       expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith({
-        where: { token: 'tok1', restaurantId: 'rest1', status: 'OPEN' },
+        where: {
+          token: 'tok1',
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          status: 'OPEN',
+          isServicePoint: false,
+        },
       });
+    });
+
+    it('does not mint service-point sessions after the feature is removed', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room1',
+        restaurantId: 'rest1',
+        type: 'ROOM',
+        isActive: true,
+        restaurant: {
+          tier: 'FREE',
+          forceTier: null,
+          isActive: true,
+          deletedAt: null,
+        },
+      });
+      (mockFeatureService.restaurantHasFeature as jest.Mock).mockReturnValue(
+        false,
+      );
+
+      await expect(
+        service.getOrCreateSession('room1', 'rest1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
     });
 
     it('creates a new session when no token is provided', async () => {
@@ -1431,31 +1469,34 @@ describe('PaymentService', () => {
       };
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
       mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
-      mockPrisma.order.findMany.mockResolvedValue([
-        {
-          totalPrice: 30,
-          pointsRedeemedForDiscount: 0,
-          pointsRedeemedForItems: 0,
-          items: [
-            {
-              id: 'oi-soup',
-              quantity: 1,
-              paidQuantity: 1,
-              unitPriceWithOptions: 10,
-              selectedOptions: [],
-              menuItem: { name: 'Soup', price: 10 },
-            },
-            {
-              id: 'oi-steak',
-              quantity: 1,
-              paidQuantity: 0,
-              unitPriceWithOptions: 20,
-              selectedOptions: [],
-              menuItem: { name: 'Steak', price: 20 },
-            },
-          ],
-        },
-      ]);
+      mockPrisma.order.findMany
+        .mockResolvedValueOnce([
+          {
+            totalPrice: 30,
+            pointsRedeemedForDiscount: 0,
+            pointsRedeemedForItems: 0,
+            items: [
+              {
+                id: 'oi-soup',
+                quantity: 1,
+                paidQuantity: 1,
+                unitPriceWithOptions: 10,
+                selectedOptions: [],
+                menuItem: { name: 'Soup', price: 10 },
+              },
+              {
+                id: 'oi-steak',
+                quantity: 1,
+                paidQuantity: 0,
+                unitPriceWithOptions: 20,
+                selectedOptions: [],
+                menuItem: { name: 'Steak', price: 20 },
+              },
+            ],
+          },
+        ])
+        .mockResolvedValueOnce([{ id: 'order-owned' }]);
+      mockPrisma.order.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.payment.findMany.mockResolvedValue([
         { id: 'pay-scoped', status: 'SUCCEEDED', amount: 10, tipAmount: 0 },
       ]);

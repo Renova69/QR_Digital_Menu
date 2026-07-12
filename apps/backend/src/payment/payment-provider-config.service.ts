@@ -96,6 +96,15 @@ export class PaymentProviderConfigService {
     return true;
   }
 
+  hasAnyConfiguredProvider(restaurant: any): boolean {
+    return (
+      this.isStripeConfigured(restaurant) ||
+      this.isEpayConfigured(restaurant) ||
+      this.isBoricaConfigured(restaurant) ||
+      this.isMyposConfigured(restaurant)
+    );
+  }
+
   resolveBoricaKeypair(restaurant: any): {
     terminal: string;
     merchant: string;
@@ -170,13 +179,23 @@ export class PaymentProviderConfigService {
   }
 
   buildPublicMenuReturnUrl(
-    session: { restaurantId: string; table?: { name?: string | null } | null },
+    session: {
+      restaurantId: string;
+      table?: {
+        name?: string | null;
+        publicToken?: string | null;
+      } | null;
+    },
     outcome: string,
   ): string {
     const url = new URL(
       `${this.getFrontendBaseUrl()}/menu/public/${session.restaurantId}`,
     );
-    if (session.table?.name) url.searchParams.set('table', session.table.name);
+    if (session.table?.publicToken) {
+      url.searchParams.set('sp', session.table.publicToken);
+    } else if (session.table?.name) {
+      url.searchParams.set('table', session.table.name);
+    }
     url.searchParams.set('payment', outcome);
     return url.toString();
   }

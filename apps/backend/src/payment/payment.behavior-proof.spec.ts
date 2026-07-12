@@ -264,6 +264,7 @@ function createHarness() {
     events as unknown as EventsGateway,
     core,
     config,
+    features as unknown as FeatureService,
   );
   const settlement = new PaymentSettlementService(
     prisma,

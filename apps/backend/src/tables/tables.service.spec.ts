@@ -9,12 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
 
 describe('TablesService', () => {
   let service: TablesService;
   let prisma: any;
   let events: any;
   let featureService: any;
+  let paymentProviderConfig: any;
 
   const mockRestaurant = {
     id: 'rest-1',
@@ -68,6 +70,9 @@ describe('TablesService', () => {
     featureService = {
       restaurantHasFeature: jest.fn().mockReturnValue(true),
     };
+    paymentProviderConfig = {
+      hasAnyConfiguredProvider: jest.fn().mockReturnValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,6 +80,10 @@ describe('TablesService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventsGateway, useValue: events },
         { provide: FeatureService, useValue: featureService },
+        {
+          provide: PaymentProviderConfigService,
+          useValue: paymentProviderConfig,
+        },
       ],
     }).compile();
 
@@ -265,11 +274,12 @@ describe('TablesService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('removes online payment from a public service point when the tier has no payment provider', async () => {
+    it('removes online payment when no entitled provider is configured', async () => {
       featureService.restaurantHasFeature.mockImplementation(
         (_restaurant: unknown, feature: FeatureFlag) =>
           feature === FeatureFlag.SERVICE_POINTS,
       );
+      paymentProviderConfig.hasAnyConfiguredProvider.mockReturnValue(false);
       prisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'room-304',
         name: 'Room 304',

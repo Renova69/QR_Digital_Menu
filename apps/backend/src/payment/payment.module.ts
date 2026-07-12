@@ -33,6 +33,6 @@ import { PaymentSettlementService } from './session/payment-settlement.service';
     BoricaProvider,
     MyposProvider,
   ],
-  exports: [StripeProvider],
+  exports: [StripeProvider, PaymentProviderConfigService],
 })
 export class PaymentModule {}

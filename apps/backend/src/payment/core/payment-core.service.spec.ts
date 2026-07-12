@@ -606,6 +606,79 @@ describe('PaymentCoreService payment-gated order release', () => {
     });
   });
 
+  it('releases the paid scoped order while unrelated session balance remains', async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'session-1' }]),
+      tableSession: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'session-1' }),
+        updateMany: jest.fn(),
+      },
+      orderItem: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'item-1', paidQuantity: 0 }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      paymentAllocation: {
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      order: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'order-1' }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    jest.spyOn(service, 'computeSessionBalance').mockResolvedValue({
+      billSubtotal: 40,
+      paidSubtotal: 25,
+      remaining: 15,
+      hasLoyaltyDiscount: false,
+      items: [],
+    });
+
+    const claim = await service.claimSuccessfulScopedCheckoutPayment(
+      tx,
+      {
+        id: 'payment-1',
+        tableSessionId: 'session-1',
+        amount: 25,
+        tipAmount: 0,
+        status: 'PENDING',
+        provider: 'STRIPE',
+      },
+      { status: 'SUCCEEDED' },
+      {
+        kind: 'ORDER_ITEMS',
+        orderIds: ['order-1'],
+        chargeSubtotal: 25,
+        allocations: [
+          {
+            orderItemId: 'item-1',
+            quantity: 1,
+            amount: 25,
+            snapshotPaid: 0,
+          },
+        ],
+      },
+    );
+
+    expect(tx.tableSession.updateMany).not.toHaveBeenCalled();
+    expect(tx.order.findMany).toHaveBeenCalledWith({
+      where: {
+        tableSessionId: 'session-1',
+        status: 'PENDING_PAYMENT',
+        id: { in: ['order-1'] },
+      },
+      select: { id: true },
+    });
+    expect(claim).toMatchObject({
+      claimed: true,
+      sessionPaid: false,
+      releasedOrderIds: ['order-1'],
+      remaining: 15,
+    });
+  });
+
   it('dispatches each released order after the payment transaction commits', async () => {
     jest.spyOn(service, 'emitPaymentConfirmed').mockResolvedValue(undefined);
     const payment = {

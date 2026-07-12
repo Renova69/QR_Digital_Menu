@@ -461,7 +461,9 @@ export class BoricaCheckoutService {
             boricaMerchantName: true,
           },
         },
-        tableSession: { include: { table: { select: { name: true } } } },
+        tableSession: {
+          include: { table: { select: { name: true, publicToken: true } } },
+        },
       },
     });
 

@@ -14,6 +14,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { PrintStationService } from '../print-station/print-station.service';
+import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,7 @@ describe('OrdersService', () => {
   let events: any;
   let featureService: any;
   let printStationService: any;
+  let paymentProviderConfig: any;
 
   const twoItems = [
     makeMenuItem({ id: 'item-1', price: 10 }),
@@ -190,6 +192,9 @@ describe('OrdersService', () => {
     printStationService = {
       routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
     };
+    paymentProviderConfig = {
+      hasAnyConfiguredProvider: jest.fn().mockReturnValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -198,6 +203,10 @@ describe('OrdersService', () => {
         { provide: EventsGateway, useValue: events },
         { provide: FeatureService, useValue: featureService },
         { provide: PrintStationService, useValue: printStationService },
+        {
+          provide: PaymentProviderConfigService,
+          useValue: paymentProviderConfig,
+        },
       ],
     }).compile();
 
@@ -891,6 +900,7 @@ describe('OrdersService', () => {
     });
 
     it('rejects online preference when restaurant payments are disabled', async () => {
+      paymentProviderConfig.hasAnyConfiguredProvider.mockReturnValue(false);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ paymentsEnabled: false }),
@@ -916,7 +926,8 @@ describe('OrdersService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects online preference when the restaurant tier has no payment provider', async () => {
+    it('rejects online preference when no entitled provider is configured', async () => {
+      paymentProviderConfig.hasAnyConfiguredProvider.mockReturnValue(false);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ tier: 'STARTER', paymentsEnabled: true }),

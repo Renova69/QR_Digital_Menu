@@ -30,6 +30,7 @@ const mockPrisma = {
     count: jest.fn(),
   },
   order: { findUnique: jest.fn() },
+  restaurant: { findUnique: jest.fn() },
 };
 
 const mockEvents = {
@@ -56,6 +57,10 @@ describe('PrintStationService', () => {
     service = module.get(PrintStationService);
     jest.clearAllMocks();
     mockFeatureService.restaurantHasFeature.mockReturnValue(true);
+    mockPrisma.restaurant.findUnique.mockResolvedValue({
+      tier: 'ENTERPRISE',
+      forceTier: null,
+    });
   });
 
   describe('create', () => {
@@ -302,6 +307,15 @@ describe('PrintStationService', () => {
   });
 
   describe('retryPendingJobs', () => {
+    it('does not retry queued jobs after an Enterprise downgrade', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(false);
+
+      await service.retryPendingJobs('r1', 'station1');
+
+      expect(mockPrisma.printJob.findMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitPrintJob).not.toHaveBeenCalled();
+    });
+
     it('leaves job as PENDING if agent connection drops (emit fails)', async () => {
       mockEvents.emitPrintJob.mockReturnValue(false); // Connection dropped
       mockPrisma.printJob.findMany.mockResolvedValue([

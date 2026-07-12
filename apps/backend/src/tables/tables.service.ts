@@ -25,15 +25,9 @@ import {
   type ServicePointPaymentMethod,
   type ServicePointType,
 } from './service-point.constants';
+import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
 
 const PAID_SESSION_AUTO_CLOSE_MS = 5 * 60 * 1000; // 5 minutes
-
-const ONLINE_PAYMENT_FEATURES = [
-  FeatureFlag.PAYMENTS_STRIPE,
-  FeatureFlag.PAYMENTS_EPAY,
-  FeatureFlag.PAYMENTS_BORICA,
-  FeatureFlag.PAYMENTS_MYPOS,
-] as const;
 
 @Injectable()
 export class TablesService {
@@ -43,6 +37,7 @@ export class TablesService {
     private readonly prisma: PrismaService,
     private readonly events: EventsGateway,
     private readonly featureService: FeatureService,
+    private readonly paymentProviderConfig: PaymentProviderConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -309,15 +304,7 @@ export class TablesService {
         publicToken: true,
         fulfillmentModes: true,
         paymentMethods: true,
-        restaurant: {
-          select: {
-            tier: true,
-            forceTier: true,
-            paymentsEnabled: true,
-            isActive: true,
-            deletedAt: true,
-          },
-        },
+        restaurant: true,
       },
     });
     if (!servicePoint) throw new NotFoundException('Service point not found');
@@ -338,12 +325,8 @@ export class TablesService {
       throw new NotFoundException('Service point not found');
     }
     const onlinePaymentsAvailable =
-      servicePoint.restaurant.paymentsEnabled &&
-      ONLINE_PAYMENT_FEATURES.some((feature) =>
-        this.featureService.restaurantHasFeature(
-          servicePoint.restaurant,
-          feature,
-        ),
+      this.paymentProviderConfig.hasAnyConfiguredProvider(
+        servicePoint.restaurant,
       );
     const paymentMethods = onlinePaymentsAvailable
       ? servicePoint.paymentMethods
