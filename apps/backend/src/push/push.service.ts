@@ -60,8 +60,21 @@ export class PushService implements OnModuleInit {
     }
 
     if (!publicKey || !privateKey) {
+      if (process.env.NODE_ENV === 'production') {
+        // Fail loud but safe. Never fall back to ephemeral keys in production:
+        // they change on every restart and differ per Cloud Run instance, so
+        // subscriptions silently break. Leave Web Push DISABLED
+        // (isVapidConfigured stays false) and log an error — don't crash a
+        // non-critical feature, but make the missing config impossible to miss.
+        this.logger.error(
+          'VAPID keys are not configured (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY). ' +
+            'Web Push is DISABLED. Set both in the environment / secret manager.',
+        );
+        return;
+      }
+
       this.logger.warn(
-        'VAPID keys not fully configured in environment. Generating ephemeral fallback keys...',
+        'VAPID keys not fully configured in environment. Generating ephemeral dev fallback keys...',
       );
       const keys = webpush.generateVAPIDKeys();
       publicKey = keys.publicKey;
