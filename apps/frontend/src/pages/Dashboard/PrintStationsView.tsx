@@ -20,6 +20,7 @@ import {
   generateAgentToken,
   revokeAgentToken,
 } from "../../lib/api";
+import { useRestaurantContext } from "../../context/RestaurantContext";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import {
@@ -159,6 +160,8 @@ function Toggle({
 export default function PrintStationsView() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const { activeRestaurant } = useRestaurantContext();
+  const restaurantId = activeRestaurant?.id;
   const { showToast, ToastComponent } = useToast();
   const [newName, setNewName] = useState("");
   const [newIp, setNewIp] = useState("");
@@ -171,13 +174,15 @@ export default function PrintStationsView() {
   const [draftTemplate, setDraftTemplate] = useState<ReceiptTemplate>({});
 
   const { data: stations = [], isLoading } = useQuery<PrintStation[]>({
-    queryKey: ["print-stations"],
-    queryFn: getPrintStations,
+    queryKey: ["print-stations", restaurantId],
+    queryFn: () => getPrintStations(restaurantId),
+    enabled: !!restaurantId,
   });
 
   const { data: health = [] } = useQuery<StationHealth[]>({
-    queryKey: ["print-stations-health"],
-    queryFn: getPrintStationHealth,
+    queryKey: ["print-stations-health", restaurantId],
+    queryFn: () => getPrintStationHealth(restaurantId),
+    enabled: !!restaurantId,
     refetchInterval: 15_000,
   });
 
@@ -185,7 +190,7 @@ export default function PrintStationsView() {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createPrintStation({
+      createPrintStation(restaurantId, {
         name: newName,
         printerIp: newIp,
         printerPort: parseInt(newPort, 10),
@@ -200,14 +205,14 @@ export default function PrintStationsView() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deletePrintStation(id),
+    mutationFn: (id: string) => deletePrintStation(restaurantId, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["print-stations"] }),
     onError: () => showToast("Failed to delete station", "error"),
   });
 
   const updateTemplateMutation = useMutation({
     mutationFn: ({ id, template }: { id: string; template: ReceiptTemplate }) =>
-      updatePrintStation(id, { receiptTemplate: template }),
+      updatePrintStation(restaurantId, id, { receiptTemplate: template }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["print-stations"] });
       setTemplateModal(null);
@@ -217,7 +222,7 @@ export default function PrintStationsView() {
 
   const generateTokenMutation = useMutation({
     mutationFn: ({ stationId }: { stationId: string; station: PrintStation }) =>
-      generateAgentToken(stationId),
+      generateAgentToken(restaurantId, stationId),
     onSuccess: (data: { token: string }, { station }) => {
       qc.invalidateQueries({ queryKey: ["print-stations"] });
       setTokenModal({ token: data.token, station });
@@ -226,7 +231,7 @@ export default function PrintStationsView() {
   });
 
   const revokeTokenMutation = useMutation({
-    mutationFn: (tokenId: string) => revokeAgentToken(tokenId),
+    mutationFn: (tokenId: string) => revokeAgentToken(restaurantId, tokenId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["print-stations"] }),
     onError: () => showToast("Failed to revoke token", "error"),
   });

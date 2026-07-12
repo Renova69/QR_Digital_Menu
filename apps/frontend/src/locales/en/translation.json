@@ -490,6 +490,7 @@
   },
   "orders": {
     "tabs": {
+      "pendingPayment": "Awaiting payment",
       "new": "New",
       "inProgress": "In Progress",
       "served": "Served",

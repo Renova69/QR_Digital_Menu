@@ -1,4 +1,5 @@
 export type OrderStatus =
+  | "PENDING_PAYMENT"
   | "NEW"
   | "IN_PROGRESS"
   | "SERVED"

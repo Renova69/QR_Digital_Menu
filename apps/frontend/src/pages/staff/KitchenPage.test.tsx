@@ -63,6 +63,7 @@ describe("KitchenPage", () => {
     renderPage();
     expect(screen.getByText(/KITCHEN/i)).toBeDefined();
     expect(screen.getByText(/DISPLAY/i)).toBeDefined();
+    expect(screen.getByText(/Awaiting Payment/i)).toBeDefined();
     expect(screen.getByText(/New/i)).toBeDefined();
     expect(screen.getByText(/In Progress/i)).toBeDefined();
     expect(screen.getByText(/Ready/i)).toBeDefined();
@@ -143,6 +144,29 @@ describe("KitchenPage", () => {
     const button = screen.getByRole("button", { name: /#order-1/ });
     fireEvent.click(button);
     expect(updateSpy).toHaveBeenCalledWith("order-1", "IN_PROGRESS");
+  });
+
+  it("shows pending-payment orders without allowing kitchen progression", () => {
+    const updateSpy = vi.fn();
+    (useOrders as Mock).mockReturnValue({
+      orders: [
+        {
+          id: "pending-order",
+          status: "PENDING_PAYMENT",
+          tableName: "301",
+          items: [{ quantity: 1, menuItem: { name: "Pizza" } }],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      updateOrderStatus: updateSpy,
+    });
+
+    renderPage();
+
+    const button = screen.getByRole("button", { name: /#ng-order/ });
+    expect(button).toBeDefined();
+    fireEvent.click(button);
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it("redirects if kds feature is disabled", () => {

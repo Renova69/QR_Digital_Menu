@@ -207,7 +207,9 @@ const DashboardPage = () => {
     }
   }, [activeRestaurant?.id, activeRestaurant?.dashboardLanguage, i18n]);
 
-  const newOrdersCount = orders.filter((o) => o.status === "NEW").length;
+  const newOrdersCount = orders.filter(
+    (o) => o.status === "NEW" || o.status === "PENDING_PAYMENT",
+  ).length;
   const unresolvedRequestsCount = requests.filter((r) => !r.isResolved).length;
 
   const getBadge = (id: TabId) => {

@@ -59,6 +59,7 @@ interface TableDetailModalProps {
 }
 
 const statusLabels: Record<string, string> = {
+  PENDING_PAYMENT: "orders.tabs.pendingPayment",
   NEW: "orders.tabs.new",
   IN_PROGRESS: "orders.tabs.inProgress",
   SERVED: "orders.tabs.served",
@@ -67,6 +68,8 @@ const statusLabels: Record<string, string> = {
 };
 
 const orderStatusStyles: Record<string, string> = {
+  PENDING_PAYMENT:
+    "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200",
   NEW: "bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-200",
   IN_PROGRESS:
     "bg-orange-100 text-orange-700 dark:bg-orange-400/15 dark:text-orange-200",

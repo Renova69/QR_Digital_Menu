@@ -490,6 +490,7 @@
   },
   "orders": {
     "tabs": {
+      "pendingPayment": "În așteptarea plății",
       "new": "Noi",
       "inProgress": "În desfășurare",
       "served": "Servite",

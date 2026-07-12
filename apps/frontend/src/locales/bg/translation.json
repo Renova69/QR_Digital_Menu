@@ -492,6 +492,7 @@
   },
   "orders": {
     "tabs": {
+      "pendingPayment": "Очаква плащане",
       "new": "Нови",
       "inProgress": "В процес",
       "served": "Сервирани",

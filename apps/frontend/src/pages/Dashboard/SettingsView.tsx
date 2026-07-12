@@ -31,6 +31,7 @@ const SettingsView = () => {
   const canLoyalty = useFeature("loyalty");
   const canPayments = useFeature("payments:stripe");
   const canBranding = useFeature("branding:custom");
+  const canPrinters = useFeature("printers:thermal");
   const { tier, allowedStaffRoles, isLoading } = useTier();
   const isFree = tier === "FREE";
   const canManageStaff = user?.role === "OWNER" || user?.role === "MANAGER";
@@ -80,7 +81,7 @@ const SettingsView = () => {
     {
       id: "printers",
       label: t("printStations.title", "Printers"),
-      visible: !isFree,
+      visible: canPrinters,
     },
   ];
 
@@ -179,7 +180,7 @@ const SettingsView = () => {
             </div>
           )}
           {activeTab === "subscription" && <BillingView />}
-          {activeTab === "printers" && <PrintStationsView />}
+          {activeTab === "printers" && canPrinters && <PrintStationsView />}
         </div>
       </div>
     </div>
