@@ -50,7 +50,6 @@ const CheckoutPage = () => {
   const features = Array.isArray(location.state?.features)
     ? (location.state.features as FeatureFlag[])
     : [];
-  const paymentsEnabled = !!location.state?.paymentsEnabled;
   const themeVars = (location.state?.themeVars ?? {}) as React.CSSProperties;
   // A customer paying via the POS Payment QR can switch the bill language with
   // the in-page selector; that override wins over the deep-link / browser guess.
@@ -191,10 +190,11 @@ const CheckoutPage = () => {
   const fulfillmentOptions = isServicePointOrder
     ? orderLocation.fulfillmentModes
     : [];
+  // The service-point resolve API (resolvePublicServicePoint) already strips
+  // ONLINE from paymentMethods when no provider is configured, so trust it
+  // directly — no redundant client-side paymentsEnabled gate.
   const paymentOptions = isServicePointOrder
-    ? orderLocation.paymentMethods.filter(
-        (method) => method !== "ONLINE" || paymentsEnabled,
-      )
+    ? orderLocation.paymentMethods
     : [];
   const fulfillmentOptionsKey = fulfillmentOptions.join("|");
   const paymentOptionsKey = paymentOptions.join("|");
