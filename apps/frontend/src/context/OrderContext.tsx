@@ -193,6 +193,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     const restaurantId = activeRestaurant?.id;
     if (!canAccessOrders || !socket || !isConnected || !restaurantId) return;
     socket.emit("joinRestaurantOrdersRoom", restaurantId);
+    // Catch up on every (re)connect: a socket drop (network blip, laptop sleep)
+    // otherwise misses orders created while disconnected until the next live
+    // event — a live KDS/dashboard could silently skip a ticket. This effect
+    // re-runs when isConnected flips true, so a fresh fetch closes that gap.
+    void refreshOrders();
 
     const handleNewOrder = () => {
       // Small chime for new UI event

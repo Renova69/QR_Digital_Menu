@@ -14,7 +14,7 @@ export interface IPaymentProvider {
 
   retrievePaymentIntent(
     paymentIntentId: string,
-  ): Promise<{ clientSecret: string | null } | null>;
+  ): Promise<{ clientSecret: string | null; status: string | null } | null>;
 
   constructWebhookEvent(payload: Buffer, signature: string): any;
 

@@ -436,6 +436,24 @@ export class PaymentSessionService {
     );
   }
 
+  /**
+   * POS operator "force-resolve stuck payment": verify access, then best-effort
+   * abandon the session's pending payments (cancels cancellable Stripe intents,
+   * marks hosted-provider payments ABANDONED — which stays claimable if a late
+   * notify arrives). Returns the sessionId so the caller can poll Stripe for any
+   * intent that couldn't be cancelled (may have actually succeeded).
+   */
+  async abandonAndAuthorize(token: string, userId: string): Promise<string> {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token },
+      select: { id: true, restaurantId: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+    await this.core.verifyPosOperatorAccess(session.restaurantId, userId);
+    await this.abandonCheckout(token);
+    return session.id;
+  }
+
   async closeSession(
     token: string,
     restaurantId: string,
