@@ -115,7 +115,7 @@ export default function KitchenPage() {
 
   // Audio alert on new order
   useEffect(() => {
-    if (!socket) return;
+    if (!canKds || !socket) return;
     const handler = () => {
       try {
         new Audio("/notification.mp3").play().catch(() => {});
@@ -125,7 +125,7 @@ export default function KitchenPage() {
     return () => {
       socket.off("newOrder", handler);
     };
-  }, [socket]);
+  }, [canKds, socket]);
 
   const [clock, setClock] = useState(() => new Date().toLocaleTimeString());
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
@@ -193,6 +193,8 @@ export default function KitchenPage() {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
+
+  if (activeRestaurant && !canKds) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 font-mono">
