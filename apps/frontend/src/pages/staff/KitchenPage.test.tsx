@@ -170,13 +170,20 @@ describe("KitchenPage", () => {
   });
 
   it("redirects if kds feature is disabled", () => {
+    const onMock = vi.fn();
     (useFeature as Mock).mockReturnValue(false); // kds disabled
+    (useSocket as Mock).mockReturnValue({
+      socket: { on: onMock, off: vi.fn() },
+    });
     (useOrders as Mock).mockReturnValue({
       orders: [],
       updateOrderStatus: vi.fn(),
     });
 
     renderPage();
+
+    expect(screen.queryByText(/KITCHEN/i)).toBeNull();
+    expect(onMock).not.toHaveBeenCalledWith("newOrder", expect.any(Function));
   });
 
   it("listens to socket newOrder events", () => {

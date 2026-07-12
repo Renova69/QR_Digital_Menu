@@ -21,6 +21,8 @@ const socketState = vi.hoisted(() => {
   };
 });
 
+const featureState = vi.hoisted(() => ({ orders: true }));
+
 vi.mock("../lib/api", () => ({
   getOrders: vi.fn(),
   updateOrderStatus: vi.fn(),
@@ -41,6 +43,10 @@ vi.mock("./RestaurantContext", () => ({
   useRestaurantContext: () => ({
     activeRestaurant: { id: "restaurant-1" },
   }),
+}));
+
+vi.mock("../hooks/useFeature", () => ({
+  useFeature: () => featureState.orders,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -85,6 +91,14 @@ function OrderProbe() {
 }
 
 describe("OrderProvider service-point visibility", () => {
+  beforeEach(() => {
+    featureState.orders = true;
+    vi.clearAllMocks();
+    for (const event of Object.keys(socketState.handlers)) {
+      delete socketState.handlers[event];
+    }
+  });
+
   it("loads service-point orders and refetches them after a live event", async () => {
     vi.mocked(getOrders)
       .mockResolvedValueOnce([roomOrder])
@@ -112,6 +126,27 @@ describe("OrderProvider service-point visibility", () => {
 
     await waitFor(() =>
       expect(screen.getByTestId("order-count")).toHaveTextContent("2"),
+    );
+  });
+
+  it("does not fetch or subscribe when the plan lacks Orders", async () => {
+    featureState.orders = false;
+
+    render(
+      <OrderProvider>
+        <OrderProbe />
+      </OrderProvider>,
+    );
+
+    expect(screen.getByTestId("order-count")).toHaveTextContent("0");
+    await waitFor(() => expect(getOrders).not.toHaveBeenCalled());
+    expect(socketState.socket.emit).not.toHaveBeenCalledWith(
+      "joinRestaurantOrdersRoom",
+      expect.anything(),
+    );
+    expect(socketState.socket.on).not.toHaveBeenCalledWith(
+      "newOrder",
+      expect.any(Function),
     );
   });
 });

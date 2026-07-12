@@ -15,6 +15,7 @@ import { useSocket } from "./SocketContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./AuthContext";
 import { useRestaurantContext } from "./RestaurantContext";
+import { useFeature } from "../hooks/useFeature";
 
 // Define order status types
 export type OrderStatus =
@@ -96,9 +97,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const { socket, isConnected } = useSocket();
   const { user, isAuthenticated } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
+  const canReceiveOrders = useFeature("orders:receive");
   const queryClient = useQueryClient();
   const role = user?.role?.toUpperCase();
   const canAccessOrders =
+    canReceiveOrders &&
     isAuthenticated &&
     !!role &&
     ["OWNER", "MANAGER", "WAITER", "KITCHEN", "STAFF"].includes(role);
