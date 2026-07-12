@@ -296,8 +296,10 @@ export class OrdersService {
 
     // #M8: check the RESOLVED payment preference, not the raw DTO. A service
     // point with a single allowed method ['ONLINE'] auto-selects ONLINE when
-    // the client omits the field, which the earlier raw-DTO check missed —
-    // persisting an ONLINE order while payments are disabled.
+    // the client omits the field, which the earlier raw-DTO check missed.
+    // Availability is verified against an ACTUALLY configured provider
+    // (Stripe onboarded / ePay / BORICA / myPOS creds), not just the
+    // paymentsEnabled toggle — a plan/provider gap must reject an ONLINE order.
     const effectivePaymentPreference = servicePoint
       ? paymentPreference
       : (createOrderDto.paymentPreference ?? null);
