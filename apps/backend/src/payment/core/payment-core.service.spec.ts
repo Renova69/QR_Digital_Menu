@@ -418,3 +418,219 @@ describe('PaymentCoreService.computeSessionAmountBalances (M-PAY-5)', () => {
     });
   });
 });
+
+describe('PaymentCoreService payment-gated order release', () => {
+  let prisma: any;
+  let events: any;
+  let service: PaymentCoreService;
+
+  beforeEach(() => {
+    prisma = {
+      tableSession: { findFirst: jest.fn() },
+    };
+    events = {
+      dispatchPaidOrder: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new PaymentCoreService(
+      prisma as PrismaService,
+      events as EventsGateway,
+      {} as FeatureService,
+    );
+  });
+
+  it('atomically releases pending orders when a full payment succeeds', async () => {
+    const tx = {
+      tableSession: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      order: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'order-1' }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    jest.spyOn(service, 'computeSessionBalance').mockResolvedValue({
+      billSubtotal: 25,
+      paidSubtotal: 0,
+      remaining: 25,
+      hasLoyaltyDiscount: false,
+      items: [],
+    });
+
+    const claim = await service.claimSuccessfulPaymentForOpenSession(
+      tx,
+      {
+        id: 'payment-1',
+        tableSessionId: 'session-1',
+        amount: 25,
+        tipAmount: 0,
+        status: 'PENDING',
+        provider: 'STRIPE',
+      },
+      { status: 'SUCCEEDED' },
+    );
+
+    expect(tx.order.findMany).toHaveBeenCalledWith({
+      where: {
+        tableSessionId: 'session-1',
+        status: 'PENDING_PAYMENT',
+      },
+      select: { id: true },
+    });
+    expect(tx.order.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['order-1'] },
+        status: 'PENDING_PAYMENT',
+      },
+      data: { status: 'NEW' },
+    });
+    expect(claim).toEqual({
+      claimed: true,
+      sessionPaid: true,
+      releasedOrderIds: ['order-1'],
+    });
+  });
+
+  it('does not release orders when a captured payment only partially pays the bill', async () => {
+    const tx = {
+      payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      order: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+    jest
+      .spyOn(service, 'computeSessionBalance')
+      .mockResolvedValueOnce({
+        billSubtotal: 25,
+        paidSubtotal: 0,
+        remaining: 25,
+        hasLoyaltyDiscount: false,
+        items: [],
+      })
+      .mockResolvedValueOnce({
+        billSubtotal: 25,
+        paidSubtotal: 10,
+        remaining: 15,
+        hasLoyaltyDiscount: false,
+        items: [],
+      });
+
+    const claim = await service.claimSuccessfulPaymentForOpenSession(
+      tx,
+      {
+        id: 'payment-1',
+        tableSessionId: 'session-1',
+        amount: 10,
+        tipAmount: 0,
+        status: 'PENDING',
+        provider: 'STRIPE',
+      },
+      { status: 'SUCCEEDED' },
+    );
+
+    expect(claim).toMatchObject({
+      claimed: true,
+      sessionPaid: false,
+      partial: true,
+    });
+    expect(tx.order.findMany).not.toHaveBeenCalled();
+    expect(tx.order.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('releases pending orders when a scoped checkout pays the final balance', async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'session-1' }]),
+      tableSession: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'session-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      orderItem: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'item-1', paidQuantity: 0 }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      paymentAllocation: {
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      order: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'order-1' }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    jest.spyOn(service, 'computeSessionBalance').mockResolvedValue({
+      billSubtotal: 25,
+      paidSubtotal: 25,
+      remaining: 0,
+      hasLoyaltyDiscount: false,
+      items: [],
+    });
+
+    const claim = await service.claimSuccessfulScopedCheckoutPayment(
+      tx,
+      {
+        id: 'payment-1',
+        tableSessionId: 'session-1',
+        amount: 25,
+        tipAmount: 0,
+        status: 'PENDING',
+        provider: 'STRIPE',
+      },
+      { status: 'SUCCEEDED' },
+      {
+        kind: 'ORDER_ITEMS',
+        orderIds: ['order-1'],
+        chargeSubtotal: 25,
+        allocations: [
+          {
+            orderItemId: 'item-1',
+            quantity: 1,
+            amount: 25,
+            snapshotPaid: 0,
+          },
+        ],
+      },
+    );
+
+    expect(tx.order.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['order-1'] },
+        status: 'PENDING_PAYMENT',
+      },
+      data: { status: 'NEW' },
+    });
+    expect(claim).toMatchObject({
+      claimed: true,
+      sessionPaid: true,
+      releasedOrderIds: ['order-1'],
+    });
+  });
+
+  it('dispatches each released order after the payment transaction commits', async () => {
+    jest.spyOn(service, 'emitPaymentConfirmed').mockResolvedValue(undefined);
+    const payment = {
+      id: 'payment-1',
+      restaurantId: 'restaurant-1',
+      tableSessionId: 'session-1',
+    };
+
+    await service.emitPaymentClaimEvents(payment, {
+      claimed: true,
+      sessionPaid: true,
+      releasedOrderIds: ['order-1', 'order-2'],
+    });
+
+    expect(events.dispatchPaidOrder).toHaveBeenCalledTimes(2);
+    expect(events.dispatchPaidOrder).toHaveBeenNthCalledWith(
+      1,
+      'restaurant-1',
+      'order-1',
+    );
+    expect(events.dispatchPaidOrder).toHaveBeenNthCalledWith(
+      2,
+      'restaurant-1',
+      'order-2',
+    );
+    expect(service.emitPaymentConfirmed).toHaveBeenCalledWith(payment);
+  });
+});

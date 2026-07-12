@@ -20,6 +20,9 @@ export type CheckoutCharge = {
 export type PaymentClaimResult = {
   claimed: boolean;
   sessionPaid: boolean;
+  // Visible orders whose preparation/printing is released only after this
+  // successful claim fully pays the session.
+  releasedOrderIds?: string[];
   remaining?: number;
   splitMode?: SplitMode;
   // #H4: the captured payment was recorded but underpays the remaining bill, so

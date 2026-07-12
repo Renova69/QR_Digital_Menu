@@ -13,6 +13,7 @@ import { FeatureService } from '../../subscription/feature.service';
 import {
   CashPaymentRequestScope,
   CashPaymentRequestStatus,
+  OrderStatus,
   PaymentProvider,
   PaymentStatus,
   Prisma,
@@ -938,6 +939,33 @@ export class PaymentCoreService {
     );
   }
 
+  private async releasePendingPaymentOrders(
+    tx: any,
+    tableSessionId: string,
+  ): Promise<string[]> {
+    const pendingOrders = await tx.order.findMany({
+      where: {
+        tableSessionId,
+        status: OrderStatus.PENDING_PAYMENT,
+      },
+      select: { id: true },
+    });
+    if (pendingOrders.length === 0) return [];
+
+    const orderIds = pendingOrders.map((order: { id: string }) => order.id);
+    const released = await tx.order.updateMany({
+      where: {
+        id: { in: orderIds },
+        status: OrderStatus.PENDING_PAYMENT,
+      },
+      data: { status: OrderStatus.NEW },
+    });
+    if (released.count !== orderIds.length) {
+      throw new Error('Pending order release lost race after payment claim');
+    }
+    return orderIds;
+  }
+
   async claimSuccessfulPaymentForOpenSession(
     tx: any,
     payment: any,
@@ -1027,7 +1055,12 @@ export class PaymentCoreService {
       throw new Error('Payment success claim lost race after session claim');
     }
 
-    return { claimed: true, sessionPaid: true };
+    const releasedOrderIds = await this.releasePendingPaymentOrders(
+      tx,
+      payment.tableSessionId,
+    );
+
+    return { claimed: true, sessionPaid: true, releasedOrderIds };
   }
 
   async claimSuccessfulPayment(
@@ -1188,17 +1221,25 @@ export class PaymentCoreService {
       payment.tableSessionId,
     );
     let sessionPaid = false;
+    let releasedOrderIds: string[] = [];
     if (balance.remaining <= 0.01) {
       const flip = await tx.tableSession.updateMany({
         where: { id: payment.tableSessionId, status: 'OPEN' },
         data: { status: 'PAID', paidAt: new Date() },
       });
       sessionPaid = flip.count > 0;
+      if (sessionPaid) {
+        releasedOrderIds = await this.releasePendingPaymentOrders(
+          tx,
+          payment.tableSessionId,
+        );
+      }
     }
 
     return {
       claimed: true,
       sessionPaid,
+      releasedOrderIds,
       remaining: Math.max(0, balance.remaining),
       splitMode: SplitMode.ITEM,
     };
@@ -1385,6 +1426,12 @@ export class PaymentCoreService {
       );
       return;
     }
+
+    await Promise.all(
+      (claim.releasedOrderIds ?? []).map((orderId) =>
+        this.events.dispatchPaidOrder(payment.restaurantId, orderId),
+      ),
+    );
 
     if (!claim.splitMode) {
       await this.emitPaymentConfirmed(payment);

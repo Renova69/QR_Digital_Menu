@@ -68,11 +68,9 @@ const ONLINE_PAYMENT_FEATURES = [
  * redeemed points) and keeps the state machine a strict DAG.
  */
 const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  [OrderStatus.PENDING_PAYMENT]: [
-    OrderStatus.NEW,
-    OrderStatus.IN_PROGRESS,
-    OrderStatus.CANCELED,
-  ],
+  // PaymentCoreService owns PENDING_PAYMENT -> NEW atomically with a
+  // successful provider claim. Operational users may only cancel it here.
+  [OrderStatus.PENDING_PAYMENT]: [OrderStatus.CANCELED],
   [OrderStatus.NEW]: [
     OrderStatus.IN_PROGRESS,
     OrderStatus.SERVED,
@@ -313,10 +311,7 @@ export class OrdersService {
       ONLINE_PAYMENT_FEATURES.some((feature) =>
         this.featureService.restaurantHasFeature(restaurant, feature),
       );
-    if (
-      effectivePaymentPreference === 'ONLINE' &&
-      !onlinePaymentsAvailable
-    ) {
+    if (effectivePaymentPreference === 'ONLINE' && !onlinePaymentsAvailable) {
       throw new BadRequestException(
         'Online payment is not available for this restaurant.',
       );
@@ -762,6 +757,10 @@ export class OrdersService {
             servicePointLabel,
             fulfillmentType,
             paymentPreference,
+            status:
+              effectivePaymentPreference === 'ONLINE'
+                ? OrderStatus.PENDING_PAYMENT
+                : OrderStatus.NEW,
             specialRequests: createOrderDto.specialRequests,
             totalPrice: finalTotal,
             pointsEarned,
@@ -814,6 +813,8 @@ export class OrdersService {
       },
     );
 
+    const isAwaitingPayment = effectivePaymentPreference === 'ONLINE';
+
     this.eventsGateway.emitOrderEventToRestaurant(
       finalOrder.restaurantId,
       'newOrder',
@@ -828,13 +829,15 @@ export class OrdersService {
       );
     }
 
-    void this.printStationService
-      .routeOrderToPrinters(finalOrder.id)
-      .catch((err: Error) =>
-        this.logger.error(
-          `Print routing failed for order ${finalOrder.id}: ${err.message}`,
-        ),
-      );
+    if (!isAwaitingPayment) {
+      void this.printStationService
+        .routeOrderToPrinters(finalOrder.id)
+        .catch((err: Error) =>
+          this.logger.error(
+            `Print routing failed for order ${finalOrder.id}: ${err.message}`,
+          ),
+        );
+    }
 
     // Order-scoped token so the customer can track THIS order over the socket
     // without access to the restaurant's live event feed (see EventsGateway).

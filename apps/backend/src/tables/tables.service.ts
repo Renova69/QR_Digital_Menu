@@ -28,6 +28,13 @@ import {
 
 const PAID_SESSION_AUTO_CLOSE_MS = 5 * 60 * 1000; // 5 minutes
 
+const ONLINE_PAYMENT_FEATURES = [
+  FeatureFlag.PAYMENTS_STRIPE,
+  FeatureFlag.PAYMENTS_EPAY,
+  FeatureFlag.PAYMENTS_BORICA,
+  FeatureFlag.PAYMENTS_MYPOS,
+] as const;
+
 @Injectable()
 export class TablesService {
   private readonly logger = new Logger(TablesService.name);
@@ -302,10 +309,24 @@ export class TablesService {
         publicToken: true,
         fulfillmentModes: true,
         paymentMethods: true,
-        restaurant: { select: { tier: true, forceTier: true } },
+        restaurant: {
+          select: {
+            tier: true,
+            forceTier: true,
+            paymentsEnabled: true,
+            isActive: true,
+            deletedAt: true,
+          },
+        },
       },
     });
     if (!servicePoint) throw new NotFoundException('Service point not found');
+    if (
+      servicePoint.restaurant.isActive === false ||
+      servicePoint.restaurant.deletedAt
+    ) {
+      throw new NotFoundException('Service point not found');
+    }
     if (
       !this.featureService.restaurantHasFeature(
         servicePoint.restaurant,
@@ -316,8 +337,19 @@ export class TablesService {
       // invalid one after a restaurant downgrades.
       throw new NotFoundException('Service point not found');
     }
+    const onlinePaymentsAvailable =
+      servicePoint.restaurant.paymentsEnabled &&
+      ONLINE_PAYMENT_FEATURES.some((feature) =>
+        this.featureService.restaurantHasFeature(
+          servicePoint.restaurant,
+          feature,
+        ),
+      );
+    const paymentMethods = onlinePaymentsAvailable
+      ? servicePoint.paymentMethods
+      : servicePoint.paymentMethods.filter((method) => method !== 'ONLINE');
     const { restaurant: _restaurant, ...publicServicePoint } = servicePoint;
-    return publicServicePoint;
+    return { ...publicServicePoint, paymentMethods };
   }
 
   async rotatePublicToken(id: string, userId: string) {

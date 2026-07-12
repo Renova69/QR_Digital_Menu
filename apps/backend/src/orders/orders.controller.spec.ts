@@ -8,6 +8,8 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderStatus } from '@prisma/client';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { REQUIRE_FEATURE_KEY } from '../subscription/require-feature.decorator';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -58,6 +60,18 @@ describe('OrdersController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
+
+  it.each(['findAll', 'findOne', 'update'] as const)(
+    'requires orders:receive for %s',
+    (method) => {
+      expect(
+        Reflect.getMetadata(
+          REQUIRE_FEATURE_KEY,
+          OrdersController.prototype[method],
+        ),
+      ).toEqual([FeatureFlag.ORDERS_RECEIVE]);
+    },
+  );
 
   describe('create', () => {
     it('should call ordersService.create with dto and userId when authenticated', async () => {

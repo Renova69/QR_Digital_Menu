@@ -265,6 +265,53 @@ describe('TablesService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('removes online payment from a public service point when the tier has no payment provider', async () => {
+      featureService.restaurantHasFeature.mockImplementation(
+        (_restaurant: unknown, feature: FeatureFlag) =>
+          feature === FeatureFlag.SERVICE_POINTS,
+      );
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['ONLINE', 'PAY_ON_DELIVERY'],
+        restaurant: {
+          ...mockRestaurant,
+          tier: 'STARTER',
+          paymentsEnabled: true,
+          isActive: true,
+          deletedAt: null,
+        },
+      });
+
+      await expect(
+        service.resolvePublicServicePoint('rest-1', 'sp-token'),
+      ).resolves.toMatchObject({ paymentMethods: ['PAY_ON_DELIVERY'] });
+    });
+
+    it('does not resolve a public service point for a suspended restaurant', async () => {
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['PAY_ON_DELIVERY'],
+        restaurant: {
+          ...mockRestaurant,
+          paymentsEnabled: false,
+          isActive: false,
+          deletedAt: null,
+        },
+      });
+
+      await expect(
+        service.resolvePublicServicePoint('rest-1', 'sp-token'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('rotates a service point public token for the owner', async () => {
       prisma.restaurantTable.findUnique.mockResolvedValue({
         ...mockTable,

@@ -17,6 +17,8 @@ import { CreatePrintStationDto } from './dto/create-print-station.dto';
 import { UpdatePrintStationDto } from './dto/update-print-station.dto';
 import { buildEscPosTicket, PrintItem } from './escpos.util';
 import { EventsGateway } from '../events/events.gateway';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 const MAX_PRINT_ATTEMPTS = 3;
 const STALE_SENT_MS = 30_000;
@@ -32,6 +34,7 @@ export class PrintStationService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => EventsGateway))
     private readonly events: WrapperType<EventsGateway>,
+    private readonly featureService: FeatureService,
   ) {}
 
   private hashToken(token: string): string {
@@ -139,10 +142,23 @@ export class PrintStationService {
   }
 
   async validateAgentToken(token: string) {
-    return this.prisma.printAgentToken.findUnique({
+    const record = await this.prisma.printAgentToken.findUnique({
       where: { tokenHash: this.hashToken(token) },
-      include: { printStation: true },
+      include: {
+        printStation: true,
+        restaurant: { select: { tier: true, forceTier: true } },
+      },
     });
+    if (
+      !record ||
+      !this.featureService.restaurantHasFeature(
+        record.restaurant,
+        FeatureFlag.PRINTERS_THERMAL,
+      )
+    ) {
+      return null;
+    }
+    return record;
   }
 
   async touchLastSeen(token: string) {
@@ -166,6 +182,7 @@ export class PrintStationService {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
+        restaurant: { select: { tier: true, forceTier: true } },
         staff: { select: { name: true } },
         tableSession: { select: { createdAt: true } },
         items: {
@@ -178,6 +195,14 @@ export class PrintStationService {
       },
     });
     if (!order) return;
+    if (
+      !this.featureService.restaurantHasFeature(
+        order.restaurant,
+        FeatureFlag.PRINTERS_THERMAL,
+      )
+    ) {
+      return;
+    }
 
     const stationMap = new Map<string, { station: any; items: PrintItem[] }>();
 

@@ -80,6 +80,16 @@ export class FeatureGuard implements CanActivate {
       }
     }
 
+    if (!restaurantId && request.params?.orderId) {
+      const order = await this.prisma.order.findUnique({
+        where: { id: request.params.orderId },
+        select: { restaurantId: true },
+      });
+      if (order) {
+        restaurantId = order.restaurantId;
+      }
+    }
+
     const cacheKey = `_restaurantCache_${restaurantId ?? 'default'}`;
     if (!request[cacheKey]) {
       let restaurant = null;

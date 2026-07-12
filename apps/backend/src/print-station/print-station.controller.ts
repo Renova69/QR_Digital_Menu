@@ -18,8 +18,12 @@ import { CreatePrintStationDto } from './dto/create-print-station.dto';
 import { UpdatePrintStationDto } from './dto/update-print-station.dto';
 import { GenerateTokenDto } from './dto/generate-token.dto';
 import { RestaurantsService } from '../restaurants/restaurants.service';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { RequireFeature } from '../subscription/require-feature.decorator';
 
-@UseGuards(JwtAuthGuard)
+@RequireFeature(FeatureFlag.PRINTERS_THERMAL)
+@UseGuards(JwtAuthGuard, FeatureGuard)
 @Controller('print-stations')
 export class PrintStationController {
   constructor(
