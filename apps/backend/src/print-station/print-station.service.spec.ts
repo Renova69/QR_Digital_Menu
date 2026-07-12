@@ -3,6 +3,7 @@ import { PrintStationService } from './print-station.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { FeatureService } from '../subscription/feature.service';
 
 const mockPrisma = {
   printStation: {
@@ -36,6 +37,10 @@ const mockEvents = {
   disconnectAgentByTokenId: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockFeatureService = {
+  restaurantHasFeature: jest.fn().mockReturnValue(true),
+};
+
 describe('PrintStationService', () => {
   let service: PrintStationService;
 
@@ -45,10 +50,12 @@ describe('PrintStationService', () => {
         PrintStationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventsGateway, useValue: mockEvents },
+        { provide: FeatureService, useValue: mockFeatureService },
       ],
     }).compile();
     service = module.get(PrintStationService);
     jest.clearAllMocks();
+    mockFeatureService.restaurantHasFeature.mockReturnValue(true);
   });
 
   describe('create', () => {
@@ -75,6 +82,20 @@ describe('PrintStationService', () => {
   });
 
   describe('routeOrderToPrinters', () => {
+    it('does nothing when the restaurant tier lacks thermal printers', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(false);
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'order_locked',
+        restaurantId: 'r1',
+        restaurant: { tier: 'PROFESSIONAL', forceTier: null },
+        items: [{ quantity: 1, menuItem: null }],
+      });
+
+      await service.routeOrderToPrinters('order_locked');
+
+      expect(mockPrisma.printJob.create).not.toHaveBeenCalled();
+    });
+
     it('does nothing when order has no items', async () => {
       mockPrisma.order.findUnique.mockResolvedValue({
         id: 'order_empty',
@@ -182,6 +203,19 @@ describe('PrintStationService', () => {
 
       await service.routeOrderToPrinters('order789');
       expect(mockPrisma.printJob.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validateAgentToken', () => {
+    it('rejects an otherwise valid agent token after an Enterprise downgrade', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(false);
+      mockPrisma.printAgentToken.findUnique.mockResolvedValue({
+        id: 'token-1',
+        restaurant: { tier: 'PROFESSIONAL', forceTier: null },
+        printStation: { id: 'station-1', isActive: true },
+      });
+
+      await expect(service.validateAgentToken('secret')).resolves.toBeNull();
     });
   });
 

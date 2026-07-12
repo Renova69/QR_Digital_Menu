@@ -631,6 +631,23 @@ export class EventsGateway
       .emit(eventName, payload);
   }
 
+  async dispatchPaidOrder(restaurantId: string, orderId: string) {
+    const payload = { id: orderId, status: 'NEW' };
+    this.emitOrderEventToRestaurant(
+      restaurantId,
+      'orderStatusChanged',
+      payload,
+    );
+    this.emitToOrder(orderId, 'orderStatusChanged', payload);
+    try {
+      await this.printStationService.routeOrderToPrinters(orderId);
+    } catch (error) {
+      this.logger.error(
+        `Print routing failed for paid order ${orderId}: ${(error as Error).message}`,
+      );
+    }
+  }
+
   emitToTableSession(sessionId: string, eventName: string, payload: any) {
     this.server?.to(`table_session_${sessionId}`).emit(eventName, payload);
   }

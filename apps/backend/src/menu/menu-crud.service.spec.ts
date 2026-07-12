@@ -190,7 +190,9 @@ describe('MenuCrudService', () => {
       const spy = jest
         .spyOn(DateTime, 'now')
         .mockReturnValue(
-          DateTime.fromISO('2026-01-14T10:00:00.000Z') as unknown as DateTime,
+          DateTime.fromISO(
+            '2026-01-14T10:00:00.000Z',
+          ) as unknown as DateTime<true>,
         );
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
@@ -219,7 +221,9 @@ describe('MenuCrudService', () => {
       const spy = jest
         .spyOn(DateTime, 'now')
         .mockReturnValue(
-          DateTime.fromISO('2026-01-14T18:00:00.000Z') as unknown as DateTime,
+          DateTime.fromISO(
+            '2026-01-14T18:00:00.000Z',
+          ) as unknown as DateTime<true>,
         );
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
@@ -513,7 +517,9 @@ describe('MenuCrudService', () => {
       const spy = jest
         .spyOn(DateTime, 'now')
         .mockReturnValue(
-          DateTime.fromISO('2026-01-14T18:00:00.000Z') as unknown as DateTime,
+          DateTime.fromISO(
+            '2026-01-14T18:00:00.000Z',
+          ) as unknown as DateTime<true>,
         );
 
       try {
@@ -1149,7 +1155,10 @@ describe('MenuCrudService', () => {
     });
 
     it('throws BadRequestException if print station belongs to another restaurant (IDOR)', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'ENTERPRISE',
+      });
       mockPrisma.printStation.findUnique.mockResolvedValue({
         id: 'station-1',
         restaurantId: 'other-rest-id',
@@ -1164,6 +1173,26 @@ describe('MenuCrudService', () => {
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects printer assignment when the plan lacks thermal printers', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+
+      await expect(
+        service.createCategory(
+          'rest-1',
+          { name: 'Drinks', printStationId: 'station-1' } as Parameters<
+            typeof service.createCategory
+          >[1],
+          'user-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+      });
+      expect(mockPrisma.printStation.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -1231,7 +1260,10 @@ describe('MenuCrudService', () => {
 
     it('throws BadRequestException if assigned print station belongs to another restaurant (IDOR)', async () => {
       mockPrisma.menuCategory.findUnique.mockResolvedValue(makeCategory());
-      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'ENTERPRISE',
+      });
       mockPrisma.printStation.findUnique.mockResolvedValue({
         id: 'station-1',
         restaurantId: 'another-restaurant',

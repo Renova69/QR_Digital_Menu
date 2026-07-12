@@ -16,6 +16,7 @@ import { createStaff, updateRestaurant } from "../../lib/api";
 
 const mockT = vi.fn((key: string) => key);
 const mockAuthState = vi.hoisted(() => ({ role: "OWNER" }));
+const mockFeatureState = vi.hoisted(() => ({ printers: true }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: mockT }),
@@ -35,7 +36,8 @@ vi.mock("../../context/AuthContext", () => ({
 
 // Non-free tier with staff roles so the Staff tab is visible.
 vi.mock("../../hooks/useFeature", () => ({
-  useFeature: () => true,
+  useFeature: (feature: string) =>
+    feature === "printers:thermal" ? mockFeatureState.printers : true,
 
   useTier: () => ({
     tier: "PROFESSIONAL",
@@ -151,6 +153,7 @@ beforeAll(() => {
 beforeEach(() => {
   for (const k of Object.keys(store)) delete store[k];
   mockAuthState.role = "OWNER";
+  mockFeatureState.printers = true;
   vi.clearAllMocks();
   vi.mocked(updateRestaurant).mockResolvedValue({
     ...mockRestaurant,
@@ -163,6 +166,12 @@ afterAll(() => {
 });
 
 describe("SettingsView - Staff tab", () => {
+  it("hides printer settings without the Enterprise entitlement", () => {
+    mockFeatureState.printers = false;
+    render(<SettingsView />, { wrapper });
+    expect(screen.queryByText("printStations.title")).toBeNull();
+  });
+
   it("renders Shared Device Mode section after being moved to Staff tab", () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));

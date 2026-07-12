@@ -986,6 +986,18 @@ export class MenuCrudService {
     });
 
     if (sanitizedDto.printStationId) {
+      if (
+        !this.featureService.restaurantHasFeature(
+          restaurant,
+          FeatureFlag.PRINTERS_THERMAL,
+        )
+      ) {
+        throw new ForbiddenException({
+          code: 'FEATURE_LOCKED',
+          requiredFeatures: [FeatureFlag.PRINTERS_THERMAL],
+          message: 'Thermal printers are not available on this plan',
+        });
+      }
       const station = await this.prisma.printStation.findUnique({
         where: { id: sanitizedDto.printStationId },
         select: { restaurantId: true },
@@ -1079,6 +1091,18 @@ export class MenuCrudService {
         };
 
     if (sanitizedDto.printStationId) {
+      if (
+        !this.featureService.restaurantHasFeature(
+          restaurant,
+          FeatureFlag.PRINTERS_THERMAL,
+        )
+      ) {
+        throw new ForbiddenException({
+          code: 'FEATURE_LOCKED',
+          requiredFeatures: [FeatureFlag.PRINTERS_THERMAL],
+          message: 'Thermal printers are not available on this plan',
+        });
+      }
       const station = await this.prisma.printStation.findUnique({
         where: { id: sanitizedDto.printStationId },
         select: { restaurantId: true },

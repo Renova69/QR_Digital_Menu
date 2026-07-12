@@ -12,6 +12,7 @@ import { useFeature } from "../../hooks/useFeature";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { getPrintStations } from "../../lib/api";
+import { useRestaurantContext } from "../../context/RestaurantContext";
 
 interface CategorySettingsModalProps {
   category: Category;
@@ -29,6 +30,9 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
   const { t } = useTranslation();
   const { updateCategory } = useMenuContext();
   const daypartingEnabled = useFeature("dayparting");
+  const printersEnabled = useFeature("printers:thermal");
+  const { activeRestaurant } = useRestaurantContext();
+  const restaurantId = activeRestaurant?.id;
   const [availabilityType, setAvailabilityType] = useState<AvailabilityType>(
     category.availabilityType || "ALWAYS",
   );
@@ -48,8 +52,9 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
   const { data: printStations = [] } = useQuery<
     { id: string; name: string; printerIp: string }[]
   >({
-    queryKey: ["print-stations"],
-    queryFn: getPrintStations,
+    queryKey: ["print-stations", restaurantId],
+    queryFn: () => getPrintStations(restaurantId),
+    enabled: isOpen && printersEnabled && !!restaurantId,
   });
 
   const toggleDay = (day: number) => {
@@ -73,7 +78,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
         startTime: availabilityType === "SCHEDULED" ? startTime : null,
         endTime: availabilityType === "SCHEDULED" ? endTime : null,
         daysOfWeek: availabilityType === "SCHEDULED" ? daysOfWeek : [],
-        printStationId: printStationId,
+        ...(printersEnabled && { printStationId }),
         ...(imageRemoved && { imageUrl: null, thumbnailUrl: null }),
       });
 
@@ -271,7 +276,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
             </div>
           )}
 
-          {printStations.length > 0 && (
+          {printersEnabled && printStations.length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground">
                 {t("printStations.title", "Print Station")}

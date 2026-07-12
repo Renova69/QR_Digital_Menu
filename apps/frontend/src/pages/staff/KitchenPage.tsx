@@ -12,10 +12,36 @@ function elapsedMinutes(createdAt: string): number {
   return Math.floor(diff / 60000);
 }
 
-const COLUMNS: { status: OrderStatus; label: string; color: string }[] = [
-  { status: "NEW", label: "New", color: "border-t-blue-500" },
-  { status: "IN_PROGRESS", label: "In Progress", color: "border-t-amber-500" },
-  { status: "SERVED", label: "Ready", color: "border-t-emerald-500" },
+const COLUMNS: {
+  status: OrderStatus;
+  labelKey: string;
+  fallback: string;
+  color: string;
+}[] = [
+  {
+    status: "PENDING_PAYMENT",
+    labelKey: "orders.tabs.pendingPayment",
+    fallback: "Awaiting Payment",
+    color: "border-t-violet-500",
+  },
+  {
+    status: "NEW",
+    labelKey: "orders.tabs.new",
+    fallback: "New",
+    color: "border-t-blue-500",
+  },
+  {
+    status: "IN_PROGRESS",
+    labelKey: "orders.tabs.inProgress",
+    fallback: "In Progress",
+    color: "border-t-amber-500",
+  },
+  {
+    status: "SERVED",
+    labelKey: "orders.tabs.served",
+    fallback: "Ready",
+    color: "border-t-emerald-500",
+  },
 ];
 
 const HISTORY_HOURS = 24;
@@ -128,7 +154,11 @@ export default function KitchenPage() {
 
   const handleCycle = useCallback(
     async (orderId: string, current: OrderStatus) => {
-      const next: Record<OrderStatus, OrderStatus> = {
+      if (current === "PENDING_PAYMENT") return;
+      const next: Record<
+        Exclude<OrderStatus, "PENDING_PAYMENT">,
+        OrderStatus
+      > = {
         NEW: "IN_PROGRESS",
         IN_PROGRESS: "SERVED",
         SERVED: "COMPLETED",
@@ -259,7 +289,7 @@ export default function KitchenPage() {
 
       {/* Kanban columns */}
       <div
-        className="grid grid-cols-3 gap-4"
+        className="grid grid-cols-4 gap-4"
         style={{
           height: showHistory ? "calc(100vh - 22rem)" : "calc(100vh - 5rem)",
         }}
@@ -276,7 +306,7 @@ export default function KitchenPage() {
                 className={`px-4 py-3 border-t-4 ${col.color} bg-gray-900/80 backdrop-blur`}
               >
                 <span className="text-sm font-bold uppercase tracking-widest">
-                  {col.label}
+                  {t(col.labelKey, col.fallback)}
                 </span>
                 <span className="ml-2 text-xs text-gray-500">
                   ({colOrders.length})
@@ -293,8 +323,13 @@ export default function KitchenPage() {
                   return (
                     <button
                       key={order.id}
+                      disabled={order.status === "PENDING_PAYMENT"}
                       onClick={() => handleCycle(order.id, order.status)}
-                      className={`w-full text-left bg-gray-800 rounded-xl p-4 border transition-all active:scale-[0.98] hover:bg-gray-750 ${
+                      className={`w-full text-left bg-gray-800 rounded-xl p-4 border transition-all ${
+                        order.status === "PENDING_PAYMENT"
+                          ? "cursor-default opacity-80"
+                          : "active:scale-[0.98] hover:bg-gray-750"
+                      } ${
                         urgent && col.status === "NEW"
                           ? "border-red-500/50 ring-1 ring-red-500/20"
                           : "border-gray-700/50"

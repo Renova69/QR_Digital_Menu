@@ -160,6 +160,7 @@ describe('PaymentService', () => {
         // Individual tests override with explicit totals where relevant.
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       orderItem: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -3737,7 +3738,12 @@ describe('PaymentService', () => {
         table: null,
         restaurant: boricaRestaurant,
       });
-      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.order.findMany.mockImplementation(
+        (args: { where?: { status?: string } }) =>
+          args.where?.status === 'PENDING_PAYMENT'
+            ? Promise.resolve([])
+            : Promise.resolve([{ totalPrice: 20 }]),
+      );
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
       mockBoricaProvider.queryTransactionStatus!.mockResolvedValueOnce({
         verified: true,

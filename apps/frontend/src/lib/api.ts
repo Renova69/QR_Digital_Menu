@@ -1540,19 +1540,28 @@ export const getScanStats = (restaurantId: string): Promise<ScanStats> =>
 
 // ─── Print Stations ───────────────────────────────────────────────────────────
 
-export const getPrintStations = () =>
-  api.get("/print-stations").then((r) => r.data);
+export const getPrintStations = (restaurantId?: string) =>
+  api.get("/print-stations", { params: { restaurantId } }).then((r) => r.data);
 
-export const getPrintStationHealth = () =>
-  api.get("/print-stations/health").then((r) => r.data);
+export const getPrintStationHealth = (restaurantId?: string) =>
+  api
+    .get("/print-stations/health", { params: { restaurantId } })
+    .then((r) => r.data);
 
-export const createPrintStation = (data: {
-  name: string;
-  printerIp: string;
-  printerPort?: number;
-}) => api.post("/print-stations", data).then((r) => r.data);
+export const createPrintStation = (
+  restaurantId: string | undefined,
+  data: {
+    name: string;
+    printerIp: string;
+    printerPort?: number;
+  },
+) =>
+  api
+    .post("/print-stations", data, { params: { restaurantId } })
+    .then((r) => r.data);
 
 export const updatePrintStation = (
+  restaurantId: string | undefined,
   id: string,
   data: Partial<{
     name: string;
@@ -1561,18 +1570,43 @@ export const updatePrintStation = (
     isActive: boolean;
     receiptTemplate?: Record<string, unknown>;
   }>,
-) => api.patch(`/print-stations/${id}`, data).then((r) => r.data);
-
-export const deletePrintStation = (id: string) =>
-  api.delete(`/print-stations/${id}`).then((r) => r.data);
-
-export const generateAgentToken = (stationId: string, label?: string) =>
+) =>
   api
-    .post(`/print-stations/${stationId}/tokens`, { label })
+    .patch(`/print-stations/${id}`, data, { params: { restaurantId } })
     .then((r) => r.data);
 
-export const revokeAgentToken = (tokenId: string) =>
-  api.delete(`/print-stations/tokens/${tokenId}`).then((r) => r.data);
+export const deletePrintStation = (
+  restaurantId: string | undefined,
+  id: string,
+) =>
+  api
+    .delete(`/print-stations/${id}`, { params: { restaurantId } })
+    .then((r) => r.data);
+
+export const generateAgentToken = (
+  restaurantId: string | undefined,
+  stationId: string,
+  label?: string,
+) =>
+  api
+    .post(
+      `/print-stations/${stationId}/tokens`,
+      { label },
+      {
+        params: { restaurantId },
+      },
+    )
+    .then((r) => r.data);
+
+export const revokeAgentToken = (
+  restaurantId: string | undefined,
+  tokenId: string,
+) =>
+  api
+    .delete(`/print-stations/tokens/${tokenId}`, {
+      params: { restaurantId },
+    })
+    .then((r) => r.data);
 
 // ── Super-admin: tenant ops ───────────────────────────────────────────────────
 export const superAdminForceLogout = (id: string) =>

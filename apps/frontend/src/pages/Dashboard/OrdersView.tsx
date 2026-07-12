@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Check,
   ChefHat,
   ClipboardList,
   Clock,
+  CreditCard,
   Flame,
   Menu,
   Play,
@@ -17,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useOrders, OrderStatus } from "../../context/OrderContext";
 import { cn } from "../../lib/utils";
 import TableDetailModal from "../../components/tables/TableDetailModal";
+import { useFeature } from "../../hooks/useFeature";
 
 type OrdersContextValue = ReturnType<typeof useOrders>;
 type DashboardOrder = OrdersContextValue["orders"][number];
@@ -29,6 +31,13 @@ const ORDER_STATUSES: Array<{
   Icon: typeof Bell;
   tone: string;
 }> = [
+  {
+    status: "PENDING_PAYMENT",
+    labelKey: "orders.tabs.pendingPayment",
+    fallback: "Awaiting payment",
+    Icon: CreditCard,
+    tone: "text-amber-600",
+  },
   {
     status: "NEW",
     labelKey: "orders.tabs.new",
@@ -67,6 +76,7 @@ const ORDER_STATUSES: Array<{
 ];
 
 const statusAccent: Record<OrderStatus, string> = {
+  PENDING_PAYMENT: "before:bg-amber-500",
   NEW: "before:bg-blue-500",
   IN_PROGRESS: "before:bg-orange-500",
   SERVED: "before:bg-slate-500",
@@ -215,6 +225,7 @@ function getPaymentLabel(value: string | null | undefined, t: any) {
 const OrdersView = () => {
   const { t, i18n } = useTranslation();
   const { orders, updateOrderStatus, batchUpdateOrderStatus } = useOrders();
+  const canAcceptOnlinePayments = useFeature("payments:stripe");
   const [activeTab, setActiveTab] = useState<OrderStatus>("NEW");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(
@@ -228,6 +239,7 @@ const OrdersView = () => {
         return acc;
       },
       {
+        PENDING_PAYMENT: 0,
         NEW: 0,
         IN_PROGRESS: 0,
         SERVED: 0,
@@ -236,6 +248,23 @@ const OrdersView = () => {
       },
     );
   }, [orders]);
+
+  const visibleOrderStatuses = useMemo(
+    () =>
+      ORDER_STATUSES.filter(
+        ({ status }) =>
+          status !== "PENDING_PAYMENT" ||
+          canAcceptOnlinePayments ||
+          counts.PENDING_PAYMENT > 0,
+      ),
+    [canAcceptOnlinePayments, counts.PENDING_PAYMENT],
+  );
+
+  useEffect(() => {
+    if (!visibleOrderStatuses.some(({ status }) => status === activeTab)) {
+      setActiveTab("NEW");
+    }
+  }, [activeTab, visibleOrderStatuses]);
 
   const filteredOrders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -394,37 +423,39 @@ const OrdersView = () => {
 
       <div className="mb-8">
         <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
-          {ORDER_STATUSES.map(({ status, labelKey, fallback, Icon, tone }) => {
-            const isActive = activeTab === status;
-            return (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setActiveTab(status)}
-                className={cn(
-                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
-                  isActive
-                    ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <Icon
-                  className={cn("h-4 w-4", isActive ? "text-white" : tone)}
-                />
-                <span>{t(labelKey, fallback)}</span>
-                <span
+          {visibleOrderStatuses.map(
+            ({ status, labelKey, fallback, Icon, tone }) => {
+              const isActive = activeTab === status;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setActiveTab(status)}
                   className={cn(
-                    "flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black",
+                    "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
                     isActive
-                      ? "bg-white/20 text-white"
-                      : "bg-muted text-muted-foreground",
+                      ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  {counts[status]}
-                </span>
-              </button>
-            );
-          })}
+                  <Icon
+                    className={cn("h-4 w-4", isActive ? "text-white" : tone)}
+                  />
+                  <span>{t(labelKey, fallback)}</span>
+                  <span
+                    className={cn(
+                      "flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black",
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {counts[status]}
+                  </span>
+                </button>
+              );
+            },
+          )}
         </div>
       </div>
 

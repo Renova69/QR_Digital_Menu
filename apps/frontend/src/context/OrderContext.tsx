@@ -18,6 +18,7 @@ import { useRestaurantContext } from "./RestaurantContext";
 
 // Define order status types
 export type OrderStatus =
+  | "PENDING_PAYMENT"
   | "NEW"
   | "IN_PROGRESS"
   | "SERVED"

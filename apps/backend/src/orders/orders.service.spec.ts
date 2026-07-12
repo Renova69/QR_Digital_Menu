@@ -113,6 +113,7 @@ describe('OrdersService', () => {
   let prisma: any;
   let events: any;
   let featureService: any;
+  let printStationService: any;
 
   const twoItems = [
     makeMenuItem({ id: 'item-1', price: 10 }),
@@ -186,18 +187,17 @@ describe('OrdersService', () => {
       }),
     };
 
+    printStationService = {
+      routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: prisma },
         { provide: EventsGateway, useValue: events },
         { provide: FeatureService, useValue: featureService },
-        {
-          provide: PrintStationService,
-          useValue: {
-            routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
-          },
-        },
+        { provide: PrintStationService, useValue: printStationService },
       ],
     }).compile();
 
@@ -798,6 +798,43 @@ describe('OrdersService', () => {
           paymentPreference: 'PAY_ON_DELIVERY',
         }),
       );
+    });
+
+    it('publishes an online service-point order immediately but withholds printing until payment succeeds', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-cuid-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        isActive: true,
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['ONLINE'],
+      });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create({
+        customerName: 'Guest',
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        servicePointToken: 'sp-token',
+        fulfillmentType: 'ROOM_DELIVERY',
+        paymentPreference: 'ONLINE',
+      } as CreateOrderDto);
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PENDING_PAYMENT' }),
+        }),
+      );
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'newOrder',
+        expect.anything(),
+      );
+      expect(printStationService.routeOrderToPrinters).not.toHaveBeenCalled();
     });
 
     it('rejects a service-point order when the restaurant plan does not include service points', async () => {
@@ -1671,8 +1708,30 @@ describe('OrdersService', () => {
       await service.findAll('staff-1', { page: 1, limit: 10 });
 
       expect(prisma.order.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { restaurantId: 'rest-1' } }),
+        expect.objectContaining({
+          where: { restaurantId: 'rest-1' },
+        }),
       );
+    });
+
+    it('includes pending online orders in the default operational order feed', async () => {
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      prisma.order.findMany.mockResolvedValue([
+        makeOrder({ status: 'PENDING_PAYMENT' }),
+      ]);
+      prisma.order.count.mockResolvedValue(1);
+
+      const result = await service.findAll('staff-1', { page: 1, limit: 10 });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { restaurantId: 'rest-1' },
+        }),
+      );
+      expect(prisma.order.count).toHaveBeenCalledWith({
+        where: { restaurantId: 'rest-1' },
+      });
+      expect(result.data[0].status).toBe('PENDING_PAYMENT');
     });
 
     it('uses default page=1 and limit=50 for NaN pagination', async () => {
@@ -1912,6 +1971,22 @@ describe('OrdersService', () => {
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('prevents staff from bypassing payment by releasing a pending order', async () => {
+      prisma.order.findUnique.mockResolvedValue(
+        makeOrder({ status: 'PENDING_PAYMENT' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'NEW' } as UpdateOrderDto,
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
     });
 
     // F-ORDER-1: CANCELED is terminal — closes the CANCELED -> X -> CANCELED

@@ -49,6 +49,7 @@ describe('EventsGateway — room authorization', () => {
       touchLastSeen: jest.fn(),
       retryPendingJobs: jest.fn().mockResolvedValue(undefined),
       handlePrintAck: jest.fn(),
+      routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
     };
     mockFeatureService = {
       restaurantHasFeature: jest.fn().mockReturnValue(true),
@@ -638,6 +639,26 @@ describe('EventsGateway — room authorization', () => {
       expect(mockJwt.sign).toHaveBeenCalledWith(
         { scope: 'order-track', orderId: 'order-9' },
         expect.objectContaining({ expiresIn: expect.any(String) }),
+      );
+    });
+  });
+
+  describe('dispatchPaidOrder', () => {
+    it('notifies the restaurant of the status change and routes the paid order to printers', async () => {
+      const emit = jest.fn();
+      const to = jest.fn().mockReturnValue({ emit });
+      gateway['server'] = { to } as unknown as import('socket.io').Server;
+
+      await gateway.dispatchPaidOrder('rest-1', 'order-1');
+
+      expect(to).toHaveBeenCalledWith('restaurant_orders_rest-1');
+      expect(to).toHaveBeenCalledWith('order_order-1');
+      expect(emit).toHaveBeenCalledWith('orderStatusChanged', {
+        id: 'order-1',
+        status: 'NEW',
+      });
+      expect(mockPrintStationService.routeOrderToPrinters).toHaveBeenCalledWith(
+        'order-1',
       );
     });
   });

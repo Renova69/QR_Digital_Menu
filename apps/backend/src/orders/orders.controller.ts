@@ -41,16 +41,18 @@ export class OrdersController {
     return this.ordersService.findAll(req.user.id, query);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: any) {
+  @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @Get(':orderId')
+  findOne(@Param('orderId') id: string, @Request() req: any) {
     return this.ordersService.findOne(id, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id/status')
+  @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @Patch(':orderId/status')
   update(
-    @Param('id') id: string,
+    @Param('orderId') id: string,
     @Body() updateOrderDto: UpdateOrderDto,
     @Request() req: any,
   ) {

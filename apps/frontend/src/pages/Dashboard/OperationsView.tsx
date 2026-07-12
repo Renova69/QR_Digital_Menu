@@ -25,7 +25,9 @@ const OperationsView = ({ activeRestaurant }: OperationsViewProps) => {
   const { requests } = useAssistance();
   const { t } = useTranslation();
 
-  const newOrdersCount = orders.filter((o) => o.status === "NEW").length;
+  const newOrdersCount = orders.filter(
+    (o) => o.status === "NEW" || o.status === "PENDING_PAYMENT",
+  ).length;
   const unresolvedRequestsCount = requests.filter((r) => !r.isResolved).length;
 
   const getBadge = (id: SubTabId) => {
