@@ -2,10 +2,9 @@ import { WeatherUpsellService } from './weather-upsell.service';
 
 describe('WeatherUpsellService', () => {
   const originalNodeEnv = process.env.NODE_ENV;
-  const originalApiKey = process.env.OPEN_METEO_API_KEY;
+  const originalApiKey = process.env.WEATHERAPI_API_KEY;
   const originalEnabled = process.env.WEATHER_UPSELL_ENABLED;
-  const originalWeatherBase = process.env.WEATHER_API_BASE_URL;
-  const originalGeocodingBase = process.env.WEATHER_GEOCODING_BASE_URL;
+  const originalWeatherBase = process.env.WEATHERAPI_BASE_URL;
 
   const restoreEnv = (key: string, value: string | undefined) => {
     if (value === undefined) delete process.env[key];
@@ -14,44 +13,32 @@ describe('WeatherUpsellService', () => {
 
   beforeEach(() => {
     process.env.NODE_ENV = 'test';
-    delete process.env.OPEN_METEO_API_KEY;
+    process.env.WEATHERAPI_API_KEY = 'test-key';
     process.env.WEATHER_UPSELL_ENABLED = 'true';
-    delete process.env.WEATHER_API_BASE_URL;
-    delete process.env.WEATHER_GEOCODING_BASE_URL;
+    delete process.env.WEATHERAPI_BASE_URL;
     jest.restoreAllMocks();
   });
 
   afterAll(() => {
     restoreEnv('NODE_ENV', originalNodeEnv);
-    restoreEnv('OPEN_METEO_API_KEY', originalApiKey);
+    restoreEnv('WEATHERAPI_API_KEY', originalApiKey);
     restoreEnv('WEATHER_UPSELL_ENABLED', originalEnabled);
-    restoreEnv('WEATHER_API_BASE_URL', originalWeatherBase);
-    restoreEnv('WEATHER_GEOCODING_BASE_URL', originalGeocodingBase);
+    restoreEnv('WEATHERAPI_BASE_URL', originalWeatherBase);
   });
 
-  it('geocodes the restaurant, maps current weather, and caches the result', async () => {
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            results: [{ latitude: 42.6977, longitude: 23.3219 }],
-          }),
-          { status: 200 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            current: {
-              temperature_2m: 7,
-              precipitation: 0.3,
-              weather_code: 61,
-            },
-          }),
-          { status: 200 },
-        ),
-      );
+  it('maps WeatherAPI.com current conditions and caches the result', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          current: {
+            temp_c: 7,
+            precip_mm: 0,
+            condition: { code: 1183 },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
     const service = new WeatherUpsellService();
 
     await expect(
@@ -61,44 +48,35 @@ describe('WeatherUpsellService', () => {
       service.getContexts({ city: 'Sofia', country: 'Bulgaria' }),
     ).resolves.toEqual(new Set(['COLD', 'RAINY']));
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      'geocoding-api.open-meteo.com/v1/search',
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(`${requestUrl.origin}${requestUrl.pathname}`).toBe(
+      'https://api.weatherapi.com/v1/current.json',
     );
-    expect(String(fetchMock.mock.calls[1][0])).toContain(
-      'api.open-meteo.com/v1/forecast',
-    );
+    expect(requestUrl.searchParams.get('key')).toBe('test-key');
+    expect(requestUrl.searchParams.get('q')).toBe('Sofia, Bulgaria');
+    expect(requestUrl.searchParams.get('aqi')).toBe('no');
   });
 
   it('deduplicates concurrent cache misses for the same location', async () => {
-    let resolveGeocode: ((response: Response) => void) | undefined;
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockReturnValueOnce(
-        new Promise<Response>((resolve) => {
-          resolveGeocode = resolve;
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            current: {
-              temperature_2m: 28,
-              precipitation: 0,
-              weather_code: 1,
-            },
-          }),
-          { status: 200 },
-        ),
-      );
+    let resolveWeather: ((response: Response) => void) | undefined;
+    const fetchMock = jest.spyOn(global, 'fetch').mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        resolveWeather = resolve;
+      }),
+    );
     const service = new WeatherUpsellService();
 
     const first = service.getContexts({ city: 'Varna', country: 'Bulgaria' });
     const second = service.getContexts({ city: 'Varna', country: 'Bulgaria' });
-    resolveGeocode!(
+    resolveWeather!(
       new Response(
         JSON.stringify({
-          results: [{ latitude: 43.2141, longitude: 27.9147 }],
+          current: {
+            temp_c: 28,
+            precip_mm: 0,
+            condition: { code: 1000 },
+          },
         }),
         { status: 200 },
       ),
@@ -108,7 +86,7 @@ describe('WeatherUpsellService', () => {
       new Set(['HOT']),
       new Set(['HOT']),
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to no weather context when the provider fails', async () => {
@@ -122,6 +100,7 @@ describe('WeatherUpsellService', () => {
 
   it('does not call the public free endpoint in production without a key', async () => {
     process.env.NODE_ENV = 'production';
+    delete process.env.WEATHERAPI_API_KEY;
     const fetchMock = jest.spyOn(global, 'fetch');
     const service = new WeatherUpsellService();
 
@@ -142,15 +121,27 @@ describe('WeatherUpsellService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('requires both custom provider URLs in production', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.WEATHER_API_BASE_URL = 'https://weather.internal.example';
-    const fetchMock = jest.spyOn(global, 'fetch');
+  it('supports a WeatherAPI-compatible base URL override', async () => {
+    process.env.WEATHERAPI_BASE_URL = 'https://weather.internal.example';
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          current: {
+            temp_c: 18,
+            precip_mm: 0,
+            condition: { code: 1000 },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
     const service = new WeatherUpsellService();
 
     await expect(
       service.getContexts({ city: 'Sofia', country: 'Bulgaria' }),
     ).resolves.toEqual(new Set());
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      'weather.internal.example/v1/current.json',
+    );
   });
 });
