@@ -198,6 +198,17 @@ export default function Footer({
           </div>
         )}
       </div>
+      <p className="mt-3 text-center text-xs text-muted-foreground/70">
+        Weather data by{" "}
+        <a
+          href="https://www.weatherapi.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-2 hover:underline"
+        >
+          WeatherAPI.com
+        </a>
+      </p>
     </footer>
   );
 }

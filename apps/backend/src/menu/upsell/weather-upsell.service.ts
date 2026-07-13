@@ -6,11 +6,6 @@ type RestaurantLocation = {
   country?: string | null;
 };
 
-type Coordinates = {
-  latitude: number;
-  longitude: number;
-};
-
 type ContextCacheEntry = {
   contexts: UpsellContext[];
   freshUntil: number;
@@ -18,18 +13,17 @@ type ContextCacheEntry = {
 };
 
 const WEATHER_CACHE_MS = 20 * 60 * 1000;
-const WEATHER_STALE_MS = 2 * 60 * 60 * 1000;
+const WEATHER_STALE_MS = 55 * 60 * 1000;
 const WEATHER_FAILURE_CACHE_MS = 5 * 60 * 1000;
-const GEOCODE_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
+const WEATHERAPI_RAIN_CODES = new Set([
+  1063, 1069, 1072, 1087, 1150, 1153, 1168, 1171, 1180, 1183, 1186, 1189, 1192,
+  1195, 1198, 1201, 1204, 1207, 1240, 1243, 1246, 1249, 1252, 1273, 1276,
+]);
 
 @Injectable()
 export class WeatherUpsellService {
   private readonly logger = new Logger(WeatherUpsellService.name);
   private readonly contextCache = new Map<string, ContextCacheEntry>();
-  private readonly geocodeCache = new Map<
-    string,
-    { coordinates: Coordinates; expiresAt: number }
-  >();
   private readonly inFlight = new Map<string, Promise<Set<UpsellContext>>>();
 
   async getContexts(location: RestaurantLocation): Promise<Set<UpsellContext>> {
@@ -57,7 +51,7 @@ export class WeatherUpsellService {
     const current = this.inFlight.get(key);
     if (current) return current;
 
-    const request = this.fetchContexts(key, location)
+    const request = this.fetchContexts(location)
       .then((contexts) => {
         const now = Date.now();
         this.contextCache.set(key, {
@@ -93,7 +87,6 @@ export class WeatherUpsellService {
   }
 
   private async fetchContexts(
-    key: string,
     location: RestaurantLocation,
   ): Promise<Set<UpsellContext>> {
     const controller = new AbortController();
@@ -103,35 +96,31 @@ export class WeatherUpsellService {
     );
 
     try {
-      const coordinates = await this.getCoordinates(
-        key,
-        location,
-        controller.signal,
-      );
-      const url = new URL('/v1/forecast', this.forecastBaseUrl());
-      url.searchParams.set('latitude', String(coordinates.latitude));
-      url.searchParams.set('longitude', String(coordinates.longitude));
+      const apiKey = this.apiKey();
+      if (!apiKey) throw new Error('WeatherAPI.com API key is not configured');
+
+      const url = new URL('/v1/current.json', this.baseUrl());
+      url.searchParams.set('key', apiKey);
       url.searchParams.set(
-        'current',
-        'temperature_2m,precipitation,weather_code',
+        'q',
+        [location.city, location.country].filter(Boolean).join(', '),
       );
-      url.searchParams.set('forecast_days', '1');
-      this.appendApiKey(url);
+      url.searchParams.set('aqi', 'no');
 
       const payload = (await this.fetchJson(url, controller.signal)) as {
         current?: {
-          temperature_2m?: unknown;
-          precipitation?: unknown;
-          weather_code?: unknown;
+          temp_c?: unknown;
+          precip_mm?: unknown;
+          condition?: { code?: unknown };
         };
       };
-      const temperatureC = Number(payload.current?.temperature_2m);
-      const precipitationMm = Number(payload.current?.precipitation);
-      const weatherCode = Number(payload.current?.weather_code);
+      const temperatureC = Number(payload.current?.temp_c);
+      const precipitationMm = Number(payload.current?.precip_mm);
+      const conditionCode = Number(payload.current?.condition?.code);
       if (
         !Number.isFinite(temperatureC) ||
         !Number.isFinite(precipitationMm) ||
-        !Number.isFinite(weatherCode)
+        !Number.isFinite(conditionCode)
       ) {
         throw new Error('Weather provider returned incomplete current data');
       }
@@ -139,46 +128,11 @@ export class WeatherUpsellService {
       return weatherConditionsToContexts({
         temperatureC,
         precipitationMm,
-        weatherCode,
+        weatherCode: WEATHERAPI_RAIN_CODES.has(conditionCode) ? 61 : 0,
       });
     } finally {
       clearTimeout(timeout);
     }
-  }
-
-  private async getCoordinates(
-    key: string,
-    location: RestaurantLocation,
-    signal: AbortSignal,
-  ): Promise<Coordinates> {
-    const cached = this.geocodeCache.get(key);
-    if (cached && cached.expiresAt > Date.now()) return cached.coordinates;
-
-    const url = new URL('/v1/search', this.geocodingBaseUrl());
-    url.searchParams.set(
-      'name',
-      [location.city, location.country].filter(Boolean).join(', '),
-    );
-    url.searchParams.set('count', '1');
-    url.searchParams.set('language', 'en');
-    url.searchParams.set('format', 'json');
-    this.appendApiKey(url);
-
-    const payload = (await this.fetchJson(url, signal)) as {
-      results?: Array<{ latitude?: unknown; longitude?: unknown }>;
-    };
-    const latitude = Number(payload.results?.[0]?.latitude);
-    const longitude = Number(payload.results?.[0]?.longitude);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      throw new Error('Restaurant location could not be geocoded');
-    }
-
-    const coordinates = { latitude, longitude };
-    this.geocodeCache.set(key, {
-      coordinates,
-      expiresAt: Date.now() + GEOCODE_CACHE_MS,
-    });
-    return coordinates;
   }
 
   private async fetchJson(url: URL, signal: AbortSignal): Promise<unknown> {
@@ -207,43 +161,17 @@ export class WeatherUpsellService {
     ) {
       return false;
     }
-    const hasCommercialKey = Boolean(process.env.OPEN_METEO_API_KEY);
-    const hasCustomProvider = Boolean(
-      process.env.WEATHER_API_BASE_URL &&
-      process.env.WEATHER_GEOCODING_BASE_URL,
-    );
+    return Boolean(this.apiKey());
+  }
+
+  private apiKey(): string | null {
+    return process.env.WEATHERAPI_API_KEY?.trim() || null;
+  }
+
+  private baseUrl(): string {
     return (
-      process.env.NODE_ENV !== 'production' ||
-      hasCommercialKey ||
-      hasCustomProvider
+      process.env.WEATHERAPI_BASE_URL?.trim() || 'https://api.weatherapi.com'
     );
-  }
-
-  private forecastBaseUrl(): string {
-    if (process.env.WEATHER_API_BASE_URL) {
-      return process.env.WEATHER_API_BASE_URL;
-    }
-    return process.env.OPEN_METEO_API_KEY
-      ? 'https://customer-api.open-meteo.com'
-      : 'https://api.open-meteo.com';
-  }
-
-  private geocodingBaseUrl(): string {
-    if (process.env.WEATHER_GEOCODING_BASE_URL) {
-      return process.env.WEATHER_GEOCODING_BASE_URL;
-    }
-    return process.env.OPEN_METEO_API_KEY
-      ? 'https://customer-geocoding-api.open-meteo.com'
-      : 'https://geocoding-api.open-meteo.com';
-  }
-
-  private appendApiKey(url: URL): void {
-    if (
-      process.env.OPEN_METEO_API_KEY &&
-      url.hostname.endsWith('open-meteo.com')
-    ) {
-      url.searchParams.set('apikey', process.env.OPEN_METEO_API_KEY);
-    }
   }
 
   private requestTimeoutMs(): number {
