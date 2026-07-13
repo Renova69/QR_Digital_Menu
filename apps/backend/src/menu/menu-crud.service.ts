@@ -34,6 +34,7 @@ import {
   UpsellContext,
 } from './upsell/upsell-context';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
+import { withEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -130,6 +131,7 @@ export class MenuCrudService {
         forceTier: true,
         targetLanguages: true,
         dashboardLanguage: true,
+        loyaltyRedeemRate: true,
         isActive: true,
         deletedAt: true,
       },
@@ -145,6 +147,39 @@ export class MenuCrudService {
       tier: restaurant.forceTier ?? restaurant.tier ?? 'FREE',
       timezone: restaurant.timezone || 'Europe/Sofia',
     };
+  }
+
+  private normalizeRewardPricingInput<
+    T extends {
+      rewardPointsMode?: 'OFF' | 'AUTO' | 'CUSTOM';
+      rewardPointsPrice?: number | null;
+    },
+  >(
+    input: T,
+    current?: {
+      rewardPointsMode?: 'OFF' | 'AUTO' | 'CUSTOM' | null;
+      rewardPointsPrice?: number | null;
+    },
+  ): T & { rewardPointsMode?: 'OFF' | 'AUTO' | 'CUSTOM' } {
+    const hasMode = input.rewardPointsMode !== undefined;
+    const hasPrice = input.rewardPointsPrice !== undefined;
+    if (!hasMode && !hasPrice) return input;
+
+    const mode =
+      input.rewardPointsMode ??
+      (input.rewardPointsPrice === null ? 'OFF' : 'CUSTOM');
+    const customPrice = input.rewardPointsPrice ?? current?.rewardPointsPrice;
+
+    if (
+      mode === 'CUSTOM' &&
+      (!Number.isInteger(customPrice) || (customPrice ?? 0) < 1)
+    ) {
+      throw new BadRequestException(
+        'A custom loyalty reward requires a positive points price',
+      );
+    }
+
+    return { ...input, rewardPointsMode: mode };
   }
 
   /** True when another menu row (item OR category) still points at this exact
@@ -328,6 +363,7 @@ export class MenuCrudService {
         youtubeUrl: true,
         address: true,
         contactInfo: true,
+        loyaltyRedeemRate: true,
         isActive: true,
         deletedAt: true,
       } as any,
@@ -342,7 +378,9 @@ export class MenuCrudService {
 
     const restaurantClone = { ...restaurant } as any;
     restaurantClone.tier = restaurantClone.forceTier ?? restaurantClone.tier;
+    const loyaltyRedeemRate = restaurantClone.loyaltyRedeemRate ?? 150;
     delete restaurantClone.forceTier;
+    delete restaurantClone.loyaltyRedeemRate;
 
     const allCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },
@@ -389,9 +427,18 @@ export class MenuCrudService {
       restaurantClone.tier ?? 'FREE',
     );
 
+    const categoriesWithRewardPrices = filteredCategories.map(
+      (category: any) => ({
+        ...category,
+        items: (category.items ?? []).map((item: any) =>
+          withEffectiveRewardPointsPrice(item, loyaltyRedeemRate),
+        ),
+      }),
+    );
+
     return {
       restaurant: this.applyBrandingEntitlement(restaurantClone),
-      categories: filteredCategories,
+      categories: categoriesWithRewardPrices,
     };
   }
 
@@ -562,10 +609,20 @@ export class MenuCrudService {
         [fakeCategory as any],
         requestedLang,
       );
-      return fakeCategory.items;
+      return fakeCategory.items.map((item: any) =>
+        withEffectiveRewardPointsPrice(
+          item,
+          restaurant.loyaltyRedeemRate ?? 150,
+        ),
+      );
     }
 
-    return items;
+    return items.map((item: any) =>
+      withEffectiveRewardPointsPrice(
+        item,
+        restaurant.loyaltyRedeemRate ?? 150,
+      ),
+    );
   }
 
   /** Returns items (with options + translation) for ALL currently-visible
@@ -609,7 +666,14 @@ export class MenuCrudService {
 
     const itemsByCategory: Record<string, any[]> = {};
     for (const category of filtered) {
-      itemsByCategory[(category as any).id] = (category as any).items ?? [];
+      itemsByCategory[(category as any).id] = (
+        (category as any).items ?? []
+      ).map((item: any) =>
+        withEffectiveRewardPointsPrice(
+          item,
+          restaurant.loyaltyRedeemRate ?? 150,
+        ),
+      );
     }
     return itemsByCategory;
   }
@@ -679,6 +743,7 @@ export class MenuCrudService {
         timezone: true,
         city: true,
         country: true,
+        loyaltyRedeemRate: true,
       },
     });
 
@@ -725,7 +790,7 @@ export class MenuCrudService {
       return this.applyTrendingTranslations(scoredItems, restaurant, lang);
     }
 
-    const cacheKey = `${restaurantId}:${lang || 'default'}:${this.getActiveUpsellContextKey(activeContexts)}`;
+    const cacheKey = `${restaurantId}:${lang || 'default'}:${restaurant.loyaltyRedeemRate ?? 150}:${this.getActiveUpsellContextKey(activeContexts)}`;
     const cached = this.autoTrendingCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
@@ -846,6 +911,7 @@ export class MenuCrudService {
       forceTier?: string | null;
       targetLanguages?: string[] | null;
       dashboardLanguage?: string | null;
+      loyaltyRedeemRate?: number | null;
     },
     lang?: string,
   ): Promise<Partial<MenuItem>[]> {
@@ -875,7 +941,12 @@ export class MenuCrudService {
         requestedLang,
       );
     }
-    return items;
+    return items.map((item) =>
+      withEffectiveRewardPointsPrice(
+        item,
+        restaurant.loyaltyRedeemRate ?? 150,
+      ),
+    );
   }
 
   /**
@@ -1292,11 +1363,12 @@ export class MenuCrudService {
     );
 
     const count = await this.prisma.menuItem.count({ where: { categoryId } });
+    const normalizedDto = this.normalizeRewardPricingInput(createItemDto);
     const data: Prisma.MenuItemUncheckedCreateInput = {
-      ...createItemDto,
+      ...normalizedDto,
       categoryId,
       order: count,
-    };
+    } as Prisma.MenuItemUncheckedCreateInput;
     const item = await this.prisma.menuItem.create({ data });
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
@@ -1398,6 +1470,8 @@ export class MenuCrudService {
         imageUrl: true,
         thumbnailUrl: true,
         isOutOfStock: true,
+        rewardPointsMode: true,
+        rewardPointsPrice: true,
       },
     });
 
@@ -1409,9 +1483,16 @@ export class MenuCrudService {
       userId,
     );
 
+    const normalizedDto = this.normalizeRewardPricingInput(
+      updateItemDto,
+      item as typeof item & {
+        rewardPointsMode?: 'OFF' | 'AUTO' | 'CUSTOM' | null;
+        rewardPointsPrice?: number | null;
+      },
+    );
     const updated = await this.prisma.menuItem.update({
       where: { id: itemId },
-      data: updateItemDto,
+      data: normalizedDto as Prisma.MenuItemUpdateInput,
     });
 
     if (

@@ -260,8 +260,8 @@ const CheckoutPage = () => {
   // Fix H-6 — this is an APPROXIMATE client-side preview only. The backend
   // recalculates and caps the loyalty discount from DB prices and DB points.
   // The frontend never sends a discount amount.
-  // Fix H-10 — cart total comes from CartContext.getTotal, excluding
-  // fully-redeemed entries by cartId (no duplicated local calculation).
+  // Fix H-10 — CartContext removes redeemed base prices while retaining paid
+  // modifiers, matching the server-authoritative order calculation.
   const getEstimatedDiscountPoints = () => {
     if (!usePoints) return 0;
     const availablePoints = getAvailableLoyaltyPoints();
@@ -863,9 +863,29 @@ const CheckoutPage = () => {
                   )}
                 </div>
                 <p className="font-bold text-lg text-foreground">
-                  {redeemedCartIds.has(item.cartId)
-                    ? t("checkout.free")
-                    : formatInlineDual(item.price * item.quantity, "EUR")}
+                  {redeemedCartIds.has(item.cartId) ? (
+                    <>
+                      {t("checkout.free")}
+                      {item.selectedOptions.reduce(
+                        (sum, option) => sum + (option.priceModifier || 0),
+                        0,
+                      ) > 0 && (
+                        <span className="block text-xs text-muted-foreground text-right">
+                          +
+                          {formatInlineDual(
+                            item.selectedOptions.reduce(
+                              (sum, option) =>
+                                sum + (option.priceModifier || 0),
+                              0,
+                            ) * item.quantity,
+                            "EUR",
+                          )}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    formatInlineDual(item.price * item.quantity, "EUR")
+                  )}
                 </p>
               </li>
             ))}

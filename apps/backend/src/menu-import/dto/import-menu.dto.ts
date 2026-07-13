@@ -12,8 +12,13 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  REWARD_POINTS_MODES,
+  RewardPointsModeValue,
+} from '../../loyalty/reward-pricing';
 
 export class ImportChoiceDto {
   @IsString()
@@ -118,9 +123,13 @@ export class ImportItemDto {
   isFeatured?: boolean;
 
   @IsInt()
-  @Min(0)
+  @Min(1)
   @IsOptional()
   rewardPointsPrice?: number;
+
+  @IsIn(REWARD_POINTS_MODES)
+  @IsOptional()
+  rewardPointsMode?: RewardPointsModeValue;
 
   @IsArray()
   @ArrayMaxSize(20)

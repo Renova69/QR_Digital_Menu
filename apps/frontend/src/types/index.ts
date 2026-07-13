@@ -51,6 +51,8 @@ export interface MenuOption {
   translations?: MenuTranslationMap | null;
 }
 
+export type RewardPointsMode = "OFF" | "AUTO" | "CUSTOM";
+
 export interface Item {
   id: string;
   name: string;
@@ -68,7 +70,8 @@ export interface Item {
   upsellContexts?: import("../lib/upsellContexts").UpsellContext[];
   isFeatured?: boolean;
   isOutOfStock?: boolean;
-  rewardPointsPrice?: number;
+  rewardPointsMode?: RewardPointsMode;
+  rewardPointsPrice?: number | null;
   costPrice?: number;
   relatedItemIds?: string[];
   options?: MenuOption[];

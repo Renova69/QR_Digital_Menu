@@ -34,6 +34,7 @@ import {
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
+import { getEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
 import { PrintStationService } from '../print-station/print-station.service';
 import {
   type FulfillmentMode,
@@ -611,7 +612,12 @@ export class OrdersService {
       >();
       createOrderDto.items.forEach((ci, idx) => {
         const dbItem = itemsMap.get(ci.menuItemId);
-        if (!dbItem?.rewardPointsPrice) return;
+        if (!dbItem) return;
+        const rewardPointsPrice = getEffectiveRewardPointsPrice(
+          dbItem,
+          restaurant.loyaltyRedeemRate || 150,
+        );
+        if (!rewardPointsPrice) return;
         if (!(redeemCounts.get(ci.menuItemId) ?? 0)) return;
         const list = candidatesByMenuId.get(ci.menuItemId) ?? [];
         list.push({ index: idx, price: dbItem.price });
@@ -635,6 +641,10 @@ export class OrdersService {
         );
       }
       let itemPrice = dbItem.price;
+      const rewardPointsPrice = getEffectiveRewardPointsPrice(
+        dbItem,
+        restaurant.loyaltyRedeemRate || 150,
+      );
 
       let isRedeemedFree: boolean;
       if (redeemCartIdSet) {
@@ -642,20 +652,20 @@ export class OrdersService {
         isRedeemedFree = !!(
           item.cartId &&
           redeemCartIdSet.has(item.cartId) &&
-          dbItem.rewardPointsPrice
+          rewardPointsPrice
         );
       } else {
         // Issue 34: Legacy fallback uses pre-computed cheapest-item set.
         isRedeemedFree =
-          compedItemIndices.has(itemIdx) && !!dbItem.rewardPointsPrice;
+          compedItemIndices.has(itemIdx) && !!rewardPointsPrice;
       }
 
       if (isRedeemedFree) {
-        itemsPointsRedeemed += (dbItem.rewardPointsPrice ?? 0) * item.quantity;
+        itemsPointsRedeemed += (rewardPointsPrice ?? 0) * item.quantity;
         itemPrice = 0;
       }
 
-      // Options on redeemed items are also free (item is fully comped)
+      // A reward covers the base menu item; paid modifiers remain chargeable.
       let optionsTotal = 0;
 
       const itemOptions = optionsMap.get(item.menuItemId) || [];
@@ -767,9 +777,7 @@ export class OrdersService {
             priceModifier: choice.priceModifier || 0,
           });
 
-          if (!isRedeemedFree) {
-            optionsTotal += choice.priceModifier || 0;
-          }
+          optionsTotal += choice.priceModifier || 0;
         }
       }
 

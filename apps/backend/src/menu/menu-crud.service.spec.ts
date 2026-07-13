@@ -75,6 +75,7 @@ const BASE_RESTAURANT = {
   defaultTheme: 'light',
   tier: 'FREE',
   trendingMode: 'OFF',
+  loyaltyRedeemRate: 150,
 };
 
 const makeCategory = (overrides: object = {}) => ({
@@ -108,6 +109,8 @@ const makeItem = (overrides: object = {}) => ({
   allergens: [],
   dietaryTags: [],
   relatedItemIds: [],
+  rewardPointsMode: 'OFF',
+  rewardPointsPrice: null,
   category: { restaurantId: 'rest-1' },
   options: [],
   ...overrides,
@@ -162,6 +165,29 @@ describe('MenuCrudService', () => {
 
       expect(result).toHaveProperty('restaurant');
       expect(result).toHaveProperty('categories');
+    });
+
+    it('calculates automatic reward prices in the full public menu', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        loyaltyRedeemRate: 100,
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        makeCategory({
+          items: [
+            makeItem({
+              price: 9.9,
+              rewardPointsMode: 'AUTO',
+              rewardPointsPrice: null,
+            }),
+          ],
+        }),
+      ]);
+
+      const result = await service.getPublicMenu('rest-1');
+
+      expect(result.categories[0].items[0].rewardPointsPrice).toBe(990);
+      expect(result.restaurant).not.toHaveProperty('loyaltyRedeemRate');
     });
 
     it('fetches restaurant by restaurantId', async () => {
@@ -589,6 +615,28 @@ describe('MenuCrudService', () => {
       expect(result['cat-1']).toHaveLength(1);
       expect(result['cat-1'][0].id).toBe('item-1');
       expect(result['cat-2'][0].id).toBe('item-2');
+    });
+
+    it('returns the effective automatic reward price from restaurant settings', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        loyaltyRedeemRate: 100,
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        makeCategory({
+          items: [
+            makeItem({
+              price: 9.9,
+              rewardPointsMode: 'AUTO',
+              rewardPointsPrice: null,
+            }),
+          ],
+        }),
+      ]);
+
+      const result = await service.getPublicMenuItems('rest-1');
+
+      expect(result['cat-1'][0].rewardPointsPrice).toBe(990);
     });
 
     it('omits HIDDEN categories from the map', async () => {
@@ -1501,6 +1549,53 @@ describe('MenuCrudService', () => {
         }),
       );
       expect(result.id).toBe('item-1');
+    });
+
+    it('treats a legacy manual reward price as CUSTOM', async () => {
+      mockPrisma.menuCategory.findUnique.mockResolvedValue({
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.count.mockResolvedValue(0);
+      mockPrisma.menuItem.create.mockResolvedValue(
+        makeItem({ rewardPointsMode: 'CUSTOM', rewardPointsPrice: 500 }),
+      );
+
+      await service.createItem(
+        'cat-1',
+        { name: 'Soup', price: 5, rewardPointsPrice: 500 } as Parameters<
+          typeof service.createItem
+        >[1],
+        'user-1',
+      );
+
+      expect(mockPrisma.menuItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            rewardPointsMode: 'CUSTOM',
+            rewardPointsPrice: 500,
+          }),
+        }),
+      );
+    });
+
+    it('rejects CUSTOM mode without a custom points price', async () => {
+      mockPrisma.menuCategory.findUnique.mockResolvedValue({
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+
+      await expect(
+        service.createItem(
+          'cat-1',
+          {
+            name: 'Soup',
+            price: 5,
+            rewardPointsMode: 'CUSTOM',
+          } as unknown as Parameters<typeof service.createItem>[1],
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

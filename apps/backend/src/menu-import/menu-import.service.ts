@@ -11,7 +11,13 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { randomBytes, createHash } from 'crypto';
-import { AvailabilityType, Currency, OptionType, Prisma } from '@prisma/client';
+import {
+  AvailabilityType,
+  Currency,
+  OptionType,
+  Prisma,
+  RewardPointsMode,
+} from '@prisma/client';
 import { withKeyLock } from '../common/key-mutex';
 
 const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
@@ -251,6 +257,20 @@ export class MenuImportService {
           const costPrice = isImportedBgn
             ? Math.round(((item.costPrice ?? 0) / BGN_TO_EUR_RATE) * 100) / 100
             : (item.costPrice ?? 0);
+          const rewardPointsMode =
+            item.rewardPointsMode ??
+            (item.rewardPointsPrice !== undefined
+              ? RewardPointsMode.CUSTOM
+              : undefined);
+          if (
+            rewardPointsMode === RewardPointsMode.CUSTOM &&
+            (!Number.isInteger(item.rewardPointsPrice) ||
+              (item.rewardPointsPrice ?? 0) < 1)
+          ) {
+            throw new BadRequestException(
+              `Custom loyalty reward "${itemName}" requires a positive points price.`,
+            );
+          }
 
           const itemData = {
             name: itemName,
@@ -275,6 +295,7 @@ export class MenuImportService {
             ...(item.rewardPointsPrice !== undefined
               ? { rewardPointsPrice: item.rewardPointsPrice }
               : {}),
+            ...(rewardPointsMode !== undefined ? { rewardPointsMode } : {}),
           };
 
           const existing = itemMap.get(itemName.toLowerCase());
@@ -513,6 +534,9 @@ export class MenuImportService {
           ...(item.translations ? { translations: item.translations } : {}),
           ...(item.isOutOfStock ? { isOutOfStock: true } : {}),
           ...(item.isFeatured ? { isFeatured: true } : {}),
+          ...(item.rewardPointsMode
+            ? { rewardPointsMode: item.rewardPointsMode }
+            : {}),
           ...(item.rewardPointsPrice
             ? { rewardPointsPrice: item.rewardPointsPrice }
             : {}),
