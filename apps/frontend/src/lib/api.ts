@@ -223,6 +223,16 @@ export interface ServicePoint {
   fulfillmentModes: FulfillmentMode[];
   paymentMethods: ServicePointPaymentMethod[];
   zone?: { id: string; name: string; zoneKey?: string | null } | null;
+  // Present on GET /restaurants/:id/service-points — a service point allows
+  // multiple concurrent guest sessions (unlike a table's single OPEN
+  // session), so this is an array, not a single nullable session.
+  activeSessions?: Array<{
+    sessionId: string;
+    sessionToken: string;
+    orderCount: number;
+    totalAmount: number;
+    createdAt: string;
+  }>;
 }
 
 export const getTables = async (restaurantId: string) => {
@@ -1073,6 +1083,7 @@ export const getTableSessions = async (restaurantId: string) => {
       status: string;
       createdAt: string;
       paidAt?: string;
+      isServicePoint?: boolean;
     }>;
     meta: { total: number; page: number; limit: number };
   };

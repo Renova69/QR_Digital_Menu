@@ -210,6 +210,57 @@ describe('TablesService', () => {
       );
     });
 
+    it('groups multiple concurrent guest sessions under the same service point (no drop)', async () => {
+      // A ROOM service point intentionally allows many simultaneous OPEN
+      // sessions (one per guest) — collapsing to a single "activeSession"
+      // would silently drop every guest but the last.
+      prisma.restaurantTable.findMany.mockResolvedValue([
+        { ...mockTable, id: 'room-1', type: 'ROOM' },
+      ]);
+      prisma.tableSession.findMany.mockResolvedValue([
+        {
+          id: 'sess-a',
+          tableId: 'room-1',
+          token: 'tok-a',
+          createdAt: new Date(),
+          orders: [{ totalPrice: 10 }],
+        },
+        {
+          id: 'sess-b',
+          tableId: 'room-1',
+          token: 'tok-b',
+          createdAt: new Date(),
+          orders: [{ totalPrice: 5 }, { totalPrice: 5 }],
+        },
+      ]);
+
+      const result = await service.findServicePoints('rest-1', mockOwner);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].activeSessions).toHaveLength(2);
+      expect(
+        result[0].activeSessions.map((s: any) => s.sessionId).sort(),
+      ).toEqual(['sess-a', 'sess-b']);
+      const sessB = result[0].activeSessions.find(
+        (s: any) => s.sessionId === 'sess-b',
+      )!;
+      expect(sessB.orderCount).toBe(2);
+      expect(sessB.totalAmount).toBe(10);
+      expect(prisma.tableSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'OPEN',
+            isServicePoint: true,
+          }),
+        }),
+      );
+    });
+
+    it('returns an empty activeSessions array for an idle service point', async () => {
+      const result = await service.findServicePoints('rest-1', mockOwner);
+      expect(result[0].activeSessions).toEqual([]);
+    });
+
     it('rejects listing service points when the restaurant plan does not include them', async () => {
       featureService.restaurantHasFeature.mockReturnValue(false);
 
@@ -483,6 +534,78 @@ describe('TablesService', () => {
       expect(prisma.restaurantTable.findMany).not.toHaveBeenCalled();
       expect(prisma.tableSession.findMany).not.toHaveBeenCalled();
     });
+
+    it('excludes service-point rows/sessions from the result (regression guard)', async () => {
+      // Mixed fixture: a real physical TABLE plus a ROOM service point that
+      // shares the same restaurantId and has its own OPEN session. The mocked
+      // Prisma calls apply the `where` clause the service actually passes
+      // (instead of blindly returning a fixed array), so dropping either the
+      // `type: 'TABLE'` filter on restaurantTable.findMany or the
+      // `isServicePoint: false` filter on tableSession.findMany would leak
+      // the service point into the response and fail this test.
+      const servicePointTable = {
+        id: 'room-1',
+        name: 'Room 1',
+        type: 'ROOM',
+        restaurantId: 'rest-1',
+        updatedAt: new Date(),
+      };
+      const allTables = [mockTable, servicePointTable];
+      const allSessions = [
+        {
+          id: 'sess-table',
+          tableId: 'table-1',
+          status: 'OPEN',
+          createdAt: new Date(),
+          orders: [],
+          isServicePoint: false,
+        },
+        {
+          id: 'sess-room',
+          tableId: 'room-1',
+          status: 'OPEN',
+          createdAt: new Date(),
+          orders: [],
+          isServicePoint: true,
+        },
+      ];
+
+      prisma.restaurantTable.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          allTables.filter((t) => (where?.type ? t.type === where.type : true)),
+        ),
+      );
+      prisma.tableSession.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          allSessions.filter((s) =>
+            where?.isServicePoint === undefined
+              ? true
+              : s.isServicePoint === where.isServicePoint,
+          ),
+        ),
+      );
+
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('table-1');
+      expect(result.find((t) => t.id === 'room-1')).toBeUndefined();
+
+      expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ type: 'TABLE' }),
+        }),
+      );
+      expect(prisma.tableSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isServicePoint: false }),
+        }),
+      );
+    });
   });
 
   describe('getTableOrders', () => {
@@ -493,6 +616,15 @@ describe('TablesService', () => {
         mockOwner,
       );
       expect(result).toEqual([]);
+    });
+
+    it('scopes the session lookup to physical tables (excludes service points)', async () => {
+      await service.getTableOrders('table-1', 'rest-1', mockOwner);
+      expect(prisma.tableSession.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isServicePoint: false }),
+        }),
+      );
     });
 
     it('returns mapped orders when open session exists', async () => {

@@ -4704,10 +4704,26 @@ describe('PaymentService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('rejects force-open for service points', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-service',
+        restaurantId: 'rest1',
+        type: 'ROOM',
+      });
+
+      await expect(
+        service.forceOpenSession('room-service', 'rest1', 'owner1'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.tableSession.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
+    });
+
     it('closes existing OPEN session and creates new one', async () => {
       mockPrisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-1',
         restaurantId: 'rest1',
+        type: 'TABLE',
       });
       const existingSession = {
         id: 'old-session',
@@ -4741,6 +4757,7 @@ describe('PaymentService', () => {
       mockPrisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-1',
         restaurantId: 'rest1',
+        type: 'TABLE',
       });
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 'old-session',
@@ -4765,6 +4782,7 @@ describe('PaymentService', () => {
       mockPrisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-1',
         restaurantId: 'rest1',
+        type: 'TABLE',
       });
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 'old-session',
@@ -4787,6 +4805,7 @@ describe('PaymentService', () => {
       mockPrisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-1',
         restaurantId: 'rest1',
+        type: 'TABLE',
       });
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
       const newSession = {

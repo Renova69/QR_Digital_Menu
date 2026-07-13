@@ -12,6 +12,7 @@ import {
   UseGuards,
   ParseIntPipe,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { TablesService } from './tables.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
@@ -87,6 +88,9 @@ export class TablesController {
     return this.tablesService.findServicePoints(restaurantId, req.user);
   }
 
+  // Public, unauthenticated lookup keyed by a random publicToken — throttled
+  // per-route (not just the global guard) for defense in depth (#SEC-L3).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get('restaurants/:restaurantId/service-points/public/:token')
   resolvePublicServicePoint(
     @Param('restaurantId') restaurantId: string,

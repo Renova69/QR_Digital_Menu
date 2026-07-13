@@ -503,6 +503,13 @@ export class EventsGateway
     return reservation?.restaurantId === restaurantId ? reservation : null;
   }
 
+  // Token space (24 random bytes) makes brute force impractical, but nothing
+  // else caps how many garbage tokens a single connection can throw at
+  // resolveReservationRoom's DB lookup — mirrors MAX_PUBLIC_MENU_ROOMS_PER_SOCKET
+  // above, capping attempts (not just successful joins) since a bad token
+  // never grows client.data's joined-room state (#SEC-L4).
+  private static readonly MAX_RESERVATION_ROOM_JOIN_ATTEMPTS_PER_SOCKET = 20;
+
   /**
    * Public guests may listen only to the reservation identified by their
    * private manage token. Send the current status after joining so a dashboard
@@ -514,6 +521,21 @@ export class EventsGateway
     @ConnectedSocket() client: Socket,
   ) {
     const restaurantId = body?.restaurantId;
+    const attempts = (client.data.reservationRoomJoinAttempts ?? 0) + 1;
+    client.data.reservationRoomJoinAttempts = attempts;
+    if (
+      attempts > EventsGateway.MAX_RESERVATION_ROOM_JOIN_ATTEMPTS_PER_SOCKET
+    ) {
+      this.logger.warn(
+        `Rejected reservation room join — per-socket attempt limit reached: client ${client.id}`,
+      );
+      client.emit('roomError', {
+        room: 'reservation',
+        restaurantId,
+        error: 'RATE_LIMITED',
+      });
+      return { event: 'roomError', data: 'reservation' };
+    }
     const reservation = await this.resolveReservationRoom(
       restaurantId,
       body?.token,

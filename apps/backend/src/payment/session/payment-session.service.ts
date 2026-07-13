@@ -637,6 +637,17 @@ export class PaymentSessionService {
     });
     if (!table)
       throw new NotFoundException('Table not found for this restaurant');
+    if (table.type !== 'TABLE') {
+      // Service points (ROOM/PICKUP/OTHER) intentionally allow multiple
+      // concurrent OPEN sessions per tableId, one per guest (no unique-open
+      // -session constraint applies — see isServicePoint). "Force open" only
+      // makes sense against the single-session-per-table invariant; applying
+      // it here would pick an arbitrary guest's session via findFirst and
+      // force-close it out from under them (#H2).
+      throw new BadRequestException(
+        'Force-open is only available for physical tables, not service points.',
+      );
+    }
 
     // Cancel any pending online payments on the existing session before
     // force-opening a new one. Without this, a customer who started a Stripe

@@ -13,6 +13,7 @@ import RestaurantContext from "../../context/RestaurantContext";
 import { useSocket } from "../../context/SocketContext";
 import { usePosTheme } from "../../context/PosThemeContext";
 import ZoneSelector from "./ZoneSelector";
+import PosServicePointList from "./PosServicePointList";
 
 type TableStatus = PosTableStatus;
 
@@ -273,6 +274,11 @@ export default function PosTableModal() {
             zones={zones}
             selectedZoneId={selectedZoneId}
             onSelectZone={setSelectedZoneId}
+          />
+
+          <PosServicePointList
+            restaurantId={activeRestaurant.id}
+            onSelect={handleSelect}
           />
 
           {session && (

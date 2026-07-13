@@ -50,8 +50,11 @@ export class PublicReservationsController {
     return this.reservations.createPublic(restaurantId, dto);
   }
 
+  // Only non-PII fields are returned, but referenceCode is a small keyspace
+  // (6 chars, 32-symbol alphabet) — tighter than the other public routes to
+  // cut a distributed scraper's per-IP enumeration rate (#SEC-L2).
   @Get(':restaurantId/status/:referenceCode')
-  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   status(
     @Param('restaurantId') restaurantId: string,
     @Param('referenceCode') referenceCode: string,
