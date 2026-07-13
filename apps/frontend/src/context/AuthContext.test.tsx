@@ -27,6 +27,7 @@ import api, {
   register as apiRegister,
   verifyRegistration as apiVerifyRegistration,
 } from "../lib/api";
+import { saveOfflineStaff } from "../lib/posOfflineShift";
 
 const mockUser = {
   id: "1",
@@ -87,6 +88,7 @@ function TestConsumerWithRegister() {
 describe("AuthContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: null });
   });
 
@@ -104,6 +106,41 @@ describe("AuthContext", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("is-auth").textContent).toBe("true");
+    });
+  });
+
+  it("continues an active waiter shift when /auth/me loses the network", async () => {
+    const waiter = {
+      ...mockUser,
+      role: "WAITER",
+      restaurantId: "restaurant-1",
+    };
+    saveOfflineStaff(waiter);
+    (api.get as ReturnType<typeof vi.fn>).mockRejectedValue({
+      code: "ERR_NETWORK",
+    });
+
+    renderWithProviders(<TestConsumer />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("is-auth").textContent).toBe("true");
+    });
+  });
+
+  it("does not restore an offline waiter after the server returns 401", async () => {
+    saveOfflineStaff({
+      ...mockUser,
+      role: "WAITER",
+      restaurantId: "restaurant-1",
+    });
+    (api.get as ReturnType<typeof vi.fn>).mockRejectedValue({
+      response: { status: 401 },
+    });
+
+    renderWithProviders(<TestConsumer />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("is-auth").textContent).toBe("false");
     });
   });
 

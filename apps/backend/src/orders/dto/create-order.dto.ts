@@ -11,6 +11,8 @@ import {
   Max,
   MaxLength,
   IsIn,
+  IsDefined,
+  ValidateIf,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
@@ -51,6 +53,11 @@ class OrderItemDto {
   @Max(999)
   quantity: number;
 
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  expectedUnitPrice?: number;
+
   @IsArray()
   @IsOptional()
   @ArrayMaxSize(50)
@@ -63,6 +70,26 @@ class OrderItemDto {
   @IsOptional()
   @MaxLength(500)
   notes?: string;
+}
+
+class PosSubmissionDto {
+  @IsString()
+  @MaxLength(128)
+  clientOrderId: string;
+
+  @IsString()
+  @MaxLength(128)
+  restaurantId: string;
+
+  @IsString()
+  @MaxLength(128)
+  tableId: string;
+
+  @IsDefined()
+  @ValidateIf((_object, value) => value !== null)
+  @IsString()
+  @MaxLength(128)
+  expectedTableSessionId: string | null;
 }
 
 export class CreateOrderDto {
@@ -127,6 +154,11 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   source?: 'CUSTOMER' | 'POS';
+
+  @ValidateNested()
+  @Type(() => PosSubmissionDto)
+  @IsOptional()
+  posSubmission?: PosSubmissionDto;
 
   @IsArray()
   @ArrayMaxSize(100)

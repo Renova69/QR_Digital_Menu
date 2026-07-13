@@ -239,9 +239,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       ),
     );
 
-    expect(new Set(results.map((result) => result.referenceCode))).toHaveSize(
-      1,
-    );
+    expect(new Set(results.map((result) => result.referenceCode)).size).toBe(1);
     await expect(
       prisma.reservation.count({
         where: {
@@ -352,6 +350,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     const service = new OrdersService(
       prisma as never,
       events as never,
+      {} as never,
       {} as never,
       {} as never,
     );
@@ -560,6 +559,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         } as never,
         { delete: jest.fn() } as never,
         { emitPublicMenuItemAvailability: jest.fn() } as never,
+        { getContexts: jest.fn().mockResolvedValue(new Set()) } as never,
       );
 
       const loadMenuSnapshot = () =>

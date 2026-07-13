@@ -11,7 +11,9 @@ import {
   IsInt,
   Min,
   MaxLength,
+  ArrayUnique,
 } from 'class-validator';
+import { UPSELL_CONTEXTS } from '../upsell/upsell-context';
 
 export enum Currency {
   EUR = 'EUR',
@@ -80,4 +82,11 @@ export class CreateItemDto {
   @MaxLength(50, { each: true })
   @IsOptional()
   tags?: string[];
+
+  @IsArray()
+  @ArrayMaxSize(UPSELL_CONTEXTS.length)
+  @ArrayUnique()
+  @IsIn(UPSELL_CONTEXTS, { each: true })
+  @IsOptional()
+  upsellContexts?: string[];
 }

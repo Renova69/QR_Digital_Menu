@@ -77,4 +77,30 @@ describe('CreateItemDto', () => {
     expect(tagsError).toBeDefined();
     expect(tagsError!.constraints).toHaveProperty('maxLength');
   });
+
+  it('accepts only recognized, unique upsell contexts', async () => {
+    const valid = plainToInstance(CreateItemDto, {
+      name: 'Test Item',
+      price: 10,
+      currency: Currency.EUR,
+      upsellContexts: ['MORNING', 'COLD'],
+    });
+    const invalid = plainToInstance(CreateItemDto, {
+      name: 'Test Item',
+      price: 10,
+      currency: Currency.EUR,
+      upsellContexts: ['MORNING', 'MORNING', 'HOT_DRINK'],
+    });
+
+    expect(
+      (await validate(valid)).find(
+        (error) => error.property === 'upsellContexts',
+      ),
+    ).toBeUndefined();
+    expect(
+      (await validate(invalid)).find(
+        (error) => error.property === 'upsellContexts',
+      ),
+    ).toBeDefined();
+  });
 });

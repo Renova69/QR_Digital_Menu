@@ -15,6 +15,7 @@ import PosTableModal from "../../components/pos/PosTableModal";
 import PosOptionsDrawer from "../../components/pos/PosOptionsDrawer";
 import PosSeatSelector from "../../components/pos/PosSeatSelector";
 import PosCartDrawer from "../../components/pos/PosCartDrawer";
+import { getPosSnapshot, putPosSnapshot } from "../../lib/posOfflineOrders";
 
 interface MenuItem {
   id: string;
@@ -34,6 +35,16 @@ interface Category {
   id: string;
   name: string;
 }
+
+interface PosMenuResponse {
+  categories?: Array<
+    Category & {
+      items?: Array<Omit<MenuItem, "categoryId">>;
+    }
+  >;
+}
+
+const menuSnapshotKey = (restaurantId: string) => `pos-menu:${restaurantId}`;
 
 export default function PosPage() {
   const restaurantCtx = useContext(RestaurantContext);
@@ -101,35 +112,73 @@ export default function PosPage() {
     if (!activeRestaurant) return;
 
     const controller = new AbortController();
+    let active = true;
     setMenuLoading(true);
     setMenuError(null);
 
-    api
-      .get(`/menu/public/${activeRestaurant.id}`, { signal: controller.signal })
-      .then((res) => {
-        const cats: Category[] =
-          res.data.categories?.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-          })) ?? [];
-        setCategories(cats);
+    const applyMenu = (data: PosMenuResponse) => {
+      const menuCategories = data.categories ?? [];
+      setCategories(
+        menuCategories.map((category) => ({
+          id: category.id,
+          name: category.name,
+        })),
+      );
+      setMenuItems(
+        menuCategories.flatMap((category) =>
+          (category.items ?? []).map((item) => ({
+            ...item,
+            categoryId: category.id,
+          })),
+        ),
+      );
+    };
 
-        const allItems: MenuItem[] = [];
-        for (const cat of res.data.categories ?? []) {
-          for (const item of cat.items ?? []) {
-            allItems.push({ ...item, categoryId: cat.id });
-          }
+    const loadMenu = async () => {
+      try {
+        const response = await api.get(`/menu/public/${activeRestaurant.id}`, {
+          signal: controller.signal,
+        });
+        if (!active) return;
+        const data = response.data as PosMenuResponse;
+        applyMenu(data);
+        void putPosSnapshot(menuSnapshotKey(activeRestaurant.id), data).catch(
+          () => undefined,
+        );
+      } catch (error) {
+        const requestError = error as { name?: string; code?: string };
+        if (
+          !active ||
+          requestError.name === "CanceledError" ||
+          requestError.code === "ERR_CANCELED"
+        ) {
+          return;
         }
-        setMenuItems(allItems);
-      })
-      .catch((err) => {
-        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+        try {
+          const cached = await getPosSnapshot<PosMenuResponse>(
+            menuSnapshotKey(activeRestaurant.id),
+          );
+          if (!active) return;
+          if (cached) {
+            applyMenu(cached.value);
+            setMenuError(null);
+          } else {
+            setMenuError("Failed to load menu. Check your connection.");
+          }
+        } catch {
           setMenuError("Failed to load menu. Check your connection.");
         }
-      })
-      .finally(() => setMenuLoading(false));
+      } finally {
+        if (active) setMenuLoading(false);
+      }
+    };
 
-    return () => controller.abort();
+    void loadMenu();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [activeRestaurant]);
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);

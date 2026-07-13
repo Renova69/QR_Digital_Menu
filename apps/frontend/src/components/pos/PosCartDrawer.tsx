@@ -10,6 +10,8 @@ import {
   Banknote,
   Scissors,
   ChevronDown,
+  CloudUpload,
+  TriangleAlert,
 } from "lucide-react";
 import { usePos } from "../../context/PosContext";
 import {
@@ -17,8 +19,15 @@ import {
   closeSession,
   closeSessionWithCard,
   closeSessionWithCash,
-  getOrCreateSession,
 } from "../../lib/api";
+import {
+  createPosClientOrderId,
+  createPosLocalSessionId,
+  isPosTransportFailure,
+  queuePosOrder,
+  type PosOrderPayload,
+  type QueuedPosOrder,
+} from "../../lib/posOfflineOrders";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitDrawer from "./PosSplitDrawer";
 import PosQRBill from "./PosQRBill";
@@ -59,6 +68,7 @@ export default function PosCartDrawer({
     updateQuantity,
     updateNote,
     markAsSubmitted,
+    markAsQueued,
     clearSession,
     getPendingTotal,
     buildSpecialRequests,
@@ -73,6 +83,7 @@ export default function PosCartDrawer({
   // Actions
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [splitOpen, setSplitOpen] = useState(false);
@@ -88,11 +99,37 @@ export default function PosCartDrawer({
   // Derived
   const pendingItems = items.filter((i) => !i.submitted);
   const submittedItems = items.filter((i) => i.submitted);
+  const unsyncedItems = submittedItems.filter(
+    (item) => item.syncState === "queued" || item.syncState === "conflict",
+  );
+  const serverSubmittedItems = submittedItems.filter(
+    (item) => item.syncState !== "queued" && item.syncState !== "conflict",
+  );
   const pendingTotal = getPendingTotal();
   const pendingCount = pendingItems.reduce((s, i) => s + i.quantity, 0);
-  const submittedCount = submittedItems.reduce((s, i) => s + i.quantity, 0);
-  const submittedTotal = total - pendingTotal;
+  const submittedCount = serverSubmittedItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
+  const unsyncedCount = unsyncedItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
+  const itemTotal = (item: (typeof items)[number]) =>
+    (item.price +
+      item.selectedOptions.reduce(
+        (sum, option) => sum + option.priceModifier,
+        0,
+      )) *
+    item.quantity;
+  const submittedTotal = serverSubmittedItems.reduce(
+    (sum, item) => sum + itemTotal(item),
+    0,
+  );
+  const lockedTotal = total - pendingTotal;
   const hasPending = pendingItems.length > 0;
+  const hasUnsynced = unsyncedItems.length > 0;
+  const hasServerSubmitted = serverSubmittedItems.length > 0;
   const hasAnyItems = items.length > 0;
 
   const pendingBySeat = pendingItems.reduce<
@@ -136,39 +173,91 @@ export default function PosCartDrawer({
     setConfirmAction(null);
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitNotice(null);
+    const clientOrderId = createPosClientOrderId();
+    const localSessionId =
+      session.localSessionId ?? session.sessionId ?? createPosLocalSessionId();
+    const cartIds = pendingItems.map((item) => item.cartId);
+    const payload: PosOrderPayload = {
+      customerName: customerName.trim() || t("pos.defaultGuest", "Guest"),
+      source: "POS",
+      tableId: session.tableName,
+      restaurantId: activeRestaurant.id,
+      specialRequests: buildSpecialRequests(),
+      posSubmission: {
+        clientOrderId,
+        restaurantId: activeRestaurant.id,
+        tableId: session.tableId,
+        expectedTableSessionId: session.sessionId ?? null,
+      },
+      items: pendingItems.map((item) => ({
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        expectedUnitPrice: item.price,
+        selectedOptions: item.selectedOptions,
+        notes: item.itemNote || undefined,
+      })),
+    };
+
     try {
-      let sessionToken = session.sessionToken;
-      if (!sessionToken) {
-        const result = await getOrCreateSession(
-          session.tableId,
-          activeRestaurant.id,
-        );
-        sessionToken = result.token;
+      const result = await createOrder(payload);
+      if (result.tableSessionId) {
         setSession({
           ...session,
-          sessionToken: result.token,
-          sessionId: result.session.id,
+          localSessionId,
+          sessionToken: result.sessionToken ?? session.sessionToken,
+          sessionId: result.tableSessionId,
         });
       }
-      const specialRequests = buildSpecialRequests();
-      await createOrder({
-        customerName: customerName.trim() || t("pos.defaultGuest", "Guest"),
-        source: "POS",
-        tableId: session.tableName,
-        restaurantId: activeRestaurant.id,
-        specialRequests,
-        sessionToken,
-        items: pendingItems.map((item) => ({
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          selectedOptions: item.selectedOptions,
-          notes: item.itemNote || undefined,
-        })),
-      });
-      markAsSubmitted();
-    } catch (err: any) {
+      markAsSubmitted(cartIds);
+    } catch (err: unknown) {
+      if (isPosTransportFailure(err)) {
+        const timestamp = new Date().toISOString();
+        const queuedOrder: QueuedPosOrder = {
+          clientOrderId,
+          restaurantId: activeRestaurant.id,
+          tableId: session.tableId,
+          tableName: session.tableName,
+          localSessionId,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          attempts: 0,
+          status: "pending",
+          payload,
+          cartItems: pendingItems.map((item) => ({
+            cartId: item.cartId,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            selectedOptions: item.selectedOptions,
+            seatNumber: item.seatNumber,
+            itemNote: item.itemNote,
+          })),
+        };
+        try {
+          await queuePosOrder(queuedOrder);
+          markAsQueued(clientOrderId, cartIds);
+          setSubmitNotice(
+            t(
+              "pos.orderQueuedOffline",
+              "Order saved on this device and queued for sync.",
+            ),
+          );
+        } catch {
+          setSubmitError(
+            t(
+              "pos.offlineStorageFailed",
+              "Could not save this order offline. Keep this screen open and try again.",
+            ),
+          );
+        }
+        return;
+      }
+      const response = (err as { response?: { data?: { message?: string } } })
+        .response;
       setSubmitError(
-        err.response?.data?.message ??
+        response?.data?.message ??
           t("pos.failedSubmitOrder", "Failed to submit order. Try again."),
       );
     } finally {
@@ -177,7 +266,7 @@ export default function PosCartDrawer({
   };
 
   const handleCardPayment = async () => {
-    if (!session?.sessionToken || !activeRestaurant) return;
+    if (!session?.sessionToken || !activeRestaurant || hasUnsynced) return;
     setConfirmAction(null);
     setClosing(true);
     setSubmitError(null);
@@ -196,7 +285,7 @@ export default function PosCartDrawer({
   };
 
   const handleCashPayment = async () => {
-    if (!session?.sessionToken || !activeRestaurant) return;
+    if (!session?.sessionToken || !activeRestaurant || hasUnsynced) return;
     setConfirmAction(null);
     setClosing(true);
     setSubmitError(null);
@@ -215,7 +304,7 @@ export default function PosCartDrawer({
   };
 
   const handleForceClose = async () => {
-    if (!activeRestaurant) return;
+    if (!activeRestaurant || hasUnsynced) return;
     setConfirmAction(null);
     if (!session?.sessionToken) {
       clearSession();
@@ -271,7 +360,16 @@ export default function PosCartDrawer({
                   +{submittedCount} {t("pos.sent", "sent")}
                 </span>
               )}
+              {unsyncedCount > 0 && (
+                <span className="opacity-80 font-normal text-xs">
+                  +{unsyncedCount} {t("pos.queued", "queued")}
+                </span>
+              )}
             </>
+          ) : hasUnsynced ? (
+            <span className="font-medium opacity-90">
+              {unsyncedCount} {t("pos.queued", "queued")}
+            </span>
           ) : hasAnyItems ? (
             <span className="font-medium opacity-90">
               {t("pos.allSent", "All sent")} · {submittedCount}{" "}
@@ -550,10 +648,12 @@ export default function PosCartDrawer({
                       className="flex items-center justify-between w-full mb-2"
                     >
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        {t("pos.sentToKitchen", "Sent to kitchen")}
+                        {hasUnsynced
+                          ? t("pos.orderDeliveryStatus", "Order status")
+                          : t("pos.sentToKitchen", "Sent to kitchen")}
                       </span>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>€{submittedTotal.toFixed(2)}</span>
+                        <span>€{lockedTotal.toFixed(2)}</span>
                         {submittedCollapsed ? (
                           <ChevronDown size={13} />
                         ) : (
@@ -568,10 +668,22 @@ export default function PosCartDrawer({
                             key={item.cartId}
                             className="flex items-center gap-3 px-3 py-2.5 bg-card/60"
                           >
-                            <CheckCircle2
-                              size={14}
-                              className="text-success shrink-0"
-                            />
+                            {item.syncState === "conflict" ? (
+                              <TriangleAlert
+                                size={14}
+                                className="shrink-0 text-destructive"
+                              />
+                            ) : item.syncState === "queued" ? (
+                              <CloudUpload
+                                size={14}
+                                className="shrink-0 text-warning-foreground"
+                              />
+                            ) : (
+                              <CheckCircle2
+                                size={14}
+                                className="shrink-0 text-success"
+                              />
+                            )}
                             <span className="flex-1 text-sm text-muted-foreground">
                               {item.name}
                               {item.selectedOptions.length > 0 && (
@@ -581,6 +693,16 @@ export default function PosCartDrawer({
                                     .map((o) => o.choiceName)
                                     .join(", ")}
                                   )
+                                </span>
+                              )}
+                              {item.syncState === "queued" && (
+                                <span className="ml-1 text-xs text-warning-foreground">
+                                  {t("pos.queued", "Queued")}
+                                </span>
+                              )}
+                              {item.syncState === "conflict" && (
+                                <span className="ml-1 text-xs text-destructive">
+                                  {t("pos.review", "Review")}
                                 </span>
                               )}
                             </span>
@@ -614,6 +736,11 @@ export default function PosCartDrawer({
                 {submitError && (
                   <div className="mx-5 mb-3 rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
                     {submitError}
+                  </div>
+                )}
+                {submitNotice && (
+                  <div className="mx-5 mb-3 rounded-xl bg-success/10 px-4 py-2.5 text-sm text-success">
+                    {submitNotice}
                   </div>
                 )}
                 {historyError && (
@@ -689,14 +816,24 @@ export default function PosCartDrawer({
                           total: submittedTotal,
                         })
                       }
-                      disabled={closing || !hasAnyItems || hasPending}
+                      disabled={
+                        closing ||
+                        !hasServerSubmitted ||
+                        hasPending ||
+                        hasUnsynced
+                      }
                       title={
-                        hasPending
+                        hasUnsynced
                           ? t(
-                              "pos.submitPendingFirst",
-                              "Submit pending items first",
+                              "pos.syncQueuedBeforePayment",
+                              "Sync queued orders before taking payment",
                             )
-                          : undefined
+                          : hasPending
+                            ? t(
+                                "pos.submitPendingFirst",
+                                "Submit pending items first",
+                              )
+                            : undefined
                       }
                       className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-warning text-warning-foreground font-semibold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
                     >
@@ -713,14 +850,24 @@ export default function PosCartDrawer({
                     onClick={() =>
                       setConfirmAction({ type: "cash", total: submittedTotal })
                     }
-                    disabled={closing || !hasAnyItems || hasPending}
+                    disabled={
+                      closing ||
+                      !hasServerSubmitted ||
+                      hasPending ||
+                      hasUnsynced
+                    }
                     title={
-                      hasPending
+                      hasUnsynced
                         ? t(
-                            "pos.submitPendingFirst",
-                            "Submit pending items first",
+                            "pos.syncQueuedBeforePayment",
+                            "Sync queued orders before taking payment",
                           )
-                        : undefined
+                        : hasPending
+                          ? t(
+                              "pos.submitPendingFirst",
+                              "Submit pending items first",
+                            )
+                          : undefined
                     }
                     className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-success text-success-foreground font-semibold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
                   >
@@ -741,15 +888,21 @@ export default function PosCartDrawer({
                     closing ||
                     !session?.sessionToken ||
                     submittedTotal <= 0 ||
-                    hasPending
+                    hasPending ||
+                    hasUnsynced
                   }
                   title={
-                    hasPending
+                    hasUnsynced
                       ? t(
-                          "pos.submitPendingFirst",
-                          "Submit pending items first",
+                          "pos.syncQueuedBeforePayment",
+                          "Sync queued orders before taking payment",
                         )
-                      : undefined
+                      : hasPending
+                        ? t(
+                            "pos.submitPendingFirst",
+                            "Submit pending items first",
+                          )
+                        : undefined
                   }
                   className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm disabled:opacity-40 min-h-[44px] transition-all active:scale-[0.98]"
                 >
@@ -761,7 +914,15 @@ export default function PosCartDrawer({
                 <button
                   type="button"
                   onClick={() => setConfirmAction({ type: "force" })}
-                  disabled={closing}
+                  disabled={closing || hasUnsynced}
+                  title={
+                    hasUnsynced
+                      ? t(
+                          "pos.syncQueuedBeforeClosing",
+                          "Resolve queued orders before closing this table",
+                        )
+                      : undefined
+                  }
                   className="w-full py-2 text-xs text-destructive font-medium hover:underline disabled:opacity-40 min-h-[36px] transition-opacity"
                 >
                   {closing

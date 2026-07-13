@@ -7,6 +7,7 @@ import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
 import { usePosTheme } from "../../context/PosThemeContext";
 import * as api from "../../lib/api";
+import * as offlineOrders from "../../lib/posOfflineOrders";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -26,6 +27,13 @@ vi.mock("../../lib/api", () => ({
   closeSessionWithCard: vi.fn(),
   closeSessionWithCash: vi.fn(),
   getOrCreateSession: vi.fn(),
+}));
+
+vi.mock("../../lib/posOfflineOrders", () => ({
+  createPosClientOrderId: vi.fn(() => "client-order-1"),
+  createPosLocalSessionId: vi.fn(() => "local-session-1"),
+  isPosTransportFailure: vi.fn(() => false),
+  queuePosOrder: vi.fn(),
 }));
 
 vi.mock("react-dom", async () => {
@@ -67,6 +75,8 @@ describe("PosCartDrawer", () => {
       ],
       session: {
         sessionToken: "token123",
+        sessionId: "session-1",
+        localSessionId: "local-session-1",
         tableName: "Table 1",
         tableId: "t1",
       },
@@ -75,6 +85,7 @@ describe("PosCartDrawer", () => {
       updateQuantity: vi.fn(),
       updateNote: vi.fn(),
       markAsSubmitted: vi.fn(),
+      markAsQueued: vi.fn(),
       clearSession: vi.fn(),
       getPendingTotal: () => 20,
       buildSpecialRequests: () => "",
@@ -121,6 +132,8 @@ describe("PosCartDrawer", () => {
       ],
       session: {
         sessionToken: "token123",
+        sessionId: "session-1",
+        localSessionId: "local-session-1",
         tableName: "Table 1",
         tableId: "t1",
       },
@@ -157,12 +170,16 @@ describe("PosCartDrawer", () => {
       ],
       session: {
         sessionToken: "token123",
+        sessionId: "session-1",
+        localSessionId: "local-session-1",
         tableName: "Table 1",
         tableId: "t1",
       },
       getPendingTotal: () => 10,
       buildSpecialRequests: () => "",
       markAsSubmitted: markAsSubmittedMock,
+      markAsQueued: vi.fn(),
+      setSession: vi.fn(),
     });
     (api.createOrder as Mock).mockResolvedValue({});
 
@@ -183,10 +200,121 @@ describe("PosCartDrawer", () => {
         expect.objectContaining({
           restaurantId: "r1",
           tableId: "Table 1",
-          items: [{ menuItemId: "m1", quantity: 1, selectedOptions: [] }],
+          posSubmission: {
+            clientOrderId: "client-order-1",
+            restaurantId: "r1",
+            tableId: "t1",
+            expectedTableSessionId: "session-1",
+          },
+          items: [
+            {
+              menuItemId: "m1",
+              quantity: 1,
+              expectedUnitPrice: 10,
+              selectedOptions: [],
+            },
+          ],
         }),
       );
-      expect(markAsSubmittedMock).toHaveBeenCalled();
+      expect(markAsSubmittedMock).toHaveBeenCalledWith(["c1"]);
     });
+  });
+
+  it("queues the exact order intent when submission loses the network", async () => {
+    const markAsQueued = vi.fn();
+    (usePos as Mock).mockReturnValue({
+      items: [
+        {
+          cartId: "c1",
+          menuItemId: "m1",
+          name: "Burger",
+          quantity: 1,
+          price: 10,
+          selectedOptions: [],
+          seatNumber: "Seat 1",
+          itemNote: "",
+          submitted: false,
+        },
+      ],
+      session: {
+        sessionToken: null,
+        sessionId: null,
+        localSessionId: "local-session-1",
+        tableName: "Table 1",
+        tableId: "t1",
+      },
+      getPendingTotal: () => 10,
+      buildSpecialRequests: () => "",
+      markAsSubmitted: vi.fn(),
+      markAsQueued,
+      setSession: vi.fn(),
+    });
+    (api.createOrder as Mock).mockRejectedValue({ code: "ERR_NETWORK" });
+    (offlineOrders.isPosTransportFailure as Mock).mockReturnValue(true);
+
+    renderWithContext(<PosCartDrawer itemCount={1} total={10} />);
+    fireEvent.click(screen.getByRole("button", { name: /item/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /pos.submitOrderTotal/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /pos.submit/i }));
+
+    await waitFor(() => {
+      expect(offlineOrders.queuePosOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientOrderId: "client-order-1",
+          localSessionId: "local-session-1",
+          status: "pending",
+          payload: expect.objectContaining({
+            posSubmission: expect.objectContaining({
+              expectedTableSessionId: null,
+            }),
+          }),
+        }),
+      );
+      expect(markAsQueued).toHaveBeenCalledWith("client-order-1", ["c1"]);
+    });
+  });
+
+  it("blocks payment and force-close while this table has an unsynced order", () => {
+    (usePos as Mock).mockReturnValue({
+      items: [
+        {
+          cartId: "c1",
+          menuItemId: "m1",
+          name: "Burger",
+          quantity: 1,
+          price: 10,
+          selectedOptions: [],
+          submitted: true,
+          syncState: "queued",
+          queuedOrderId: "client-order-1",
+        },
+      ],
+      session: {
+        sessionToken: "token123",
+        sessionId: "session-1",
+        localSessionId: "local-session-1",
+        tableName: "Table 1",
+        tableId: "t1",
+      },
+      getPendingTotal: () => 0,
+      buildSpecialRequests: () => "",
+      historyLoading: false,
+      historyError: null,
+    });
+
+    renderWithContext(<PosCartDrawer itemCount={1} total={10} />);
+    fireEvent.click(screen.getByRole("button", { name: /queued/i }));
+
+    expect(
+      screen.getByRole("button", { name: /pos.closeCardTotal/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /pos.closeCashTotal/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /pos.forceCloseNoPayment/i }),
+    ).toBeDisabled();
   });
 });

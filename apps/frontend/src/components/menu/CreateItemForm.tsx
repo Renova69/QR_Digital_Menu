@@ -7,6 +7,8 @@ import { ImageUploadInput } from "../ui/ImageUploadInput";
 import { Modal } from "../ui/modal";
 import { useToast } from "../ui/toast";
 import { useTranslation } from "react-i18next";
+import { UpsellContextSelector } from "./UpsellContextSelector";
+import { UpsellContext } from "../../lib/upsellContexts";
 
 export const CreateItemForm: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -20,6 +22,7 @@ export const CreateItemForm: React.FC = () => {
   const [allergens, setAllergens] = useState("");
   const [dietaryTags, setDietaryTags] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
+  const [upsellContexts, setUpsellContexts] = useState<UpsellContext[]>([]);
   const [rewardPointsPrice, setRewardPointsPrice] = useState("");
   const [relatedItemIds, setRelatedItemIds] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -35,6 +38,7 @@ export const CreateItemForm: React.FC = () => {
     setAllergens("");
     setDietaryTags("");
     setIsFeatured(false);
+    setUpsellContexts([]);
     setRewardPointsPrice("");
     setRelatedItemIds([]);
     setImageFile(null);
@@ -60,6 +64,7 @@ export const CreateItemForm: React.FC = () => {
           .map((s) => s.trim())
           .filter((s) => s !== ""),
         isFeatured,
+        upsellContexts,
         costPrice: costPrice ? parseFloat(costPrice) : undefined,
         rewardPointsPrice: rewardPointsPrice
           ? parseInt(rewardPointsPrice)
@@ -213,6 +218,11 @@ export const CreateItemForm: React.FC = () => {
               )}
             </label>
           </div>
+
+          <UpsellContextSelector
+            value={upsellContexts}
+            onChange={setUpsellContexts}
+          />
 
           <div className="space-y-2 border-b border-border/50 pb-4">
             <label className="text-sm font-medium block">
