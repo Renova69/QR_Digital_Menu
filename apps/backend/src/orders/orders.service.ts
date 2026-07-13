@@ -40,6 +40,7 @@ import {
   type ServicePointPaymentMethod,
 } from '../tables/service-point.constants';
 import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
+import { createHash } from 'crypto';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
 const POS_STAFF_ROLES = new Set([
@@ -113,6 +114,50 @@ export class OrdersService {
       throw new BadRequestException('Order must contain at least one item');
     }
 
+    const posSubmission = createOrderDto.posSubmission;
+    if (posSubmission && createOrderDto.source !== 'POS') {
+      throw new BadRequestException(
+        'POS submission metadata is only valid for POS orders.',
+      );
+    }
+    if (posSubmission && createOrderDto.servicePointToken) {
+      throw new BadRequestException(
+        'Offline POS submission metadata is only valid for physical tables.',
+      );
+    }
+
+    let posPayloadHash: string | null = null;
+    let posRestaurant: any = null;
+    let posStaffUserId: string | null = null;
+    if (posSubmission) {
+      posPayloadHash = this.hashPosOrderIntent(createOrderDto);
+      posRestaurant = await this.prisma.restaurant.findUnique({
+        where: { id: posSubmission.restaurantId },
+      });
+      if (!posRestaurant) {
+        throw new NotFoundException('Restaurant not found');
+      }
+
+      posStaffUserId = await this.resolvePosStaff(
+        authenticatedUserId,
+        posRestaurant.ownerId,
+        posRestaurant.id,
+      );
+      if (!posStaffUserId) {
+        throw new UnauthorizedException(
+          'Only active staff assigned to this restaurant can create POS orders.',
+        );
+      }
+
+      const replay = await this.findPosOrderByClientId(
+        posSubmission.restaurantId,
+        posSubmission.clientOrderId,
+      );
+      if (replay) {
+        return this.buildOrderCreateResponse(replay, posPayloadHash);
+      }
+    }
+
     // 1. Fetch all menu items at once (no N+1). Deduplicate IDs —
     //    same item added twice (e.g. qty 1 + qty 1) sends duplicate menuItemIds.
     const menuItemIds = [
@@ -125,6 +170,16 @@ export class OrdersService {
     });
 
     if (dbItems.length !== menuItemIds.length) {
+      if (posSubmission) {
+        const foundItemIds = new Set(dbItems.map((item) => item.id));
+        throw new ConflictException({
+          code: 'MENU_CHANGED',
+          reason: 'ITEM_REMOVED',
+          message:
+            'One or more menu items were removed after this POS order was queued.',
+          menuItemIds: menuItemIds.filter((id) => !foundItemIds.has(id)),
+        });
+      }
       throw new NotFoundException('Some menu items not found');
     }
 
@@ -132,6 +187,19 @@ export class OrdersService {
 
     // 2. Validate all items belong to the same restaurant
     const restaurantId = dbItems[0].category.restaurantId;
+
+    if (posSubmission && posSubmission.restaurantId !== restaurantId) {
+      throw new BadRequestException(
+        'POS submission restaurant does not match the ordered items.',
+      );
+    }
+
+    const changedItemPrices: Array<{
+      menuItemId: string;
+      itemName: string;
+      expectedUnitPrice: number;
+      currentUnitPrice: number;
+    }> = [];
 
     for (const item of createOrderDto.items) {
       const dbItem = itemsMap.get(item.menuItemId);
@@ -148,10 +216,48 @@ export class OrdersService {
       // still submit one — reject server-side rather than accepting an order
       // the kitchen can't fulfill.
       if (dbItem.isOutOfStock) {
+        if (posSubmission) {
+          throw new ConflictException({
+            code: 'MENU_CHANGED',
+            reason: 'ITEM_OUT_OF_STOCK',
+            message: `"${dbItem.name}" became unavailable after this POS order was queued.`,
+            menuItemId: dbItem.id,
+            itemName: dbItem.name,
+          });
+        }
         throw new ConflictException(
           `"${dbItem.name}" is currently out of stock`,
         );
       }
+      if (posSubmission) {
+        if (item.expectedUnitPrice === undefined) {
+          throw new BadRequestException({
+            code: 'POS_PRICE_SNAPSHOT_REQUIRED',
+            message:
+              'Every queued POS item must include its expected unit price.',
+            menuItemId: item.menuItemId,
+          });
+        }
+        if (
+          Math.round(item.expectedUnitPrice * 100) !==
+          Math.round(dbItem.price * 100)
+        ) {
+          changedItemPrices.push({
+            menuItemId: item.menuItemId,
+            itemName: dbItem.name,
+            expectedUnitPrice: item.expectedUnitPrice,
+            currentUnitPrice: dbItem.price,
+          });
+        }
+      }
+    }
+
+    if (changedItemPrices.length > 0) {
+      throw new ConflictException({
+        code: 'PRICE_CHANGED',
+        message: 'One or more prices changed after this POS order was queued.',
+        currentQuote: changedItemPrices,
+      });
     }
 
     // 3. Fetch ALL options in one query (no N+1)
@@ -167,9 +273,11 @@ export class OrdersService {
     }
 
     // 4. Fetch restaurant (includes timezone + loyalty + tier config)
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-    });
+    const restaurant =
+      posRestaurant ??
+      (await this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+      }));
 
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
@@ -213,11 +321,13 @@ export class OrdersService {
     // staff member of THIS restaurant (or its owner). Otherwise — a logged-in
     // customer, or an owner browsing another restaurant — the order is a normal
     // customer order, not POS (#4). Prevents misclassifying customers as staff.
-    const resolvedStaffUserId = await this.resolvePosStaff(
-      authenticatedUserId,
-      restaurant.ownerId,
-      restaurantId,
-    );
+    const resolvedStaffUserId =
+      posStaffUserId ??
+      (await this.resolvePosStaff(
+        authenticatedUserId,
+        restaurant.ownerId,
+        restaurantId,
+      ));
     if (createOrderDto.source === 'POS' && !resolvedStaffUserId) {
       throw new UnauthorizedException(
         'Only active staff assigned to this restaurant can create POS orders.',
@@ -294,6 +404,29 @@ export class OrdersService {
         );
     }
 
+    if (posSubmission) {
+      const table = await this.prisma.restaurantTable.findFirst({
+        where: {
+          id: posSubmission.tableId,
+          restaurantId,
+          type: 'TABLE',
+          isActive: true,
+        },
+      });
+      if (!table) {
+        throw new ConflictException({
+          code: 'TABLE_SESSION_CHANGED',
+          message: 'The selected table is no longer available.',
+        });
+      }
+
+      resolvedTableCuid = table.id;
+      tableNameSnapshot = table.name;
+      servicePointType = 'TABLE';
+      servicePointLabel = table.name;
+      sessionToken = undefined;
+    }
+
     // #M8: check the RESOLVED payment preference, not the raw DTO. A service
     // point with a single allowed method ['ONLINE'] auto-selects ONLINE when
     // the client omits the field, which the earlier raw-DTO check missed.
@@ -311,7 +444,7 @@ export class OrdersService {
       );
     }
 
-    if (sessionToken) {
+    if (!posSubmission && sessionToken) {
       const existingSession = await this.prisma.tableSession.findFirst({
         where: {
           token: sessionToken,
@@ -341,7 +474,7 @@ export class OrdersService {
       }
     }
 
-    if (!tableSessionId && servicePoint) {
+    if (!posSubmission && !tableSessionId && servicePoint) {
       resolvedTableCuid = servicePoint.id;
 
       const newSession = await this.getOrCreateOpenSession(
@@ -351,7 +484,7 @@ export class OrdersService {
       );
       tableSessionId = newSession.id;
       sessionToken = newSession.token;
-    } else if (!tableSessionId && createOrderDto.tableId) {
+    } else if (!posSubmission && !tableSessionId && createOrderDto.tableId) {
       // Frontend sends table name (e.g. "1"), not cuid — resolve to real id
       const table = await this.prisma.restaurantTable.findFirst({
         where: { name: createOrderDto.tableId, restaurantId, type: 'TABLE' },
@@ -549,6 +682,16 @@ export class OrdersService {
             (o: { id: string }) => o.id === selected.optionId,
           );
           if (!option) {
+            if (posSubmission) {
+              throw new ConflictException({
+                code: 'MENU_CHANGED',
+                reason: 'OPTION_REMOVED',
+                message:
+                  'A menu option was removed after this POS order was queued.',
+                menuItemId: item.menuItemId,
+                optionId: selected.optionId,
+              });
+            }
             throw new BadRequestException({
               message: 'Invalid option selected',
               optionId: selected.optionId,
@@ -565,10 +708,44 @@ export class OrdersService {
             (c: { name: string }) => c.name === selected.choiceName,
           );
           if (!choice) {
+            if (posSubmission) {
+              throw new ConflictException({
+                code: 'MENU_CHANGED',
+                reason: 'CHOICE_REMOVED',
+                message:
+                  'An option choice was removed after this POS order was queued.',
+                menuItemId: item.menuItemId,
+                optionId: selected.optionId,
+                choiceName: selected.choiceName,
+              });
+            }
             throw new BadRequestException({
               message: 'Invalid choice selected',
               optionId: selected.optionId,
               choiceName: selected.choiceName,
+            });
+          }
+
+          if (
+            posSubmission &&
+            Math.round(selected.priceModifier * 100) !==
+              Math.round((choice.priceModifier || 0) * 100)
+          ) {
+            throw new ConflictException({
+              code: 'PRICE_CHANGED',
+              message:
+                'An option price changed after this POS order was queued.',
+              currentQuote: [
+                {
+                  menuItemId: item.menuItemId,
+                  itemName: dbItem.name,
+                  optionId: option.id,
+                  optionName: option.name,
+                  choiceName: choice.name,
+                  expectedPriceModifier: selected.priceModifier,
+                  currentPriceModifier: choice.priceModifier || 0,
+                },
+              ],
             });
           }
 
@@ -603,6 +780,17 @@ export class OrdersService {
 
         const count = selectionCountByOption.get(option.id) ?? 0;
         if (count === 0) {
+          if (posSubmission) {
+            throw new ConflictException({
+              code: 'MENU_CHANGED',
+              reason: 'OPTION_SELECTION_REQUIRED',
+              message:
+                'A required option changed after this POS order was queued.',
+              menuItemId: item.menuItemId,
+              optionId: option.id,
+              optionName: option.name,
+            });
+          }
           throw new BadRequestException(
             `Option "${option.name}" requires one choice`,
           );
@@ -636,176 +824,278 @@ export class OrdersService {
     }
 
     // 7. Main transaction — loyalty + order creation are atomic
-    const finalOrder = await this.prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        let finalTotal = Math.round(computedTotal * 100) / 100; // #3: cents-precise money, not raw float
-        let pointsEarned = 0;
-        let pointsRedeemedForDiscount = 0;
-        const pointsRedeemedForItems = itemsPointsRedeemed;
-        let loyaltyAcc = null;
-        let totalPointsRedeemed = 0;
-        let purchasePointsEarned = 0;
-        let signupBonusPoints = 0;
-
-        if (
-          effectiveCustomerId &&
-          isLoyaltyAvailable(restaurant, this.featureService)
-        ) {
-          const earnRate = restaurant.loyaltyExchangeRate || 10;
-          const redeemRate = restaurant.loyaltyRedeemRate || 150;
-
-          // M-ORDER-1: use PostgreSQL's native conflict handler. Prisma's
-          // nominal upsert with an empty update can still race and throw P2002
-          // inside an interactive transaction.
-          loyaltyAcc = await ensureLoyaltyAccount(
-            tx,
-            effectiveCustomerId,
-            restaurantId,
-          );
-
-          // Issue 15: Lock the row before reading balance to prevent double-spend
-          // when two concurrent orders for the same customer both try to redeem.
-          await lockLoyaltyAccountRow(tx, loyaltyAcc.id);
-
-          await expireAccountPoints(tx, loyaltyAcc.id);
-          loyaltyAcc = await tx.loyaltyAccount.findUniqueOrThrow({
-            where: { id: loyaltyAcc.id },
-          });
-
-          // Cash discount redemption is server-authoritative: the client only
-          // sends intent, while DB prices and the DB loyalty balance decide the cap.
-          if (createOrderDto.usePoints) {
-            const remainingPoints = Math.max(
-              loyaltyAcc.points - pointsRedeemedForItems,
-              0,
+    let finalOrder: Prisma.OrderGetPayload<{ include: { items: true } }>;
+    try {
+      finalOrder = await this.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          if (posSubmission) {
+            const lockedTables = await tx.$queryRaw<Array<{ id: string }>>(
+              Prisma.sql`
+              SELECT "id"
+              FROM "restaurant_table"
+              WHERE "id" = ${posSubmission.tableId}
+                AND "restaurantId" = ${restaurantId}
+                AND "type" = 'TABLE'
+                AND "isActive" = true
+              FOR UPDATE
+            `,
             );
-            const maxDiscount = finalTotal * LOYALTY_CONFIG.MAX_ORDER_DISCOUNT;
-            const maxDiscountPoints = Math.floor(maxDiscount * redeemRate);
-            const pointsToRedeem = Math.min(remainingPoints, maxDiscountPoints);
+            if (lockedTables.length === 0) {
+              throw new ConflictException({
+                code: 'TABLE_SESSION_CHANGED',
+                message: 'The selected table is no longer available.',
+              });
+            }
 
-            if (pointsToRedeem > 0) {
-              const finalDiscount = pointsToRedeem / redeemRate;
-              if (finalDiscount > finalTotal) {
-                throw new BadRequestException(
-                  'Cannot redeem more points than total',
-                );
+            const openSession = await tx.tableSession.findFirst({
+              where: {
+                tableId: posSubmission.tableId,
+                restaurantId,
+                status: 'OPEN',
+                isServicePoint: false,
+              },
+              select: { id: true, token: true },
+            });
+
+            if (posSubmission.expectedTableSessionId === null) {
+              if (openSession) {
+                throw new ConflictException({
+                  code: 'TABLE_SESSION_CHANGED',
+                  message:
+                    'This table was opened after the order was queued. Review it before attaching the order.',
+                  currentTableSessionId: openSession.id,
+                });
               }
+              const createdSession = await tx.tableSession.create({
+                data: {
+                  tableId: posSubmission.tableId,
+                  restaurantId,
+                  isServicePoint: false,
+                },
+                select: { id: true, token: true },
+              });
+              tableSessionId = createdSession.id;
+              sessionToken = createdSession.token;
+            } else {
+              if (
+                !openSession ||
+                openSession.id !== posSubmission.expectedTableSessionId
+              ) {
+                throw new ConflictException({
+                  code: 'TABLE_SESSION_CHANGED',
+                  message:
+                    'The table session changed after the order was queued. Review it before syncing.',
+                  expectedTableSessionId: posSubmission.expectedTableSessionId,
+                  currentTableSessionId: openSession?.id ?? null,
+                });
+              }
+              tableSessionId = openSession.id;
+              sessionToken = openSession.token;
+            }
 
-              finalTotal = Math.round((finalTotal - finalDiscount) * 100) / 100; // #3
-              pointsRedeemedForDiscount = pointsToRedeem;
+            const pendingPayment = await tx.payment.findFirst({
+              where: { tableSessionId, status: 'PENDING' },
+              select: { id: true },
+            });
+            if (pendingPayment) {
+              throw new ConflictException({
+                code: 'PAYMENT_IN_PROGRESS',
+                message:
+                  'A payment is in progress for this table. Sync will retry after it finishes.',
+              });
             }
           }
 
-          totalPointsRedeemed =
-            pointsRedeemedForDiscount + pointsRedeemedForItems;
+          let finalTotal = Math.round(computedTotal * 100) / 100; // #3: cents-precise money, not raw float
+          let pointsEarned = 0;
+          let pointsRedeemedForDiscount = 0;
+          const pointsRedeemedForItems = itemsPointsRedeemed;
+          let loyaltyAcc = null;
+          let totalPointsRedeemed = 0;
+          let purchasePointsEarned = 0;
+          let signupBonusPoints = 0;
 
-          if (loyaltyAcc.points < totalPointsRedeemed) {
-            throw new BadRequestException(
-              'Not enough points for items + discount',
+          if (
+            effectiveCustomerId &&
+            isLoyaltyAvailable(restaurant, this.featureService)
+          ) {
+            const earnRate = restaurant.loyaltyExchangeRate || 10;
+            const redeemRate = restaurant.loyaltyRedeemRate || 150;
+
+            // M-ORDER-1: use PostgreSQL's native conflict handler. Prisma's
+            // nominal upsert with an empty update can still race and throw P2002
+            // inside an interactive transaction.
+            loyaltyAcc = await ensureLoyaltyAccount(
+              tx,
+              effectiveCustomerId,
+              restaurantId,
             );
+
+            // Issue 15: Lock the row before reading balance to prevent double-spend
+            // when two concurrent orders for the same customer both try to redeem.
+            await lockLoyaltyAccountRow(tx, loyaltyAcc.id);
+
+            await expireAccountPoints(tx, loyaltyAcc.id);
+            loyaltyAcc = await tx.loyaltyAccount.findUniqueOrThrow({
+              where: { id: loyaltyAcc.id },
+            });
+
+            // Cash discount redemption is server-authoritative: the client only
+            // sends intent, while DB prices and the DB loyalty balance decide the cap.
+            if (createOrderDto.usePoints) {
+              const remainingPoints = Math.max(
+                loyaltyAcc.points - pointsRedeemedForItems,
+                0,
+              );
+              const maxDiscount =
+                finalTotal * LOYALTY_CONFIG.MAX_ORDER_DISCOUNT;
+              const maxDiscountPoints = Math.floor(maxDiscount * redeemRate);
+              const pointsToRedeem = Math.min(
+                remainingPoints,
+                maxDiscountPoints,
+              );
+
+              if (pointsToRedeem > 0) {
+                const finalDiscount = pointsToRedeem / redeemRate;
+                if (finalDiscount > finalTotal) {
+                  throw new BadRequestException(
+                    'Cannot redeem more points than total',
+                  );
+                }
+
+                finalTotal =
+                  Math.round((finalTotal - finalDiscount) * 100) / 100; // #3
+                pointsRedeemedForDiscount = pointsToRedeem;
+              }
+            }
+
+            totalPointsRedeemed =
+              pointsRedeemedForDiscount + pointsRedeemedForItems;
+
+            if (loyaltyAcc.points < totalPointsRedeemed) {
+              throw new BadRequestException(
+                'Not enough points for items + discount',
+              );
+            }
+
+            // Dynamic VIP tier from restaurant config — single source of truth
+            const tierConfig = tierConfigFromRestaurant(restaurant);
+            const tierInfo = getTierInfo(loyaltyAcc.lifetimePoints, tierConfig);
+
+            // Take the highest multiplier (additive stacking silently discards bonuses)
+            const finalMultiplier = Math.max(
+              happyHourMultiplier,
+              tierInfo.multiplier,
+            );
+
+            // Points earned on post-discount total (customer didn't pay the discounted amount)
+            const basePoints = finalTotal * earnRate;
+            pointsEarned = Math.floor(basePoints * finalMultiplier);
+            purchasePointsEarned = pointsEarned;
+
+            // Signup bonus — once per restaurant, checked before lifetimePoints is updated
+            if (loyaltyAcc.lifetimePoints === 0) {
+              signupBonusPoints = Math.min(
+                MAX_SIGNUP_BONUS,
+                restaurant.loyaltySignupBonus || 0,
+              );
+              pointsEarned += signupBonusPoints;
+            }
+
+            await tx.loyaltyAccount.update({
+              where: { id: loyaltyAcc.id },
+              data: {
+                points: { increment: pointsEarned - totalPointsRedeemed },
+                lifetimePoints: { increment: pointsEarned },
+              },
+            });
+          } else if (pointsRedeemedForItems > 0 || createOrderDto.usePoints) {
+            throw new BadRequestException('Loyalty program is not available');
           }
 
-          // Dynamic VIP tier from restaurant config — single source of truth
-          const tierConfig = tierConfigFromRestaurant(restaurant);
-          const tierInfo = getTierInfo(loyaltyAcc.lifetimePoints, tierConfig);
-
-          // Take the highest multiplier (additive stacking silently discards bonuses)
-          const finalMultiplier = Math.max(
-            happyHourMultiplier,
-            tierInfo.multiplier,
-          );
-
-          // Points earned on post-discount total (customer didn't pay the discounted amount)
-          const basePoints = finalTotal * earnRate;
-          pointsEarned = Math.floor(basePoints * finalMultiplier);
-          purchasePointsEarned = pointsEarned;
-
-          // Signup bonus — once per restaurant, checked before lifetimePoints is updated
-          if (loyaltyAcc.lifetimePoints === 0) {
-            signupBonusPoints = Math.min(
-              MAX_SIGNUP_BONUS,
-              restaurant.loyaltySignupBonus || 0,
-            );
-            pointsEarned += signupBonusPoints;
-          }
-
-          await tx.loyaltyAccount.update({
-            where: { id: loyaltyAcc.id },
+          const order = await tx.order.create({
             data: {
-              points: { increment: pointsEarned - totalPointsRedeemed },
-              lifetimePoints: { increment: pointsEarned },
+              clientOrderId: posSubmission?.clientOrderId,
+              clientPayloadHash: posPayloadHash ?? undefined,
+              expectedTableSessionId:
+                posSubmission?.expectedTableSessionId ?? undefined,
+              customerName: createOrderDto.customerName,
+              customerPhone: createOrderDto.customerPhone,
+              customerId: effectiveCustomerId,
+              tableId: resolvedTableCuid,
+              tableName: tableNameSnapshot,
+              servicePointType,
+              servicePointLabel,
+              fulfillmentType,
+              paymentPreference,
+              status:
+                effectivePaymentPreference === 'ONLINE'
+                  ? OrderStatus.PENDING_PAYMENT
+                  : OrderStatus.NEW,
+              specialRequests: createOrderDto.specialRequests,
+              totalPrice: finalTotal,
+              pointsEarned,
+              pointsRedeemedForDiscount,
+              pointsRedeemedForItems,
+              pointsRedeemed:
+                pointsRedeemedForDiscount + pointsRedeemedForItems,
+              restaurantId,
+              tableSessionId,
+              source:
+                createOrderDto.source === 'POS' && resolvedStaffUserId
+                  ? 'POS'
+                  : 'CUSTOMER',
+              staffUserId: resolvedStaffUserId ?? undefined,
+              items: { create: itemsData },
             },
+            include: { items: true },
           });
-        } else if (pointsRedeemedForItems > 0 || createOrderDto.usePoints) {
-          throw new BadRequestException('Loyalty program is not available');
+
+          if (loyaltyAcc) {
+            const expiresAt = addDays(
+              new Date(),
+              restaurant.loyaltyPointExpiryDays || 90,
+            );
+
+            await redeemAccountPoints(
+              tx,
+              loyaltyAcc.id,
+              totalPointsRedeemed,
+              order.id,
+            );
+            await addEarnedPointBatch(
+              tx,
+              loyaltyAcc.id,
+              purchasePointsEarned,
+              'EARN',
+              expiresAt,
+              order.id,
+            );
+            await addEarnedPointBatch(
+              tx,
+              loyaltyAcc.id,
+              signupBonusPoints,
+              'SIGNUP',
+              expiresAt,
+              order.id,
+            );
+          }
+
+          return order;
+        },
+      );
+    } catch (error) {
+      if (posSubmission && posPayloadHash) {
+        const replay = await this.findPosOrderByClientId(
+          posSubmission.restaurantId,
+          posSubmission.clientOrderId,
+        );
+        if (replay) {
+          return this.buildOrderCreateResponse(replay, posPayloadHash);
         }
-
-        const order = await tx.order.create({
-          data: {
-            customerName: createOrderDto.customerName,
-            customerPhone: createOrderDto.customerPhone,
-            customerId: effectiveCustomerId,
-            tableId: resolvedTableCuid,
-            tableName: tableNameSnapshot,
-            servicePointType,
-            servicePointLabel,
-            fulfillmentType,
-            paymentPreference,
-            status:
-              effectivePaymentPreference === 'ONLINE'
-                ? OrderStatus.PENDING_PAYMENT
-                : OrderStatus.NEW,
-            specialRequests: createOrderDto.specialRequests,
-            totalPrice: finalTotal,
-            pointsEarned,
-            pointsRedeemedForDiscount,
-            pointsRedeemedForItems,
-            pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
-            restaurantId,
-            tableSessionId,
-            source:
-              createOrderDto.source === 'POS' && resolvedStaffUserId
-                ? 'POS'
-                : 'CUSTOMER',
-            staffUserId: resolvedStaffUserId ?? undefined,
-            items: { create: itemsData },
-          },
-          include: { items: true },
-        });
-
-        if (loyaltyAcc) {
-          const expiresAt = addDays(
-            new Date(),
-            restaurant.loyaltyPointExpiryDays || 90,
-          );
-
-          await redeemAccountPoints(
-            tx,
-            loyaltyAcc.id,
-            totalPointsRedeemed,
-            order.id,
-          );
-          await addEarnedPointBatch(
-            tx,
-            loyaltyAcc.id,
-            purchasePointsEarned,
-            'EARN',
-            expiresAt,
-            order.id,
-          );
-          await addEarnedPointBatch(
-            tx,
-            loyaltyAcc.id,
-            signupBonusPoints,
-            'SIGNUP',
-            expiresAt,
-            order.id,
-          );
-        }
-
-        return order;
-      },
-    );
+      }
+      throw error;
+    }
 
     const isAwaitingPayment = effectivePaymentPreference === 'ONLINE';
 
@@ -838,6 +1128,67 @@ export class OrdersService {
     const orderTrackToken = this.eventsGateway.signOrderToken(finalOrder.id);
 
     return { ...finalOrder, sessionToken, orderTrackToken };
+  }
+
+  private hashPosOrderIntent(createOrderDto: CreateOrderDto): string {
+    const semanticIntent = {
+      customerName: createOrderDto.customerName,
+      customerPhone: createOrderDto.customerPhone ?? null,
+      customerId: createOrderDto.customerId ?? null,
+      specialRequests: createOrderDto.specialRequests ?? null,
+      usePoints: createOrderDto.usePoints ?? false,
+      redeemItemIds: createOrderDto.redeemItemIds ?? [],
+      redeemCartIds: createOrderDto.redeemCartIds ?? [],
+      posSubmission: createOrderDto.posSubmission,
+      items: createOrderDto.items.map((item) => ({
+        menuItemId: item.menuItemId,
+        cartId: item.cartId ?? null,
+        quantity: item.quantity,
+        expectedUnitPrice:
+          item.expectedUnitPrice === undefined
+            ? null
+            : Math.round(item.expectedUnitPrice * 100),
+        notes: item.notes?.trim() || null,
+        selectedOptions: (item.selectedOptions ?? []).map((option) => ({
+          optionId: option.optionId,
+          choiceName: option.choiceName,
+          priceModifier: Math.round(option.priceModifier * 100),
+        })),
+      })),
+    };
+
+    return createHash('sha256')
+      .update(JSON.stringify(semanticIntent))
+      .digest('hex');
+  }
+
+  private findPosOrderByClientId(restaurantId: string, clientOrderId: string) {
+    return this.prisma.order.findUnique({
+      where: {
+        restaurantId_clientOrderId: { restaurantId, clientOrderId },
+      },
+      include: {
+        items: true,
+        tableSession: { select: { token: true } },
+      },
+    });
+  }
+
+  private buildOrderCreateResponse(order: any, payloadHash: string) {
+    if (order.clientPayloadHash !== payloadHash) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_MISMATCH',
+        message:
+          'This client order ID was already used for a different submission.',
+      });
+    }
+
+    const { tableSession, ...persistedOrder } = order;
+    return {
+      ...persistedOrder,
+      sessionToken: tableSession?.token,
+      orderTrackToken: this.eventsGateway.signOrderToken(order.id),
+    };
   }
 
   /**

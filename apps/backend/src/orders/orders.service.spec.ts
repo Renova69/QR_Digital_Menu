@@ -594,6 +594,468 @@ describe('OrdersService', () => {
       expect(data.staffUserId).toBe('waiter-1');
     });
 
+    it('returns the original order for sequential and racing POS retries', async () => {
+      const tx = makeTx();
+      (tx as any).restaurantTable = {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'table-cuid-1',
+          name: 'T1',
+          type: 'TABLE',
+          isActive: true,
+        }),
+      };
+      (tx as any).payment = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      };
+      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+        type: 'TABLE',
+        isActive: true,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      const input = {
+        customerName: 'Table 1',
+        source: 'POS',
+        tableId: 'T1',
+        posSubmission: {
+          clientOrderId: 'client-order-1',
+          restaurantId: 'rest-1',
+          tableId: 'table-cuid-1',
+          expectedTableSessionId: null,
+        },
+        items: [
+          {
+            menuItemId: 'item-1',
+            quantity: 1,
+            expectedUnitPrice: 10,
+            selectedOptions: [],
+          },
+        ],
+      } as CreateOrderDto;
+
+      await service.create(input, 'waiter-1');
+      const persisted = tx.order.create.mock.calls[0][0].data;
+      const persistedOrder = {
+        ...makeOrder({
+          clientOrderId: persisted.clientOrderId,
+          clientPayloadHash: persisted.clientPayloadHash,
+        }),
+        tableSession: { token: 'tok-new' },
+      };
+      prisma.order.findUnique.mockResolvedValue(persistedOrder);
+
+      const replay = await service.create(input, 'waiter-1');
+
+      expect(replay).toEqual(
+        expect.objectContaining({
+          id: 'order-1',
+          sessionToken: 'tok-new',
+          orderTrackToken: 'order-track-token',
+        }),
+      );
+      expect(tx.order.create).toHaveBeenCalledTimes(1);
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledTimes(1);
+      expect(printStationService.routeOrderToPrinters).toHaveBeenCalledTimes(1);
+
+      events.emitOrderEventToRestaurant.mockClear();
+      events.emitTableStatusChanged.mockClear();
+      printStationService.routeOrderToPrinters.mockClear();
+      prisma.order.findUnique
+        .mockReset()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(persistedOrder);
+      prisma.$transaction.mockReset().mockRejectedValueOnce({ code: 'P2002' });
+
+      await expect(service.create(input, 'waiter-1')).resolves.toEqual(
+        expect.objectContaining({
+          id: 'order-1',
+          sessionToken: 'tok-new',
+          orderTrackToken: 'order-track-token',
+        }),
+      );
+      expect(tx.order.create).toHaveBeenCalledTimes(1);
+      expect(events.emitOrderEventToRestaurant).not.toHaveBeenCalled();
+      expect(events.emitTableStatusChanged).not.toHaveBeenCalled();
+      expect(printStationService.routeOrderToPrinters).not.toHaveBeenCalled();
+    });
+
+    it('does not attach an expected-empty POS submission to a new table session', async () => {
+      const tx = makeTx();
+      tx.tableSession.findFirst.mockResolvedValue({
+        id: 'unexpected-session',
+        token: 'unexpected-token',
+        tableId: 'table-cuid-1',
+      });
+      (tx as any).restaurantTable = {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'table-cuid-1',
+          name: 'T1',
+          type: 'TABLE',
+          isActive: true,
+        }),
+      };
+      (tx as any).payment = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      };
+      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+        type: 'TABLE',
+        isActive: true,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await expect(
+        service.create(
+          {
+            customerName: 'Table 1',
+            source: 'POS',
+            tableId: 'T1',
+            posSubmission: {
+              clientOrderId: 'client-order-conflict',
+              restaurantId: 'rest-1',
+              tableId: 'table-cuid-1',
+              expectedTableSessionId: null,
+            },
+            items: [
+              {
+                menuItemId: 'item-1',
+                quantity: 1,
+                expectedUnitPrice: 10,
+                selectedOptions: [],
+              },
+            ],
+          } as CreateOrderDto,
+          'waiter-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'TABLE_SESSION_CHANGED' }),
+      });
+      expect(tx.order.create).not.toHaveBeenCalled();
+    });
+
+    it('requires staff review when a queued POS item price changed', async () => {
+      const tx = makeTx();
+      (tx as any).restaurantTable = {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'table-cuid-1',
+          name: 'T1',
+          type: 'TABLE',
+          isActive: true,
+        }),
+      };
+      (tx as any).payment = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      };
+      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ price: 11 })]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+        type: 'TABLE',
+        isActive: true,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await expect(
+        service.create(
+          {
+            customerName: 'Table 1',
+            source: 'POS',
+            posSubmission: {
+              clientOrderId: 'client-order-price-change',
+              restaurantId: 'rest-1',
+              tableId: 'table-cuid-1',
+              expectedTableSessionId: null,
+            },
+            items: [
+              {
+                menuItemId: 'item-1',
+                quantity: 1,
+                expectedUnitPrice: 10,
+                selectedOptions: [],
+              },
+            ],
+          } as CreateOrderDto,
+          'waiter-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'PRICE_CHANGED',
+          currentQuote: [
+            expect.objectContaining({
+              menuItemId: 'item-1',
+              expectedUnitPrice: 10,
+              currentUnitPrice: 11,
+            }),
+          ],
+        }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(tx.order.create).not.toHaveBeenCalled();
+    });
+
+    it('requires staff review when a queued option price changed', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.menuOption.findMany.mockResolvedValue([
+        {
+          id: 'opt-1',
+          menuItemId: 'item-1',
+          name: 'Size',
+          type: 'VARIATION',
+          choices: [{ name: 'Large', priceModifier: 2 }],
+        },
+      ]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+        type: 'TABLE',
+        isActive: true,
+      });
+
+      await expect(
+        service.create(
+          {
+            customerName: 'Table 1',
+            source: 'POS',
+            posSubmission: {
+              clientOrderId: 'client-option-price-change',
+              restaurantId: 'rest-1',
+              tableId: 'table-cuid-1',
+              expectedTableSessionId: null,
+            },
+            items: [
+              {
+                menuItemId: 'item-1',
+                quantity: 1,
+                expectedUnitPrice: 10,
+                selectedOptions: [
+                  {
+                    optionId: 'opt-1',
+                    optionName: 'Size',
+                    choiceName: 'Large',
+                    priceModifier: 1,
+                  },
+                ],
+              },
+            ],
+          } as CreateOrderDto,
+          'waiter-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'PRICE_CHANGED',
+          currentQuote: [
+            expect.objectContaining({
+              menuItemId: 'item-1',
+              optionId: 'opt-1',
+              expectedPriceModifier: 1,
+              currentPriceModifier: 2,
+            }),
+          ],
+        }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('returns a menu conflict when a queued item was removed', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+
+      await expect(
+        service.create(
+          {
+            customerName: 'Table 1',
+            source: 'POS',
+            posSubmission: {
+              clientOrderId: 'client-menu-item-removed',
+              restaurantId: 'rest-1',
+              tableId: 'table-cuid-1',
+              expectedTableSessionId: null,
+            },
+            items: [
+              {
+                menuItemId: 'item-removed',
+                quantity: 1,
+                expectedUnitPrice: 10,
+                selectedOptions: [],
+              },
+            ],
+          } as CreateOrderDto,
+          'waiter-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'MENU_CHANGED',
+          reason: 'ITEM_REMOVED',
+          menuItemIds: ['item-removed'],
+        }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('returns a menu conflict when a queued item is out of stock', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({ isOutOfStock: true }),
+      ]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+
+      await expect(
+        service.create(
+          {
+            customerName: 'Table 1',
+            source: 'POS',
+            posSubmission: {
+              clientOrderId: 'client-menu-item-stock',
+              restaurantId: 'rest-1',
+              tableId: 'table-cuid-1',
+              expectedTableSessionId: null,
+            },
+            items: [
+              {
+                menuItemId: 'item-1',
+                quantity: 1,
+                expectedUnitPrice: 10,
+                selectedOptions: [],
+              },
+            ],
+          } as CreateOrderDto,
+          'waiter-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'MENU_CHANGED',
+          reason: 'ITEM_OUT_OF_STOCK',
+          menuItemId: 'item-1',
+        }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('returns a menu conflict when a queued option was removed', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.menuOption.findMany.mockResolvedValue([]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+
+      await expect(
+        service.create(
+          {
+            customerName: 'Table 1',
+            source: 'POS',
+            posSubmission: {
+              clientOrderId: 'client-menu-option-removed',
+              restaurantId: 'rest-1',
+              tableId: 'table-cuid-1',
+              expectedTableSessionId: null,
+            },
+            items: [
+              {
+                menuItemId: 'item-1',
+                quantity: 1,
+                expectedUnitPrice: 10,
+                selectedOptions: [
+                  {
+                    optionId: 'option-removed',
+                    optionName: 'Size',
+                    choiceName: 'Large',
+                    priceModifier: 2,
+                  },
+                ],
+              },
+            ],
+          } as CreateOrderDto,
+          'waiter-1',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'MENU_CHANGED',
+          reason: 'OPTION_REMOVED',
+          menuItemId: 'item-1',
+          optionId: 'option-removed',
+        }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it('adds option priceModifier to computed total', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.menuOption.findMany.mockResolvedValue([

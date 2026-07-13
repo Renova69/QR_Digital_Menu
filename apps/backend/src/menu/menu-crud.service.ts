@@ -28,6 +28,12 @@ import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
 import { withKeyLock } from '../common/key-mutex';
 import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
+import {
+  getTimeUpsellContexts,
+  scoreUpsellItems,
+  UpsellContext,
+} from './upsell/upsell-context';
+import { WeatherUpsellService } from './upsell/weather-upsell.service';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -52,6 +58,7 @@ export class MenuCrudService {
     private readonly featureService: FeatureService,
     private readonly storageService: StorageService,
     private readonly events: EventsGateway,
+    private readonly weatherUpsellService: WeatherUpsellService,
   ) {}
 
   private readonly autoTrendingCache = new Map<
@@ -670,6 +677,8 @@ export class MenuCrudService {
         isActive: true,
         deletedAt: true,
         timezone: true,
+        city: true,
+        country: true,
       },
     });
 
@@ -689,6 +698,13 @@ export class MenuCrudService {
       return [];
     }
 
+    const timezone = restaurant.timezone || 'UTC';
+    const activeContexts = await this.getActiveUpsellContexts({
+      timezone,
+      city: restaurant.city,
+      country: restaurant.country,
+    });
+
     if (restaurant.trendingMode === 'MANUAL') {
       const items = await this.prisma.menuItem.findMany({
         where: {
@@ -702,16 +718,14 @@ export class MenuCrudService {
           category: { select: { isDrinkCategory: true, name: true } },
         },
       });
-      const timezone = restaurant.timezone || 'UTC';
-      const scoredItems = this.applyContextualScoring(items, timezone).slice(
-        0,
-        4,
-      );
+      const scoredItems = this.applyContextualScoring(
+        items,
+        activeContexts,
+      ).slice(0, 4);
       return this.applyTrendingTranslations(scoredItems, restaurant, lang);
     }
 
-    const timezone = restaurant.timezone || 'UTC';
-    const cacheKey = `${restaurantId}:${lang || 'default'}:${this.getActiveUpsellContextKey(timezone)}`;
+    const cacheKey = `${restaurantId}:${lang || 'default'}:${this.getActiveUpsellContextKey(activeContexts)}`;
     const cached = this.autoTrendingCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
@@ -767,7 +781,7 @@ export class MenuCrudService {
 
       const scoredItems = this.applyContextualScoring(
         ordered as Partial<MenuItem>[],
-        timezone,
+        activeContexts,
       ).slice(0, 4);
 
       const result = await this.applyTrendingTranslations(
@@ -789,44 +803,33 @@ export class MenuCrudService {
 
   private applyContextualScoring(
     items: Partial<MenuItem>[],
-    timezone: string,
+    activeContexts: ReadonlySet<string>,
   ): Partial<MenuItem>[] {
-    const activeContexts = this.getActiveUpsellContexts(timezone);
-
-    return items
-      .map((item, index) => {
-        let score = items.length - index; // Base score preserves original ranking
-        if (
-          item.tags &&
-          Array.isArray(item.tags) &&
-          item.tags.some((tag: string) => activeContexts.has(tag))
-        ) {
-          score *= 1.5;
-        }
-        return { item, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.item);
+    return scoreUpsellItems(items, activeContexts);
   }
 
-  private getActiveUpsellContexts(timezone: string): Set<string> {
-    const now = DateTime.now().setZone(timezone);
-    const hour = now.hour;
-    const weekday = now.weekday; // 1 = Monday, 7 = Sunday
-    const activeContexts = new Set<string>();
-
-    if (hour >= 6 && hour < 11) activeContexts.add('MORNING');
-    if (hour >= 11 && hour < 15) activeContexts.add('LUNCH');
-    if (hour >= 17 && hour < 22) activeContexts.add('EVENING');
-    if (hour >= 22 || hour < 4) activeContexts.add('LATE_NIGHT');
-    if (weekday === 6 || weekday === 7) activeContexts.add('WEEKEND');
-
+  private async getActiveUpsellContexts(location: {
+    timezone: string;
+    city?: string | null;
+    country?: string | null;
+  }): Promise<Set<UpsellContext>> {
+    const activeContexts = getTimeUpsellContexts(location.timezone);
+    try {
+      const weatherContexts = await this.weatherUpsellService.getContexts({
+        city: location.city,
+        country: location.country,
+      });
+      for (const context of weatherContexts) activeContexts.add(context);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Weather upsell fallback: ${message}`);
+    }
     return activeContexts;
   }
 
-  private getActiveUpsellContextKey(timezone: string): string {
-    const contexts = [...this.getActiveUpsellContexts(timezone)].sort();
-    return contexts.length ? contexts.join('+') : 'none';
+  private getActiveUpsellContextKey(contexts: ReadonlySet<string>): string {
+    const sortedContexts = [...contexts].sort();
+    return sortedContexts.length ? sortedContexts.join('+') : 'none';
   }
 
   /**

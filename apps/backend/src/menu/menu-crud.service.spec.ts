@@ -12,6 +12,7 @@ import { MenuTranslationService } from './menu-translation.service';
 import { FeatureService } from '../subscription/feature.service';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
+import { WeatherUpsellService } from './upsell/weather-upsell.service';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
@@ -55,6 +56,7 @@ const mockStorage = {
   deleteExact: jest.fn().mockResolvedValue(undefined),
 };
 const mockEvents = { emitPublicMenuItemAvailability: jest.fn() };
+const mockWeatherUpsell = { getContexts: jest.fn() };
 
 const BASE_RESTAURANT = {
   id: 'rest-1',
@@ -123,6 +125,7 @@ describe('MenuCrudService', () => {
         { provide: MenuTranslationService, useValue: mockMenuTranslation },
         { provide: StorageService, useValue: mockStorage },
         { provide: EventsGateway, useValue: mockEvents },
+        { provide: WeatherUpsellService, useValue: mockWeatherUpsell },
         FeatureService,
       ],
     }).compile();
@@ -136,6 +139,7 @@ describe('MenuCrudService', () => {
     mockTranslation.translateObject.mockResolvedValue({});
     mockStorage.delete.mockResolvedValue(undefined);
     mockStorage.deleteExact.mockResolvedValue(undefined);
+    mockWeatherUpsell.getContexts.mockResolvedValue(new Set());
     mockPrisma.$transaction.mockResolvedValue([]);
   });
 
@@ -852,7 +856,7 @@ describe('MenuCrudService', () => {
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
-      it('applies only one contextual boost when an item matches multiple active tags', async () => {
+      it('combines multiple active contexts within the bounded boost', async () => {
         jest.setSystemTime(new Date('2023-10-14T12:00:00Z')); // Saturday lunch: LUNCH + WEEKEND
         mockPrisma.restaurant.findUnique.mockResolvedValue({
           trendingMode: 'MANUAL',
@@ -870,9 +874,9 @@ describe('MenuCrudService', () => {
         const result = await service.getTrendingItems('rest-1');
 
         expect(result.map((item) => (item as { id: string }).id)).toEqual([
+          'item-3',
           'item-1',
           'item-2',
-          'item-3',
           'item-4',
         ]);
       });
@@ -926,6 +930,90 @@ describe('MenuCrudService', () => {
         await service.getTrendingItems('rest-1');
 
         jest.setSystemTime(new Date('2023-10-10T11:00:00Z'));
+        await service.getTrendingItems('rest-1');
+
+        expect(mockPrisma.orderItem.groupBy).toHaveBeenCalledTimes(2);
+      });
+
+      it('combines weather with time context when ranking items', async () => {
+        jest.setSystemTime(new Date('2026-01-13T09:00:00Z'));
+        mockWeatherUpsell.getContexts.mockResolvedValue(new Set(['COLD']));
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'MANUAL',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+          city: 'Sofia',
+          country: 'Bulgaria',
+        });
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', upsellContexts: [] },
+          { ...makeItem(), id: 'item-2', upsellContexts: [] },
+          {
+            ...makeItem(),
+            id: 'item-3',
+            upsellContexts: ['MORNING', 'COLD'],
+          },
+          { ...makeItem(), id: 'item-4', upsellContexts: [] },
+        ]);
+
+        const result = await service.getTrendingItems('rest-1');
+
+        expect(mockWeatherUpsell.getContexts).toHaveBeenCalledWith({
+          city: 'Sofia',
+          country: 'Bulgaria',
+        });
+        expect((result[0] as { id: string }).id).toBe('item-3');
+      });
+
+      it('keeps serving time-based recommendations when weather lookup rejects', async () => {
+        jest.setSystemTime(new Date('2026-01-13T09:00:00Z'));
+        mockWeatherUpsell.getContexts.mockRejectedValue(
+          new Error('provider unavailable'),
+        );
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'MANUAL',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+          city: 'Sofia',
+          country: 'Bulgaria',
+        });
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', upsellContexts: [] },
+          {
+            ...makeItem(),
+            id: 'item-2',
+            upsellContexts: ['MORNING'],
+          },
+        ]);
+
+        await expect(service.getTrendingItems('rest-1')).resolves.toEqual([
+          expect.objectContaining({ id: 'item-2' }),
+          expect.objectContaining({ id: 'item-1' }),
+        ]);
+      });
+
+      it('does not reuse AUTO cache entries across weather-context changes', async () => {
+        mockWeatherUpsell.getContexts
+          .mockResolvedValueOnce(new Set(['COLD']))
+          .mockResolvedValueOnce(new Set(['HOT']));
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'AUTO',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+          city: 'Sofia',
+          country: 'Bulgaria',
+        });
+        mockPrisma.orderItem.groupBy.mockResolvedValue([
+          { menuItemId: 'item-1', _sum: { quantity: 10 } },
+        ]);
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', upsellContexts: [] },
+        ]);
+
+        await service.getTrendingItems('rest-1');
         await service.getTrendingItems('rest-1');
 
         expect(mockPrisma.orderItem.groupBy).toHaveBeenCalledTimes(2);

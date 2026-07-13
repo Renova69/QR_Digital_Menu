@@ -13,6 +13,11 @@ import {
 import type { Restaurant } from "../services/restaurantService";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
+import { isPosTransportFailure } from "../lib/posOfflineOrders";
+import {
+  loadOfflineRestaurant,
+  saveOfflineRestaurant,
+} from "../lib/posOfflineShift";
 
 export type { Restaurant };
 
@@ -89,6 +94,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
         const restaurant = await getRestaurantById(user.restaurantId!);
         setRestaurants([restaurant]);
         setActiveRestaurant(restaurant);
+        saveOfflineRestaurant(restaurant, user.id);
         if (showLoading) setLoading(false);
         return;
       }
@@ -120,7 +126,17 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
         setActiveRestaurant(null);
       }
     } catch (err) {
-      setError(err as Error);
+      const cachedRestaurant =
+        user && isPosTransportFailure(err)
+          ? loadOfflineRestaurant(user.id, user.restaurantId)
+          : null;
+      if (cachedRestaurant) {
+        setRestaurants([cachedRestaurant]);
+        setActiveRestaurant(cachedRestaurant);
+        setError(null);
+      } else {
+        setError(err as Error);
+      }
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -151,10 +167,12 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
     const newRestaurant = await createRestaurantApi(restaurantData);
     setRestaurants((prev) => [...prev, newRestaurant]);
     setActiveRestaurant(newRestaurant);
+    if (user) saveOfflineRestaurant(newRestaurant, user.id);
   };
 
   const selectRestaurant = (restaurant: Restaurant | null) => {
     setActiveRestaurant(restaurant);
+    if (restaurant && user) saveOfflineRestaurant(restaurant, user.id);
   };
 
   const value = {

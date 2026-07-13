@@ -78,6 +78,173 @@ describe("PosContext", () => {
     expect(result.current.items.every((i) => i.submitted)).toBe(true);
   });
 
+  it("tracks the queued, conflict, retry-edit, and delivered lifecycle by batch", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    act(() => result.current.addItem(makeItem()));
+    const cartId = result.current.items[0].cartId;
+
+    act(() => result.current.markAsQueued("client-order-1", [cartId]));
+    expect(result.current.items[0]).toMatchObject({
+      submitted: true,
+      syncState: "queued",
+      queuedOrderId: "client-order-1",
+    });
+
+    act(() => result.current.markQueuedAsConflict("client-order-1"));
+    expect(result.current.items[0].syncState).toBe("conflict");
+
+    act(() => result.current.restoreQueuedOrder("client-order-1"));
+    expect(result.current.items[0]).toMatchObject({
+      submitted: false,
+      syncState: undefined,
+      queuedOrderId: undefined,
+    });
+
+    act(() => result.current.markAsQueued("client-order-2", [cartId]));
+    act(() => result.current.markQueuedAsSubmitted("client-order-2"));
+    expect(result.current.items[0]).toMatchObject({
+      submitted: true,
+      syncState: "sent",
+      queuedOrderId: undefined,
+    });
+  });
+
+  it("marks only the cart lines captured by a submission", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    act(() => result.current.addItem(makeItem({ name: "First" })));
+    const firstCartId = result.current.items[0].cartId;
+    act(() => result.current.addItem(makeItem({ name: "Second" })));
+
+    act(() => result.current.markAsSubmitted([firstCartId]));
+
+    expect(
+      result.current.items.find((item) => item.name === "First")?.submitted,
+    ).toBe(true);
+    expect(
+      result.current.items.find((item) => item.name === "Second")?.submitted,
+    ).toBe(false);
+  });
+
+  it("reopens a queued batch for editing after the waiter switched tables", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    act(() =>
+      result.current.loadQueuedOrderForEdit({
+        clientOrderId: "client-order-1",
+        restaurantId: "restaurant-1",
+        tableId: "table-1",
+        tableName: "Table 1",
+        localSessionId: "local-session-1",
+        createdAt: "2026-07-13T10:00:00.000Z",
+        updatedAt: "2026-07-13T10:00:00.000Z",
+        attempts: 1,
+        status: "conflict",
+        payload: {
+          customerName: "Guest",
+          source: "POS",
+          tableId: "Table 1",
+          restaurantId: "restaurant-1",
+          posSubmission: {
+            clientOrderId: "client-order-1",
+            restaurantId: "restaurant-1",
+            tableId: "table-1",
+            expectedTableSessionId: "server-session-1",
+          },
+          items: [],
+        },
+        cartItems: [
+          {
+            ...makeItem({ name: "Queued Pizza" }),
+            cartId: "queued-cart-1",
+          },
+        ],
+      }),
+    );
+
+    expect(result.current.session).toMatchObject({
+      tableId: "table-1",
+      sessionId: "server-session-1",
+      localSessionId: "local-session-1",
+    });
+    expect(result.current.items).toEqual([
+      expect.objectContaining({
+        name: "Queued Pizza",
+        submitted: false,
+        queuedOrderId: undefined,
+      }),
+    ]);
+  });
+
+  it("keeps the rest of the current table when editing one queued batch", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    act(() => {
+      result.current.setSession({
+        tableId: "table-1",
+        tableName: "Table 1",
+        sessionToken: null,
+        sessionId: null,
+        localSessionId: "local-session-1",
+      });
+      result.current.addItem(makeItem({ name: "Already sent" }));
+    });
+    act(() => result.current.markAsSubmitted());
+    act(() => result.current.addItem(makeItem({ name: "Queued original" })));
+    const queuedCartId = result.current.items.find(
+      (item) => item.name === "Queued original",
+    )!.cartId;
+    act(() => result.current.markAsQueued("client-order-1", [queuedCartId]));
+    act(() => result.current.addItem(makeItem({ name: "New pending" })));
+
+    act(() =>
+      result.current.loadQueuedOrderForEdit({
+        clientOrderId: "client-order-1",
+        restaurantId: "restaurant-1",
+        tableId: "table-1",
+        tableName: "Table 1",
+        localSessionId: "local-session-1",
+        createdAt: "2026-07-13T10:00:00.000Z",
+        updatedAt: "2026-07-13T10:00:00.000Z",
+        attempts: 1,
+        status: "conflict",
+        payload: {
+          customerName: "Guest",
+          source: "POS",
+          tableId: "Table 1",
+          restaurantId: "restaurant-1",
+          posSubmission: {
+            clientOrderId: "client-order-1",
+            restaurantId: "restaurant-1",
+            tableId: "table-1",
+            expectedTableSessionId: null,
+          },
+          items: [],
+        },
+        cartItems: [
+          {
+            ...makeItem({ name: "Queued editable" }),
+            cartId: queuedCartId,
+          },
+        ],
+      }),
+    );
+
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Already sent", submitted: true }),
+        expect.objectContaining({ name: "New pending", submitted: false }),
+        expect.objectContaining({
+          name: "Queued editable",
+          submitted: false,
+          queuedOrderId: undefined,
+        }),
+      ]),
+    );
+    expect(result.current.items).toHaveLength(3);
+  });
+
   it("clearCart removes only pending items, preserving submitted history", () => {
     const { result } = renderHook(() => usePos(), { wrapper });
 

@@ -2,6 +2,7 @@ import { Moon, Search, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 import { usePosTheme } from "../../context/PosThemeContext";
+import PosSyncStatus from "./PosSyncStatus";
 
 export default function PosTopBar() {
   const { t } = useTranslation();
@@ -41,6 +42,8 @@ export default function PosTopBar() {
           className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
+
+      <PosSyncStatus />
 
       <button
         type="button"

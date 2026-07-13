@@ -16,6 +16,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { TranslationModule } from '../translation/translation.module';
 
 import { MenuAuditController } from './audit.controller';
+import { WeatherUpsellService } from './upsell/weather-upsell.service';
 
 @Module({
   imports: [PrismaModule, TranslationModule],
@@ -29,7 +30,12 @@ import { MenuAuditController } from './audit.controller';
     MenuOptionController,
     MenuOptionDetailController,
   ],
-  providers: [MenuCrudService, MenuTranslationService, MenuAuditService],
+  providers: [
+    MenuCrudService,
+    MenuTranslationService,
+    MenuAuditService,
+    WeatherUpsellService,
+  ],
   exports: [MenuCrudService, MenuTranslationService, MenuAuditService],
 })
 export class MenuModule {}

@@ -14,6 +14,12 @@ import {
   verifyRegistration as apiVerifyRegistration,
 } from "../lib/api";
 import api from "../lib/api";
+import { isPosTransportFailure } from "../lib/posOfflineOrders";
+import {
+  clearOfflineShift,
+  loadOfflineStaff,
+  saveOfflineStaff,
+} from "../lib/posOfflineShift";
 
 interface User {
   id: string;
@@ -86,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const userData = meResult.data;
         setUser(userData);
+        if (userData) saveOfflineStaff(userData);
+        else clearOfflineShift();
 
         // Only fetch restaurants if the user is authenticated, avoiding 401 errors
         if (userData) {
@@ -106,6 +114,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
           return;
         }
+        if (isPosTransportFailure(error)) {
+          const offlineStaff = loadOfflineStaff();
+          if (offlineStaff) {
+            setUser(offlineStaff);
+            setPrefetchedRestaurants(null);
+            return;
+          }
+        }
+        clearOfflineShift();
         setUser(null);
         setPrefetchedRestaurants(null);
       } finally {
@@ -129,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear stale prefetch from previous session before setting new user
       setPrefetchedRestaurants(null);
       setUser(user);
+      saveOfflineStaff(user);
       return { user };
     } catch (error: any) {
       setIsError(true);
@@ -154,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear stale prefetch from previous session before setting new user
       setPrefetchedRestaurants(null);
       setUser(user);
+      saveOfflineStaff(user);
       return { user };
     } catch (error: any) {
       setIsError(true);
@@ -177,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.clear();
       setPrefetchedRestaurants(null);
       setUser(user);
+      saveOfflineStaff(user);
       return { user };
     } catch (error: any) {
       setIsError(true);
@@ -199,13 +219,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     setPrefetchedRestaurants(null);
     setUser(user);
+    saveOfflineStaff(user);
   };
 
-  const updateUser = (user: User) => setUser(user);
+  const updateUser = (user: User) => {
+    setUser(user);
+    saveOfflineStaff(user);
+  };
 
   const refreshUser = async () => {
     const res = await api.get("/auth/me");
     setUser(res.data);
+    if (res.data) saveOfflineStaff(res.data);
+    else clearOfflineShift();
   };
 
   const logout = async () => {
@@ -219,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("cartItems");
     localStorage.removeItem("tableNumber");
     sessionStorage.removeItem("cartRestaurantId");
+    clearOfflineShift();
     // Clear POS draft so a different staff member on a shared device cannot
     // inherit the previous waiter's open-table session/items (H2).
     sessionStorage.removeItem("posCartDraft");

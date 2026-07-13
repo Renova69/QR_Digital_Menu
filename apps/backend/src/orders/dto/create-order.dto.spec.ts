@@ -127,4 +127,37 @@ describe('CreateOrderDto validation', () => {
       expect(errors).toHaveLength(0);
     });
   });
+
+  describe('POS submission metadata', () => {
+    it('accepts an explicit empty-session expectation with price snapshots', () => {
+      const errors = validate({
+        ...basePayload,
+        source: 'POS',
+        posSubmission: {
+          clientOrderId: '018f8f2b-6a36-7e31-a17d-5a9452f31d91',
+          restaurantId: 'rest-1',
+          tableId: 'table-1',
+          expectedTableSessionId: null,
+        },
+        items: [{ ...baseItem, expectedUnitPrice: 10 }],
+      });
+
+      expect(errors).toHaveLength(0);
+    });
+
+    it('rejects POS metadata that omits the session expectation', () => {
+      const errors = validate({
+        ...basePayload,
+        source: 'POS',
+        posSubmission: {
+          clientOrderId: '018f8f2b-6a36-7e31-a17d-5a9452f31d91',
+          restaurantId: 'rest-1',
+          tableId: 'table-1',
+        },
+        items: [{ ...baseItem, expectedUnitPrice: 10 }],
+      });
+
+      expect(constraintKeys(errors)).toContain('isDefined');
+    });
+  });
 });

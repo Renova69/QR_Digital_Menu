@@ -1,10 +1,52 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute } from "workbox-precaching";
+import { clientsClaim } from "workbox-core";
+import { CacheableResponsePlugin } from "workbox-cacheable-response";
+import { ExpirationPlugin } from "workbox-expiration";
+import {
+  cleanupOutdatedCaches,
+  createHandlerBoundToURL,
+  precacheAndRoute,
+} from "workbox-precaching";
+import { NavigationRoute, registerRoute } from "workbox-routing";
+import { NetworkFirst } from "workbox-strategies";
 
 declare const self: ServiceWorkerGlobalScope;
 
-// Precache and route built assets
+clientsClaim();
+self.skipWaiting();
+cleanupOutdatedCaches();
+
+// Precache and route the versioned application shell.
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// Keep client-side routes such as /staff/pos available when the device starts
+// offline. API and socket requests must never fall back to index.html.
+registerRoute(
+  new NavigationRoute(createHandlerBoundToURL("/index.html"), {
+    denylist: [/^\/api\//, /^\/socket\.io\//],
+  }),
+);
+
+// Public menu data is safe to cache. Authenticated table/session/order APIs are
+// intentionally excluded and use the POS IndexedDB snapshots/outbox instead.
+registerRoute(
+  ({ request, url }) =>
+    request.method === "GET" &&
+    url.origin === self.location.origin &&
+    url.pathname.startsWith("/api/v1/menu/public/"),
+  new NetworkFirst({
+    cacheName: "pos-public-menu-v1",
+    networkTimeoutSeconds: 4,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 80,
+        maxAgeSeconds: 7 * 24 * 60 * 60,
+        purgeOnQuotaError: true,
+      }),
+    ],
+  }),
+);
 
 // Listen to incoming push events
 self.addEventListener("push", (event: PushEvent) => {

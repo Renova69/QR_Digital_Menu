@@ -7,6 +7,10 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
+import {
+  createPosLocalSessionId,
+  type QueuedPosOrder,
+} from "../lib/posOfflineOrders";
 
 const STORAGE_KEY = "posCartDraft";
 const MAX_SPECIAL_REQUESTS_LEN = 2000;
@@ -34,7 +38,13 @@ function loadDraft(): {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw);
-    if (draft && Array.isArray(draft.items)) return draft;
+    if (draft && Array.isArray(draft.items)) {
+      if (draft.session && !draft.session.localSessionId) {
+        draft.session.localSessionId =
+          draft.session.sessionId ?? createPosLocalSessionId();
+      }
+      return draft;
+    }
     return null;
   } catch {
     sessionStorage.removeItem(STORAGE_KEY);
@@ -76,6 +86,8 @@ interface PosCartItem {
   seatNumber: string;
   itemNote: string;
   submitted: boolean;
+  syncState?: "sent" | "queued" | "conflict";
+  queuedOrderId?: string;
 }
 
 interface PosSession {
@@ -83,7 +95,12 @@ interface PosSession {
   tableName: string;
   sessionToken: string | null;
   sessionId: string | null;
+  localSessionId: string;
 }
+
+type PosSessionInput = Omit<PosSession, "localSessionId"> & {
+  localSessionId?: string;
+};
 
 interface PosContextType {
   items: PosCartItem[];
@@ -93,10 +110,21 @@ interface PosContextType {
   updateNote: (cartId: string, note: string) => void;
   clearCart: () => void;
   resetCart: () => void;
-  markAsSubmitted: () => void;
+  markAsSubmitted: (cartIds?: string[]) => void;
+  markAsQueued: (clientOrderId: string, cartIds: string[]) => void;
+  markQueuedAsSubmitted: (clientOrderId: string) => void;
+  markQueuedAsConflict: (clientOrderId: string) => void;
+  restoreQueuedOrder: (clientOrderId: string) => void;
+  loadQueuedOrderForEdit: (order: QueuedPosOrder) => void;
+  removeQueuedOrderItems: (clientOrderId: string) => void;
   setHistoryItems: (historyItems: PosCartItem[]) => void;
   session: PosSession | null;
-  setSession: (s: PosSession) => void;
+  setSession: (s: PosSessionInput) => void;
+  adoptServerSession: (
+    localSessionId: string,
+    sessionId: string,
+    sessionToken: string | null,
+  ) => void;
   clearSession: () => void;
   getTotal: () => number;
   getPendingTotal: () => number;
@@ -188,9 +216,128 @@ export function PosProvider({ children }: { children: ReactNode }) {
     setItems([]);
   }, []);
 
-  const markAsSubmitted = useCallback(() => {
+  const markAsSubmitted = useCallback((cartIds?: string[]) => {
+    const selectedIds = cartIds ? new Set(cartIds) : null;
     setItems((prev) =>
-      prev.map((i) => (i.submitted ? i : { ...i, submitted: true })),
+      prev.map((item) =>
+        !item.submitted && (!selectedIds || selectedIds.has(item.cartId))
+          ? {
+              ...item,
+              submitted: true,
+              syncState: "sent",
+              queuedOrderId: undefined,
+            }
+          : item,
+      ),
+    );
+  }, []);
+
+  const markAsQueued = useCallback(
+    (clientOrderId: string, cartIds: string[]) => {
+      const selectedIds = new Set(cartIds);
+      setItems((prev) =>
+        prev.map((item) =>
+          !item.submitted && selectedIds.has(item.cartId)
+            ? {
+                ...item,
+                submitted: true,
+                syncState: "queued",
+                queuedOrderId: clientOrderId,
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
+
+  const markQueuedAsSubmitted = useCallback((clientOrderId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.queuedOrderId === clientOrderId
+          ? {
+              ...item,
+              submitted: true,
+              syncState: "sent",
+              queuedOrderId: undefined,
+            }
+          : item,
+      ),
+    );
+  }, []);
+
+  const markQueuedAsConflict = useCallback((clientOrderId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.queuedOrderId === clientOrderId
+          ? { ...item, syncState: "conflict" }
+          : item,
+      ),
+    );
+  }, []);
+
+  const restoreQueuedOrder = useCallback((clientOrderId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.queuedOrderId === clientOrderId
+          ? {
+              ...item,
+              submitted: false,
+              syncState: undefined,
+              queuedOrderId: undefined,
+            }
+          : item,
+      ),
+    );
+  }, []);
+
+  const loadQueuedOrderForEdit = useCallback(
+    (order: QueuedPosOrder) => {
+      const isCurrentSession = session?.localSessionId === order.localSessionId;
+      setSessionState({
+        tableId: order.tableId,
+        tableName: order.tableName,
+        sessionToken: null,
+        sessionId: order.payload.posSubmission.expectedTableSessionId,
+        localSessionId: order.localSessionId,
+      });
+      setItems((current) => {
+        if (order.cartItems?.length) {
+          const retained = isCurrentSession
+            ? current.filter(
+                (item) => item.queuedOrderId !== order.clientOrderId,
+              )
+            : [];
+          const editable = order.cartItems.map((item) => ({
+            ...item,
+            submitted: false,
+            syncState: undefined,
+            queuedOrderId: undefined,
+          }));
+          return [...retained, ...editable];
+        }
+        if (!isCurrentSession) return [];
+        return current.map((item) =>
+          item.queuedOrderId === order.clientOrderId
+            ? {
+                ...item,
+                submitted: false,
+                syncState: undefined,
+                queuedOrderId: undefined,
+              }
+            : item,
+        );
+      });
+      setActiveSeat("Seat 1");
+      setHistoryLoading(false);
+      setHistoryError(null);
+    },
+    [session?.localSessionId],
+  );
+
+  const removeQueuedOrderItems = useCallback((clientOrderId: string) => {
+    setItems((prev) =>
+      prev.filter((item) => item.queuedOrderId !== clientOrderId),
     );
   }, []);
 
@@ -201,9 +348,28 @@ export function PosProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setSession = useCallback((s: PosSession) => {
-    setSessionState(s);
+  const setSession = useCallback((s: PosSessionInput) => {
+    setSessionState({
+      ...s,
+      localSessionId:
+        s.localSessionId ?? s.sessionId ?? createPosLocalSessionId(),
+    });
   }, []);
+
+  const adoptServerSession = useCallback(
+    (
+      localSessionId: string,
+      sessionId: string,
+      sessionToken: string | null,
+    ) => {
+      setSessionState((current) =>
+        current?.localSessionId === localSessionId
+          ? { ...current, sessionId, sessionToken }
+          : current,
+      );
+    },
+    [],
+  );
 
   const getTotal = useCallback(() => {
     return items.reduce((sum, item) => {
@@ -259,9 +425,16 @@ export function PosProvider({ children }: { children: ReactNode }) {
       clearCart,
       resetCart,
       markAsSubmitted,
+      markAsQueued,
+      markQueuedAsSubmitted,
+      markQueuedAsConflict,
+      restoreQueuedOrder,
+      loadQueuedOrderForEdit,
+      removeQueuedOrderItems,
       setHistoryItems,
       session,
       setSession,
+      adoptServerSession,
       clearSession,
       getTotal,
       getPendingTotal,
@@ -286,9 +459,16 @@ export function PosProvider({ children }: { children: ReactNode }) {
       clearCart,
       resetCart,
       markAsSubmitted,
+      markAsQueued,
+      markQueuedAsSubmitted,
+      markQueuedAsConflict,
+      restoreQueuedOrder,
+      loadQueuedOrderForEdit,
+      removeQueuedOrderItems,
       setHistoryItems,
       session,
       setSession,
+      adoptServerSession,
       clearSession,
       getTotal,
       getPendingTotal,

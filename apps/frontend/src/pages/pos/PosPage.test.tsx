@@ -10,6 +10,10 @@ vi.mock("../../lib/api", () => ({
     get: vi.fn().mockResolvedValue({ data: { categories: [] } }),
   },
 }));
+vi.mock("../../lib/posOfflineOrders", () => ({
+  getPosSnapshot: vi.fn().mockResolvedValue(null),
+  putPosSnapshot: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../context/PosContext", () => ({
   usePos: vi.fn(),
 }));
@@ -43,7 +47,11 @@ vi.mock("../../components/pos/PosCategoryFilter", () => ({
   default: () => <div data-testid="pos-category-filter" />,
 }));
 vi.mock("../../components/pos/PosItemGrid", () => ({
-  default: () => <div data-testid="pos-item-grid" />,
+  default: ({ items }: { items: Array<{ name: string }> }) => (
+    <div data-testid="pos-item-grid">
+      {items.map((item) => item.name).join(",")}
+    </div>
+  ),
 }));
 vi.mock("../../components/pos/PosTableModal", () => ({
   default: () => <div data-testid="pos-table-modal" />,
@@ -62,6 +70,8 @@ import { usePos } from "../../context/PosContext";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/AuthContext";
 import { useFeature } from "../../hooks/useFeature";
+import api from "../../lib/api";
+import { getPosSnapshot } from "../../lib/posOfflineOrders";
 
 describe("PosPage", () => {
   const mockRestaurant = { id: "rest-1", name: "Test Rest" };
@@ -141,6 +151,29 @@ describe("PosPage", () => {
       expect(
         screen.getByText(/Table Table 1 paid — bill cleared/i),
       ).toBeDefined();
+    });
+  });
+
+  it("loads the last menu snapshot when the network is unavailable", async () => {
+    (api.get as Mock).mockRejectedValueOnce({ code: "ERR_NETWORK" });
+    (getPosSnapshot as Mock).mockResolvedValueOnce({
+      key: "pos-menu:rest-1",
+      cachedAt: "2026-07-13T10:00:00.000Z",
+      value: {
+        categories: [
+          {
+            id: "category-1",
+            name: "Food",
+            items: [{ id: "item-1", name: "Cached Burger", price: 10 }],
+          },
+        ],
+      },
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Cached Burger")).toBeDefined();
     });
   });
 });

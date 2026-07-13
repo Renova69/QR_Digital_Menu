@@ -8,6 +8,7 @@ import React, {
 import { useMenu } from "../hooks/useMenu";
 import RestaurantContext from "./RestaurantContext";
 import { Category, Item } from "../types";
+import { UpsellContext } from "../lib/upsellContexts";
 
 interface MenuContextType {
   categories: Category[] | undefined;
@@ -31,6 +32,7 @@ interface MenuContextType {
     currency: "EUR";
     allergens: string[];
     dietaryTags: string[];
+    upsellContexts?: UpsellContext[];
     isFeatured?: boolean;
     costPrice?: number;
     rewardPointsPrice?: number;
@@ -46,6 +48,7 @@ interface MenuContextType {
       currency?: "EUR";
       allergens?: string[];
       dietaryTags?: string[];
+      upsellContexts?: UpsellContext[];
       isFeatured?: boolean;
       isOutOfStock?: boolean;
       costPrice?: number;
@@ -117,6 +120,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
     currency: "EUR";
     allergens: string[];
     dietaryTags: string[];
+    upsellContexts?: UpsellContext[];
     isFeatured?: boolean;
     rewardPointsPrice?: number;
     relatedItemIds?: string[];
@@ -149,6 +153,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
       currency?: "EUR";
       allergens?: string[];
       dietaryTags?: string[];
+      upsellContexts?: UpsellContext[];
       isFeatured?: boolean;
       isOutOfStock?: boolean;
       rewardPointsPrice?: number;

@@ -1,26 +1,20 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
-import { getTableStatuses, getZones, getSessionBill } from "../../lib/api";
+import { getSessionBill } from "../../lib/api";
 import type { TableZone } from "../../lib/api";
+import {
+  loadPosTables,
+  loadPosZones,
+  type PosTableStatus,
+} from "../../lib/posOfflineCatalog";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
 import { useSocket } from "../../context/SocketContext";
 import { usePosTheme } from "../../context/PosThemeContext";
 import ZoneSelector from "./ZoneSelector";
 
-interface TableStatus {
-  id: string;
-  name: string;
-  status: "empty" | "occupied" | "paid";
-  sessionId: string | null;
-  sessionToken: string | null;
-  orderCount: number;
-  totalAmount: number;
-  customerNames: string[];
-  sessionStatus: string | null;
-  updatedAt: string;
-}
+type TableStatus = PosTableStatus;
 
 const STATUS_COLORS: Record<string, string> = {
   empty: "bg-success/10 border-success/40 text-foreground",
@@ -63,7 +57,7 @@ export default function PosTableModal() {
     (zoneId?: string | null) => {
       if (!activeRestaurant) return;
       setError(null);
-      getTableStatuses(activeRestaurant.id, zoneId ?? undefined)
+      loadPosTables(activeRestaurant.id, zoneId ?? undefined)
         .then(setTables)
         .catch(() =>
           setError(
@@ -79,7 +73,7 @@ export default function PosTableModal() {
 
   const fetchZones = useCallback(() => {
     if (!activeRestaurant) return;
-    getZones(activeRestaurant.id)
+    loadPosZones(activeRestaurant.id)
       .then(setZones)
       .catch((err) => console.error("Failed to fetch zones:", err));
   }, [activeRestaurant]);
@@ -106,7 +100,7 @@ export default function PosTableModal() {
   useEffect(() => {
     if (open && activeRestaurant) {
       setLoading(true);
-      getZones(activeRestaurant.id)
+      loadPosZones(activeRestaurant.id)
         .then((zoneData) => setZones(zoneData))
         .catch(() =>
           setError(
@@ -126,7 +120,7 @@ export default function PosTableModal() {
     if (!open || !activeRestaurant) return;
     let ignore = false;
     setError(null);
-    getTableStatuses(activeRestaurant.id, selectedZoneId ?? undefined)
+    loadPosTables(activeRestaurant.id, selectedZoneId ?? undefined)
       .then((data) => {
         if (!ignore) setTables(data);
       })
@@ -177,7 +171,7 @@ export default function PosTableModal() {
     // mis-tap leaves no orphan open table. The session is minted lazily on the
     // first order submit (PosCartDrawer.handleSubmit) — that's when the table
     // actually becomes "occupied".
-    if (table.status !== "occupied" || !table.sessionToken) {
+    if (table.status !== "occupied" || !table.sessionId) {
       setSession({
         tableId: table.id,
         tableName: table.name,
@@ -188,13 +182,20 @@ export default function PosTableModal() {
       return;
     }
 
-    // Occupied table: adopt the existing OPEN session and load its history.
+    // Occupied table: preserve the stable session precondition even when the
+    // cached offline snapshot intentionally omits its bearer-like token.
     setSession({
       tableId: table.id,
       tableName: table.name,
       sessionToken: table.sessionToken,
       sessionId: table.sessionId,
     });
+
+    if (!table.sessionToken) {
+      setHistoryError(null);
+      setOpen(false);
+      return;
+    }
 
     setHistoryLoading(true);
     setHistoryError(null);
@@ -300,7 +301,10 @@ export default function PosTableModal() {
                 onClick={() => {
                   setError(null);
                   setLoading(true);
-                  getTableStatuses(activeRestaurant.id)
+                  loadPosTables(
+                    activeRestaurant.id,
+                    selectedZoneId ?? undefined,
+                  )
                     .then(setTables)
                     .catch(() =>
                       setError(

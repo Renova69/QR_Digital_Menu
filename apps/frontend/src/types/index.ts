@@ -64,6 +64,8 @@ export interface Item {
   thumbnailUrl?: string | null;
   allergens?: string[];
   dietaryTags?: string[];
+  tags?: string[];
+  upsellContexts?: import("../lib/upsellContexts").UpsellContext[];
   isFeatured?: boolean;
   isOutOfStock?: boolean;
   rewardPointsPrice?: number;

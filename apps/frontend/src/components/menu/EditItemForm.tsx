@@ -8,6 +8,8 @@ import { Modal } from "../ui/modal";
 import { useToast } from "../ui/toast";
 import { Item } from "../../types";
 import { useTranslation } from "react-i18next";
+import { UpsellContextSelector } from "./UpsellContextSelector";
+import { UpsellContext } from "../../lib/upsellContexts";
 
 interface EditItemFormProps {
   item: Item;
@@ -33,6 +35,9 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
     item.dietaryTags?.join(", ") || "",
   );
   const [isFeatured, setIsFeatured] = useState(item.isFeatured || false);
+  const [upsellContexts, setUpsellContexts] = useState<UpsellContext[]>(
+    item.upsellContexts || [],
+  );
   const [rewardPointsPrice, setRewardPointsPrice] = useState(
     item.rewardPointsPrice?.toString() || "",
   );
@@ -62,6 +67,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
           .map((s) => s.trim())
           .filter((s) => s !== ""),
         isFeatured,
+        upsellContexts,
         costPrice: costPrice ? parseFloat(costPrice) : undefined,
         rewardPointsPrice: rewardPointsPrice
           ? parseInt(rewardPointsPrice)
@@ -179,6 +185,11 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
               )}
             </label>
           </div>
+
+          <UpsellContextSelector
+            value={upsellContexts}
+            onChange={setUpsellContexts}
+          />
 
           <div className="space-y-2 border-b border-border/50 pb-4">
             <label className="text-sm font-medium block">

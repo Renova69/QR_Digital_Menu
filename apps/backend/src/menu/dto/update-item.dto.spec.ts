@@ -21,7 +21,7 @@ describe('UpdateItemDto', () => {
     };
     const dto = plainToInstance(UpdateItemDto, payload);
     const errors = await validate(dto);
-    
+
     const tagsError = errors.find((err) => err.property === 'tags');
     expect(tagsError).toBeDefined();
     expect(tagsError!.constraints).toHaveProperty('isArray');
@@ -33,9 +33,20 @@ describe('UpdateItemDto', () => {
     };
     const dto = plainToInstance(UpdateItemDto, payload);
     const errors = await validate(dto);
-    
+
     const tagsError = errors.find((err) => err.property === 'tags');
     expect(tagsError).toBeDefined();
     expect(tagsError!.constraints).toHaveProperty('isString');
+  });
+
+  it('inherits strict upsell context validation', async () => {
+    const dto = plainToInstance(UpdateItemDto, {
+      upsellContexts: ['RAINY', 'NOT_A_CONTEXT'],
+    });
+    const errors = await validate(dto);
+
+    expect(
+      errors.find((error) => error.property === 'upsellContexts'),
+    ).toBeDefined();
   });
 });
