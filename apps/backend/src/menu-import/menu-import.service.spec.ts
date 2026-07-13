@@ -506,6 +506,50 @@ describe('MenuImportService', () => {
       );
     });
 
+    it('preserves automatic mode and upgrades legacy reward prices to CUSTOM', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Rewards',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Automatic coffee',
+                price: 3,
+                rewardPointsMode: 'AUTO',
+                options: [],
+              },
+              {
+                name: 'Legacy cake',
+                price: 5,
+                rewardPointsPrice: 700,
+                options: [],
+              },
+            ],
+          },
+        ],
+      } as Parameters<typeof service.upsertMenu>[1]);
+
+      expect(tx.menuItem.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({ rewardPointsMode: 'AUTO' }),
+        }),
+      );
+      expect(tx.menuItem.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            rewardPointsMode: 'CUSTOM',
+            rewardPointsPrice: 700,
+          }),
+        }),
+      );
+    });
+
     it('deletes old R2 objects (H1.1) when image is replaced on existing category', async () => {
       const tx = makeTx();
       const OLD_URL = 'https://r2.example.com/old-cat.webp';
@@ -1069,6 +1113,8 @@ describe('MenuImportService', () => {
               imageUrl: 'https://img.example.com/pizza.webp',
               thumbnailUrl: 'https://img.example.com/pizza_thumb.webp',
               translations: { en: 'Pizza' },
+              rewardPointsMode: 'AUTO',
+              rewardPointsPrice: null,
               options: [
                 {
                   name: 'Size',
@@ -1092,6 +1138,7 @@ describe('MenuImportService', () => {
       const item = cat.items[0];
       expect(item.description).toBe('Classic margherita');
       expect(item.allergens).toHaveLength(1);
+      expect((item as any).rewardPointsMode).toBe('AUTO');
     });
 
     it('exports categories without optional fields when absent', async () => {

@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useMenu } from "../hooks/useMenu";
 import RestaurantContext from "./RestaurantContext";
-import { Category, Item } from "../types";
+import { Category, Item, RewardPointsMode } from "../types";
 import { UpsellContext } from "../lib/upsellContexts";
 
 interface MenuContextType {
@@ -35,6 +35,7 @@ interface MenuContextType {
     upsellContexts?: UpsellContext[];
     isFeatured?: boolean;
     costPrice?: number;
+    rewardPointsMode?: RewardPointsMode;
     rewardPointsPrice?: number;
     relatedItemIds?: string[];
     imageFile?: File | null;
@@ -52,6 +53,7 @@ interface MenuContextType {
       isFeatured?: boolean;
       isOutOfStock?: boolean;
       costPrice?: number;
+      rewardPointsMode?: RewardPointsMode;
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;
@@ -122,6 +124,8 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
     dietaryTags: string[];
     upsellContexts?: UpsellContext[];
     isFeatured?: boolean;
+    costPrice?: number;
+    rewardPointsMode?: RewardPointsMode;
     rewardPointsPrice?: number;
     relatedItemIds?: string[];
     imageFile?: File | null;
@@ -156,6 +160,8 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
       upsellContexts?: UpsellContext[];
       isFeatured?: boolean;
       isOutOfStock?: boolean;
+      costPrice?: number;
+      rewardPointsMode?: RewardPointsMode;
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;

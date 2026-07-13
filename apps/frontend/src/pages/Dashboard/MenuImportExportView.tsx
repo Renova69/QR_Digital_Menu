@@ -177,6 +177,9 @@ function jsonToPayload(text: string): any[] {
           ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
           ...(item.isOutOfStock ? { isOutOfStock: item.isOutOfStock } : {}),
           ...(item.isFeatured ? { isFeatured: item.isFeatured } : {}),
+          ...(item.rewardPointsMode
+            ? { rewardPointsMode: item.rewardPointsMode }
+            : {}),
           ...(item.rewardPointsPrice
             ? { rewardPointsPrice: item.rewardPointsPrice }
             : {}),

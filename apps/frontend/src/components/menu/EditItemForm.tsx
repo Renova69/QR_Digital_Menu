@@ -6,10 +6,11 @@ import { Textarea } from "../ui/textarea";
 import { ImageUploadInput } from "../ui/ImageUploadInput";
 import { Modal } from "../ui/modal";
 import { useToast } from "../ui/toast";
-import { Item } from "../../types";
+import { Item, RewardPointsMode } from "../../types";
 import { useTranslation } from "react-i18next";
 import { UpsellContextSelector } from "./UpsellContextSelector";
 import { UpsellContext } from "../../lib/upsellContexts";
+import { RewardPricingFields } from "./RewardPricingFields";
 
 interface EditItemFormProps {
   item: Item;
@@ -37,6 +38,9 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
   const [isFeatured, setIsFeatured] = useState(item.isFeatured || false);
   const [upsellContexts, setUpsellContexts] = useState<UpsellContext[]>(
     item.upsellContexts || [],
+  );
+  const [rewardPointsMode, setRewardPointsMode] = useState<RewardPointsMode>(
+    item.rewardPointsMode ?? (item.rewardPointsPrice ? "CUSTOM" : "OFF"),
   );
   const [rewardPointsPrice, setRewardPointsPrice] = useState(
     item.rewardPointsPrice?.toString() || "",
@@ -69,20 +73,25 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
         isFeatured,
         upsellContexts,
         costPrice: costPrice ? parseFloat(costPrice) : undefined,
-        rewardPointsPrice: rewardPointsPrice
+        rewardPointsMode,
+        rewardPointsPrice:
+          rewardPointsMode === "CUSTOM" && rewardPointsPrice
           ? parseInt(rewardPointsPrice)
           : undefined,
         relatedItemIds,
         imageFile,
         imageRemoved,
       });
-      showToast("Item updated successfully", "success");
+      showToast(
+        t("forms.itemUpdated", "Item updated successfully."),
+        "success",
+      );
       setOpen(false);
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
         error?.message ||
-        "Failed to update item";
+        t("forms.itemUpdateFailed", "Failed to update item.");
       showToast(message, "error");
     } finally {
       setIsSubmitting(false);
@@ -96,7 +105,10 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
         open={open}
         onOpenChange={setOpen}
         title={t("auto.editItem", "Edit Item")}
-        description={`Update the details for "${item.name}".`}
+        description={t("forms.editItemDescription", {
+          name: item.name,
+          defaultValue: 'Update the details for "{{name}}".',
+        })}
         trigger={
           trigger || (
             <Button variant="outline" size="sm">
@@ -191,26 +203,14 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
             onChange={setUpsellContexts}
           />
 
-          <div className="space-y-2 border-b border-border/50 pb-4">
-            <label className="text-sm font-medium block">
-              {t(
-                "auto.loyaltyPointsCostFreebie",
-                "Loyalty Points Cost (Freebie)",
-              )}
-            </label>
-            <Input
-              type="number"
-              value={rewardPointsPrice}
-              onChange={(e) => setRewardPointsPrice(e.target.value)}
-              placeholder={t("auto.eG100", "e.g. 100")}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "auto.leaveBlankIfThisItemCannotBeRedee",
-                "Leave blank if this item cannot be redeemed for points.",
-              )}
-            </p>
-          </div>
+          <RewardPricingFields
+            fieldId={item.id}
+            mode={rewardPointsMode}
+            onModeChange={setRewardPointsMode}
+            customPoints={rewardPointsPrice}
+            onCustomPointsChange={setRewardPointsPrice}
+            itemPrice={price}
+          />
 
           <div className="space-y-2 pb-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -297,7 +297,9 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
           />
 
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSubmitting
+              ? t("forms.saving", "Saving...")
+              : t("forms.saveChanges", "Save Changes")}
           </Button>
         </form>
       </Modal>

@@ -9,6 +9,8 @@ import { useToast } from "../ui/toast";
 import { useTranslation } from "react-i18next";
 import { UpsellContextSelector } from "./UpsellContextSelector";
 import { UpsellContext } from "../../lib/upsellContexts";
+import { RewardPricingFields } from "./RewardPricingFields";
+import type { RewardPointsMode } from "../../types";
 
 export const CreateItemForm: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -23,6 +25,8 @@ export const CreateItemForm: React.FC = () => {
   const [dietaryTags, setDietaryTags] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [upsellContexts, setUpsellContexts] = useState<UpsellContext[]>([]);
+  const [rewardPointsMode, setRewardPointsMode] =
+    useState<RewardPointsMode>("OFF");
   const [rewardPointsPrice, setRewardPointsPrice] = useState("");
   const [relatedItemIds, setRelatedItemIds] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -39,6 +43,7 @@ export const CreateItemForm: React.FC = () => {
     setDietaryTags("");
     setIsFeatured(false);
     setUpsellContexts([]);
+    setRewardPointsMode("OFF");
     setRewardPointsPrice("");
     setRelatedItemIds([]);
     setImageFile(null);
@@ -66,7 +71,9 @@ export const CreateItemForm: React.FC = () => {
         isFeatured,
         upsellContexts,
         costPrice: costPrice ? parseFloat(costPrice) : undefined,
-        rewardPointsPrice: rewardPointsPrice
+        rewardPointsMode,
+        rewardPointsPrice:
+          rewardPointsMode === "CUSTOM" && rewardPointsPrice
           ? parseInt(rewardPointsPrice)
           : undefined,
         relatedItemIds,
@@ -224,26 +231,14 @@ export const CreateItemForm: React.FC = () => {
             onChange={setUpsellContexts}
           />
 
-          <div className="space-y-2 border-b border-border/50 pb-4">
-            <label className="text-sm font-medium block">
-              {t(
-                "auto.loyaltyPointsCostFreebie",
-                "Loyalty Points Cost (Freebie)",
-              )}
-            </label>
-            <Input
-              type="number"
-              value={rewardPointsPrice}
-              onChange={(e) => setRewardPointsPrice(e.target.value)}
-              placeholder={t("auto.eG100", "e.g. 100")}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "auto.leaveBlankIfThisItemCanno",
-                "Leave blank if this item cannot be redeemed for points.",
-              )}
-            </p>
-          </div>
+          <RewardPricingFields
+            fieldId="new-item"
+            mode={rewardPointsMode}
+            onModeChange={setRewardPointsMode}
+            customPoints={rewardPointsPrice}
+            onCustomPointsChange={setRewardPointsPrice}
+            itemPrice={price}
+          />
 
           <div className="space-y-2 pb-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">

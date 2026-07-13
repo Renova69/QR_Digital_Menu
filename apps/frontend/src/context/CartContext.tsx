@@ -143,7 +143,7 @@ interface CartContextType {
   removeItem: (cartId: string) => void;
   clearCart: () => void;
   getItemCount: () => number;
-  getTotal: (excludeCartIds?: Set<string>) => number;
+  getTotal: (redeemedBasePriceCartIds?: Set<string>) => number;
   tableNumber: string | null;
   setTableNumber: (table: string | null) => void;
   orderLocation: OrderLocation | null;
@@ -277,19 +277,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.reduce((sum, item) => sum + item.quantity, 0);
   }, [items]);
 
-  // Calculate total price of items in cart. Optionally exclude cart entries
-  // (e.g. fully redeemed loyalty items) by their cartId.
+  // Loyalty rewards cover only the base item; paid modifiers remain payable.
   const getTotal = useCallback(
-    (excludeCartIds?: Set<string>) => {
+    (redeemedBasePriceCartIds?: Set<string>) => {
       const raw = items.reduce((sum, item) => {
-        if (excludeCartIds?.has(item.cartId)) return sum;
         const selectedOptions = item.selectedOptions || [];
         const optionsTotal = selectedOptions.reduce(
           (optSum: number, opt: SelectedOption) =>
             optSum + (opt.priceModifier || 0),
           0,
         );
-        return sum + (item.price + optionsTotal) * item.quantity;
+        const basePrice = redeemedBasePriceCartIds?.has(item.cartId)
+          ? 0
+          : item.price;
+        return sum + (basePrice + optionsTotal) * item.quantity;
       }, 0);
       return Math.round(raw * 100) / 100;
     },

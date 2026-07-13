@@ -14,6 +14,10 @@ import {
   ArrayUnique,
 } from 'class-validator';
 import { UPSELL_CONTEXTS } from '../upsell/upsell-context';
+import {
+  REWARD_POINTS_MODES,
+  RewardPointsModeValue,
+} from '../../loyalty/reward-pricing';
 
 export enum Currency {
   EUR = 'EUR',
@@ -75,6 +79,10 @@ export class CreateItemDto {
   @Min(1)
   @IsOptional()
   rewardPointsPrice?: number;
+
+  @IsIn(REWARD_POINTS_MODES)
+  @IsOptional()
+  rewardPointsMode?: RewardPointsModeValue;
 
   @IsArray()
   @ArrayMaxSize(15)

@@ -17,6 +17,7 @@ const SUPPORTED_LANGUAGES = [
   "ru",
   "ar",
 ];
+const DASHBOARD_LANGUAGES = ["en", "bg", "ro"];
 // Roots a customer can reach on the public-menu flow (browse → cart → checkout →
 // pay → confirm → call-waiter → sign-in → loyalty profile). Every language must
 // carry these in full; dashboard/admin roots intentionally stay BG/RO/EN only.
@@ -36,6 +37,32 @@ const PUBLIC_ROOTS = [
 ];
 // Owner-facing subtrees that live under an otherwise-public root.
 const NON_PUBLIC_PREFIXES = ["payment.settings"];
+const MENU_EDIT_KEYS = [
+  "forms.upsellContexts",
+  "forms.upsellContext.MORNING",
+  "forms.upsellContext.LUNCH",
+  "forms.upsellContext.EVENING",
+  "forms.upsellContext.LATE_NIGHT",
+  "forms.upsellContext.WEEKEND",
+  "forms.upsellContext.FRIDAY_NIGHT",
+  "forms.upsellContext.COLD",
+  "forms.upsellContext.HOT",
+  "forms.upsellContext.RAINY",
+  "forms.editItemDescription",
+  "forms.itemUpdated",
+  "forms.itemUpdateFailed",
+  "forms.saving",
+  "forms.saveChanges",
+  "forms.loyaltyReward",
+  "forms.loyaltyRewardHint",
+  "forms.rewardPricingMode",
+  "forms.rewardAutomatic",
+  "forms.rewardCustom",
+  "forms.rewardAutomaticPreview",
+  "forms.rewardAutomaticFormula",
+  "forms.rewardCustomPoints",
+  "forms.rewardCustomHint",
+];
 const LOCALES_DIR = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../locales",
@@ -78,6 +105,19 @@ describe("public locale bundles", () => {
       const localizedKeys = new Set(flatten(readLocale(language)));
 
       expect(englishKeys.filter((key) => !localizedKeys.has(key))).toEqual([]);
+    },
+  );
+});
+
+describe("menu edit locale bundles", () => {
+  it.each(DASHBOARD_LANGUAGES)(
+    "%s contains every menu edit key",
+    (language) => {
+      const localizedKeys = new Set(flatten(readLocale(language)));
+
+      expect(MENU_EDIT_KEYS.filter((key) => !localizedKeys.has(key))).toEqual(
+        [],
+      );
     },
   );
 });

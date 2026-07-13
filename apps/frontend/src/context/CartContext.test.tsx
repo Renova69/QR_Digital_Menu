@@ -141,4 +141,31 @@ describe("CartContext", () => {
     expect(result.current.items).toHaveLength(1);
     expect(result.current.getTotal()).toBe(19); // (8 + 1.5) * 2
   });
+
+  it("keeps paid option charges when a loyalty reward covers the base item", () => {
+    localStorage.setItem(
+      "cartItems",
+      JSON.stringify([
+        {
+          cartId: "reward-line",
+          id: "i1",
+          name: "Burger",
+          price: 8,
+          quantity: 2,
+          selectedOptions: [
+            {
+              optionId: "o1",
+              optionName: "Size",
+              choiceName: "Large",
+              priceModifier: 1.5,
+            },
+          ],
+        },
+      ]),
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    expect(result.current.getTotal(new Set(["reward-line"]))).toBe(3);
+  });
 });

@@ -313,29 +313,30 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id                String       @id @default(cuid())
+  id                String           @id @default(cuid())
   name              String
   description       String?
   price             Float
-  costPrice         Float?       @default(0)
+  costPrice         Float?           @default(0)
   weight            String?
   currency          Currency
   allergens         String[]
   dietaryTags       String[]
-  tags              String[]     @default([])
-  upsellContexts    String[]     @default([])
+  tags              String[]         @default([])
+  upsellContexts    String[]         @default([])
   imageUrl          String?
   thumbnailUrl      String?
-  isOutOfStock      Boolean      @default(false)
+  isOutOfStock      Boolean          @default(false)
   categoryId        String
   order             Int
   translations      Json?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  isFeatured        Boolean      @default(false)
-  relatedItemIds    String[]     @default([])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  isFeatured        Boolean          @default(false)
+  relatedItemIds    String[]         @default([])
+  rewardPointsMode  RewardPointsMode @default(OFF)
   rewardPointsPrice Int?
-  category          MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category          MenuCategory     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   options           MenuOption[]
   orderItems        OrderItem[]
 
@@ -615,6 +616,12 @@ enum UserRole {
 enum Currency {
   EUR
   BGN
+}
+
+enum RewardPointsMode {
+  OFF
+  AUTO
+  CUSTOM
 }
 
 enum OrderStatus {

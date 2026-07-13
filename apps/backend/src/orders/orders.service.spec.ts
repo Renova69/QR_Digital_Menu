@@ -1805,6 +1805,81 @@ describe('OrdersService', () => {
       expect(createCall.data.totalPrice).toBe(0);
     });
 
+    it('uses automatic reward pricing while still charging paid modifiers', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({
+          price: 9.9,
+          rewardPointsMode: 'AUTO',
+          rewardPointsPrice: null,
+        }),
+      ]);
+      prisma.menuOption.findMany.mockResolvedValue([
+        {
+          id: 'option-1',
+          menuItemId: 'item-1',
+          name: 'Protein',
+          type: 'ADDON',
+          choices: [{ name: 'Chicken', priceModifier: 3 }],
+        },
+      ]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          isLoyaltyEnabled: true,
+          loyaltyRedeemRate: 100,
+        }),
+      );
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 2000,
+        lifetimePoints: 2000,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 2000,
+        lifetimePoints: 2000,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 2000 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+      mockAuthenticatedCustomer(prisma);
+
+      await service.create(
+        {
+          items: [
+            {
+              menuItemId: 'item-1',
+              cartId: 'cart-1',
+              quantity: 1,
+              selectedOptions: [
+                {
+                  optionId: 'option-1',
+                  choiceName: 'Chicken',
+                  priceModifier: 3,
+                },
+              ],
+            },
+          ],
+          customerId: 'cust-1',
+          redeemCartIds: ['cart-1'],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
+        'cust-1',
+      );
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      expect(createCall.data.pointsRedeemedForItems).toBe(990);
+      expect(createCall.data.totalPrice).toBe(3);
+      expect(createCall.data.items.create[0]).toEqual(
+        expect.objectContaining({ unitPrice: 0, unitPriceWithOptions: 3 }),
+      );
+    });
+
     it('redeemCartIds comps the exact cart line specified, not just the first matching menuItemId', async () => {
       // Two lines for the same burger: cheap options ($2 total) and expensive options ($8 total).
       // User redeems only the expensive line (cartId 'cart-b').
