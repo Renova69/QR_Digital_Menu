@@ -45,11 +45,7 @@ import ServicePointsTab from "./ServicePointsTab";
 import QrCodeModal, { type QrCodeTarget } from "./QrCodeModal";
 import RestaurantContext from "../../context/RestaurantContext";
 import LiveTablesView from "../../pages/Dashboard/LiveTablesView";
-import {
-  useFeature,
-  useTier,
-  type FeatureFlag,
-} from "../../hooks/useFeature";
+import { useFeature, useTier, type FeatureFlag } from "../../hooks/useFeature";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
 import { copyToClipboard, normalizeTableName } from "../../lib/tableViewUtils";
@@ -194,10 +190,17 @@ const TableView: React.FC = () => {
 
   const tableStats = useMemo(() => {
     const tableCount = tables?.length ?? 0;
-    const activeSessions = (sessions || []).filter(
+    // Service points (ROOM/PICKUP/OTHER) intentionally allow many concurrent
+    // OPEN/PAID sessions per tableId (one per guest), unlike physical tables.
+    // Counting them here would inflate/desync these badges the moment any
+    // service point exists, since tableCount is TABLE-only.
+    const physicalSessions = (sessions || []).filter(
+      (session: any) => !session.isServicePoint,
+    );
+    const activeSessions = physicalSessions.filter(
       (session: any) => session.status === "OPEN",
     ).length;
-    const paidSessions = (sessions || []).filter(
+    const paidSessions = physicalSessions.filter(
       (session: any) => session.status === "PAID",
     ).length;
     return { tableCount, activeSessions, paidSessions };

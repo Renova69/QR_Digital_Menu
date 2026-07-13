@@ -77,10 +77,34 @@ export class ReservationAvailabilityService {
       minute <= hours.lastSlotMinute;
       minute += settings.slotIntervalMinutes
     ) {
-      // Build the local wall-clock time, then resolve to a real instant. A
-      // nonexistent spring-forward local time is invalid and skipped.
-      const slot = day.startOf('day').plus({ minutes: minute });
-      if (!slot.isValid) continue;
+      // Build the local wall-clock time directly with .set(), not
+      // "midnight + elapsed minutes" via .plus({minutes}) — Luxon's .plus()
+      // on sub-day units adds an exact real-time duration, so any DST
+      // transition earlier that day silently shifts every later slot by the
+      // offset change (#DST-BUG: this drifted every slot by a full hour on
+      // both transition days, and made the "invalid" check below dead code
+      // since exact-duration addition from a valid instant is never invalid).
+      // A nonexistent spring-forward local time (e.g. 03:30 when clocks jump
+      // 03:00->04:00) gets normalized forward by Luxon's .set() instead of
+      // becoming invalid — detect and skip it by checking the resulting
+      // local hour/minute actually match what was requested. An ambiguous
+      // fall-back local time (the 03:00-04:00 hour occurring twice) resolves
+      // deterministically to one instant, so it's offered once, not twice.
+      const targetHour = Math.floor(minute / 60);
+      const targetMinute = minute % 60;
+      const slot = day.set({
+        hour: targetHour,
+        minute: targetMinute,
+        second: 0,
+        millisecond: 0,
+      });
+      if (
+        !slot.isValid ||
+        slot.hour !== targetHour ||
+        slot.minute !== targetMinute
+      ) {
+        continue;
+      }
       if (slot < earliest || slot > latest) continue;
       candidates.push(slot);
     }
@@ -200,13 +224,32 @@ export class ReservationAvailabilityService {
     if (!hours) return;
 
     const intervalMs = settings.slotIntervalMinutes * 60_000;
+    const startOfLocalDay = local.startOf('day');
     let windowStart: number | null = null;
     for (
       let minute = hours.openMinute;
       minute <= hours.lastSlotMinute;
       minute += settings.slotIntervalMinutes
     ) {
-      const candidate = local.startOf('day').plus({ minutes: minute });
+      // Same wall-clock-preserving construction as getSlots above (#DST-BUG)
+      // — .plus({minutes}) here drifted window boundaries by an hour on DST
+      // transition days, shifting which slot's capacity a booking counted
+      // against.
+      const targetHour = Math.floor(minute / 60);
+      const targetMinute = minute % 60;
+      const candidate = startOfLocalDay.set({
+        hour: targetHour,
+        minute: targetMinute,
+        second: 0,
+        millisecond: 0,
+      });
+      if (
+        !candidate.isValid ||
+        candidate.hour !== targetHour ||
+        candidate.minute !== targetMinute
+      ) {
+        continue;
+      }
       const candidateMillis = candidate.toUTC().toMillis();
       const targetMillis = startsAt.getTime();
       if (

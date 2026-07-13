@@ -5,6 +5,7 @@ import {
   IsIn,
   IsArray,
   IsBoolean,
+  MaxLength,
 } from 'class-validator';
 import {
   FULFILLMENT_MODES,
@@ -18,6 +19,7 @@ import {
 export class CreateTableDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(120)
   name: string;
 
   @IsOptional()

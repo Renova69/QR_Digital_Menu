@@ -588,7 +588,7 @@ function decodeEntities(text: string): string {
  * Strip sensitive PII or bearer tokens from raw provider error responses before
  * they land in our internal logs.
  */
-function redactProviderDetail(text: string): string {
+export function redactProviderDetail(text: string): string {
   if (!text) return text;
   // Redact phones (e.g. +359888123456 or 0888123456)
   let redacted = text.replace(/(?:\+?\d{10,15})/g, '[REDACTED_PHONE]');

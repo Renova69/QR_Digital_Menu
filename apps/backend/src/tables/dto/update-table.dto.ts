@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsArray,
   IsIn,
+  MaxLength,
 } from 'class-validator';
 import {
   FULFILLMENT_MODES,
@@ -17,6 +18,7 @@ export class UpdateTableDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(120)
   name?: string;
 
   @IsOptional()

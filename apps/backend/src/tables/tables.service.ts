@@ -18,8 +18,6 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import {
   DEFAULT_FULFILLMENT_MODES,
   DEFAULT_PAYMENT_METHODS,
-  FULFILLMENT_MODES,
-  PAYMENT_METHODS,
   SERVICE_POINT_TYPES,
   type FulfillmentMode,
   type ServicePointPaymentMethod,
@@ -282,11 +280,42 @@ export class TablesService {
       user,
       FeatureFlag.SERVICE_POINTS,
     );
-    return this.prisma.restaurantTable.findMany({
-      where: { restaurantId, type: { not: 'TABLE' } },
-      orderBy: [{ type: 'asc' }, { name: 'asc' }],
-      include: { zone: { select: { id: true, name: true, zoneKey: true } } },
-    });
+    const [servicePoints, sessions] = await Promise.all([
+      this.prisma.restaurantTable.findMany({
+        where: { restaurantId, type: { not: 'TABLE' } },
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+        include: { zone: { select: { id: true, name: true, zoneKey: true } } },
+      }),
+      // Unlike a table (single OPEN session, see getTablesWithStatus), a
+      // service point intentionally allows many concurrent guest sessions —
+      // so this is grouped into an array per service point, not collapsed to
+      // one, or a second/third simultaneous guest's session would be silently
+      // dropped from the POS discovery list.
+      this.prisma.tableSession.findMany({
+        where: { restaurantId, status: 'OPEN', isServicePoint: true },
+        include: {
+          orders: { select: { totalPrice: true } },
+        },
+      }),
+    ]);
+
+    const sessionsByTableId = new Map<string, typeof sessions>();
+    for (const session of sessions) {
+      const list = sessionsByTableId.get(session.tableId) ?? [];
+      list.push(session);
+      sessionsByTableId.set(session.tableId, list);
+    }
+
+    return servicePoints.map((sp) => ({
+      ...sp,
+      activeSessions: (sessionsByTableId.get(sp.id) ?? []).map((session) => ({
+        sessionId: session.id,
+        sessionToken: session.token,
+        orderCount: session.orders.length,
+        totalAmount: session.orders.reduce((sum, o) => sum + o.totalPrice, 0),
+        createdAt: session.createdAt.toISOString(),
+      })),
+    }));
   }
 
   async resolvePublicServicePoint(restaurantId: string, publicToken: string) {
@@ -532,8 +561,20 @@ export class TablesService {
 
   async getTableOrders(tableId: string, restaurantId: string, user?: any) {
     await this.verifyRestaurantAccess(restaurantId, user);
+    // Scoped to physical tables only, matching getTablesWithStatus (#SEC-M8b):
+    // tableId is fully caller-controlled and only restaurant-scoped, with no
+    // type check otherwise — a service point can have multiple concurrent
+    // guest sessions, unlike a table's single-OPEN-session invariant, so this
+    // endpoint (designed for the one-session-per-table POS/dashboard view)
+    // would silently return an arbitrary guest's order history if pointed at
+    // a service point's tableId.
     const session = await this.prisma.tableSession.findFirst({
-      where: { tableId, restaurantId, status: { in: ['OPEN', 'PAID'] } },
+      where: {
+        tableId,
+        restaurantId,
+        status: { in: ['OPEN', 'PAID'] },
+        isServicePoint: false,
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!session) return [];
@@ -631,12 +672,16 @@ export class TablesService {
   ): FulfillmentMode[] {
     if (!modes || modes.length === 0) return DEFAULT_FULFILLMENT_MODES[type];
     const uniqueModes = [...new Set(modes)];
+    // Scoped to this type's own repertoire (its DEFAULT_* set doubles as the
+    // allow-list), not just the global enum — e.g. a PICKUP point can't be
+    // saved with DINE_IN, a TABLE can't be saved with ROOM_DELIVERY (#SEC-L5).
+    const allowed = DEFAULT_FULFILLMENT_MODES[type];
     if (
-      uniqueModes.some(
-        (mode) => !FULFILLMENT_MODES.includes(mode as FulfillmentMode),
-      )
+      uniqueModes.some((mode) => !allowed.includes(mode as FulfillmentMode))
     ) {
-      throw new BadRequestException('Invalid fulfillment mode');
+      throw new BadRequestException(
+        `Invalid fulfillment mode for a ${type} service point`,
+      );
     }
     return uniqueModes as FulfillmentMode[];
   }
@@ -647,13 +692,16 @@ export class TablesService {
   ): ServicePointPaymentMethod[] {
     if (!methods || methods.length === 0) return DEFAULT_PAYMENT_METHODS[type];
     const uniqueMethods = [...new Set(methods)];
+    // Scoped per-type, same rationale as normalizeFulfillmentModes above.
+    const allowed = DEFAULT_PAYMENT_METHODS[type];
     if (
       uniqueMethods.some(
-        (method) =>
-          !PAYMENT_METHODS.includes(method as ServicePointPaymentMethod),
+        (method) => !allowed.includes(method as ServicePointPaymentMethod),
       )
     ) {
-      throw new BadRequestException('Invalid payment method');
+      throw new BadRequestException(
+        `Invalid payment method for a ${type} service point`,
+      );
     }
     return uniqueMethods as ServicePointPaymentMethod[];
   }

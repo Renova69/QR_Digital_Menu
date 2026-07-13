@@ -36,13 +36,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [logout]);
 
   useEffect(() => {
-    // Dev: same-origin via Vite proxy. Production: connect directly to backend.
-    // VITE_API_URL is the backend origin (e.g. https://api.example.com/api).
-    // In production, the backend is on a different host — must pass URL explicitly.
+    // Dev (incl. LAN IP testing): same-origin via Vite proxy. Production: connect
+    // directly to backend. VITE_API_URL is the backend origin (e.g. https://api.example.com/api).
+    // Must key off the actual build mode (import.meta.env.PROD), not hostname —
+    // a hostname !== "localhost" check also misfires for LAN-IP dev testing
+    // (e.g. 192.168.x.x:3001), routing the socket cross-origin where the dev
+    // cookie doesn't attach, silently denying every room join (#SOCKET-C2).
     const socketUrl =
-      typeof window !== "undefined" &&
-      window.location.hostname !== "localhost" &&
-      import.meta.env.VITE_API_URL
+      import.meta.env.PROD && import.meta.env.VITE_API_URL
         ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
         : undefined;
 

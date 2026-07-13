@@ -19,9 +19,27 @@ import { PatronService } from './patron.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
 import { normalizeReservationNotificationLocale } from './reservation-notification-copy';
 import {
+  ActorRole,
+  resolveReservationActor,
+  assertReservationRole,
+  requireReservationEntitlement,
+} from './reservation-access.service';
+import {
+  ReservationServiceHoursRow,
+  getReservationSettings,
+  updateReservationSettings,
+  setReservationServiceHours,
+  deleteReservationServiceHours,
+} from './reservation-settings.service';
+import {
+  listReservationBlackouts,
+  addReservationBlackout,
+  removeReservationBlackout,
+} from './reservation-blackout.service';
+import { fetchReservationAnalytics } from './reservation-analytics.service';
+import {
   hasDietaryPreference,
   sanitizeCustomerPreferences,
-  sanitizeCustomPreferenceLabels,
   sanitizeStaffTags,
 } from './reservation-tags';
 import { CreateReservationDto } from './dto/public-reservation.dto';
@@ -29,8 +47,6 @@ import {
   ManualReservationDto,
   ReservationActionType,
 } from './dto/reservation-ops.dto';
-
-type ActorRole = 'OWNER' | 'MANAGER' | 'WAITER' | 'STAFF' | 'SUPER_ADMIN';
 
 // action -> { from statuses allowed, target, roles beyond OWNER/SUPER_ADMIN }
 const ACTION_RULES: Record<
@@ -59,6 +75,46 @@ const ACTION_RULES: Record<
 
 const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+// Context threaded through the create-reservation helpers below.
+interface CreateReservationContext {
+  source: 'PUBLIC' | 'STAFF';
+  settings: {
+    maxTotalGuests: number;
+    autoConfirm: boolean;
+    requirePhone: boolean;
+    customPreferences?: string[];
+    notifyEmail?: string | null;
+    notifyPhone?: string | null;
+    diningDurationMinutes?: number;
+    largePartyThreshold?: number;
+    largePartyDurationMinutes?: number;
+  } | null;
+  defaultLocale?: string | null;
+  createdById?: string;
+  internalNotes?: string;
+  staffTags?: string[];
+  skipConsentGate?: boolean;
+}
+
+interface ReservationPersistFields {
+  phone: string;
+  adults: number;
+  children: number;
+  total: number;
+  startsAt: Date;
+  status: 'PENDING' | 'CONFIRMED';
+  marketingConsentAt: Date | null;
+  notifyByEmail: boolean;
+  notifyBySms: boolean;
+  notificationLocale: string;
+  preferredZone: string | null;
+  manageToken: string;
+  durationMinutes: number;
+  customerPreferences: string[];
+  allergyNotes: string | null;
+  dietaryConsentAt: Date | null;
+}
+
 @Injectable()
 export class ReservationsService {
   private readonly logger = new Logger(ReservationsService.name);
@@ -74,75 +130,28 @@ export class ReservationsService {
   ) {}
 
   // ── Access control ──────────────────────────────────────────────────────
+  // Delegates to the shared primitives in reservation-access.service.ts. Kept
+  // as local methods (rather than an injected collaborator) because this
+  // class's constructor shape is pinned by existing tests that construct it
+  // positionally.
 
-  private async resolveActor(
+  private resolveActor(
     restaurantId: string,
     userId: string,
   ): Promise<ActorRole> {
-    const [restaurant, user] = await Promise.all([
-      this.prisma.restaurant.findUnique({
-        where: { id: restaurantId },
-        select: { ownerId: true, isActive: true },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { restaurantId: true, role: true },
-      }),
-    ]);
-    if (!restaurant) throw new NotFoundException('Restaurant not found');
-    if (user?.role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
-    if (restaurant.isActive === false) {
-      throw new ForbiddenException('Restaurant is not active');
-    }
-    if (restaurant.ownerId === userId) return 'OWNER';
-    // KITCHEN never touches reservations (no guest PII).
-    if (
-      user?.restaurantId === restaurantId &&
-      (user.role === 'MANAGER' ||
-        user.role === 'WAITER' ||
-        user.role === 'STAFF')
-    ) {
-      return user.role;
-    }
-    throw new ForbiddenException(
-      'You do not have permission to access reservations for this restaurant',
-    );
+    return resolveReservationActor(this.prisma, restaurantId, userId);
   }
 
   private assertRole(role: ActorRole, allowed: ActorRole[]): void {
-    if (role === 'OWNER' || role === 'SUPER_ADMIN') return;
-    if (!allowed.includes(role)) {
-      throw new ForbiddenException(
-        'Your role cannot perform this reservation action',
-      );
-    }
+    assertReservationRole(role, allowed);
   }
 
-  private async requireEntitlement(restaurantId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: {
-        tier: true,
-        forceTier: true,
-        dashboardLanguage: true,
-        isActive: true,
-      },
-    });
-    if (!restaurant) {
-      throw new NotFoundException('Restaurant not found');
-    }
-    if (restaurant.isActive === false) {
-      throw new ForbiddenException('Restaurant is not active');
-    }
-    if (
-      !this.features.restaurantHasFeature(restaurant, FeatureFlag.RESERVATIONS)
-    ) {
-      throw new ForbiddenException({
-        code: 'FEATURE_LOCKED',
-        message: 'Reservations require a Professional plan or above',
-      });
-    }
-    return restaurant;
+  private requireEntitlement(restaurantId: string) {
+    return requireReservationEntitlement(
+      this.prisma,
+      this.features,
+      restaurantId,
+    );
   }
 
   // ── Public surface ──────────────────────────────────────────────────────
@@ -297,10 +306,12 @@ export class ReservationsService {
     );
     const params = new URLSearchParams({
       r: r.restaurantId,
-      token: trimmed,
       lang: r.notificationLocale || 'en',
     });
-    return `${base}/booking/manage?${params.toString()}`;
+    // Token goes in the fragment, not the query string — fragments are never
+    // sent to the server, so they don't end up in this redirect's own
+    // Location header or the frontend host's access/CDN logs (#SEC-H1).
+    return `${base}/booking/manage?${params.toString()}#token=${trimmed}`;
   }
 
   private async loadByToken(restaurantId: string, token: string) {
@@ -403,6 +414,19 @@ export class ReservationsService {
     dto: { startsAt?: string; adultsCount?: number; childrenCount?: number },
   ) {
     const r = await this.loadByToken(restaurantId, token);
+
+    // Unlike cancel (which should stay permissive so a guest can always back
+    // out), a booking *change* re-runs availability/slot logic against the
+    // restaurant's live settings — block it once the restaurant itself is
+    // suspended so a guest can't produce a "confirmed" edit against a tenant
+    // that's no longer operating (#SEC-M2).
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { isActive: true },
+    });
+    if (!restaurant || restaurant.isActive === false) {
+      throw new ForbiddenException('Restaurant is not active');
+    }
 
     if (r.status !== 'PENDING' && r.status !== 'CONFIRMED') {
       throw new ConflictException(
@@ -591,64 +615,20 @@ export class ReservationsService {
     });
   }
 
+  // ── Reservation creation (createPublic / createManual) ─────────────────
+  //
+  // Broken into focused helpers: input validation, consent gating, preferred
+  // zone resolution, the locked advisory-transaction insert (+ idempotency
+  // recheck + P2002 fallback), and the post-commit notification dispatch.
+
   private async createReservation(
     restaurantId: string,
     dto: CreateReservationDto,
-    ctx: {
-      source: 'PUBLIC' | 'STAFF';
-      settings: {
-        maxTotalGuests: number;
-        autoConfirm: boolean;
-        requirePhone: boolean;
-        customPreferences?: string[];
-        notifyEmail?: string | null;
-        notifyPhone?: string | null;
-        diningDurationMinutes?: number;
-        largePartyThreshold?: number;
-        largePartyDurationMinutes?: number;
-      } | null;
-      defaultLocale?: string | null;
-      createdById?: string;
-      internalNotes?: string;
-      staffTags?: string[];
-      skipConsentGate?: boolean;
-    },
+    ctx: CreateReservationContext,
   ) {
-    const phone = this.normalizePhone(dto.guestPhone);
-    if ((ctx.settings?.requirePhone ?? true) && !phone) {
-      throw new BadRequestException('A valid phone number is required');
-    }
-    const adults = dto.adultsCount;
-    const children = dto.childrenCount ?? 0;
-    const total = adults + children;
-    const maxTotal = ctx.settings?.maxTotalGuests ?? 50;
-    if (total < 1 || total > maxTotal) {
-      throw new BadRequestException(
-        `Party size must be between 1 and ${maxTotal}`,
-      );
-    }
-
-    const startsAt = new Date(dto.startsAt);
-    if (isNaN(startsAt.getTime())) {
-      throw new BadRequestException('Invalid reservation time');
-    }
-
-    // Consent gate: only persist dietary/allergy (special-category) data when
-    // the guest explicitly consented. Staff manual bookings bypass the gate.
-    // Owner-defined custom preference labels are allowed through validation too.
-    const preferences = sanitizeCustomerPreferences(
-      dto.customerPreferences,
-      ctx.settings?.customPreferences ?? [],
-    );
-    const consented = ctx.skipConsentGate || dto.dietaryConsent === true;
-    const dietaryPresent =
-      hasDietaryPreference(preferences) || !!dto.allergyNotes?.trim();
-    const storeDietary = consented && dietaryPresent;
-    const customerPreferences = storeDietary
-      ? preferences
-      : preferences.filter((p) => !isDietary(p));
-    const allergyNotes = storeDietary ? dto.allergyNotes?.trim() || null : null;
-    const dietaryConsentAt = storeDietary ? new Date() : null;
+    const { phone, adults, children, total, startsAt } =
+      this.validatePartyAndTime(dto, ctx);
+    const consent = this.buildConsentedFields(dto, ctx);
 
     // Idempotent replay: same key for this restaurant returns the first result.
     if (dto.idempotencyKey) {
@@ -672,7 +652,6 @@ export class ReservationsService {
       ctx.source === 'PUBLIC' && dto.marketingConsent === true
         ? new Date()
         : null;
-
     // Feature 1: notification channels. Default to email when unspecified and an
     // address was given; SMS only when the guest opted in (phone is mandatory).
     const notifyByEmail = dto.notifyByEmail ?? !!dto.guestEmail?.trim();
@@ -680,36 +659,139 @@ export class ReservationsService {
     const notificationLocale = normalizeReservationNotificationLocale(
       dto.locale ?? ctx.defaultLocale,
     );
-
-    // Feature 3: accept a preferred seating zone only when it matches a zone the
-    // restaurant actually has. The client sends the preset key (e.g. TERRACE)
-    // or, for a custom zone, its name — match either. Store the preset key when
-    // the zone has one so the dashboard can translate it; else store the name.
-    let preferredZone: string | null = null;
-    const requestedZone = dto.preferredZone?.trim();
-    if (requestedZone) {
-      const match = await this.prisma.tableZone.findFirst({
-        where: {
-          restaurantId,
-          OR: [{ zoneKey: requestedZone }, { name: requestedZone }],
-        },
-        select: { zoneKey: true, name: true },
-      });
-      preferredZone = match ? (match.zoneKey ?? match.name) : null;
-    }
-
+    const preferredZone = await this.resolvePreferredZone(restaurantId, dto);
     // Feature 2: unguessable token for the guest's private self-service link.
     const manageToken = randomBytes(24).toString('base64url');
-
     // Feature 4: snapshot the expected dining duration for this party size.
     const durationMinutes = computeDiningDuration(total, ctx.settings);
 
-    let outcome: {
-      reservation: Prisma.ReservationGetPayload<object>;
-      replayed: boolean;
-    };
+    const outcome = await this.persistReservationTx(restaurantId, dto, ctx, {
+      phone,
+      adults,
+      children,
+      total,
+      startsAt,
+      status,
+      marketingConsentAt,
+      notifyByEmail,
+      notifyBySms,
+      notificationLocale,
+      preferredZone,
+      manageToken,
+      durationMinutes,
+      ...consent,
+    });
+    if (outcome.replayed) {
+      return this.toCreateResult(outcome.reservation);
+    }
+
+    const created = outcome.reservation;
+    this.events.emitReservationCreated(restaurantId, {
+      id: created.id,
+      referenceCode: created.referenceCode,
+      status: created.status,
+      startsAt: created.startsAt,
+      guestName: created.guestName,
+      totalGuests: created.adultsCount + created.childrenCount,
+    });
+
+    await this.dispatchCreateNotifications(restaurantId, created, ctx);
+
+    return this.toCreateResult(created);
+  }
+
+  private validatePartyAndTime(
+    dto: CreateReservationDto,
+    ctx: CreateReservationContext,
+  ): {
+    phone: string;
+    adults: number;
+    children: number;
+    total: number;
+    startsAt: Date;
+  } {
+    const phone = this.normalizePhone(dto.guestPhone);
+    if ((ctx.settings?.requirePhone ?? true) && !phone) {
+      throw new BadRequestException('A valid phone number is required');
+    }
+    const adults = dto.adultsCount;
+    const children = dto.childrenCount ?? 0;
+    const total = adults + children;
+    const maxTotal = ctx.settings?.maxTotalGuests ?? 50;
+    if (total < 1 || total > maxTotal) {
+      throw new BadRequestException(
+        `Party size must be between 1 and ${maxTotal}`,
+      );
+    }
+
+    const startsAt = new Date(dto.startsAt);
+    if (isNaN(startsAt.getTime())) {
+      throw new BadRequestException('Invalid reservation time');
+    }
+    return { phone, adults, children, total, startsAt };
+  }
+
+  // Consent gate: only persist dietary/allergy (special-category) data when
+  // the guest explicitly consented. Staff manual bookings bypass the gate.
+  // Owner-defined custom preference labels are allowed through validation too.
+  private buildConsentedFields(
+    dto: CreateReservationDto,
+    ctx: CreateReservationContext,
+  ): {
+    customerPreferences: string[];
+    allergyNotes: string | null;
+    dietaryConsentAt: Date | null;
+  } {
+    const preferences = sanitizeCustomerPreferences(
+      dto.customerPreferences,
+      ctx.settings?.customPreferences ?? [],
+    );
+    const consented = ctx.skipConsentGate || dto.dietaryConsent === true;
+    const dietaryPresent =
+      hasDietaryPreference(preferences) || !!dto.allergyNotes?.trim();
+    const storeDietary = consented && dietaryPresent;
+    const customerPreferences = storeDietary
+      ? preferences
+      : preferences.filter((p) => !isDietary(p));
+    const allergyNotes = storeDietary ? dto.allergyNotes?.trim() || null : null;
+    const dietaryConsentAt = storeDietary ? new Date() : null;
+    return { customerPreferences, allergyNotes, dietaryConsentAt };
+  }
+
+  // Feature 3: accept a preferred seating zone only when it matches a zone the
+  // restaurant actually has. The client sends the preset key (e.g. TERRACE)
+  // or, for a custom zone, its name — match either. Store the preset key when
+  // the zone has one so the dashboard can translate it; else store the name.
+  private async resolvePreferredZone(
+    restaurantId: string,
+    dto: CreateReservationDto,
+  ): Promise<string | null> {
+    const requestedZone = dto.preferredZone?.trim();
+    if (!requestedZone) return null;
+    const match = await this.prisma.tableZone.findFirst({
+      where: {
+        restaurantId,
+        OR: [{ zoneKey: requestedZone }, { name: requestedZone }],
+      },
+      select: { zoneKey: true, name: true },
+    });
+    return match ? (match.zoneKey ?? match.name) : null;
+  }
+
+  // The advisory-lock transaction: idempotency recheck, slot assertion, patron
+  // matching, persistence — with a P2002 fallback that replays the winning
+  // insert instead of surfacing a raw unique-constraint 500.
+  private async persistReservationTx(
+    restaurantId: string,
+    dto: CreateReservationDto,
+    ctx: CreateReservationContext,
+    fields: ReservationPersistFields,
+  ): Promise<{
+    reservation: Prisma.ReservationGetPayload<object>;
+    replayed: boolean;
+  }> {
     try {
-      outcome = await this.withReferenceRetry(async (referenceCode) =>
+      return await this.withReferenceRetry((referenceCode) =>
         this.prisma.$transaction(
           async (tx) => {
             await this.lockReservationCapacity(tx, restaurantId);
@@ -739,8 +821,8 @@ export class ReservationsService {
             if (ctx.source === 'PUBLIC') {
               await this.availability.assertSlotBookable(
                 restaurantId,
-                startsAt,
-                total,
+                fields.startsAt,
+                fields.total,
                 undefined,
                 tx,
               );
@@ -749,7 +831,7 @@ export class ReservationsService {
             const patron = await this.patrons.matchOrCreate(
               tx,
               restaurantId,
-              phone,
+              fields.phone,
               dto.guestName.trim(),
               dto.guestEmail,
             );
@@ -759,9 +841,9 @@ export class ReservationsService {
             if (ctx.staffTags?.length) {
               patronData.staffTags = sanitizeStaffTags(ctx.staffTags);
             }
-            if (marketingConsentAt) {
+            if (fields.marketingConsentAt) {
               patronData.marketingConsent = true;
-              patronData.marketingConsentAt = marketingConsentAt;
+              patronData.marketingConsentAt = fields.marketingConsentAt;
             }
             if (Object.keys(patronData).length > 0) {
               await tx.patron.update({
@@ -775,26 +857,26 @@ export class ReservationsService {
                 patronId: patron.id,
                 referenceCode,
                 source: ctx.source,
-                status,
+                status: fields.status,
                 guestName: dto.guestName.trim(),
-                guestPhone: phone,
+                guestPhone: fields.phone,
                 guestEmail: dto.guestEmail?.trim() || null,
-                startsAt,
+                startsAt: fields.startsAt,
                 occasion: dto.occasion ?? ReservationOccasion.NONE,
-                adultsCount: adults,
-                childrenCount: children,
+                adultsCount: fields.adults,
+                childrenCount: fields.children,
                 customerNotes: dto.customerNotes?.trim() || null,
                 internalNotes: ctx.internalNotes?.trim() || null,
-                customerPreferences,
-                allergyNotes,
-                dietaryConsentAt,
-                marketingConsentAt,
-                notifyByEmail,
-                notifyBySms,
-                notificationLocale,
-                preferredZone,
-                manageToken,
-                durationMinutes,
+                customerPreferences: fields.customerPreferences,
+                allergyNotes: fields.allergyNotes,
+                dietaryConsentAt: fields.dietaryConsentAt,
+                marketingConsentAt: fields.marketingConsentAt,
+                notifyByEmail: fields.notifyByEmail,
+                notifyBySms: fields.notifyBySms,
+                notificationLocale: fields.notificationLocale,
+                preferredZone: fields.preferredZone,
+                manageToken: fields.manageToken,
+                durationMinutes: fields.durationMinutes,
                 idempotencyKey: dto.idempotencyKey ?? null,
                 createdById: ctx.createdById ?? null,
               },
@@ -804,7 +886,7 @@ export class ReservationsService {
                 reservationId: reservation.id,
                 type: 'CREATED',
                 actorUserId: ctx.createdById ?? null,
-                metadata: { source: ctx.source, status },
+                metadata: { source: ctx.source, status: fields.status },
               },
             });
             return { reservation, replayed: false };
@@ -813,53 +895,57 @@ export class ReservationsService {
         ),
       );
     } catch (err) {
-      // Defense in depth for a writer that does not participate in this lock
-      // (for example an older deployment during a rolling release): return the
-      // idempotency-key winner instead of surfacing a raw unique-constraint 500.
-      // Prisma's P2002 `meta.target` is a string[] (or occasionally a string),
-      // so normalize before matching.
-      const meta = (err as { code?: string; meta?: { target?: unknown } })
-        ?.meta;
-      const rawTarget = meta?.target;
-      const target = Array.isArray(rawTarget)
-        ? rawTarget.join(',')
-        : typeof rawTarget === 'string'
-          ? rawTarget
-          : '';
-      if (
-        dto.idempotencyKey &&
-        (err as { code?: string }).code === 'P2002' &&
-        target.toLowerCase().includes('idempotency')
-      ) {
-        const existing = await this.prisma.reservation.findUnique({
-          where: {
-            restaurantId_idempotencyKey: {
-              restaurantId,
-              idempotencyKey: dto.idempotencyKey,
-            },
-          },
-        });
-        if (existing) return this.toCreateResult(existing);
-      }
+      const replay = await this.recoverIdempotentReservation(
+        restaurantId,
+        dto,
+        err,
+      );
+      if (replay) return { reservation: replay, replayed: true };
       throw err;
     }
+  }
 
-    if (outcome.replayed) {
-      return this.toCreateResult(outcome.reservation);
+  // Defense in depth for a writer that does not participate in this lock (for
+  // example an older deployment during a rolling release): return the
+  // idempotency-key winner instead of surfacing a raw unique-constraint 500.
+  // Prisma's P2002 `meta.target` is a string[] (or occasionally a string), so
+  // normalize before matching.
+  private async recoverIdempotentReservation(
+    restaurantId: string,
+    dto: CreateReservationDto,
+    err: unknown,
+  ) {
+    const meta = (err as { code?: string; meta?: { target?: unknown } })?.meta;
+    const rawTarget = meta?.target;
+    const target = Array.isArray(rawTarget)
+      ? rawTarget.join(',')
+      : typeof rawTarget === 'string'
+        ? rawTarget
+        : '';
+    if (
+      !dto.idempotencyKey ||
+      (err as { code?: string }).code !== 'P2002' ||
+      !target.toLowerCase().includes('idempotency')
+    ) {
+      return null;
     }
-    const created = outcome.reservation;
-
-    this.events.emitReservationCreated(restaurantId, {
-      id: created.id,
-      referenceCode: created.referenceCode,
-      status: created.status,
-      startsAt: created.startsAt,
-      guestName: created.guestName,
-      totalGuests: created.adultsCount + created.childrenCount,
+    return this.prisma.reservation.findUnique({
+      where: {
+        restaurantId_idempotencyKey: {
+          restaurantId,
+          idempotencyKey: dto.idempotencyKey,
+        },
+      },
     });
+  }
 
-    // Guest notification: "received" for a pending request, "confirmed" if
-    // auto-confirmed. Sent over the channels the guest opted into (Feature 1).
+  // Guest notification ("received"/"confirmed" per Feature 1 channels), plus
+  // the owner/manager new-request notice (Fix 5) when configured.
+  private async dispatchCreateNotifications(
+    restaurantId: string,
+    created: Prisma.ReservationGetPayload<object>,
+    ctx: CreateReservationContext,
+  ): Promise<void> {
     await this.notifications.notify(
       created.status === 'CONFIRMED' ? 'CONFIRMED' : 'RECEIVED',
       {
@@ -883,7 +969,6 @@ export class ReservationsService {
       },
     );
 
-    // Fix 5: notify the owner/manager of the new request (email and/or SMS).
     if (ctx.settings?.notifyEmail || ctx.settings?.notifyPhone) {
       await this.notifications.notifyOwner({
         restaurantId,
@@ -903,8 +988,6 @@ export class ReservationsService {
         allergyNotes: created.allergyNotes,
       });
     }
-
-    return this.toCreateResult(created);
   }
 
   // ── Dashboard surface ───────────────────────────────────────────────────
@@ -1086,18 +1169,14 @@ export class ReservationsService {
   }
 
   // ── Settings & service hours ────────────────────────────────────────────
+  // Thin wrappers: the data-layer logic lives in reservation-settings.service.ts
+  // (shared with ReservationSettingsService) so this class stays focused on the
+  // core booking lifecycle.
 
   async getSettings(restaurantId: string, userId: string) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-    const [settings, hours] = await Promise.all([
-      this.prisma.reservationSettings.findUnique({ where: { restaurantId } }),
-      this.prisma.reservationServiceHours.findMany({
-        where: { restaurantId },
-        orderBy: { weekday: 'asc' },
-      }),
-    ]);
-    return { settings, serviceHours: hours };
+    return getReservationSettings(this.prisma, restaurantId);
   }
 
   async updateSettings(
@@ -1107,69 +1186,19 @@ export class ReservationsService {
   ) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-
-    if (data.enabled === true) {
-      await this.requireEntitlement(restaurantId);
-      const hours = await this.prisma.reservationServiceHours.count({
-        where: { restaurantId },
-      });
-      if (hours === 0) {
-        throw new BadRequestException(
-          'Add at least one service-hours row before enabling reservations',
-        );
-      }
-    }
-
-    // Sanitize owner-defined preference labels (trim/dedupe/cap) before storing.
-    if ('customPreferences' in data) {
-      data = {
-        ...data,
-        customPreferences: sanitizeCustomPreferenceLabels(
-          data.customPreferences,
-        ),
-      };
-    }
-
-    const settings = await this.prisma.reservationSettings.upsert({
-      where: { restaurantId },
-      create: { restaurantId, ...(data as any) },
-      update: data as any,
-    });
-    return settings;
+    return updateReservationSettings(this.prisma, restaurantId, data, (id) =>
+      this.requireEntitlement(id),
+    );
   }
 
   async setServiceHours(
     restaurantId: string,
     userId: string,
-    rows: { weekday: number; openMinute: number; lastSlotMinute: number }[],
+    rows: ReservationServiceHoursRow[],
   ) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-    for (const row of rows) {
-      if (row.lastSlotMinute < row.openMinute) {
-        throw new BadRequestException(
-          `Weekday ${row.weekday}: last slot cannot be before opening`,
-        );
-      }
-    }
-    await this.prisma.$transaction(async (tx) => {
-      for (const row of rows) {
-        await tx.reservationServiceHours.upsert({
-          where: {
-            restaurantId_weekday: { restaurantId, weekday: row.weekday },
-          },
-          create: { restaurantId, ...row },
-          update: {
-            openMinute: row.openMinute,
-            lastSlotMinute: row.lastSlotMinute,
-          },
-        });
-      }
-    });
-    return this.prisma.reservationServiceHours.findMany({
-      where: { restaurantId },
-      orderBy: { weekday: 'asc' },
-    });
+    return setReservationServiceHours(this.prisma, restaurantId, rows);
   }
 
   async deleteServiceHours(
@@ -1179,89 +1208,27 @@ export class ReservationsService {
   ) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-    await this.prisma.reservationServiceHours.deleteMany({
-      where: { restaurantId, weekday },
-    });
-    return { success: true };
+    return deleteReservationServiceHours(this.prisma, restaurantId, weekday);
   }
 
   // ── Analytics (Feature 6) ────────────────────────────────────────────────
+  // Thin wrapper: the aggregation lives in reservation-analytics.service.ts
+  // (shared with ReservationAnalyticsService).
 
   async getAnalytics(restaurantId: string, userId: string) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: { timezone: true },
-    });
-    const zone = restaurant?.timezone || 'Europe/Sofia';
-    const windowDays = 30;
-    const now = DateTime.now().setZone(zone);
-    const since = now.minus({ days: windowDays }).startOf('day').toJSDate();
-    const weekStart = now.minus({ days: 7 }).toJSDate();
-    const until = now.toJSDate();
-
-    const rows = await this.prisma.reservation.findMany({
-      where: { restaurantId, startsAt: { gte: since, lte: until } },
-      select: {
-        startsAt: true,
-        status: true,
-        adultsCount: true,
-        childrenCount: true,
-      },
-      take: 5000,
-    });
-
-    const statusCounts: Record<string, number> = {};
-    const hourCounts = new Map<number, number>();
-    let partySum = 0;
-    let partyRows = 0;
-    let thisWeek = 0;
-
-    for (const r of rows) {
-      statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1;
-      if (r.startsAt >= weekStart && r.startsAt <= until) thisWeek += 1;
-      // Party-size average over bookings that represent real demand (exclude
-      // declined/cancelled requests that never became a real party).
-      if (r.status !== 'DECLINED' && r.status !== 'CANCELLED') {
-        partySum += r.adultsCount + r.childrenCount;
-        partyRows += 1;
-        const hour = DateTime.fromJSDate(r.startsAt).setZone(zone).hour;
-        hourCounts.set(hour, (hourCounts.get(hour) ?? 0) + 1);
-      }
-    }
-
-    const popularHours = [...hourCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([hour, count]) => ({
-        hour,
-        label: `${String(hour).padStart(2, '0')}:00`,
-        count,
-      }));
-
-    return {
-      windowDays,
-      total: rows.length,
-      thisWeek,
-      noShows: statusCounts['NO_SHOW'] ?? 0,
-      avgPartySize:
-        partyRows > 0 ? Math.round((partySum / partyRows) * 10) / 10 : 0,
-      statusCounts,
-      popularHours,
-    };
+    return fetchReservationAnalytics(this.prisma, restaurantId);
   }
 
   // ── Blackout days (Feature 5) ────────────────────────────────────────────
+  // Thin wrappers: the data-layer logic lives in reservation-blackout.service.ts
+  // (shared with ReservationBlackoutService).
 
   async listBlackouts(restaurantId: string, userId: string) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-    return this.prisma.reservationBlackout.findMany({
-      where: { restaurantId },
-      orderBy: { date: 'asc' },
-    });
+    return listReservationBlackouts(this.prisma, restaurantId);
   }
 
   async addBlackout(
@@ -1272,29 +1239,13 @@ export class ReservationsService {
   ) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-    const normalized = normalizeIsoDate(date);
-    if (!normalized) {
-      throw new BadRequestException('Invalid date — expected YYYY-MM-DD');
-    }
-    const trimmedReason = reason?.trim() || null;
-    return this.prisma.reservationBlackout.upsert({
-      where: { restaurantId_date: { restaurantId, date: normalized } },
-      create: { restaurantId, date: normalized, reason: trimmedReason },
-      update: { reason: trimmedReason },
-    });
+    return addReservationBlackout(this.prisma, restaurantId, date, reason);
   }
 
   async removeBlackout(restaurantId: string, userId: string, date: string) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER']);
-    const normalized = normalizeIsoDate(date);
-    if (!normalized) {
-      throw new BadRequestException('Invalid date — expected YYYY-MM-DD');
-    }
-    await this.prisma.reservationBlackout.deleteMany({
-      where: { restaurantId, date: normalized },
-    });
-    return { success: true };
+    return removeReservationBlackout(this.prisma, restaurantId, date);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
@@ -1418,16 +1369,4 @@ function computeDiningDuration(
   const threshold = settings?.largePartyThreshold ?? 5;
   const large = settings?.largePartyDurationMinutes ?? 150;
   return partySize >= threshold ? large : base;
-}
-
-// Accept only a strict restaurant-local calendar date (YYYY-MM-DD) and echo it
-// back canonicalized. Rejects times, timezones, and impossible dates so the
-// value stored compares cleanly against the availability engine's localDate.
-function normalizeIsoDate(input: unknown): string | null {
-  if (typeof input !== 'string') return null;
-  const trimmed = input.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
-  const parsed = DateTime.fromISO(trimmed, { zone: 'utc' });
-  if (!parsed.isValid) return null;
-  return parsed.toISODate();
 }
