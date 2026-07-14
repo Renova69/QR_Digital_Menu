@@ -291,16 +291,38 @@ function tierPrice(
   monthly: number,
   billing: Billing,
   t: TFunction,
-): { main: string; meta: string | null } {
-  if (monthly === 0) return { main: "€0", meta: null };
+): { amount: string; meta: string | null; daily: string | null } {
+  if (monthly === 0) return { amount: "0", meta: null, daily: null };
   if (billing === "monthly")
-    return { main: `€${monthly}`, meta: t("pricing.billing.perMonthShort") };
-  const moPrice = (monthly * YEARLY_DISCOUNT).toFixed(2);
+    return {
+      amount: String(monthly),
+      meta: t("pricing.billing.perMonthShort"),
+      daily: null,
+    };
+  const yearlyTotal = monthly * 12 * YEARLY_DISCOUNT;
+  const moPrice = (yearlyTotal / 12).toFixed(2);
+  const daily = (yearlyTotal / 365).toFixed(2);
   const yrTotal = Math.round(monthly * 12 * YEARLY_DISCOUNT);
   return {
-    main: `€${moPrice}`,
+    amount: moPrice,
     meta: t("pricing.billing.yearlyMeta", { total: yrTotal }),
+    daily: t("pricing.billing.dailyEquivalent", "Just €{{amount}}/day", {
+      amount: daily,
+    }),
   };
+}
+
+function tierCta(t: TFunction, tier: Tier) {
+  if (tier === "FREE") {
+    return t("pricing.cta.free", "Launch My Free Menu");
+  }
+  if (tier === "STARTER") {
+    return t("pricing.cta.starter", "Start My Free Trial Now");
+  }
+  if (tier === "PROFESSIONAL") {
+    return t("pricing.cta.professional", "Grow My Revenue Today");
+  }
+  return t("pricing.cta.enterprise", "Talk To Sales");
 }
 
 function FeatureCell({ val }: { val: boolean | string }) {
@@ -437,7 +459,7 @@ export default function PricingPage() {
                 }`}
               >
                 {t("pricing.billing.yearly")}
-                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
                   {t("pricing.billing.saveAnnual")}
                 </span>
               </button>
@@ -467,9 +489,7 @@ export default function PricingPage() {
                 ? t("pricing.currentPlan")
                 : isLowerTier
                   ? t("pricing.manageBilling")
-                  : plan.key === "FREE"
-                    ? t("pricing.getStarted")
-                    : t("pricing.choosePlan", { tier: tierName(t, plan.key) });
+                  : tierCta(t, plan.key);
 
             return (
               <article
@@ -482,8 +502,8 @@ export default function PricingPage() {
               >
                 {plan.highlight && (
                   <div className="absolute -top-4 left-1/2 z-10 -translate-x-1/2">
-                    <span className="rounded-full bg-primary px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow-lg">
-                      {t("pricing.popular")}
+                    <span className="block min-w-max whitespace-nowrap rounded-full bg-primary px-4 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow-lg">
+                      {t("pricing.popularBadge", "Most Popular")}
                     </span>
                   </div>
                 )}
@@ -498,18 +518,28 @@ export default function PricingPage() {
                   <h2 className="mt-2 text-2xl font-black text-foreground">
                     {tierName(t, plan.key)}
                   </h2>
-                  <div className="mt-4 flex items-end gap-1">
-                    <span className="text-4xl font-black text-foreground">
-                      {price.main}
+                  <div className="mt-4 flex flex-wrap items-end gap-x-2 gap-y-2">
+                    <span className="flex items-start font-black text-foreground">
+                      <span className="mt-1 text-2xl leading-none md:text-3xl">
+                        {t("pricing.currencySymbol", "€")}
+                      </span>
+                      <span className="text-5xl leading-none tracking-normal md:text-6xl">
+                        {price.amount}
+                      </span>
                     </span>
                     {price.meta && (
                       <span className="pb-1 text-xs leading-snug text-muted-foreground">
                         {price.meta}
                       </span>
                     )}
+                    {price.daily && (
+                      <span className="mb-1 whitespace-nowrap rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-1 text-xs font-black text-red-600">
+                        {price.daily}
+                      </span>
+                    )}
                   </div>
                   {billing === "yearly" && plan.monthly > 0 && (
-                    <p className="mt-1 text-xs font-semibold text-primary">
+                    <p className="mt-2 text-xs font-black text-red-600">
                       {t("pricing.billing.saveVsMonthly")}
                     </p>
                   )}
@@ -527,19 +557,21 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <button
-                  onClick={() => handleSelect(plan.key)}
-                  disabled={!!loading || isCurrentTier}
-                  className={`w-full rounded-2xl py-3.5 text-sm font-black uppercase tracking-widest transition-all disabled:opacity-50 ${
-                    isCurrentTier
-                      ? "cursor-default bg-primary/20 text-primary"
-                      : plan.highlight
-                        ? "bg-foreground text-background hover:opacity-80"
-                        : "bg-secondary text-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  {label}
-                </button>
+                <div className="mt-auto flex justify-end">
+                  <button
+                    onClick={() => handleSelect(plan.key)}
+                    disabled={!!loading || isCurrentTier}
+                    className={`min-h-[48px] w-full rounded-2xl px-5 py-3.5 text-sm font-black uppercase tracking-widest transition-all disabled:opacity-50 sm:w-auto sm:min-w-[210px] ${
+                      isCurrentTier
+                        ? "cursor-default bg-primary/20 text-primary"
+                        : plan.highlight
+                          ? "bg-foreground text-background hover:opacity-80"
+                          : "bg-secondary text-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                </div>
               </article>
             );
           })}

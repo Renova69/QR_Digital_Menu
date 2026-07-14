@@ -61,7 +61,7 @@ export function CategoryPills({
                 pillRefs.current[cat.id] = el;
               }}
               onClick={() => onSelect(cat.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 flex-shrink-0 ${
+              className={`flex min-h-[44px] flex-shrink-0 items-center whitespace-nowrap rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 ${
                 isActive
                   ? "shadow-md"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"

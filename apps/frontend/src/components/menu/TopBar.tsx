@@ -35,11 +35,11 @@ export function TopBar({
   const { t } = useTranslation();
 
   return (
-    <div className="sticky top-[2.5rem] z-[25] px-3 pt-3 pb-2">
+    <div className="sticky top-[2.5rem] z-[25] px-3 pt-safe pb-2">
       <div className="flex items-center gap-2 p-2 rounded-[1.75rem] glass-panel border-white/10 shadow-lg">
         {tableNumber && (
           <div
-            className="flex items-center gap-1.5 h-9 px-3 rounded-xl flex-shrink-0"
+            className="flex min-h-[44px] items-center gap-1.5 px-3 rounded-xl flex-shrink-0"
             style={{
               background: "var(--gradient-brand)",
               color: "var(--brand-contrast, #fff)",
@@ -58,14 +58,14 @@ export function TopBar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t("publicMenu.search", "Search")}
             aria-label={t("publicMenu.search", "Search")}
-            className="w-full pl-9 pr-3 py-2 bg-secondary/50 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/50 border border-transparent focus:border-primary/30 focus:outline-none transition-colors"
+            className="min-h-[44px] w-full pl-9 pr-3 py-2 bg-secondary/50 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/50 border border-transparent focus:border-primary/30 focus:outline-none transition-colors"
           />
         </div>
 
         <button
           onClick={onFilterClick}
           aria-label={t("publicMenu.filters", "Filters")}
-          className={`relative h-9 w-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 ${
+          className={`relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl transition-colors flex-shrink-0 ${
             filtersActive
               ? "bg-primary/15 ring-1 ring-primary/40 hover:bg-primary/20"
               : "hover:bg-secondary/60"
@@ -93,7 +93,7 @@ export function TopBar({
               value={selectedLang}
               onChange={(e) => onLanguageChange(e.target.value)}
               aria-label={t("publicMenu.selectLanguage", "Select language")}
-              className="appearance-none h-9 pl-7 pr-3 bg-secondary/50 rounded-xl text-xs font-black uppercase tracking-wider text-foreground border border-transparent focus:border-primary/30 focus:outline-none cursor-pointer"
+              className="min-h-[44px] appearance-none pl-8 pr-4 bg-secondary/50 rounded-xl text-xs font-black uppercase tracking-wider text-foreground border border-transparent focus:border-primary/30 focus:outline-none cursor-pointer"
             >
               {targetLanguages.map((code) => (
                 <option key={code} value={code}>

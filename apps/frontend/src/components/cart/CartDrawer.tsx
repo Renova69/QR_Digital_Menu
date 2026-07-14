@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types";
 import { formatInlineDual, BGN_RATE } from "../../lib/currency";
+import { CheckoutProgressSteps } from "../checkout/CheckoutProgressSteps";
 import {
   resolveCartChoiceName,
   resolveCartItemName,
@@ -110,12 +111,18 @@ const CartDrawer = ({
           </h2>
           <button
             onClick={onClose}
-            className="p-2.5 bg-muted hover:bg-muted/60 rounded-full text-muted-foreground transition-all hover:text-foreground"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center bg-muted hover:bg-muted/60 rounded-full text-muted-foreground transition-all hover:text-foreground"
             aria-label={t("common.close", "Close")}
           >
             <X size={20} strokeWidth={3} />
           </button>
         </div>
+
+        {items.length > 0 && (
+          <div className="px-5 pt-4 md:px-6">
+            <CheckoutProgressSteps currentStep={1} />
+          </div>
+        )}
 
         <div className="flex-grow overflow-y-auto p-5 md:p-6 hide-scrollbar">
           {showDrinkUpsell ? (
@@ -172,7 +179,7 @@ const CartDrawer = ({
                               cartId: `${drink.id}-${Date.now()}`,
                             });
                           }}
-                          className="h-9 min-w-[60px] rounded-full border-primary text-primary px-4 py-0"
+                          className="min-h-[44px] min-w-[60px] rounded-full border-primary text-primary px-4 py-0"
                         >
                           {t("publicMenu.drinkUpsell.add")}
                         </Button>
@@ -237,7 +244,7 @@ const CartDrawer = ({
                     </p>
                     <button
                       onClick={() => removeItem(item.cartId)}
-                      className="text-xs font-semibold text-red-500 hover:text-red-400 transition-colors mt-2"
+                      className="mt-2 min-h-[44px] text-xs font-semibold text-red-500 transition-colors hover:text-red-400"
                     >
                       {t("cart.remove")}
                     </button>
@@ -250,7 +257,7 @@ const CartDrawer = ({
 
         {items.length > 0 && (
           <div
-            className="px-5 pt-5 pb-5 md:p-8 border-t border-border bg-muted/50 flex-shrink-0 rounded-t-none rounded-b-none md:rounded-bl-[2.5rem]"
+            className="px-5 pt-5 pb-safe md:p-8 border-t border-border bg-muted/50 flex-shrink-0 rounded-t-none rounded-b-none md:rounded-bl-[2.5rem]"
             style={{
               paddingBottom:
                 "max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))",
@@ -268,13 +275,13 @@ const CartDrawer = ({
               <div className="space-y-3">
                 <button
                   onClick={finishCheckout}
-                  className="w-full brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-xs"
+                  className="w-full min-h-[52px] brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-xs"
                 >
                   {t("cart.proceedCheckout")}
                 </button>
                 <button
                   onClick={finishCheckout}
-                  className="w-full bg-transparent border border-border hover:bg-muted text-muted-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[11px] uppercase tracking-widest"
+                  className="w-full min-h-[44px] bg-transparent border border-border hover:bg-muted text-muted-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[11px] uppercase tracking-widest"
                 >
                   {t("publicMenu.drinkUpsell.noThanks")}
                 </button>
@@ -283,13 +290,13 @@ const CartDrawer = ({
               <div className="space-y-3">
                 <button
                   onClick={handleCheckout}
-                  className="w-full brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-[11px]"
+                  className="w-full min-h-[52px] brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-[11px]"
                 >
                   {t("cart.proceedCheckout")}
                 </button>
                 <button
                   onClick={clearCart}
-                  className="w-full bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[10px] uppercase tracking-widest"
+                  className="w-full min-h-[44px] bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[10px] uppercase tracking-widest"
                 >
                   {t("cart.clearCart")}
                 </button>

@@ -56,5 +56,17 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    ({ addUtilities }) => {
+      addUtilities({
+        ".pb-safe": {
+          paddingBottom: "max(0.375rem, env(safe-area-inset-bottom, 0px))",
+        },
+        ".pt-safe": {
+          paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
+        },
+      });
+    },
+  ],
 }

@@ -3,6 +3,7 @@ import { useCart } from "../../context/CartContext";
 import { ShoppingCart } from "lucide-react";
 import CartDrawer from "./CartDrawer";
 import { Category } from "../../types";
+import { useTranslation } from "react-i18next";
 
 interface CartIconProps {
   categories?: Category[];
@@ -24,6 +25,7 @@ const CartIcon = ({
   themeVars,
 }: CartIconProps) => {
   const { getItemCount } = useCart();
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
 
   const hasItems = getItemCount() > 0;
@@ -36,8 +38,8 @@ const CartIcon = ({
     <>
       <button
         onClick={toggleCart}
-        className="relative p-3 rounded-2xl transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5 group active:scale-95"
-        aria-label="Open Cart"
+        className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl p-3 transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5 group active:scale-95"
+        aria-label={t("cart.openCart", "Open cart")}
       >
         <ShoppingCart
           size={22}

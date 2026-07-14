@@ -17,7 +17,7 @@ import {
 import { getImageUrl as resolveImageUrl } from "../../lib/getImageUrl";
 import { getTranslatedField, getTranslatedArray } from "../../lib/translation";
 import { cn } from "../../lib/utils";
-import { Check, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 
 interface ItemWithOptionsProps {
   item: Item;
@@ -47,8 +47,10 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [pendingMainItem, setPendingMainItem] = useState<CartItem | null>(null);
+  const [imageInView, setImageInView] = useState(!item.imageUrl);
   const { t, i18n } = useTranslation();
   const currentLang = lang || i18n.language;
   const priceEuro =
@@ -76,6 +78,38 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!item.imageUrl) {
+      setImageInView(false);
+      return;
+    }
+
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) {
+      setImageInView(true);
+      return;
+    }
+
+    setImageInView(false);
+    const el = cardRef.current;
+    if (!el) {
+      setImageInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setImageInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "360px 0px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [item.id, item.imageUrl]);
 
   // Pre-select first VARIATION option
   useEffect(() => {
@@ -254,19 +288,26 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   return (
     <>
       <div
+        ref={cardRef}
         className="glass-panel glass-panel-hover p-4 rounded-[2.5rem] flex gap-3 shadow-2xl relative overflow-hidden group border-white/5 animate-in slide-in-from-bottom-4 duration-500"
-        style={{ backgroundColor: "var(--theme-card, inherit)" }}
+        style={{
+          backgroundColor: "var(--theme-card, inherit)",
+          contentVisibility: "auto",
+          containIntrinsicSize: "160px",
+        }}
       >
         {/* Image — left side */}
         <div
           className="w-[34%] aspect-square self-center rounded-2xl overflow-hidden shrink-0 cursor-zoom-in"
           onClick={() => item.imageUrl && setLightboxOpen(true)}
         >
-          {item.imageUrl ? (
+          {item.imageUrl && imageInView ? (
             <img
               src={getImageUrl(item.imageUrl)}
               alt={itemName}
               loading="lazy"
+              decoding="async"
+              sizes="(min-width: 768px) 160px, 34vw"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
             />
           ) : (
@@ -358,14 +399,15 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
             {ordersEnabled && (
               <button
                 onClick={handleAddToCart}
-                className="group/btn relative font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
+                className="group/btn relative flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.12em] shadow-xl transition-all hover:-translate-y-1 active:scale-[0.97]"
                 style={{
                   background: "var(--gradient-brand)",
                   color: "var(--brand-contrast, #fff)",
                 }}
               >
+                <Plus className="relative z-10 h-3.5 w-3.5" />
                 <span className="relative z-10">
-                  {t("publicMenu.addShort", "+ Add")}
+                  {t("publicMenu.addItem", "Add")}
                 </span>
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
               </button>
@@ -454,6 +496,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                                 src={getImageUrl(pairing.imageUrl)}
                                 alt={pairingName}
                                 loading="lazy"
+                                decoding="async"
+                                sizes="64px"
                                 className="w-full h-full object-cover"
                               />
                             ) : (
@@ -480,7 +524,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
 
                         <button
                           onClick={() => handlePairingAction(pairing)}
-                          className="w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-primary hover:text-white"
+                          className="min-h-[44px] w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-primary hover:text-white"
                         >
                           {t("publicMenu.pairing.addToOrder")}
                         </button>
@@ -520,7 +564,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                 </div>
                 <button
                   onClick={handleOptionsCancel}
-                  className="shrink-0 ml-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-zinc-400 hover:bg-white/20 hover:text-white transition"
+                  className="ml-3 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-400 transition hover:bg-white/20 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -568,6 +612,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                               }
                               className={cn(
                                 "flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left transition active:scale-[0.99]",
+                                "min-h-[44px]",
                                 isSelected
                                   ? "bg-primary/20 border border-primary/40 text-white"
                                   : "bg-white/5 border border-transparent text-zinc-300 hover:bg-white/10",
@@ -612,7 +657,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
               <div className="px-6 pt-3 pb-6">
                 <button
                   onClick={handleOptionsConfirm}
-                  className="w-full py-3.5 rounded-[1.25rem] font-black uppercase text-xs tracking-[0.15em] transition-all active:scale-[0.98] shadow-xl"
+                  className="min-h-[48px] w-full py-3.5 rounded-[1.25rem] font-black uppercase text-xs tracking-[0.15em] transition-all active:scale-[0.98] shadow-xl"
                   style={{
                     background: "var(--gradient-brand)",
                     color: "var(--brand-contrast, #fff)",

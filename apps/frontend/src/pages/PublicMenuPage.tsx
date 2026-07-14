@@ -708,7 +708,7 @@ const PublicMenuPage = () => {
           <button
             type="button"
             onClick={() => setPaymentBanner(null)}
-            className="text-white/80 hover:text-white text-lg leading-none"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center text-lg leading-none text-white/80 hover:text-white"
             aria-label={t("common.close", "Close")}
           >
             ×
@@ -963,6 +963,9 @@ const PublicMenuPage = () => {
                             <img
                               src={getImageUrl(category.imageUrl)}
                               alt={catName}
+                              loading="lazy"
+                              decoding="async"
+                              sizes="(min-width: 768px) 896px, 100vw"
                               className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
@@ -1084,7 +1087,7 @@ const PublicMenuPage = () => {
             }}
           >
             <div
-              className={`flex items-center w-full max-w-[480px] ${ordersEnabled ? "justify-between" : "justify-end"} p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90`}
+              className={`flex items-center w-full max-w-[480px] ${ordersEnabled ? "justify-between" : "justify-end"} p-1.5 pb-safe md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90`}
             >
               {/* LEFT GROUP: Waiter + Profile/Sign-In */}
               <div className="flex items-center gap-0.5">
@@ -1135,7 +1138,7 @@ const PublicMenuPage = () => {
                       <button
                         onClick={() => logout()}
                         aria-label={t("publicMenu.logout")}
-                        className="p-2.5 hover:opacity-70 transition-opacity"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center p-2.5 hover:opacity-70 transition-opacity"
                       >
                         <LogOut className="w-4 h-4 text-muted-foreground" />
                       </button>
@@ -1143,7 +1146,7 @@ const PublicMenuPage = () => {
                   ) : (
                     <button
                       onClick={() => setIsLoginModalOpen(true)}
-                      className="px-3 py-2 rounded-xl bg-secondary text-secondary-foreground text-[10px] font-black uppercase tracking-wider hover:bg-secondary/80 transition-colors"
+                      className="min-h-[44px] px-3 py-2 rounded-xl bg-secondary text-secondary-foreground text-[10px] font-black uppercase tracking-wider hover:bg-secondary/80 transition-colors"
                     >
                       {t("publicMenu.signIn", "Sign In")}
                     </button>
@@ -1156,7 +1159,7 @@ const PublicMenuPage = () => {
                   <Button
                     variant="default"
                     size="sm"
-                    className="brand-cta text-white text-[10px] px-3 py-2 rounded-xl font-bold"
+                    className="brand-cta min-h-[44px] text-white text-[10px] px-3 py-2 rounded-xl font-bold"
                     onClick={async () => {
                       try {
                         await getSessionBill(sessionToken);

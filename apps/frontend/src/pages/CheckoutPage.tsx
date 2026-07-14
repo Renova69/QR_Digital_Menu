@@ -14,10 +14,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
-import { Zap, CheckCircle2 } from "lucide-react";
+import { Zap, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { PaymentModal } from "../components/payment/PaymentModal";
+import { CheckoutProgressSteps } from "../components/checkout/CheckoutProgressSteps";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { getCustomerFacingOrderSourceLabel } from "../lib/orderSourceLabel";
 import { Toggle } from "../components/ui/Toggle";
@@ -35,8 +36,119 @@ import {
   findHostedCheckoutToken,
   readTableSessionTokenFromHash,
 } from "../lib/tableSessionCredential";
+import { cn } from "../lib/utils";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
+
+type FieldState = "neutral" | "valid" | "invalid";
+
+const FIELD_FEEDBACK_CLASSES: Record<FieldState, string> = {
+  neutral: "",
+  valid: "border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/40",
+  invalid: "border-red-500 focus:border-red-500 focus:ring-red-500/40",
+};
+
+const PAYMENT_PARTNERS = [
+  {
+    key: "visa",
+    labelKey: "checkout.paymentTrust.visa",
+    fallback: "Visa",
+    className: "text-blue-700 italic",
+  },
+  {
+    key: "mastercard",
+    labelKey: "checkout.paymentTrust.mastercard",
+    fallback: "Mastercard",
+    className: "",
+  },
+  {
+    key: "paypal",
+    labelKey: "checkout.paymentTrust.paypal",
+    fallback: "PayPal",
+    className: "text-sky-700",
+  },
+  {
+    key: "applePay",
+    labelKey: "checkout.paymentTrust.applePay",
+    fallback: "Apple Pay",
+    className: "text-foreground",
+  },
+] as const;
+
+function getFieldState(hasSignal: boolean, isValid: boolean): FieldState {
+  if (!hasSignal) return "neutral";
+  return isValid ? "valid" : "invalid";
+}
+
+function PaymentPartnerMark({
+  partner,
+}: {
+  partner: (typeof PAYMENT_PARTNERS)[number];
+}) {
+  const { t } = useTranslation();
+  const label = t(partner.labelKey, partner.fallback);
+
+  if (partner.key === "mastercard") {
+    return (
+      <span
+        aria-label={label}
+        title={label}
+        className="flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 shadow-sm"
+        role="img"
+      >
+        <span className="flex -space-x-2" aria-hidden="true">
+          <span className="h-5 w-5 rounded-full bg-red-500" />
+          <span className="h-5 w-5 rounded-full bg-amber-400 mix-blend-multiply" />
+        </span>
+      </span>
+    );
+  }
+
+  if (partner.key === "applePay") {
+    return (
+      <span
+        aria-label={label}
+        title={label}
+        className="flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-[11px] font-black tracking-tight text-foreground shadow-sm"
+        role="img"
+      >
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-label={label}
+      title={label}
+      className={cn(
+        "flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-[11px] font-black uppercase tracking-wide shadow-sm",
+        partner.className,
+      )}
+      role="img"
+    >
+      {label}
+    </span>
+  );
+}
+
+function PaymentTrustGrid() {
+  const { t } = useTranslation();
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background/45 p-3">
+      <p className="mb-2 flex items-center justify-center gap-1.5 text-[11px] font-bold text-muted-foreground">
+        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+        {t("checkout.paymentTrust.secure", "Secure checkout supported by")}
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {PAYMENT_PARTNERS.map((partner) => (
+          <PaymentPartnerMark key={partner.key} partner={partner} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -51,6 +163,7 @@ const CheckoutPage = () => {
     ? (location.state.features as FeatureFlag[])
     : [];
   const themeVars = (location.state?.themeVars ?? {}) as React.CSSProperties;
+  const paymentsEnabled = Boolean(location.state?.paymentsEnabled);
   // A customer paying via the POS Payment QR can switch the bill language with
   // the in-page selector; that override wins over the deep-link / browser guess.
   const [billLangOverride, setBillLangOverride] = useState<string | null>(null);
@@ -156,6 +269,10 @@ const CheckoutPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showResetCartAction, setShowResetCartAction] = useState(false);
+  const [touchedFields, setTouchedFields] = useState({
+    name: false,
+    phone: false,
+  });
 
   const [loyaltyData, setLoyaltyData] = useState<any>(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
@@ -198,6 +315,10 @@ const CheckoutPage = () => {
     : [];
   const fulfillmentOptionsKey = fulfillmentOptions.join("|");
   const paymentOptionsKey = paymentOptions.join("|");
+  const showPaymentTrust =
+    paymentsEnabled ||
+    paymentPreference === "ONLINE" ||
+    paymentOptions.includes("ONLINE");
   const locationDisplayLabel =
     tableNumber ?? orderLocation?.label ?? t("checkout.notSpecified");
   const menuReturnUrl = buildMenuReturnUrl(
@@ -273,6 +394,40 @@ const CheckoutPage = () => {
 
   const getEstimatedPointsDiscount = () =>
     getEstimatedDiscountPoints() / effectiveRedeemRate;
+
+  const customerNameTrimmed = customerName.trim();
+  const customerPhoneTrimmed = customerPhone.trim();
+  const phoneDigits = customerPhoneTrimmed.replace(/\D/g, "");
+  const isCustomerNameValid =
+    customerNameTrimmed.length === 0 || customerNameTrimmed.length >= 2;
+  const isCustomerPhoneValid =
+    customerPhoneTrimmed.length === 0 ||
+    (/^\+?[0-9\s().-]{7,20}$/.test(customerPhoneTrimmed) &&
+      phoneDigits.length >= 7);
+  const nameFieldState = getFieldState(
+    touchedFields.name || customerNameTrimmed.length > 0,
+    isCustomerNameValid,
+  );
+  const phoneFieldState = getFieldState(
+    touchedFields.phone || customerPhoneTrimmed.length > 0,
+    isCustomerPhoneValid,
+  );
+  const orderTotalBeforeSavings = getTotal();
+  const orderTotalAfterSavings =
+    getTotal(redeemedCartIds) - getEstimatedPointsDiscount();
+  const checkoutSavings = Math.max(
+    orderTotalBeforeSavings - orderTotalAfterSavings,
+    0,
+  );
+  const submitLabel = submitting
+    ? t("checkout.submitting")
+    : checkoutSavings > 0
+      ? t(
+          "checkout.placeOrderWithSavings",
+          "Place Order - Save {{amount}} on this bundle!",
+          { amount: formatEuro(checkoutSavings) },
+        )
+      : t("checkout.placeOrder", "Place my order now");
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -382,6 +537,8 @@ const CheckoutPage = () => {
       );
       return;
     }
+
+    setTouchedFields({ name: true, phone: true });
 
     const orderData: any = {
       customerName,
@@ -573,6 +730,10 @@ const CheckoutPage = () => {
               : t("payment.yourBill", "Your Bill")}
           </h1>
 
+          <div className="mb-8">
+            <CheckoutProgressSteps currentStep={paymentComplete ? 4 : 3} />
+          </div>
+
           {!paymentComplete &&
             (sessionBill?.targetLanguages?.length ?? 0) > 1 && (
               <div className="mb-6 flex flex-wrap gap-2">
@@ -584,7 +745,7 @@ const CheckoutPage = () => {
                       type="button"
                       onClick={() => setBillLangOverride(code)}
                       aria-pressed={active}
-                      className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      className={`min-h-[44px] rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
                         active
                           ? "bg-primary text-white"
                           : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
@@ -689,14 +850,17 @@ const CheckoutPage = () => {
 
               {sessionBill.paymentProviders &&
               sessionBill.paymentProviders.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={openPayment}
-                  className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
-                >
-                  {t("payment.pay", "Pay Now")} ·{" "}
-                  {formatEuro(sessionBill.subtotal ?? 0)}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={openPayment}
+                    className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
+                  >
+                    {t("payment.pay", "Pay Now")} ·{" "}
+                    {formatEuro(sessionBill.subtotal ?? 0)}
+                  </button>
+                  <PaymentTrustGrid />
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center">
                   {t(
@@ -741,7 +905,7 @@ const CheckoutPage = () => {
       >
         <button
           onClick={() => navigate(-1)}
-          className="mb-8 text-muted-foreground hover:text-foreground font-semibold flex items-center gap-2 transition-colors"
+          className="mb-8 flex min-h-[44px] items-center gap-2 text-muted-foreground hover:text-foreground font-semibold transition-colors"
         >
           {t("checkout.back")}
         </button>
@@ -749,6 +913,10 @@ const CheckoutPage = () => {
         <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
           {t("checkout.title")}
         </h1>
+
+        <div className="mb-8">
+          <CheckoutProgressSteps currentStep={2} />
+        </div>
 
         {error && (
           <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8 shadow-md">
@@ -762,7 +930,7 @@ const CheckoutPage = () => {
                   setShowResetCartAction(false);
                   navigate(-1);
                 }}
-                className="mt-3 inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+                className="mt-3 inline-flex min-h-[44px] items-center rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
               >
                 {t("checkout.clearCartAndReturn", {
                   defaultValue: "Clear cart and return to menu",
@@ -841,7 +1009,7 @@ const CheckoutPage = () => {
                             );
                           }
                         }}
-                        className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
+                        className={`mt-2 min-h-[44px] text-xs font-bold px-2 py-1 rounded-md transition-colors ${
                           redeemedCartIds.has(item.cartId)
                             ? "bg-primary text-white"
                             : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
@@ -1110,15 +1278,38 @@ const CheckoutPage = () => {
             <label htmlFor="name" className="text-sm font-bold text-foreground">
               {t("checkout.name")}{" "}
               <span className="text-muted-foreground font-normal ml-1">
-                ({t("checkout.nameOptional", "optional")})
+                ({t("common.optional", "optional")})
               </span>
             </label>
             <Input
               id="name"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              className="h-12 rounded-xl"
+              onBlur={() =>
+                setTouchedFields((prev) => ({ ...prev, name: true }))
+              }
+              aria-invalid={nameFieldState === "invalid"}
+              className={cn(
+                "h-12 rounded-xl",
+                FIELD_FEEDBACK_CLASSES[nameFieldState],
+              )}
             />
+            {nameFieldState === "invalid" && (
+              <p className="text-xs font-semibold text-red-500">
+                {t(
+                  "checkout.nameTooShort",
+                  "Use at least 2 characters, or leave it blank.",
+                )}
+              </p>
+            )}
+            {nameFieldState === "valid" && customerNameTrimmed && (
+              <p className="text-xs font-semibold text-emerald-600">
+                {t(
+                  "checkout.nameLooksGood",
+                  "Great - we'll use this for your order.",
+                )}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1128,15 +1319,41 @@ const CheckoutPage = () => {
             >
               {t("checkout.phone")}{" "}
               <span className="text-muted-foreground font-normal ml-1">
-                ({t("checkout.phoneOptional")})
+                ({t("common.optional", "optional")})
               </span>
             </label>
             <Input
               id="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
-              className="h-12 rounded-xl"
+              onBlur={() =>
+                setTouchedFields((prev) => ({ ...prev, phone: true }))
+              }
+              aria-invalid={phoneFieldState === "invalid"}
+              className={cn(
+                "h-12 rounded-xl",
+                FIELD_FEEDBACK_CLASSES[phoneFieldState],
+              )}
             />
+            {phoneFieldState === "invalid" && (
+              <p className="text-xs font-semibold text-red-500">
+                {t(
+                  "checkout.phoneInvalid",
+                  "Enter a reachable phone number with at least 7 digits, or leave it blank.",
+                )}
+              </p>
+            )}
+            {phoneFieldState === "valid" && customerPhoneTrimmed && (
+              <p className="text-xs font-semibold text-emerald-600">
+                {t(
+                  "checkout.phoneLooksGood",
+                  "Looks good - staff can reach you if needed.",
+                )}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1144,7 +1361,10 @@ const CheckoutPage = () => {
               htmlFor="requests"
               className="text-sm font-bold text-foreground"
             >
-              {t("checkout.specialRequests")}
+              {t("checkout.specialRequests")}{" "}
+              <span className="text-muted-foreground font-normal ml-1">
+                ({t("common.optional", "optional")})
+              </span>
             </label>
             <Textarea
               id="requests"
@@ -1155,13 +1375,16 @@ const CheckoutPage = () => {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-foreground hover:bg-foreground/90 text-background font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-          >
-            {submitting ? t("checkout.submitting") : t("checkout.placeOrder")}
-          </button>
+          <div className="space-y-3 pt-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full min-h-[56px] bg-foreground hover:bg-foreground/90 text-background font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitLabel}
+            </button>
+            {showPaymentTrust && <PaymentTrustGrid />}
+          </div>
         </form>
 
         {customersAuthEnabled && (
