@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { buildRestaurantDateRange } from '../common/restaurant-date-range';
 
 @Injectable()
 export class FeedbackService {
@@ -20,7 +21,7 @@ export class FeedbackService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { ownerId: true },
+        select: { ownerId: true, timezone: true },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -30,7 +31,7 @@ export class FeedbackService {
 
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (restaurant.ownerId === userId || user?.restaurantId === restaurantId) {
-      return;
+      return restaurant;
     }
     throw new ForbiddenException('Forbidden access');
   }
@@ -129,28 +130,41 @@ export class FeedbackService {
   }
 
   // Get feedback summary stats (owner-only)
-  async getSummary(restaurantId: string, userId: string) {
-    await this.verifyRestaurantAccess(restaurantId, userId);
+  async getSummary(
+    restaurantId: string,
+    userId: string,
+    range: { startDate?: string; endDate?: string } = {},
+  ) {
+    const restaurant = await this.verifyRestaurantAccess(restaurantId, userId);
+    const createdAt = buildRestaurantDateRange(
+      range.startDate,
+      range.endDate,
+      restaurant.timezone ?? 'UTC',
+    );
+    const where = {
+      restaurantId,
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    };
 
     // DB-level aggregation — never pull every feedback row into Node memory.
     // The previous findMany + in-memory reduce loaded the whole table and would
     // spike memory / block the event loop for high-volume restaurants (#17).
     const [agg, byRating, googleRedirects, positiveCount] = await Promise.all([
       this.prisma.feedback.aggregate({
-        where: { restaurantId },
+        where,
         _count: { _all: true },
         _avg: { rating: true },
       }),
       this.prisma.feedback.groupBy({
         by: ['rating'],
-        where: { restaurantId },
+        where,
         _count: { _all: true },
       }),
       this.prisma.feedback.count({
-        where: { restaurantId, redirectedToGoogle: true },
+        where: { ...where, redirectedToGoogle: true },
       }),
       this.prisma.feedback.count({
-        where: { restaurantId, rating: { gte: 4 } },
+        where: { ...where, rating: { gte: 4 } },
       }),
     ]);
 

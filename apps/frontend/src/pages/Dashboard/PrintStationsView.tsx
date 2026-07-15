@@ -23,6 +23,7 @@ import {
 import { useRestaurantContext } from "../../context/RestaurantContext";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   Card,
   CardContent,
@@ -278,51 +279,58 @@ export default function PrintStationsView() {
           const qrPayload = `qrmenuprintagent://setup?${setupQuery}`;
           const legacySetupUrl = `printagent://setup?${setupQuery}`;
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-lg font-semibold">
-                  {tokenModal.station.name} — Agent Setup
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Scan with the QR Menu Print Agent app to auto-fill all fields.
-                </p>
-                <div className="flex justify-center p-4 bg-white rounded-lg">
-                  <QRCodeSVG value={qrPayload} size={220} />
-                </div>
-                <div className="rounded border bg-muted px-3 py-2 space-y-1">
-                  <p className="text-xs text-muted-foreground">
-                    Server: {serverUrl}
+            <Dialog.Root
+              open
+              onOpenChange={(open) => !open && setTokenModal(null)}
+            >
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+                <Dialog.Content className="fixed left-1/2 top-1/2 z-[51] max-h-[90vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-xl outline-none">
+                  <Dialog.Title className="text-lg font-semibold">
+                    {tokenModal.station.name} — Agent Setup
+                  </Dialog.Title>
+                  <p className="text-sm text-muted-foreground">
+                    Scan with the QR Menu Print Agent app to auto-fill all
+                    fields.
                   </p>
-                  {isLoopbackDashboard && (
-                    <p className="text-xs text-amber-600">
-                      Phone cannot reach localhost. Open this dashboard with
-                      your computer LAN IP before scanning.
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Printer: {tokenModal.station.printerIp}:
-                    {tokenModal.station.printerPort}
-                  </p>
-                  <code className="text-xs break-all select-all block">
-                    {tokenModal.token}
-                  </code>
-                </div>
-                <details className="rounded border bg-muted px-3 py-2">
-                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-                    Legacy printer-agent fallback
-                  </summary>
-                  <div className="mt-3 flex justify-center p-3 bg-white rounded">
-                    <QRCodeSVG value={legacySetupUrl} size={160} />
+                  <div className="flex justify-center p-4 bg-white rounded-lg">
+                    <QRCodeSVG value={qrPayload} size={220} />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Use this only for the old printer-agent app.
-                  </p>
-                </details>
-                <div className="flex justify-end">
-                  <Button onClick={() => setTokenModal(null)}>Done</Button>
-                </div>
-              </div>
-            </div>
+                  <div className="rounded border bg-muted px-3 py-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Server: {serverUrl}
+                    </p>
+                    {isLoopbackDashboard && (
+                      <p className="text-xs text-amber-600">
+                        Phone cannot reach localhost. Open this dashboard with
+                        your computer LAN IP before scanning.
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Printer: {tokenModal.station.printerIp}:
+                      {tokenModal.station.printerPort}
+                    </p>
+                    <code className="text-xs break-all select-all block">
+                      {tokenModal.token}
+                    </code>
+                  </div>
+                  <details className="rounded border bg-muted px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                      Legacy printer-agent fallback
+                    </summary>
+                    <div className="mt-3 flex justify-center p-3 bg-white rounded">
+                      <QRCodeSVG value={legacySetupUrl} size={160} />
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Use this only for the old printer-agent app.
+                    </p>
+                  </details>
+                  <div className="flex justify-end">
+                    <Button onClick={() => setTokenModal(null)}>Done</Button>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
           );
         })()}
 
@@ -333,151 +341,157 @@ export default function PrintStationsView() {
           const set = (k: keyof ReceiptTemplate, v: unknown) =>
             setDraftTemplate((p) => ({ ...p, [k]: v }));
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-lg font-semibold">
-                  {templateModal.name} — {t("printStations.templateTitle")}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {t("printStations.templateDescription")}
-                </p>
+            <Dialog.Root
+              open
+              onOpenChange={(open) => !open && setTemplateModal(null)}
+            >
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+                <Dialog.Content className="fixed left-1/2 top-1/2 z-[51] max-h-[90vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-xl outline-none">
+                  <Dialog.Title className="text-lg font-semibold">
+                    {templateModal.name} — {t("printStations.templateTitle")}
+                  </Dialog.Title>
+                  <p className="text-xs text-muted-foreground">
+                    {t("printStations.templateDescription")}
+                  </p>
 
-                <div className="space-y-1 divide-y divide-border">
-                  <div className="space-y-1 pb-2">
-                    <Toggle
-                      label={t("printStations.showTable")}
-                      checked={tpl.showTable !== false}
-                      onChange={(v) => set("showTable", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showOrderId")}
-                      checked={tpl.showOrderId !== false}
-                      onChange={(v) => set("showOrderId", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showStaffName")}
-                      checked={tpl.showStaff !== false}
-                      onChange={(v) => set("showStaff", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showSessionOpened")}
-                      checked={tpl.showSessionOpened === true}
-                      onChange={(v) => set("showSessionOpened", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showOrderTime")}
-                      checked={tpl.showOrderTime === true}
-                      onChange={(v) => set("showOrderTime", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showPrintedAt")}
-                      checked={tpl.showPrintedAt !== false}
-                      onChange={(v) => set("showPrintedAt", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showPrices")}
-                      checked={tpl.showPrices === true}
-                      onChange={(v) => set("showPrices", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showCustomerName")}
-                      checked={tpl.showCustomerName === true}
-                      onChange={(v) => set("showCustomerName", v)}
-                    />
-                    <Toggle
-                      label={t("printStations.showSource")}
-                      checked={tpl.showSource === true}
-                      onChange={(v) => set("showSource", v)}
-                    />
-                  </div>
+                  <div className="space-y-1 divide-y divide-border">
+                    <div className="space-y-1 pb-2">
+                      <Toggle
+                        label={t("printStations.showTable")}
+                        checked={tpl.showTable !== false}
+                        onChange={(v) => set("showTable", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showOrderId")}
+                        checked={tpl.showOrderId !== false}
+                        onChange={(v) => set("showOrderId", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showStaffName")}
+                        checked={tpl.showStaff !== false}
+                        onChange={(v) => set("showStaff", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showSessionOpened")}
+                        checked={tpl.showSessionOpened === true}
+                        onChange={(v) => set("showSessionOpened", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showOrderTime")}
+                        checked={tpl.showOrderTime === true}
+                        onChange={(v) => set("showOrderTime", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showPrintedAt")}
+                        checked={tpl.showPrintedAt !== false}
+                        onChange={(v) => set("showPrintedAt", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showPrices")}
+                        checked={tpl.showPrices === true}
+                        onChange={(v) => set("showPrices", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showCustomerName")}
+                        checked={tpl.showCustomerName === true}
+                        onChange={(v) => set("showCustomerName", v)}
+                      />
+                      <Toggle
+                        label={t("printStations.showSource")}
+                        checked={tpl.showSource === true}
+                        onChange={(v) => set("showSource", v)}
+                      />
+                    </div>
 
-                  <div className="space-y-2 pt-2">
-                    <label className="block text-xs font-medium">
-                      {t("printStations.headerTextLabel")}{" "}
-                      <span className="text-muted-foreground">
-                        ({t("printStations.headerTextHint")})
-                      </span>
-                    </label>
-                    <Input
-                      placeholder={templateModal.name}
-                      value={tpl.headerText ?? ""}
-                      onChange={(e) => set("headerText", e.target.value)}
-                    />
+                    <div className="space-y-2 pt-2">
+                      <label className="block text-xs font-medium">
+                        {t("printStations.headerTextLabel")}{" "}
+                        <span className="text-muted-foreground">
+                          ({t("printStations.headerTextHint")})
+                        </span>
+                      </label>
+                      <Input
+                        placeholder={templateModal.name}
+                        value={tpl.headerText ?? ""}
+                        onChange={(e) => set("headerText", e.target.value)}
+                      />
 
-                    <label className="block text-xs font-medium">
-                      {t("printStations.footerTextLabel")}{" "}
-                      <span className="text-muted-foreground">
-                        ({t("printStations.footerTextHint")})
-                      </span>
-                    </label>
-                    <Input
-                      placeholder="Thank you!"
-                      value={tpl.footerText ?? ""}
-                      onChange={(e) => set("footerText", e.target.value)}
-                    />
-                  </div>
+                      <label className="block text-xs font-medium">
+                        {t("printStations.footerTextLabel")}{" "}
+                        <span className="text-muted-foreground">
+                          ({t("printStations.footerTextHint")})
+                        </span>
+                      </label>
+                      <Input
+                        placeholder="Thank you!"
+                        value={tpl.footerText ?? ""}
+                        onChange={(e) => set("footerText", e.target.value)}
+                      />
+                    </div>
 
-                  {/* Live preview */}
-                  <div className="pt-2">
-                    <p className="text-xs font-medium mb-1">
-                      {t("printStations.templatePreview")}
-                    </p>
-                    <pre className="text-[10px] leading-tight bg-muted rounded px-2 py-2 overflow-x-auto font-mono whitespace-pre">
-                      {[
-                        (tpl.headerText || templateModal.name).toUpperCase(),
-                        tpl.showSource && "[POS]",
-                        tpl.showTable !== false && "Table 5",
-                        tpl.showOrderId !== false && "#ABC123",
-                        [
-                          tpl.showStaff !== false && "Server: Ivan",
-                          tpl.showCustomerName && "Guest: Petar",
+                    {/* Live preview */}
+                    <div className="pt-2">
+                      <p className="text-xs font-medium mb-1">
+                        {t("printStations.templatePreview")}
+                      </p>
+                      <pre className="text-[10px] leading-tight bg-muted rounded px-2 py-2 overflow-x-auto font-mono whitespace-pre">
+                        {[
+                          (tpl.headerText || templateModal.name).toUpperCase(),
+                          tpl.showSource && "[POS]",
+                          tpl.showTable !== false && "Table 5",
+                          tpl.showOrderId !== false && "#ABC123",
+                          [
+                            tpl.showStaff !== false && "Server: Ivan",
+                            tpl.showCustomerName && "Guest: Petar",
+                          ]
+                            .filter(Boolean)
+                            .join("  ") || null,
+                          [
+                            tpl.showSessionOpened && "Opened: 19:45",
+                            tpl.showOrderTime && "Order: 20:12",
+                          ]
+                            .filter(Boolean)
+                            .join("  ") || null,
+                          "---",
+                          tpl.showPrices
+                            ? "2x  Steak         24.50"
+                            : "2x  Steak",
+                          "   + Doneness: Medium Rare",
+                          "   >> No onions",
+                          "1x  Cola",
+                          "---",
+                          tpl.showPrintedAt !== false && "20:13",
+                          tpl.footerText || "",
                         ]
                           .filter(Boolean)
-                          .join("  ") || null,
-                        [
-                          tpl.showSessionOpened && "Opened: 19:45",
-                          tpl.showOrderTime && "Order: 20:12",
-                        ]
-                          .filter(Boolean)
-                          .join("  ") || null,
-                        "---",
-                        tpl.showPrices
-                          ? "2x  Steak         24.50"
-                          : "2x  Steak",
-                        "   + Doneness: Medium Rare",
-                        "   >> No onions",
-                        "1x  Cola",
-                        "---",
-                        tpl.showPrintedAt !== false && "20:13",
-                        tpl.footerText || "",
-                      ]
-                        .filter(Boolean)
-                        .join("\n")}
-                    </pre>
+                          .join("\n")}
+                      </pre>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setTemplateModal(null)}
-                  >
-                    {t("auto.cancel")}
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      updateTemplateMutation.mutate({
-                        id: templateModal.id,
-                        template: draftTemplate,
-                      })
-                    }
-                    disabled={updateTemplateMutation.isPending}
-                  >
-                    {t("auto.save")}
-                  </Button>
-                </div>
-              </div>
-            </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setTemplateModal(null)}
+                    >
+                      {t("auto.cancel")}
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        updateTemplateMutation.mutate({
+                          id: templateModal.id,
+                          template: draftTemplate,
+                        })
+                      }
+                      disabled={updateTemplateMutation.isPending}
+                    >
+                      {t("auto.save")}
+                    </Button>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
           );
         })()}
 

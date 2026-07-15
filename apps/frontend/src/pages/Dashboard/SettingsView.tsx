@@ -35,6 +35,8 @@ const SettingsView = () => {
   const { tier, allowedStaffRoles, isLoading } = useTier();
   const isFree = tier === "FREE";
   const canManageStaff = user?.role === "OWNER" || user?.role === "MANAGER";
+  const canManagePrinters =
+    user?.role?.toUpperCase() === "OWNER" && canPrinters;
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;
@@ -81,7 +83,7 @@ const SettingsView = () => {
     {
       id: "printers",
       label: t("printStations.title", "Printers"),
-      visible: canPrinters,
+      visible: canManagePrinters,
     },
   ];
 
@@ -180,7 +182,9 @@ const SettingsView = () => {
             </div>
           )}
           {activeTab === "subscription" && <BillingView />}
-          {activeTab === "printers" && canPrinters && <PrintStationsView />}
+          {activeTab === "printers" && canManagePrinters && (
+            <PrintStationsView />
+          )}
         </div>
       </div>
     </div>

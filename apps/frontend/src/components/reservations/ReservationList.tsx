@@ -16,17 +16,24 @@ import { todayISO } from "./shared";
 export interface ReservationListProps {
   restaurantId: string;
   canCreate: boolean;
+  timezone?: string;
 }
 
 export function ReservationList({
   restaurantId,
   canCreate,
+  timezone,
 }: ReservationListProps) {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(() => todayISO(timezone));
   const [status, setStatus] = useState("");
   const [showManual, setShowManual] = useState(false);
+
+  useEffect(() => {
+    setDate(todayISO(timezone));
+    setStatus("");
+  }, [restaurantId, timezone]);
 
   const { data: reservations = [], isLoading } = useQuery({
     queryKey: ["reservations", restaurantId, date, status],

@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTableOrders, getTableStatuses, closeSession } from "../../lib/api";
 import { useTranslation } from "react-i18next";
@@ -45,13 +45,15 @@ const LiveTablesView: React.FC = () => {
   const restaurantId = restaurant?.id;
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket();
   const [filter, setFilter] = useState<FilterMode>("active");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [tableOrders, setTableOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState(false);
+  const tableRequestVersion = useRef(0);
 
   const {
     data: tables,
@@ -64,7 +66,7 @@ const LiveTablesView: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (!socket || !restaurantId) return;
+    if (!socket || !isConnected || !restaurantId) return;
 
     const handleTableInvalidation = () => {
       queryClient.invalidateQueries({
@@ -74,11 +76,23 @@ const LiveTablesView: React.FC = () => {
 
     socket.on("table:status-changed", handleTableInvalidation);
     socket.on("table:updated", handleTableInvalidation);
+    void queryClient.invalidateQueries({
+      queryKey: ["tableStatuses", restaurantId],
+    });
     return () => {
       socket.off("table:status-changed", handleTableInvalidation);
       socket.off("table:updated", handleTableInvalidation);
     };
-  }, [socket, restaurantId, queryClient]);
+  }, [socket, isConnected, restaurantId, queryClient]);
+
+  React.useEffect(() => {
+    tableRequestVersion.current += 1;
+    setSelectedTable(null);
+    setTableOrders([]);
+    setModalOpen(false);
+    setOrdersLoading(false);
+    setOrdersError(false);
+  }, [restaurantId]);
 
   const stats = useMemo(() => {
     const source = tables ?? [];
@@ -128,18 +142,25 @@ const LiveTablesView: React.FC = () => {
   };
 
   const handleTableClick = async (table: any) => {
+    const requestVersion = ++tableRequestVersion.current;
     setSelectedTable(table);
     setModalOpen(true);
     setTableOrders([]);
+    setOrdersError(false);
     if (!restaurantId || table.status === "empty") return;
     setOrdersLoading(true);
     try {
       const orders = await getTableOrders(table.id, restaurantId);
+      if (tableRequestVersion.current !== requestVersion) return;
       setTableOrders(orders);
     } catch {
+      if (tableRequestVersion.current !== requestVersion) return;
       setTableOrders([]);
+      setOrdersError(true);
     } finally {
-      setOrdersLoading(false);
+      if (tableRequestVersion.current === requestVersion) {
+        setOrdersLoading(false);
+      }
     }
   };
 
@@ -326,10 +347,17 @@ const LiveTablesView: React.FC = () => {
 
       <TableDetailModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          if (!open) {
+            tableRequestVersion.current += 1;
+            setOrdersLoading(false);
+          }
+        }}
         table={selectedTable}
         orders={tableOrders}
         ordersLoading={ordersLoading}
+        ordersError={ordersError}
         paymentInfo={
           selectedTable?.status === "paid"
             ? { amount: selectedTable.totalAmount }

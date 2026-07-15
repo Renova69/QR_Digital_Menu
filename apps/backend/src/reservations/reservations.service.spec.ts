@@ -744,7 +744,10 @@ describe('ReservationsService createReservation hardening', () => {
     prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
 
     await service.createManual('rest1', 'owner', {
-      ...dto,
+      guestName: dto.guestName,
+      guestPhone: dto.guestPhone,
+      localStartsAt: FUTURE.toISOString().slice(0, 16),
+      adultsCount: dto.adultsCount,
       marketingConsent: true,
     });
 
@@ -761,10 +764,33 @@ describe('ReservationsService createReservation hardening', () => {
 
     await expect(
       service.createManual('rest1', 'owner', {
-        ...dto,
         guestName: 'Manual Guest',
+        guestPhone: dto.guestPhone,
+        localStartsAt: FUTURE.toISOString().slice(0, 16),
+        adultsCount: dto.adultsCount,
       }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('interprets a manual booking in the restaurant timezone', async () => {
+    const { service, prisma, txReservationCreate } = build();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner',
+      dashboardLanguage: 'en',
+      timezone: 'Europe/Sofia',
+    });
+    prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
+
+    await service.createManual('rest1', 'owner', {
+      guestName: 'Remote manager booking',
+      guestPhone: dto.guestPhone,
+      localStartsAt: '2030-07-10T19:30',
+      adultsCount: 2,
+    });
+
+    expect(txReservationCreate.mock.calls[0][0].data.startsAt).toEqual(
+      new Date('2030-07-10T16:30:00.000Z'),
+    );
   });
 
   it('records marketing consent for a PUBLIC booking when opted in', async () => {

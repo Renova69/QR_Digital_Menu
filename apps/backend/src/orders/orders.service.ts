@@ -33,6 +33,7 @@ import {
 } from '../loyalty/loyalty-tiers.utils';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { buildRestaurantDateRange } from '../common/restaurant-date-range';
 import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
 import { getEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
 import { PrintStationService } from '../print-station/print-station.service';
@@ -656,8 +657,7 @@ export class OrdersService {
         );
       } else {
         // Issue 34: Legacy fallback uses pre-computed cheapest-item set.
-        isRedeemedFree =
-          compedItemIndices.has(itemIdx) && !!rewardPointsPrice;
+        isRedeemedFree = compedItemIndices.has(itemIdx) && !!rewardPointsPrice;
       }
 
       if (isRedeemedFree) {
@@ -1297,13 +1297,18 @@ export class OrdersService {
         : { restaurant: { ownerId: userId } };
     }
 
-    const createdAt: { gte?: Date; lte?: Date } = {};
-    if (query.startDate) createdAt.gte = new Date(query.startDate);
-    if (query.endDate) {
-      const end = new Date(query.endDate);
-      end.setHours(23, 59, 59, 999);
-      createdAt.lte = end;
-    }
+    const filterRestaurantId = query.restaurantId ?? user?.restaurantId;
+    const restaurant = filterRestaurantId
+      ? await this.prisma.restaurant.findUnique({
+          where: { id: filterRestaurantId },
+          select: { timezone: true },
+        })
+      : null;
+    const createdAt = buildRestaurantDateRange(
+      query.startDate,
+      query.endDate,
+      restaurant?.timezone ?? 'UTC',
+    );
 
     const where = {
       ...baseWhere,

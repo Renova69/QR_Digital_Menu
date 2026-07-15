@@ -29,6 +29,8 @@ export interface PaymentRecord {
 }
 
 export interface PaymentDetail extends PaymentRecord {
+  splitMode?: "ITEM" | "EVEN" | "CUSTOM" | null;
+  itemizationUnavailable?: boolean;
   table?: { id: string; name: string } | null;
   orders?: Array<{
     id: string;

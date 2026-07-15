@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useRef,
   useState,
   useEffect,
   ReactNode,
@@ -12,6 +13,17 @@ import {
 } from "../lib/api";
 import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext";
+import { useRestaurantContext } from "./RestaurantContext";
+
+const ACTIVE_PAGE_SIZE = 100;
+const RESOLVED_PAGE_SIZE = 50;
+
+interface AssistancePage {
+  data: AssistanceRequest[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
 
 // Define assistance request interface
 interface AssistanceRequest {
@@ -29,6 +41,11 @@ interface AssistanceContextType {
   refreshRequests: () => Promise<void>;
   markAsResolved: (requestId: string) => Promise<void>;
   markAsUnresolved: (requestId: string) => Promise<void>;
+  loadMoreResolved: () => Promise<void>;
+  hasMoreResolved: boolean;
+  isLoading: boolean;
+  isLoadingMoreResolved: boolean;
+  error: string | null;
 }
 
 // Create the context
@@ -39,8 +56,15 @@ const AssistanceContext = createContext<AssistanceContextType | undefined>(
 // Create the provider component
 export function AssistanceProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<AssistanceRequest[]>([]);
+  const [resolvedPage, setResolvedPage] = useState(1);
+  const [resolvedTotalPages, setResolvedTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMoreResolved, setIsLoadingMoreResolved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
   const { socket, isConnected } = useSocket();
   const { user, isAuthenticated } = useAuth();
+  const { activeRestaurant } = useRestaurantContext();
   const role = user?.role?.toUpperCase();
   const canAccessAssistance =
     isAuthenticated &&
@@ -49,18 +73,102 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
 
   // Function to refresh requests from API
   const refreshRequests = useCallback(async () => {
-    if (!canAccessAssistance) {
+    const restaurantId = activeRestaurant?.id;
+    const version = ++requestVersion.current;
+    if (!canAccessAssistance || !restaurantId) {
       setRequests([]);
+      setError(null);
+      setIsLoading(false);
+      setIsLoadingMoreResolved(false);
+      setResolvedPage(1);
+      setResolvedTotalPages(1);
       return;
     }
 
+    setIsLoading(true);
+    setError(null);
     try {
-      const data = await getAssistanceRequests();
-      setRequests(data);
+      const active: AssistanceRequest[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const response = (await getAssistanceRequests({
+          restaurantId,
+          isResolved: false,
+          page,
+          limit: ACTIVE_PAGE_SIZE,
+        })) as AssistancePage;
+        active.push(...response.data);
+        totalPages = response.totalPages;
+        page += 1;
+      } while (page <= totalPages);
+
+      const resolved = (await getAssistanceRequests({
+        restaurantId,
+        isResolved: true,
+        page: 1,
+        limit: RESOLVED_PAGE_SIZE,
+      })) as AssistancePage;
+
+      if (requestVersion.current !== version) return;
+      setRequests([...active, ...resolved.data]);
+      setResolvedPage(1);
+      setResolvedTotalPages(resolved.totalPages);
     } catch (error) {
       console.error("Failed to fetch assistance requests:", error);
+      if (requestVersion.current === version) {
+        setError("assistance.fetchFailed");
+      }
+    } finally {
+      if (requestVersion.current === version) setIsLoading(false);
     }
-  }, [canAccessAssistance]);
+  }, [activeRestaurant?.id, canAccessAssistance]);
+
+  const loadMoreResolved = useCallback(async () => {
+    const restaurantId = activeRestaurant?.id;
+    const version = requestVersion.current;
+    if (
+      !restaurantId ||
+      isLoadingMoreResolved ||
+      resolvedPage >= resolvedTotalPages
+    ) {
+      return;
+    }
+
+    setIsLoadingMoreResolved(true);
+    setError(null);
+    try {
+      const nextPage = resolvedPage + 1;
+      const response = (await getAssistanceRequests({
+        restaurantId,
+        isResolved: true,
+        page: nextPage,
+        limit: RESOLVED_PAGE_SIZE,
+      })) as AssistancePage;
+      if (requestVersion.current !== version) return;
+      setRequests((current) => {
+        const seen = new Set(current.map((request) => request.id));
+        return [
+          ...current,
+          ...response.data.filter((request) => !seen.has(request.id)),
+        ];
+      });
+      setResolvedPage(nextPage);
+      setResolvedTotalPages(response.totalPages);
+    } catch (error) {
+      console.error("Failed to fetch resolved assistance requests:", error);
+      if (requestVersion.current === version) {
+        setError("assistance.fetchMoreFailed");
+      }
+    } finally {
+      if (requestVersion.current === version) setIsLoadingMoreResolved(false);
+    }
+  }, [
+    activeRestaurant?.id,
+    isLoadingMoreResolved,
+    resolvedPage,
+    resolvedTotalPages,
+  ]);
 
   // Function to mark request as resolved
   const markAsResolved = async (requestId: string) => {
@@ -86,8 +194,9 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
 
   // Initial load when a staff/owner session becomes available.
   useEffect(() => {
+    setRequests([]);
     void refreshRequests();
-  }, [refreshRequests]);
+  }, [activeRestaurant?.id, refreshRequests]);
 
   // Socket listeners only refresh in response to assistance events.
   useEffect(() => {
@@ -123,6 +232,11 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
     refreshRequests,
     markAsResolved,
     markAsUnresolved,
+    loadMoreResolved,
+    hasMoreResolved: resolvedPage < resolvedTotalPages,
+    isLoading,
+    isLoadingMoreResolved,
+    error,
   };
 
   return (

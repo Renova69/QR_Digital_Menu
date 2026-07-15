@@ -7,8 +7,8 @@ import {
   Clock,
   CreditCard,
   Flame,
-  Menu,
   Play,
+  RefreshCw,
   Search,
   Utensils,
   Volume2,
@@ -19,6 +19,7 @@ import { useOrders, OrderStatus } from "../../context/OrderContext";
 import { cn } from "../../lib/utils";
 import TableDetailModal from "../../components/tables/TableDetailModal";
 import { useFeature } from "../../hooks/useFeature";
+import { useMinuteTicker } from "../../hooks/useMinuteTicker";
 
 type OrdersContextValue = ReturnType<typeof useOrders>;
 type DashboardOrder = OrdersContextValue["orders"][number];
@@ -97,11 +98,11 @@ function formatOrderTime(createdAt: string, locale: string = "en-US") {
   });
 }
 
-function getElapsedLabel(createdAt: string | undefined, t: any) {
+function getElapsedLabel(createdAt: string | undefined, t: any, now: number) {
   if (!createdAt) return null;
   const diffMinutes = Math.max(
     0,
-    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000),
+    Math.floor((now - new Date(createdAt).getTime()) / 60000),
   );
 
   if (diffMinutes < 1) return t("auto.justNow", "just now");
@@ -116,6 +117,11 @@ function getElapsedLabel(createdAt: string | undefined, t: any) {
 }
 
 function getItemTotal(item: DashboardOrderItem) {
+  const snapshotPrice = Number(item.unitPriceWithOptions);
+  if (Number.isFinite(snapshotPrice) && snapshotPrice >= 0) {
+    return snapshotPrice * item.quantity;
+  }
+
   const optionTotal = Array.isArray(item.selectedOptions)
     ? item.selectedOptions.reduce(
         (sum, option) => sum + Number(option?.priceModifier ?? 0),
@@ -224,13 +230,25 @@ function getPaymentLabel(value: string | null | undefined, t: any) {
 
 const OrdersView = () => {
   const { t, i18n } = useTranslation();
-  const { orders, updateOrderStatus, batchUpdateOrderStatus } = useOrders();
+  const {
+    orders,
+    updateOrderStatus,
+    batchUpdateOrderStatus,
+    isOrderUpdating,
+    loadMoreHistory,
+    hasMoreHistory,
+    isLoadingMoreHistory,
+    error: ordersError,
+    refreshOrders,
+  } = useOrders();
   const canAcceptOnlinePayments = useFeature("payments:stripe");
   const [activeTab, setActiveTab] = useState<OrderStatus>("NEW");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(
     null,
   );
+  const [actionError, setActionError] = useState(false);
+  const now = useMinuteTicker();
 
   const counts = useMemo(() => {
     return ORDER_STATUSES.reduce<Record<OrderStatus, number>>(
@@ -302,9 +320,24 @@ const OrdersView = () => {
     newStatus: OrderStatus,
   ) => {
     try {
+      setActionError(false);
       await updateOrderStatus(orderId, newStatus);
     } catch (error) {
       console.error("Failed to update order status:", error);
+      setActionError(true);
+    }
+  };
+
+  const handleBatchStatusChange = async (newStatus: OrderStatus) => {
+    try {
+      setActionError(false);
+      await batchUpdateOrderStatus(
+        filteredOrders.map((order) => order.id),
+        newStatus,
+      );
+    } catch (error) {
+      console.error("Failed to update orders:", error);
+      setActionError(true);
     }
   };
 
@@ -377,13 +410,6 @@ const OrdersView = () => {
     <section className="min-h-full bg-background text-foreground">
       <div className="mb-6 flex flex-col gap-5 border-b border-border/70 pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-3">
-          <button
-            type="button"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition hover:bg-muted"
-            aria-label={t("common.menu", "Menu")}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
           <div>
             <h1 className="text-2xl font-black leading-tight text-foreground">
               {t("dashboard.tabs.orders", "Orders")}
@@ -420,6 +446,25 @@ const OrdersView = () => {
           </button>
         </div>
       </div>
+
+      {(ordersError || actionError) && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <span>
+            {t(
+              ordersError ?? "orders.updateFailed",
+              "Orders could not be synchronized. Please retry.",
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => void refreshOrders()}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-3 text-xs font-bold"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t("common.retry", "Retry")}
+          </button>
+        </div>
+      )}
 
       <div className="mb-8">
         <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
@@ -464,12 +509,10 @@ const OrdersView = () => {
           {activeTab === "NEW" && (
             <button
               type="button"
-              onClick={() =>
-                batchUpdateOrderStatus(
-                  filteredOrders.map((o) => o.id),
-                  "IN_PROGRESS",
-                )
-              }
+              onClick={() => void handleBatchStatusChange("IN_PROGRESS")}
+              disabled={filteredOrders.some((order) =>
+                isOrderUpdating(order.id),
+              )}
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-bold hover:bg-primary/15 transition-colors"
             >
               <Play className="w-4 h-4" />
@@ -480,12 +523,10 @@ const OrdersView = () => {
           {activeTab === "IN_PROGRESS" && (
             <button
               type="button"
-              onClick={() =>
-                batchUpdateOrderStatus(
-                  filteredOrders.map((o) => o.id),
-                  "SERVED",
-                )
-              }
+              onClick={() => void handleBatchStatusChange("SERVED")}
+              disabled={filteredOrders.some((order) =>
+                isOrderUpdating(order.id),
+              )}
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold hover:bg-emerald-500/15 transition-colors"
             >
               <Utensils className="w-4 h-4" />
@@ -496,12 +537,10 @@ const OrdersView = () => {
           {activeTab === "SERVED" && (
             <button
               type="button"
-              onClick={() =>
-                batchUpdateOrderStatus(
-                  filteredOrders.map((o) => o.id),
-                  "COMPLETED",
-                )
-              }
+              onClick={() => void handleBatchStatusChange("COMPLETED")}
+              disabled={filteredOrders.some((order) =>
+                isOrderUpdating(order.id),
+              )}
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-400 text-sm font-bold hover:bg-slate-500/15 transition-colors"
             >
               <Check className="w-4 h-4" />
@@ -558,7 +597,7 @@ const OrdersView = () => {
                       )}
                     </div>
                     <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
-                      {getElapsedLabel(order.createdAt, t)}
+                      {getElapsedLabel(order.createdAt, t, now)}
                     </span>
                   </div>
 
@@ -668,22 +707,24 @@ const OrdersView = () => {
                       <>
                         <button
                           type="button"
+                          disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, "IN_PROGRESS");
+                            void handleStatusChange(order.id, "IN_PROGRESS");
                           }}
-                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
+                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Play className="h-3.5 w-3.5 fill-current" />
                           {t("orders.startPreparing")}
                         </button>
                         <button
                           type="button"
+                          disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, "CANCELED");
+                            void handleStatusChange(order.id, "CANCELED");
                           }}
-                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >
                           <X className="h-3.5 w-3.5" />
                           {t("orders.cancel")}
@@ -695,22 +736,24 @@ const OrdersView = () => {
                       <>
                         <button
                           type="button"
+                          disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, "SERVED");
+                            void handleStatusChange(order.id, "SERVED");
                           }}
-                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
+                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <ChefHat className="h-3.5 w-3.5" />
                           {t("orders.markServed")}
                         </button>
                         <button
                           type="button"
+                          disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, "CANCELED");
+                            void handleStatusChange(order.id, "CANCELED");
                           }}
-                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >
                           <X className="h-3.5 w-3.5" />
                           {t("orders.cancel")}
@@ -719,42 +762,17 @@ const OrdersView = () => {
                     )}
 
                     {order.status === "SERVED" && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleStatusChange(order.id, "COMPLETED");
-                          }}
-                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          {t("orders.markCompleted")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleStatusChange(order.id, "NEW");
-                          }}
-                          className="flex h-10 items-center justify-center rounded-lg border border-border bg-card px-3 text-xs font-black text-foreground transition hover:bg-muted"
-                        >
-                          {t("orders.reopen")}
-                        </button>
-                      </>
-                    )}
-
-                    {(order.status === "COMPLETED" ||
-                      order.status === "CANCELED") && (
                       <button
                         type="button"
+                        disabled={isOrderUpdating(order.id)}
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleStatusChange(order.id, "NEW");
+                          void handleStatusChange(order.id, "COMPLETED");
                         }}
-                        className="col-span-2 flex h-10 items-center justify-center rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary"
+                        className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {t("orders.reopen")}
+                        <Check className="h-3.5 w-3.5" />
+                        {t("orders.markCompleted")}
                       </button>
                     )}
                   </div>
@@ -794,6 +812,27 @@ const OrdersView = () => {
           </div>
         </div>
       )}
+
+      {(activeTab === "COMPLETED" || activeTab === "CANCELED") &&
+        hasMoreHistory &&
+        !searchTerm && (
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              disabled={isLoadingMoreHistory}
+              onClick={() => void loadMoreHistory()}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4",
+                  isLoadingMoreHistory && "animate-spin",
+                )}
+              />
+              {t("orders.loadOlder", "Load older orders")}
+            </button>
+          </div>
+        )}
 
       <TableDetailModal
         open={!!selectedOrder}

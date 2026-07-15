@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DashboardViewsService } from './dashboard-views.service';
 import { OrderStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
+import { buildRestaurantDateRange } from '../common/restaurant-date-range';
 
 // Upper bound for the createdAt→updatedAt prep-time estimate (kitchen efficiency).
 // Orders idle past this are treated as stale/edited, not real prep time.
@@ -253,6 +254,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     const result = {
       period,
+      periodStart: periodStart.toISOString(),
+      periodEnd: now.toISOString(),
       revenueTrend,
       topItems,
       peakHours,
@@ -540,13 +543,15 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     startDateStr?: string,
     endDateStr?: string,
   ) {
-    const dateFilter: { gte?: Date; lte?: Date } = {};
-    if (startDateStr) dateFilter.gte = new Date(startDateStr);
-    if (endDateStr) {
-      const end = new Date(endDateStr);
-      end.setHours(23, 59, 59, 999);
-      dateFilter.lte = end;
-    }
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { timezone: true },
+    });
+    const dateFilter = buildRestaurantDateRange(
+      startDateStr,
+      endDateStr,
+      restaurant?.timezone ?? 'UTC',
+    );
 
     const where = {
       restaurantId,

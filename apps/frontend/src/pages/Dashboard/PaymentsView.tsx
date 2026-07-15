@@ -1,4 +1,10 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import {
+  useContext,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -72,11 +78,14 @@ const PaymentsView = () => {
   const [statusFilter, setStatusFilter] = useState<"" | PaymentStatus>("");
   const [methodFilter, setMethodFilter] = useState<"" | PaymentMethod>("");
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim());
   const [page, setPage] = useState(1);
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(
     null,
   );
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [exportError, setExportError] = useState(false);
   const limit = 20;
 
   // Invalidate payment queries when a refund is processed so the dashboard
@@ -101,10 +110,19 @@ const PaymentsView = () => {
     activeTab === "refunds" ? "REFUNDED" : statusFilter || undefined;
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["paymentHistory", activeRestaurant?.id, effectiveStatus, page],
+    queryKey: [
+      "paymentHistory",
+      activeRestaurant?.id,
+      effectiveStatus,
+      methodFilter,
+      deferredSearch,
+      page,
+    ],
     queryFn: () =>
       getPaymentHistory(activeRestaurant.id, {
         status: effectiveStatus,
+        provider: methodFilter || undefined,
+        search: deferredSearch || undefined,
         page,
         limit,
       }),
@@ -158,27 +176,7 @@ const PaymentsView = () => {
   const payments = (data?.data ?? []) as PaymentRecord[];
   const meta = data?.meta ?? { total: 0, page: 1, limit };
 
-  const filteredPayments = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return payments.filter((payment) => {
-      const methodMatches = !methodFilter || payment.provider === methodFilter;
-      const queryMatches =
-        !query ||
-        [
-          payment.id,
-          payment.stripePaymentIntentId,
-          payment.providerReference,
-          payment.customerName,
-          payment.tableNumber,
-          payment.tableSessionId,
-          payment.provider,
-          payment.status,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query));
-      return methodMatches && queryMatches;
-    });
-  }, [methodFilter, payments, search]);
+  const filteredPayments = payments;
 
   const metrics = useMemo(() => {
     const successful = payments.filter(
@@ -228,16 +226,47 @@ const PaymentsView = () => {
 
   const account = overview?.account ?? activeRestaurant;
 
+  const exportFilters = {
+    status: effectiveStatus,
+    provider: methodFilter || undefined,
+    search: deferredSearch || undefined,
+  };
+
+  const handleExportCsv = async () => {
+    if (!activeRestaurant?.id || isExportingCsv) return;
+    setIsExportingCsv(true);
+    setExportError(false);
+    try {
+      const allPayments = (await getPaymentsExport(
+        activeRestaurant.id,
+        exportFilters,
+      )) as PaymentRecord[];
+      exportPaymentsCsv(allPayments);
+    } catch (error) {
+      console.error("Failed to export payments as CSV:", error);
+      setExportError(true);
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
   const handleExportXlsx = async () => {
     if (!activeRestaurant?.id || isExportingXlsx) return;
     setIsExportingXlsx(true);
+    setExportError(false);
     try {
-      const allPayments = await getPaymentsExport(activeRestaurant.id);
+      const allPayments = await getPaymentsExport(
+        activeRestaurant.id,
+        exportFilters,
+      );
       await downloadPaymentsExport(
         allPayments,
         { restaurantName: activeRestaurant.name ?? activeRestaurant.id },
         t,
       );
+    } catch (error) {
+      console.error("Failed to export payments as XLSX:", error);
+      setExportError(true);
     } finally {
       setIsExportingXlsx(false);
     }
@@ -701,7 +730,10 @@ const PaymentsView = () => {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
                 placeholder={t("payments.searchPlaceholder")}
                 className="h-11 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
@@ -724,9 +756,10 @@ const PaymentsView = () => {
             )}
             <select
               value={methodFilter}
-              onChange={(event) =>
-                setMethodFilter(event.target.value as "" | PaymentMethod)
-              }
+              onChange={(event) => {
+                setMethodFilter(event.target.value as "" | PaymentMethod);
+                setPage(1);
+              }}
               className="h-11 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm outline-none focus:ring-2 focus:ring-primary/15"
             >
               {methodOptions.map((option) => (
@@ -737,17 +770,27 @@ const PaymentsView = () => {
             </select>
             <button
               type="button"
-              onClick={() => exportPaymentsCsv(filteredPayments)}
-              disabled={filteredPayments.length === 0}
+              onClick={() => void handleExportCsv()}
+              disabled={
+                meta.total === 0 ||
+                isExportingCsv ||
+                search.trim() !== deferredSearch
+              }
               className="flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-black text-foreground shadow-sm transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
-              {t("payments.exportCsv")}
+              {isExportingCsv
+                ? t("payments.exporting", "Exporting...")
+                : t("payments.exportCsv")}
             </button>
             <button
               type="button"
               onClick={handleExportXlsx}
-              disabled={isExportingXlsx}
+              disabled={
+                isExportingXlsx ||
+                meta.total === 0 ||
+                search.trim() !== deferredSearch
+              }
               className="flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-black text-foreground shadow-sm transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
               <FileSpreadsheet className="h-4 w-4" />
@@ -756,6 +799,15 @@ const PaymentsView = () => {
                 : t("payments.exportXlsx", "Export XLSX")}
             </button>
           </div>
+
+          {exportError && (
+            <p className="mb-4 text-sm font-medium text-red-600" role="alert">
+              {t(
+                "payments.exportFailed",
+                "The export could not be created. Please try again.",
+              )}
+            </p>
+          )}
 
           <PaymentTable
             payments={filteredPayments}

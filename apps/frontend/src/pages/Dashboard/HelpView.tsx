@@ -188,10 +188,11 @@ const HelpView = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+  const contentLocale = i18n.resolvedLanguage?.split(/[-_]/)[0] ?? "en";
 
   const { data: items = [] } = useQuery({
-    queryKey: ["help-content", "dashboard", i18n.language],
-    queryFn: () => getHelpContent("dashboard", i18n.language),
+    queryKey: ["help-content", "dashboard", contentLocale],
+    queryFn: () => getHelpContent("dashboard", contentLocale),
   });
 
   const activeItems = items.filter((i) => i.active);
@@ -280,8 +281,8 @@ const HelpView = () => {
       )
     : [];
 
-  const toggleFaq = (itemKey: string) => {
-    setExpandedFaq(expandedFaq === itemKey ? null : itemKey);
+  const toggleFaq = (faqId: string) => {
+    setExpandedFaq(expandedFaq === faqId ? null : faqId);
   };
 
   return (
@@ -320,7 +321,7 @@ const HelpView = () => {
         {/* Categories sidebar navigation */}
         <aside
           className="lg:col-span-3 space-y-1.5 scrollbar-hide flex lg:flex-col overflow-x-auto pb-2 lg:pb-0 gap-2 lg:gap-0"
-          aria-label="Help Categories"
+          aria-label={t("help.categoriesLabel", "Help categories")}
         >
           {DISPLAY_CATEGORIES.map((cat) => {
             const CatIcon = cat.icon;
@@ -429,9 +430,11 @@ const HelpView = () => {
           {/* Search results notice */}
           {searchQuery && (
             <div className="text-sm text-muted-foreground pl-1">
-              {t("auto.found", "Found")}
-              {filteredFaqs.length} {t("auto.fAQsMatching", 'FAQs matching "')}
-              {searchQuery}"
+              {t(
+                "help.searchResultsCount",
+                '{{count}} FAQs matching "{{query}}"',
+                { count: filteredFaqs.length, query: searchQuery },
+              )}
             </div>
           )}
 
@@ -453,14 +456,19 @@ const HelpView = () => {
             ) : (
               <div className="space-y-3">
                 {filteredFaqs.map((faq) => {
-                  const isExpanded = expandedFaq === faq.itemKey;
+                  const faqId = `${faq.categoryKey}:${faq.itemKey}`;
+                  const panelId = `faq-${faqId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+                  const isExpanded = expandedFaq === faqId;
                   return (
                     <div
-                      key={faq.itemKey}
+                      key={faqId}
                       className="glass-panel rounded-2xl border-white/5 overflow-hidden transition-all duration-300"
                     >
                       <button
-                        onClick={() => toggleFaq(faq.itemKey)}
+                        type="button"
+                        onClick={() => toggleFaq(faqId)}
+                        aria-expanded={isExpanded}
+                        aria-controls={panelId}
                         className="w-full flex items-center justify-between p-5 text-left font-semibold text-sm hover:bg-secondary/35 transition-colors cursor-pointer text-foreground"
                       >
                         <span>{faq.title}</span>
@@ -472,7 +480,10 @@ const HelpView = () => {
                       </button>
 
                       {isExpanded && (
-                        <div className="p-5 pt-0 border-t border-border/20 bg-secondary/10 animate-in slide-in-from-top-2 duration-300">
+                        <div
+                          id={panelId}
+                          className="p-5 pt-0 border-t border-border/20 bg-secondary/10 animate-in slide-in-from-top-2 duration-300"
+                        >
                           <p className="text-sm text-muted-foreground leading-relaxed mt-4">
                             {faq.body}
                           </p>

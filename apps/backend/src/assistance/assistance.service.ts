@@ -9,9 +9,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateAssistanceDto } from './dto/create-assistance.dto';
 import { UpdateAssistanceDto } from './dto/update-assistance.dto';
 import { EventsGateway } from '../events/events.gateway';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { AssistanceQueryDto } from './dto/assistance-query.dto';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { Prisma } from '@prisma/client';
 
 // Dedupe window for call-waiter requests. Matches the 60s client-side anti-spam
 // cooldown so the two gates agree; a request older than this no longer blocks the
@@ -130,11 +131,9 @@ export class AssistanceService {
     return newRequest;
   }
 
-  async findAll(userId: string, pagination: PaginationDto) {
-    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
-    const limit = Number.isFinite(pagination.limit)
-      ? (pagination.limit ?? 50)
-      : 50;
+  async findAll(userId: string, query: AssistanceQueryDto) {
+    const page = Number.isFinite(query.page) ? (query.page ?? 1) : 1;
+    const limit = Number.isFinite(query.limit) ? (query.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
 
     // Allow both owner and staff to see assistance requests
@@ -143,9 +142,29 @@ export class AssistanceService {
       select: { restaurantId: true },
     });
 
-    const where = user?.restaurantId
-      ? { restaurantId: user.restaurantId }
-      : { restaurant: { ownerId: userId } };
+    let restaurantWhere: Prisma.AssistanceRequestWhereInput;
+    if (query.restaurantId) {
+      if (user?.restaurantId && user.restaurantId !== query.restaurantId) {
+        throw new ForbiddenException('Forbidden access');
+      }
+      restaurantWhere = user?.restaurantId
+        ? { restaurantId: query.restaurantId }
+        : {
+            restaurantId: query.restaurantId,
+            restaurant: { ownerId: userId },
+          };
+    } else {
+      restaurantWhere = user?.restaurantId
+        ? { restaurantId: user.restaurantId }
+        : { restaurant: { ownerId: userId } };
+    }
+
+    const where = {
+      ...restaurantWhere,
+      ...(query.isResolved !== undefined
+        ? { isResolved: query.isResolved }
+        : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.assistanceRequest.findMany({

@@ -63,6 +63,7 @@ export class PaymentCoreService {
       select: {
         id: true,
         ownerId: true,
+        timezone: true,
         isActive: true,
         deletedAt: true,
         paymentsEnabled: true,

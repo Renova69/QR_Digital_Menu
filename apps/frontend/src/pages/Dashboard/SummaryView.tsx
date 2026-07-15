@@ -55,7 +55,8 @@ const SummaryView = () => {
     dateRange.period,
     dateRange.startDate,
     dateRange.endDate,
-    canFull,
+    canBasic,
+    canFull ? "full" : "basic",
   );
 
   const { data: paymentSummary } = usePaymentSummary(

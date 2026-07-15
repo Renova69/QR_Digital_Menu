@@ -32,7 +32,10 @@ import { useAnalytics } from "../../hooks/useAnalytics";
 import { useFeature } from "../../hooks/useFeature";
 import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
 import { getFeedbackSummary } from "../../lib/api";
-import { downloadAnalyticsExport } from "../../lib/analyticsExport";
+import {
+  downloadAnalyticsExport,
+  exportCloseoutXlsx,
+} from "../../lib/analyticsExport";
 import { formatEuro } from "../../lib/currency";
 import { Panel } from "./analytics/Panel";
 import MenuProfitabilityPanel from "./analytics/MenuProfitabilityPanel";
@@ -86,7 +89,7 @@ const AnalyticsView = () => {
   const dateRange = useSummaryDateRange();
   const [closeoutDate, setCloseoutDate] = useState<Date>(new Date());
 
-  const { data, isLoading, error } = useAnalytics(
+  const { data, isLoading, isPlaceholderData, error } = useAnalytics(
     activeRestaurant?.id,
     dateRange.period,
     dateRange.startDate,
@@ -94,9 +97,23 @@ const AnalyticsView = () => {
   );
 
   const { data: feedbackData } = useQuery({
-    queryKey: ["feedbackSummary", activeRestaurant?.id],
-    queryFn: () => getFeedbackSummary(activeRestaurant!.id),
-    enabled: !!activeRestaurant?.id && canFullAnalytics,
+    queryKey: [
+      "feedbackSummary",
+      activeRestaurant?.id,
+      data?.periodStart,
+      data?.periodEnd,
+    ],
+    queryFn: () =>
+      getFeedbackSummary(
+        activeRestaurant!.id,
+        data?.periodStart,
+        data?.periodEnd,
+      ),
+    enabled:
+      !!activeRestaurant?.id &&
+      canFullAnalytics &&
+      !!data?.periodStart &&
+      !!data?.periodEnd,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -104,7 +121,7 @@ const AnalyticsView = () => {
   const insights = useMemo(() => computeInsights(data), [data]);
 
   const handleExport = async () => {
-    if (!data) return;
+    if (!data || isPlaceholderData) return;
     await downloadAnalyticsExport(
       data,
       {
@@ -156,7 +173,8 @@ const AnalyticsView = () => {
         {canFullAnalytics && (
           <button
             onClick={handleExport}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold shadow-sm hover:opacity-90 transition-opacity"
+            disabled={isPlaceholderData}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold shadow-sm hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             {t("analytics.exportLabel", "Export")}
@@ -632,8 +650,6 @@ const AnalyticsView = () => {
                     activeRestaurant?.id!,
                     date,
                   );
-                  const { exportCloseoutXlsx } =
-                    await import("../../lib/analyticsExport");
                   await exportCloseoutXlsx(closeout, t);
                 }}
               >

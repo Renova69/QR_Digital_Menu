@@ -20,7 +20,11 @@ export class OrderQueryDto extends PaginationDto {
   @IsArray()
   @IsEnum(OrderStatus, { each: true })
   @Transform(({ value }) =>
-    Array.isArray(value) ? value : value ? [value] : undefined,
+    Array.isArray(value)
+      ? value.flatMap((entry) => String(entry).split(','))
+      : value
+        ? String(value).split(',')
+        : undefined,
   )
   statuses?: OrderStatus[];
 

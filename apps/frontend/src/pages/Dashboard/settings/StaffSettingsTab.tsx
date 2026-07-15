@@ -35,6 +35,7 @@ import {
 } from "../../../lib/api";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useFeature, useTier } from "../../../hooks/useFeature";
+import { useMinuteTicker } from "../../../hooks/useMinuteTicker";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -130,10 +131,11 @@ type DeviceEnrollmentStatus = "pending" | "used" | "expired" | "revoked";
 
 const getEnrollmentStatus = (
   enrollment: DeviceEnrollment,
+  now: number,
 ): DeviceEnrollmentStatus => {
   if (enrollment.revokedAt) return "revoked";
   if (enrollment.usedAt) return "used";
-  if (new Date(enrollment.expiresAt).getTime() <= Date.now()) return "expired";
+  if (new Date(enrollment.expiresAt).getTime() <= now) return "expired";
   return "pending";
 };
 
@@ -148,6 +150,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   activeRestaurant,
 }) => {
   const { t } = useTranslation();
+  const now = useMinuteTicker();
   const { fetchRestaurants } = useRestaurantContext();
   const canPos = useFeature("pos");
   const { staffLimit, allowedStaffRoles } = useTier();
@@ -604,15 +607,27 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
     setDeviceEnrollmentError("");
     try {
       const reset = await resetStaffPin(activeRestaurant.id, member.id);
-      const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+      let enrollmentUrl = "";
+      let expiresAt = "";
+      let enrollmentError = "";
+      try {
+        const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+        enrollmentUrl = enrollment.enrollmentUrl;
+        expiresAt = enrollment.expiresAt;
+      } catch (enrollmentFailure: any) {
+        enrollmentError =
+          enrollmentFailure.response?.data?.message ||
+          enrollmentFailure.message ||
+          t("staff.failedGenerateQr");
+      }
       setStaffCreatedModal({
         open: true,
-        staffName: reset.user.name || member.name || "Staff",
+        staffName: reset.user.name || member.name || t("roles.staff", "Staff"),
         staffEmail: reset.user.email || member.email,
         rawPin: reset.rawPin,
-        enrollmentUrl: enrollment.enrollmentUrl,
-        expiresAt: enrollment.expiresAt,
-        enrollmentError: "",
+        enrollmentUrl,
+        expiresAt,
+        enrollmentError,
       });
       await Promise.all([fetchStaff(), fetchDeviceEnrollments()]);
     } catch (err: any) {
@@ -1216,7 +1231,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                     </p>
                   ) : (
                     deviceEnrollments.slice(0, 5).map((enrollment) => {
-                      const status = getEnrollmentStatus(enrollment);
+                      const status = getEnrollmentStatus(enrollment, now);
                       const lastStaffBinding = enrollment.staffBindings?.[0];
                       const lastStaffName =
                         lastStaffBinding?.user.name ||

@@ -43,7 +43,11 @@ const ReservationsView = ({
         )}
       </div>
       {!restaurantId ? null : subTab === "list" ? (
-        <ReservationList restaurantId={restaurantId} canCreate={canConfigure} />
+        <ReservationList
+          restaurantId={restaurantId}
+          canCreate={canConfigure}
+          timezone={activeRestaurant?.timezone}
+        />
       ) : (
         <ReservationSettingsForm restaurantId={restaurantId} />
       )}

@@ -2530,6 +2530,45 @@ describe('PaymentService', () => {
       );
     });
 
+    it('applies provider and search filters before pagination', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.count.mockResolvedValue(0);
+
+      await service.getPaymentHistory(
+        'rest1',
+        { provider: 'STRIPE', search: 'Table 3', page: 2, limit: 5 },
+        'owner1',
+      );
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 5,
+          take: 5,
+          where: expect.objectContaining({
+            restaurantId: 'rest1',
+            provider: 'STRIPE',
+            OR: expect.arrayContaining([
+              {
+                tableSession: {
+                  is: {
+                    table: {
+                      name: { contains: 'Table 3', mode: 'insensitive' },
+                    },
+                  },
+                },
+              },
+            ]),
+          }),
+        }),
+      );
+      expect(mockPrisma.payment.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          provider: 'STRIPE',
+          OR: expect.any(Array),
+        }),
+      });
+    });
+
     it('filters by date range when provided', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.count.mockResolvedValue(0);
@@ -2611,54 +2650,119 @@ describe('PaymentService', () => {
   });
 
   describe('getPaymentDetail', () => {
-    it('returns a detailed payment with order items and breakdown', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValue({
-        id: 'pay1',
-        restaurantId: 'rest1',
-        amount: 24,
-        tipAmount: 4,
-        platformFeeAmount: 1,
-        currency: 'eur',
-        status: 'SUCCEEDED',
-        stripePaymentIntentId: 'pi_123',
-        provider: 'STRIPE',
-        createdAt: new Date('2026-05-24T10:00:00Z'),
-        updatedAt: new Date('2026-05-24T10:01:00Z'),
-        tableSessionId: 'sess1',
-        tableSession: {
-          createdAt: new Date('2026-05-24T09:45:00Z'),
-          table: { id: 'table1', name: 'Table 3' },
-          orders: [
-            {
-              id: 'order1',
-              customerName: 'Maria',
-              customerPhone: null,
-              totalPrice: 20,
-              status: 'SERVED',
-              specialRequests: null,
-              createdAt: new Date('2026-05-24T09:50:00Z'),
-              items: [
-                {
-                  quantity: 2,
-                  selectedOptions: [],
-                  menuItem: { name: 'Soup', price: 10 },
-                },
-              ],
-            },
-          ],
+    const sessionOrder = {
+      id: 'order1',
+      customerName: 'Maria',
+      customerPhone: null,
+      totalPrice: 20,
+      status: 'SERVED',
+      specialRequests: null,
+      source: 'CUSTOMER',
+      staff: null,
+      createdAt: new Date('2026-05-24T09:50:00Z'),
+      items: [
+        {
+          itemName: 'Soup snapshot',
+          quantity: 2,
+          unitPriceWithOptions: 10,
+          selectedOptions: [],
         },
-      });
+      ],
+    };
+
+    const paymentDetail = (overrides: Record<string, unknown> = {}) => ({
+      id: 'pay1',
+      restaurantId: 'rest1',
+      amount: 24,
+      tipAmount: 4,
+      platformFeeAmount: 1,
+      currency: 'eur',
+      status: 'SUCCEEDED',
+      stripePaymentIntentId: 'pi_123',
+      provider: 'STRIPE',
+      splitMode: null,
+      allocations: [],
+      createdAt: new Date('2026-05-24T10:00:00Z'),
+      updatedAt: new Date('2026-05-24T10:01:00Z'),
+      tableSessionId: 'sess1',
+      tableSession: {
+        createdAt: new Date('2026-05-24T09:45:00Z'),
+        table: { id: 'table1', name: 'Table 3' },
+        orders: [sessionOrder],
+      },
+      ...overrides,
+    });
+
+    it('returns a detailed payment with order items and breakdown', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(paymentDetail());
 
       const result = await service.getPaymentDetail('pay1', 'owner1');
 
       expect(result.table?.name).toBe('Table 3');
       expect(result.breakdown.net).toBe(23);
       expect(result.orders[0].items[0]).toEqual({
-        name: 'Soup',
+        name: 'Soup snapshot',
         quantity: 2,
         unitPrice: 10,
         options: [],
       });
+    });
+
+    it('shows only item allocations on an item-split receipt', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(
+        paymentDetail({
+          splitMode: 'ITEM',
+          amount: 6,
+          tipAmount: 1,
+          allocations: [
+            {
+              amount: 5,
+              quantity: 1,
+              orderItem: {
+                itemName: 'Allocated soup snapshot',
+                selectedOptions: [{ optionName: 'Size', choiceName: 'Small' }],
+                order: { ...sessionOrder, items: undefined },
+              },
+            },
+          ],
+        }),
+      );
+
+      const result = await service.getPaymentDetail('pay1', 'owner1');
+
+      expect(result.itemizationUnavailable).toBe(false);
+      expect(result.orders).toHaveLength(1);
+      expect(result.orders[0].totalPrice).toBe(5);
+      expect(result.orders[0].items).toEqual([
+        {
+          name: 'Allocated soup snapshot',
+          quantity: 1,
+          unitPrice: 5,
+          options: ['Small'],
+        },
+      ]);
+    });
+
+    it('does not misrepresent an amount split as the full table receipt', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(
+        paymentDetail({ splitMode: 'EVEN' }),
+      );
+
+      const result = await service.getPaymentDetail('pay1', 'owner1');
+
+      expect(result.orders).toEqual([]);
+      expect(result.itemizationUnavailable).toBe(true);
+    });
+
+    it('does not show the full table receipt for a remaining-balance payment', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(
+        paymentDetail({ amount: 14, tipAmount: 4 }),
+      );
+
+      const result = await service.getPaymentDetail('pay1', 'owner1');
+
+      expect(result.orders).toEqual([]);
+      expect(result.itemizationUnavailable).toBe(true);
     });
   });
 

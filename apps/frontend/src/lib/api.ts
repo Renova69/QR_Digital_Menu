@@ -138,14 +138,38 @@ export const createOrder = async (orderData: any) => {
   return response.data;
 };
 
-export const getOrders = async (params?: {
+export interface OrderQueryParams {
   restaurantId?: string;
   startDate?: string;
   endDate?: string;
+  statuses?: string[];
   page?: number;
   limit?: number;
-}) => {
-  const response = await api.get("/orders", { params });
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+const serializeOrderParams = (params?: OrderQueryParams) => ({
+  ...params,
+  ...(params?.statuses?.length ? { statuses: params.statuses.join(",") } : {}),
+});
+
+export const getOrdersPage = async <T = any>(params?: OrderQueryParams) => {
+  const response = await api.get<PaginatedResponse<T>>("/orders", {
+    params: serializeOrderParams(params),
+  });
+  return response.data;
+};
+
+export const getOrders = async (params?: OrderQueryParams) => {
+  const response = await api.get("/orders", {
+    params: serializeOrderParams(params),
+  });
   return response.data?.data ?? response.data;
 };
 
@@ -154,9 +178,16 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
   return response.data;
 };
 
-export const getAssistanceRequests = async () => {
-  const response = await api.get("/assistance-requests");
-  return response.data?.data ?? response.data;
+export interface AssistanceRequestQuery {
+  restaurantId: string;
+  isResolved?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export const getAssistanceRequests = async (params: AssistanceRequestQuery) => {
+  const response = await api.get("/assistance-requests", { params });
+  return response.data;
 };
 
 export const updateAssistanceRequest = async (
@@ -507,6 +538,8 @@ export const getPaymentHistory = (
   restaurantId: string,
   params?: {
     status?: string;
+    provider?: string;
+    search?: string;
     startDate?: string;
     endDate?: string;
     page?: number;
@@ -519,7 +552,13 @@ export const getPaymentHistory = (
 
 export const getPaymentsExport = (
   restaurantId: string,
-  params?: { from?: string; to?: string },
+  params?: {
+    from?: string;
+    to?: string;
+    status?: string;
+    provider?: string;
+    search?: string;
+  },
 ) =>
   api
     .get(`/payments/export/${restaurantId}`, { params })
@@ -632,9 +671,13 @@ export const getGoogleReviewUrl = async (restaurantId: string) => {
   return response.data;
 };
 
-export const getFeedbackSummary = async (restaurantId: string) => {
+export const getFeedbackSummary = async (
+  restaurantId: string,
+  startDate?: string,
+  endDate?: string,
+) => {
   const response = await api.get("/feedback/summary", {
-    params: { restaurantId },
+    params: { restaurantId, startDate, endDate },
   });
   return response.data;
 };
@@ -1802,7 +1845,22 @@ export const removeReservationBlackout = (restaurantId: string, date: string) =>
     .delete(`/reservations/${restaurantId}/blackouts/${date}`)
     .then((r) => r.data);
 
-export const createManualReservation = (restaurantId: string, input: any) =>
+export interface ManualReservationInput {
+  guestName: string;
+  guestPhone: string;
+  guestEmail?: string;
+  localStartsAt: string;
+  adultsCount: number;
+  childrenCount?: number;
+  customerNotes?: string;
+  internalNotes?: string;
+  staffTags?: string[];
+}
+
+export const createManualReservation = (
+  restaurantId: string,
+  input: ManualReservationInput,
+) =>
   api.post(`/reservations/${restaurantId}/manual`, input).then((r) => r.data);
 
 export const reservationAction = (

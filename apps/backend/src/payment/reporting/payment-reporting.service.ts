@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PaymentStatus } from '@prisma/client';
 import { PaymentHistoryQueryDto } from '../dto/payment-history-query.dto';
 import { PaymentCoreService } from '../core/payment-core.service';
+import { buildRestaurantDateRange } from '../../common/restaurant-date-range';
 
 @Injectable()
 export class PaymentReportingService {
@@ -10,6 +11,50 @@ export class PaymentReportingService {
     private readonly prisma: PrismaService,
     private readonly core: PaymentCoreService,
   ) {}
+
+  private applyPaymentFilters(
+    where: Record<string, unknown>,
+    filters: { status?: string; provider?: string; search?: string },
+  ) {
+    where.status = filters.status ? filters.status : { not: 'ABANDONED' };
+    if (filters.provider) where.provider = filters.provider;
+    const search = filters.search?.trim();
+    if (!search) return;
+
+    where.OR = [
+      { id: { contains: search, mode: 'insensitive' } },
+      { tableSessionId: { contains: search, mode: 'insensitive' } },
+      { stripePaymentIntentId: { contains: search, mode: 'insensitive' } },
+      { providerReference: { contains: search, mode: 'insensitive' } },
+      {
+        tableSession: {
+          is: { table: { name: { contains: search, mode: 'insensitive' } } },
+        },
+      },
+      {
+        tableSession: {
+          is: {
+            orders: {
+              some: {
+                customerName: { contains: search, mode: 'insensitive' },
+              },
+            },
+          },
+        },
+      },
+    ];
+    const normalized = search.toUpperCase();
+    if (['STRIPE', 'EPAY', 'BORICA', 'MYPOS', 'CASH'].includes(normalized)) {
+      (where.OR as unknown[]).push({ provider: normalized });
+    }
+    if (
+      ['PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED', 'ABANDONED'].includes(
+        normalized,
+      )
+    ) {
+      (where.OR as unknown[]).push({ status: normalized });
+    }
+  }
 
   async getTableSessions(
     restaurantId: string,
@@ -48,6 +93,8 @@ export class PaymentReportingService {
     restaurantId: string,
     filters: {
       status?: string;
+      provider?: string;
+      search?: string;
       startDate?: string;
       endDate?: string;
       page?: number;
@@ -59,23 +106,23 @@ export class PaymentReportingService {
     meta: { total: number; page: number; limit: number };
   }> {
     // Mandatory access check (#L2) — see getTableSessions.
-    await this.core.verifyRestaurantAccess(restaurantId, userId);
+    const restaurant = await this.core.verifyRestaurantAccess(
+      restaurantId,
+      userId,
+    );
 
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
     const where: any = { restaurantId };
-    if (filters.status) {
-      where.status = filters.status;
-    } else {
-      where.status = { not: 'ABANDONED' };
-    }
-    if (filters.startDate || filters.endDate) {
-      where.createdAt = {};
-      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
-      if (filters.endDate) where.createdAt.lte = new Date(filters.endDate);
-    }
+    this.applyPaymentFilters(where, filters);
+    const dateRange = buildRestaurantDateRange(
+      filters.startDate,
+      filters.endDate,
+      restaurant.timezone ?? 'UTC',
+    );
+    if (Object.keys(dateRange).length > 0) where.createdAt = dateRange;
 
     const [data, total] = await Promise.all([
       this.prisma.payment.findMany({
@@ -108,16 +155,27 @@ export class PaymentReportingService {
   async exportPayments(
     restaurantId: string,
     userId: string,
-    filters: { from?: string; to?: string },
+    filters: {
+      from?: string;
+      to?: string;
+      status?: string;
+      provider?: string;
+      search?: string;
+    },
   ): Promise<any[]> {
-    await this.core.verifyRestaurantAccess(restaurantId, userId);
+    const restaurant = await this.core.verifyRestaurantAccess(
+      restaurantId,
+      userId,
+    );
 
-    const where: any = { restaurantId, status: { not: 'ABANDONED' } };
-    if (filters.from || filters.to) {
-      where.createdAt = {};
-      if (filters.from) where.createdAt.gte = new Date(filters.from);
-      if (filters.to) where.createdAt.lte = new Date(filters.to);
-    }
+    const where: any = { restaurantId };
+    this.applyPaymentFilters(where, filters);
+    const dateRange = buildRestaurantDateRange(
+      filters.from,
+      filters.to,
+      restaurant.timezone ?? 'UTC',
+    );
+    if (Object.keys(dateRange).length > 0) where.createdAt = dateRange;
 
     const data = await this.prisma.payment.findMany({
       where,
@@ -148,13 +206,11 @@ export class PaymentReportingService {
       restaurantId,
       userId,
     );
-    const dateFilter: { gte?: Date; lte?: Date } = {};
-    if (filters.startDate) dateFilter.gte = new Date(filters.startDate);
-    if (filters.endDate) {
-      const end = new Date(filters.endDate);
-      end.setHours(23, 59, 59, 999);
-      dateFilter.lte = end;
-    }
+    const dateFilter = buildRestaurantDateRange(
+      filters.startDate,
+      filters.endDate,
+      restaurant.timezone ?? 'UTC',
+    );
 
     const where = {
       restaurantId,
@@ -286,14 +342,34 @@ export class PaymentReportingService {
           include: {
             table: { select: { id: true, name: true } },
             orders: {
+              where: { status: { not: 'CANCELED' } },
               orderBy: { createdAt: 'asc' },
               include: {
                 items: {
-                  include: {
-                    menuItem: { select: { name: true, price: true } },
+                  select: {
+                    itemName: true,
+                    quantity: true,
+                    unitPriceWithOptions: true,
+                    selectedOptions: true,
                   },
                 },
                 staff: { select: { name: true, email: true, role: true } },
+              },
+            },
+          },
+        },
+        allocations: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            orderItem: {
+              include: {
+                order: {
+                  include: {
+                    staff: {
+                      select: { name: true, email: true, role: true },
+                    },
+                  },
+                },
               },
             },
           },
@@ -308,33 +384,121 @@ export class PaymentReportingService {
     await this.core.verifyRestaurantAccess(payment.restaurantId, userId);
 
     const mapped = this.core.mapPayment(payment);
-    const orders = (payment.tableSession?.orders ?? []).map((order) => ({
-      id: order.id,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      totalPrice: order.totalPrice,
-      status: order.status,
-      specialRequests: order.specialRequests,
-      createdAt: order.createdAt,
-      source: order.source,
-      staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
-      staffRole: order.staff?.role ?? null,
-      items: order.items.map((item: any) => ({
-        name: item.menuItem?.name ?? 'Unknown item',
-        quantity: item.quantity,
-        unitPrice: item.menuItem?.price ?? 0,
-        options: Array.isArray(item.selectedOptions)
-          ? (item.selectedOptions as any[])
-              .map((option: any) => option?.choiceName)
-              .filter(Boolean)
-          : [],
-      })),
-    }));
+    const mapOptions = (selectedOptions: unknown) =>
+      Array.isArray(selectedOptions)
+        ? selectedOptions
+            .map((option) =>
+              typeof option === 'object' &&
+              option !== null &&
+              'choiceName' in option &&
+              typeof option.choiceName === 'string'
+                ? option.choiceName
+                : null,
+            )
+            .filter((option): option is string => Boolean(option))
+        : [];
+    const fullSessionOrders = (payment.tableSession?.orders ?? []).map(
+      (order) => ({
+        id: order.id,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        totalPrice: order.totalPrice,
+        status: order.status,
+        specialRequests: order.specialRequests,
+        createdAt: order.createdAt,
+        source: order.source,
+        staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
+        staffRole: order.staff?.role ?? null,
+        items: order.items.map((item) => ({
+          name: item.itemName,
+          quantity: item.quantity,
+          unitPrice: item.unitPriceWithOptions,
+          options: mapOptions(item.selectedOptions),
+        })),
+      }),
+    );
+
+    const allocatedOrders = new Map<
+      string,
+      {
+        id: string;
+        customerName: string;
+        customerPhone: string | null;
+        totalPrice: number;
+        status: string;
+        specialRequests: string | null;
+        createdAt: Date;
+        source: string;
+        staffName: string | null;
+        staffRole: string | null;
+        items: Array<{
+          name: string;
+          quantity: number;
+          unitPrice: number;
+          options: string[];
+        }>;
+      }
+    >();
+    for (const allocation of payment.allocations ?? []) {
+      const item = allocation.orderItem;
+      const order = item.order;
+      const current = allocatedOrders.get(order.id) ?? {
+        id: order.id,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        totalPrice: 0,
+        status: order.status,
+        specialRequests: order.specialRequests,
+        createdAt: order.createdAt,
+        source: order.source,
+        staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
+        staffRole: order.staff?.role ?? null,
+        items: [],
+      };
+      current.totalPrice = this.core.roundMoney(
+        current.totalPrice + allocation.amount,
+      );
+      current.items.push({
+        name: item.itemName,
+        quantity: allocation.quantity,
+        unitPrice: this.core.roundMoney(
+          allocation.amount / allocation.quantity,
+        ),
+        options: mapOptions(item.selectedOptions),
+      });
+      allocatedOrders.set(order.id, current);
+    }
+
+    const hasAllocatedItems = (payment.allocations?.length ?? 0) > 0;
+    const fullSessionTotal = this.core.roundMoney(
+      fullSessionOrders.reduce((sum, order) => sum + order.totalPrice, 0),
+    );
+    const paymentSubtotal = this.core.roundMoney(
+      payment.amount - payment.tipAmount,
+    );
+    const fullItemizationMatchesPayment =
+      Math.abs(fullSessionTotal - paymentSubtotal) < 0.01;
+    const orders = payment.splitMode
+      ? payment.splitMode === 'ITEM' && hasAllocatedItems
+        ? [...allocatedOrders.values()]
+        : []
+      : fullItemizationMatchesPayment
+        ? fullSessionOrders
+        : [];
+    const itemizationUnavailable = Boolean(
+      (payment.splitMode &&
+        (!hasAllocatedItems || payment.splitMode !== 'ITEM')) ||
+      (!payment.splitMode &&
+        fullSessionOrders.length > 0 &&
+        !fullItemizationMatchesPayment),
+    );
 
     return {
       ...mapped,
       table: payment.tableSession?.table ?? null,
       orders,
+      splitMode: payment.splitMode,
+      itemizationUnavailable,
       breakdown: {
         subtotal: this.core.roundMoney(payment.amount - payment.tipAmount),
         tip: payment.tipAmount,

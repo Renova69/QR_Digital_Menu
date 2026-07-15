@@ -1,9 +1,9 @@
-import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import React, { act } from "react";
+import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { vi } from "vitest";
 import { OrderProvider, useOrders } from "./OrderContext";
-import { getOrders } from "../lib/api";
+import { getOrdersPage } from "../lib/api";
 
 const socketState = vi.hoisted(() => {
   const handlers: Record<string, () => void> = {};
@@ -22,9 +22,10 @@ const socketState = vi.hoisted(() => {
 });
 
 const featureState = vi.hoisted(() => ({ orders: true }));
+const queryClientState = vi.hoisted(() => ({ invalidateQueries: vi.fn() }));
 
 vi.mock("../lib/api", () => ({
-  getOrders: vi.fn(),
+  getOrdersPage: vi.fn(),
   updateOrderStatus: vi.fn(),
 }));
 
@@ -50,7 +51,7 @@ vi.mock("../hooks/useFeature", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => queryClientState,
 }));
 
 vi.stubGlobal(
@@ -81,10 +82,11 @@ const roomOrder = {
 };
 
 function OrderProbe() {
-  const { orders } = useOrders();
+  const { orders, isLoading } = useOrders();
   return (
     <div>
       <span data-testid="order-count">{orders.length}</span>
+      <span data-testid="load-state">{isLoading ? "loading" : "idle"}</span>
       <span>{orders[0]?.servicePointLabel}</span>
     </div>
   );
@@ -100,11 +102,16 @@ describe("OrderProvider service-point visibility", () => {
   });
 
   it("loads service-point orders and refetches them after a live event", async () => {
-    // State-based mock: the provider fetches on mount AND on socket (re)connect,
-    // so the exact number of initial calls isn't fixed — always return the
-    // current list rather than a brittle Once-sequence.
     let currentOrders: (typeof roomOrder)[] = [roomOrder];
-    vi.mocked(getOrders).mockImplementation(async () => currentOrders);
+    vi.mocked(getOrdersPage).mockImplementation(async (params) => {
+      const statuses = params?.statuses;
+      return {
+        data: statuses?.includes("COMPLETED") ? [] : currentOrders,
+        total: statuses?.includes("COMPLETED") ? 0 : currentOrders.length,
+        page: 1,
+        totalPages: 1,
+      };
+    });
 
     render(
       <OrderProvider>
@@ -114,8 +121,14 @@ describe("OrderProvider service-point visibility", () => {
 
     expect(await screen.findByText("301")).toBeInTheDocument();
     expect(screen.getByTestId("order-count")).toHaveTextContent("1");
-    expect(getOrders).toHaveBeenCalledWith({
+    await waitFor(() =>
+      expect(screen.getByTestId("load-state")).toHaveTextContent("idle"),
+    );
+    expect(getOrdersPage).toHaveBeenCalledWith({
       restaurantId: "restaurant-1",
+      statuses: ["PENDING_PAYMENT", "NEW", "IN_PROGRESS", "SERVED"],
+      page: 1,
+      limit: 100,
     });
     await waitFor(() =>
       expect(socketState.handlers.newOrder).toBeTypeOf("function"),
@@ -125,10 +138,50 @@ describe("OrderProvider service-point visibility", () => {
       roomOrder,
       { ...roomOrder, id: "order-room-302", servicePointLabel: "302" },
     ];
-    act(() => socketState.handlers.newOrder());
+    await act(async () => socketState.handlers.newOrder());
 
     await waitFor(() =>
       expect(screen.getByTestId("order-count")).toHaveTextContent("2"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("load-state")).toHaveTextContent("idle"),
+    );
+  });
+
+  it("loads every page of active orders instead of truncating the live queue", async () => {
+    const secondOrder = {
+      ...roomOrder,
+      id: "order-room-302",
+      servicePointLabel: "302",
+    };
+    vi.mocked(getOrdersPage).mockImplementation(async (params) => {
+      const statuses = params?.statuses;
+      const page = params?.page ?? 1;
+      if (statuses?.includes("COMPLETED")) {
+        return { data: [], total: 0, page: 1, totalPages: 1 };
+      }
+      return {
+        data: page === 1 ? [roomOrder] : [secondOrder],
+        total: 2,
+        page,
+        totalPages: 2,
+      };
+    });
+
+    render(
+      <OrderProvider>
+        <OrderProbe />
+      </OrderProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("order-count")).toHaveTextContent("2"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("load-state")).toHaveTextContent("idle"),
+    );
+    expect(getOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 2, limit: 100 }),
     );
   });
 
@@ -142,7 +195,7 @@ describe("OrderProvider service-point visibility", () => {
     );
 
     expect(screen.getByTestId("order-count")).toHaveTextContent("0");
-    await waitFor(() => expect(getOrders).not.toHaveBeenCalled());
+    await waitFor(() => expect(getOrdersPage).not.toHaveBeenCalled());
     expect(socketState.socket.emit).not.toHaveBeenCalledWith(
       "joinRestaurantOrdersRoom",
       expect.anything(),

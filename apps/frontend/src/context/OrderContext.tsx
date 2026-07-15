@@ -2,12 +2,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useRef,
   useState,
   useEffect,
   ReactNode,
 } from "react";
 import {
-  getOrders,
+  getOrdersPage,
   updateOrderStatus as apiUpdateOrderStatus,
 } from "../lib/api";
 import { revertFailedOrders } from "../lib/orderStatus";
@@ -52,6 +53,8 @@ interface Order {
     menuItemId: string | null;
     itemName?: string;
     quantity: number;
+    unitPrice: number;
+    unitPriceWithOptions: number;
     selectedOptions: OrderItemSelectedOption[];
     menuItem: {
       id: string;
@@ -86,6 +89,12 @@ interface OrderContextType {
     orderIds: string[],
     status: OrderStatus,
   ) => Promise<void>;
+  loadMoreHistory: () => Promise<void>;
+  hasMoreHistory: boolean;
+  isLoadingMoreHistory: boolean;
+  isOrderUpdating: (orderId: string) => boolean;
+  isLoading: boolean;
+  error: string | null;
 }
 
 // Create the context
@@ -94,6 +103,17 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 // Create the provider component
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyTotalPages, setHistoryTotalPages] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const ordersRef = useRef<Order[]>([]);
+  const refreshVersion = useRef(0);
+  const mutationVersions = useRef(new Map<string, number>());
   const { socket, isConnected } = useSocket();
   const { user, isAuthenticated } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
@@ -106,39 +126,176 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     !!role &&
     ["OWNER", "MANAGER", "WAITER", "KITCHEN", "STAFF"].includes(role);
 
+  const replaceOrders = useCallback((next: Order[]) => {
+    ordersRef.current = next;
+    setOrders(next);
+  }, []);
+
+  const updateOrders = useCallback((updater: (current: Order[]) => Order[]) => {
+    const next = updater(ordersRef.current);
+    ordersRef.current = next;
+    setOrders(next);
+  }, []);
+
+  const setOrdersPending = useCallback(
+    (orderIds: string[], pending: boolean) => {
+      setPendingOrderIds((current) => {
+        const next = new Set(current);
+        for (const orderId of orderIds) {
+          if (pending) next.add(orderId);
+          else next.delete(orderId);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   // Function to refresh orders from API
   const refreshOrders = useCallback(async () => {
     const restaurantId = activeRestaurant?.id;
+    const version = ++refreshVersion.current;
     if (!canAccessOrders || !restaurantId) {
-      setOrders([]);
+      replaceOrders([]);
+      setError(null);
+      setIsLoading(false);
+      setIsLoadingMoreHistory(false);
+      setHistoryPage(0);
+      setHistoryTotalPages(0);
       return;
     }
 
+    setIsLoading(true);
+    setError(null);
     try {
-      const data = await getOrders({ restaurantId });
-      setOrders(data);
+      const activeOrders: Order[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const response = await getOrdersPage<Order>({
+          restaurantId,
+          statuses: ["PENDING_PAYMENT", "NEW", "IN_PROGRESS", "SERVED"],
+          page,
+          limit: 100,
+        });
+        activeOrders.push(...response.data);
+        totalPages = response.totalPages;
+        page += 1;
+      } while (page <= totalPages);
+
+      const history = await getOrdersPage<Order>({
+        restaurantId,
+        statuses: ["COMPLETED", "CANCELED"],
+        page: 1,
+        limit: 50,
+      });
+
+      if (refreshVersion.current !== version) return;
+      replaceOrders(
+        [...activeOrders, ...history.data].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+      );
+      setHistoryPage(history.page);
+      setHistoryTotalPages(history.totalPages);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
+      if (refreshVersion.current === version) setError("orders.fetchFailed");
+    } finally {
+      if (refreshVersion.current === version) setIsLoading(false);
     }
-  }, [activeRestaurant?.id, canAccessOrders]);
+  }, [activeRestaurant?.id, canAccessOrders, replaceOrders]);
+
+  const loadMoreHistory = useCallback(async () => {
+    const restaurantId = activeRestaurant?.id;
+    const nextPage = historyPage + 1;
+    const version = refreshVersion.current;
+    if (
+      !canAccessOrders ||
+      !restaurantId ||
+      isLoadingMoreHistory ||
+      nextPage > historyTotalPages
+    ) {
+      return;
+    }
+
+    setIsLoadingMoreHistory(true);
+    setError(null);
+    try {
+      const response = await getOrdersPage<Order>({
+        restaurantId,
+        statuses: ["COMPLETED", "CANCELED"],
+        page: nextPage,
+        limit: 50,
+      });
+      if (refreshVersion.current !== version) return;
+      updateOrders((current) => {
+        const byId = new Map(current.map((order) => [order.id, order]));
+        for (const order of response.data) byId.set(order.id, order);
+        return [...byId.values()].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      });
+      setHistoryPage(response.page);
+      setHistoryTotalPages(response.totalPages);
+    } catch (loadError) {
+      console.error("Failed to fetch order history:", loadError);
+      if (refreshVersion.current === version) setError("orders.fetchFailed");
+    } finally {
+      if (refreshVersion.current === version) setIsLoadingMoreHistory(false);
+    }
+  }, [
+    activeRestaurant?.id,
+    canAccessOrders,
+    historyPage,
+    historyTotalPages,
+    isLoadingMoreHistory,
+    updateOrders,
+  ]);
 
   // Optimistic update — mutate local state immediately, revert on error.
   // The socket `orderStatusChanged` event triggers refreshOrders() as
   // authoritative sync, so no manual refetch is needed here.
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    const previous = orders;
-    setOrders((cur) =>
-      cur.map((o) => (o.id === orderId ? { ...o, status } : o)),
+    const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
+    mutationVersions.current.set(orderId, version);
+    const previousOrder = ordersRef.current.find(
+      (order) => order.id === orderId,
+    );
+    setOrdersPending([orderId], true);
+    updateOrders((current) =>
+      current.map((order) =>
+        order.id === orderId ? { ...order, status } : order,
+      ),
     );
     try {
       await apiUpdateOrderStatus(orderId, status);
+      if (mutationVersions.current.get(orderId) === version) {
+        await refreshOrders();
+      }
     } catch (error) {
       // M-FE-2: revert only this order via a functional update, not the
       // whole captured snapshot — a blind `setOrders(previous)` would erase
       // any intervening socket updates to other orders.
-      setOrders((cur) => revertFailedOrders(cur, previous, [orderId]));
+      if (mutationVersions.current.get(orderId) === version && previousOrder) {
+        updateOrders((current) =>
+          current.map((order) =>
+            order.id === orderId
+              ? { ...order, status: previousOrder.status }
+              : order,
+          ),
+        );
+        await refreshOrders();
+      }
       console.error("Failed to update order status:", error);
       throw error;
+    } finally {
+      if (mutationVersions.current.get(orderId) === version) {
+        mutationVersions.current.delete(orderId);
+        setOrdersPending([orderId], false);
+      }
     }
   };
 
@@ -150,10 +307,20 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     // consistency only; the server remains the real authorization boundary.
     if (!canAccessOrders) return;
 
-    const previous = orders;
+    const previous = ordersRef.current;
     const idSet = new Set(orderIds);
-    setOrders((cur) =>
-      cur.map((o) => (idSet.has(o.id) ? { ...o, status } : o)),
+    const versions = new Map(
+      orderIds.map((orderId) => {
+        const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
+        mutationVersions.current.set(orderId, version);
+        return [orderId, version] as const;
+      }),
+    );
+    setOrdersPending(orderIds, true);
+    updateOrders((current) =>
+      current.map((order) =>
+        idSet.has(order.id) ? { ...order, status } : order,
+      ),
     );
 
     // Settle every call independently — a single failure must not roll back the
@@ -163,15 +330,29 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       orderIds.map((id) => apiUpdateOrderStatus(id, status)),
     );
     const failedIds = orderIds.filter(
-      (_, i) => results[i].status === "rejected",
+      (orderId, index) =>
+        results[index].status === "rejected" &&
+        mutationVersions.current.get(orderId) === versions.get(orderId),
     );
 
     if (failedIds.length > 0) {
       // Revert only the orders that failed; keep the successful ones updated.
-      setOrders((cur) => revertFailedOrders(cur, previous, failedIds));
-      // Reconcile against authoritative server state in case the socket sync is
-      // delayed or dropped after a partial failure.
-      void refreshOrders();
+      updateOrders((current) =>
+        revertFailedOrders(current, previous, failedIds),
+      );
+    }
+
+    await refreshOrders();
+    const completedIds: string[] = [];
+    for (const orderId of orderIds) {
+      if (mutationVersions.current.get(orderId) === versions.get(orderId)) {
+        mutationVersions.current.delete(orderId);
+        completedIds.push(orderId);
+      }
+    }
+    setOrdersPending(completedIds, false);
+
+    if (failedIds.length > 0) {
       const firstRejection = results.find(
         (r): r is PromiseRejectedResult => r.status === "rejected",
       );
@@ -185,8 +366,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   // Initial load when a staff/owner session becomes available.
   useEffect(() => {
+    replaceOrders([]);
+    setHistoryPage(0);
+    setHistoryTotalPages(0);
     void refreshOrders();
-  }, [refreshOrders]);
+  }, [activeRestaurant?.id, refreshOrders, replaceOrders]);
 
   // Socket listeners only refresh in response to order events.
   useEffect(() => {
@@ -237,6 +421,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     refreshOrders,
     updateOrderStatus,
     batchUpdateOrderStatus,
+    loadMoreHistory,
+    hasMoreHistory: historyPage < historyTotalPages,
+    isLoadingMoreHistory,
+    isOrderUpdating: (orderId: string) => pendingOrderIds.has(orderId),
+    isLoading,
+    error,
   };
 
   return (

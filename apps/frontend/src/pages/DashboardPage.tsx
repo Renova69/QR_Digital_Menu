@@ -1,4 +1,4 @@
-import { useState, useRef, useContext, useEffect } from "react";
+import { lazy, Suspense, useState, useRef, useContext, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import {
   type LucideIcon,
@@ -31,15 +31,9 @@ import TableView from "../components/tables/TableView";
 import RestaurantContext from "../context/RestaurantContext";
 import CreateRestaurantForm from "../components/CreateRestaurantForm";
 import SummaryView from "./Dashboard/SummaryView";
-import AnalyticsView from "./Dashboard/AnalyticsView";
-import SettingsView from "./Dashboard/SettingsView";
 import { useTranslation } from "react-i18next";
-import PaymentsView from "./Dashboard/PaymentsView";
-import ReservationsView from "./Dashboard/ReservationsView";
-import HelpView from "./Dashboard/HelpView";
 import NotificationBell from "../components/NotificationBell";
 import PaymentToast from "../components/PaymentToast";
-import { NotificationProvider } from "../context/NotificationContext";
 import SubscriptionBanner from "../components/subscription/SubscriptionBanner";
 import UpgradeModal from "../components/subscription/UpgradeModal";
 import { useFeature, type FeatureFlag } from "../hooks/useFeature";
@@ -47,6 +41,12 @@ import { ThemeToggle } from "../components/ui/ThemeToggle";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { DashboardProfileModal } from "../components/dashboard/DashboardProfileModal";
 import { updateRestaurant } from "../lib/api";
+
+const AnalyticsView = lazy(() => import("./Dashboard/AnalyticsView"));
+const SettingsView = lazy(() => import("./Dashboard/SettingsView"));
+const PaymentsView = lazy(() => import("./Dashboard/PaymentsView"));
+const ReservationsView = lazy(() => import("./Dashboard/ReservationsView"));
+const HelpView = lazy(() => import("./Dashboard/HelpView"));
 
 type TabId =
   | "summary"
@@ -633,34 +633,47 @@ const DashboardPage = () => {
             style={{ minHeight: "100%" }}
           >
             {user ? (
-              <NotificationProvider>
+              <>
                 <SubscriptionBanner />
 
                 <ErrorBoundary>
-                  {activeTab === "summary" && activeRestaurant && !isStaff && (
-                    <SummaryView />
-                  )}
-                  {activeTab === "analytics" &&
-                    activeRestaurant &&
-                    canAnalytics &&
-                    !isStaff && <AnalyticsView />}
-                  {activeTab === "orders" && <OrdersView />}
-                  {activeTab === "payments" &&
-                    activeRestaurant &&
-                    canPayments &&
-                    paymentsEnabled &&
-                    !isStaff && <PaymentsView />}
-                  {activeTab === "assistance" && <AssistanceView />}
-                  {activeTab === "tables" && activeRestaurant && <TableView />}
-                  {activeTab === "reservations" && activeRestaurant && (
-                    <ReservationsView canConfigure={canReservations} />
-                  )}
-                  {activeTab === "settings" && activeRestaurant && !isStaff && (
-                    <SettingsView />
-                  )}
-                  {activeTab === "help" && activeRestaurant && !isStaff && (
-                    <HelpView />
-                  )}
+                  <Suspense
+                    fallback={
+                      <div className="flex min-h-64 items-center justify-center">
+                        <div
+                          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+                          aria-label={t("common.loading", "Loading")}
+                        />
+                      </div>
+                    }
+                  >
+                    {activeTab === "summary" &&
+                      activeRestaurant &&
+                      !isStaff && <SummaryView />}
+                    {activeTab === "analytics" &&
+                      activeRestaurant &&
+                      canAnalytics &&
+                      !isStaff && <AnalyticsView />}
+                    {activeTab === "orders" && <OrdersView />}
+                    {activeTab === "payments" &&
+                      activeRestaurant &&
+                      canPayments &&
+                      paymentsEnabled &&
+                      !isStaff && <PaymentsView />}
+                    {activeTab === "assistance" && <AssistanceView />}
+                    {activeTab === "tables" && activeRestaurant && (
+                      <TableView />
+                    )}
+                    {activeTab === "reservations" && activeRestaurant && (
+                      <ReservationsView canConfigure={canReservations} />
+                    )}
+                    {activeTab === "settings" &&
+                      activeRestaurant &&
+                      !isStaff && <SettingsView />}
+                    {activeTab === "help" && activeRestaurant && !isStaff && (
+                      <HelpView />
+                    )}
+                  </Suspense>
                 </ErrorBoundary>
 
                 <PaymentToast />
@@ -668,7 +681,7 @@ const DashboardPage = () => {
                   feature={lockedFeatureClicked}
                   onClose={() => setLockedFeatureClicked(null)}
                 />
-              </NotificationProvider>
+              </>
             ) : (
               <div className="glass-panel p-20 text-center rounded-[2rem]">
                 <p className="text-xl font-display font-bold text-muted-foreground">

@@ -14,6 +14,7 @@ import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { FeedbackSummaryQueryDto } from './dto/feedback-summary-query.dto';
 
 @Controller('feedback')
 export class FeedbackController {
@@ -47,7 +48,11 @@ export class FeedbackController {
   // Protected — owner views feedback summary/stats
   @UseGuards(JwtAuthGuard)
   @Get('summary')
-  getSummary(@Query('restaurantId') restaurantId: string, @Request() req: any) {
-    return this.feedbackService.getSummary(restaurantId, req.user.id);
+  getSummary(@Query() query: FeedbackSummaryQueryDto, @Request() req: any) {
+    return this.feedbackService.getSummary(
+      query.restaurantId,
+      req.user.id,
+      query,
+    );
   }
 }

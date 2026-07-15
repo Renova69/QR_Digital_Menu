@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
+import { PaymentExportQueryDto } from './dto/payment-export-query.dto';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { SettlePartialDto } from './dto/settle-partial.dto';
@@ -295,13 +296,9 @@ export class PaymentController {
   exportPayments(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
+    @Query() query: PaymentExportQueryDto,
   ) {
-    return this.paymentService.exportPayments(restaurantId, req.user.id, {
-      from,
-      to,
-    });
+    return this.paymentService.exportPayments(restaurantId, req.user.id, query);
   }
 
   @Get(':paymentId')

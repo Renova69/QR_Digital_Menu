@@ -16,7 +16,7 @@ import { AssistanceService } from './assistance.service';
 import { CreateAssistanceDto } from './dto/create-assistance.dto';
 import { UpdateAssistanceDto } from './dto/update-assistance.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { AssistanceQueryDto } from './dto/assistance-query.dto';
 
 @Controller('assistance-requests')
 export class AssistanceController {
@@ -33,8 +33,8 @@ export class AssistanceController {
   // Protected — only restaurant owners can view their requests
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req: any, @Query() pagination: PaginationDto) {
-    return this.assistanceService.findAll(req.user.id, pagination);
+  findAll(@Request() req: any, @Query() query: AssistanceQueryDto) {
+    return this.assistanceService.findAll(req.user.id, query);
   }
 
   @UseGuards(JwtAuthGuard)

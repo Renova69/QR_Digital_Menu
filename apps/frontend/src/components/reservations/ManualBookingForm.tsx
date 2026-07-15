@@ -31,12 +31,7 @@ export function ManualBookingForm({
         guestName: name.trim(),
         guestPhone: phone.trim(),
         guestEmail: email.trim() || undefined,
-        // NOTE: the datetime-local value is read in the staff browser's tz.
-        // Staff entering a manual booking are on-site (same tz as the
-        // restaurant), so this is correct in practice. Converting a wall-clock
-        // time into the restaurant tz for a remote manager would need a tz lib
-        // (no Luxon on the frontend) — deferred.
-        startsAt: new Date(when).toISOString(),
+        localStartsAt: when,
         adultsCount: adults,
         childrenCount: children,
         customerNotes: notes.trim() || undefined,

@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateReservationDto } from './public-reservation.dto';
+import { OmitType } from '@nestjs/swagger';
 
 export const RESERVATION_ACTIONS = [
   'ACCEPT',
@@ -58,7 +59,15 @@ export class ListReservationsQueryDto {
 }
 
 // Staff-created booking: guest fields + optional internal notes / patron tags.
-export class ManualReservationDto extends CreateReservationDto {
+export class ManualReservationDto extends OmitType(CreateReservationDto, [
+  'startsAt',
+] as const) {
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/, {
+    message: 'localStartsAt must be a local date and time',
+  })
+  localStartsAt!: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(1000)

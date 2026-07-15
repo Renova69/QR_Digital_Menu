@@ -601,16 +601,37 @@ export class ReservationsService {
       }),
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { dashboardLanguage: true },
+        select: { dashboardLanguage: true, timezone: true },
       }),
     ]);
-    return this.createReservation(restaurantId, dto, {
+    const {
+      localStartsAt: submittedLocalStartsAt,
+      internalNotes,
+      staffTags,
+      ...reservationFields
+    } = dto;
+    const zone = restaurant?.timezone ?? 'UTC';
+    const localStartsAt = DateTime.fromISO(submittedLocalStartsAt, { zone });
+    if (
+      !localStartsAt.isValid ||
+      localStartsAt.toFormat("yyyy-MM-dd'T'HH:mm") !==
+        submittedLocalStartsAt.slice(0, 16)
+    ) {
+      throw new BadRequestException(
+        'The selected local reservation time is not valid',
+      );
+    }
+    const reservationDto: CreateReservationDto = {
+      ...reservationFields,
+      startsAt: localStartsAt.toUTC().toISO()!,
+    };
+    return this.createReservation(restaurantId, reservationDto, {
       source: 'STAFF',
       settings,
       defaultLocale: restaurant?.dashboardLanguage ?? 'bg',
       createdById: userId,
-      internalNotes: dto.internalNotes,
-      staffTags: dto.staffTags,
+      internalNotes,
+      staffTags,
       skipConsentGate: true,
     });
   }

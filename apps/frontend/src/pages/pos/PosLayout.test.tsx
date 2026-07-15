@@ -8,6 +8,10 @@ vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ user: null }),
 }));
 
+vi.mock("../../context/RestaurantContext", () => ({
+  useRestaurantContext: () => ({ activeRestaurant: null }),
+}));
+
 function PosThemeProbe() {
   const { theme, toggleTheme } = usePosTheme();
   return (

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { useMinuteTicker } from "../../hooks/useMinuteTicker";
 
 interface OrderDetail {
   id: string;
@@ -52,6 +53,7 @@ interface TableDetailModalProps {
   } | null;
   orders: OrderDetail[];
   ordersLoading?: boolean;
+  ordersError?: boolean;
   paymentInfo?: { amount: number; tipAmount?: number } | null;
   /** Force-close the open session (no payment). Shown only for OPEN sessions. */
   onCloseSession?: () => void;
@@ -115,11 +117,11 @@ function formatDate(value?: string, locale: string = "en-US") {
   });
 }
 
-function getElapsedLabel(value: string | undefined, t: any) {
+function getElapsedLabel(value: string | undefined, now: number, t: any) {
   if (!value) return null;
   const diffMinutes = Math.max(
     0,
-    Math.floor((Date.now() - new Date(value).getTime()) / 60000),
+    Math.floor((now - new Date(value).getTime()) / 60000),
   );
   if (diffMinutes < 1) return t("auto.justNow", "just now");
   if (diffMinutes === 1) return t("auto.1MinAgo", "1 min ago");
@@ -195,11 +197,13 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
   table,
   orders,
   ordersLoading,
+  ordersError,
   paymentInfo,
   onCloseSession,
   closing,
 }) => {
   const { t, i18n } = useTranslation();
+  const now = useMinuteTicker();
 
   if (!table) return null;
 
@@ -253,7 +257,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                       <span aria-hidden="true">·</span>
                       <span className="flex items-center gap-1.5">
                         <Clock className="h-3.5 w-3.5" />
-                        {getElapsedLabel(openedAt, t)}
+                        {getElapsedLabel(openedAt, now, t)}
                       </span>
                     </>
                   )}
@@ -341,7 +345,19 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
               </div>
             )}
 
-            {!ordersLoading && orders.length === 0 && (
+            {!ordersLoading && ordersError && (
+              <div
+                className="rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm font-medium text-red-700 dark:border-red-400/25 dark:bg-red-400/10 dark:text-red-200"
+                role="alert"
+              >
+                {t(
+                  "tables.failedLoadOrders",
+                  "Orders for this table could not be loaded.",
+                )}
+              </div>
+            )}
+
+            {!ordersLoading && !ordersError && orders.length === 0 && (
               <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm font-medium text-muted-foreground">
                 {t("orders.noOrders", { status: "" })}
               </div>
@@ -394,7 +410,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                         </div>
                       </div>
                       <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
-                        {getElapsedLabel(order.createdAt, t)}
+                        {getElapsedLabel(order.createdAt, now, t)}
                       </span>
                     </div>
 

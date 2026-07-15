@@ -189,6 +189,41 @@ describe('AssistanceService', () => {
       );
     });
 
+    it('scopes an owner request to the explicitly selected restaurant', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+
+      await service.findAll('owner-1', {
+        restaurantId: 'rest-2',
+        isResolved: false,
+        page: 1,
+        limit: 10,
+      });
+
+      expect(mockPrisma.assistanceRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            restaurantId: 'rest-2',
+            restaurant: { ownerId: 'owner-1' },
+            isResolved: false,
+          },
+        }),
+      );
+    });
+
+    it('rejects staff access to a different restaurant', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+
+      await expect(
+        service.findAll('user-1', {
+          restaurantId: 'rest-2',
+          page: 1,
+          limit: 10,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.assistanceRequest.findMany).not.toHaveBeenCalled();
+    });
+
     it('returns paginated result with correct shape', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
 

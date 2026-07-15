@@ -207,7 +207,13 @@ export class PaymentService {
   exportPayments(
     restaurantId: string,
     userId: string,
-    range: { from?: string; to?: string },
+    range: {
+      from?: string;
+      to?: string;
+      status?: string;
+      provider?: string;
+      search?: string;
+    },
   ) {
     return this.reporting.exportPayments(restaurantId, userId, range);
   }

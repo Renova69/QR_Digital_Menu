@@ -7,7 +7,7 @@ import {
   Check,
   Clock,
   History,
-  Menu,
+  RefreshCw,
   ReceiptText,
   RotateCcw,
   Search,
@@ -29,6 +29,7 @@ import {
 } from "../../lib/api";
 import { formatEuro } from "../../lib/currency";
 import { cn } from "../../lib/utils";
+import { useMinuteTicker } from "../../hooks/useMinuteTicker";
 
 type AssistanceContextValue = ReturnType<typeof useAssistance>;
 type AssistanceRequest = AssistanceContextValue["requests"][number];
@@ -43,15 +44,12 @@ function formatRequestTime(value: string) {
   });
 }
 
-function getElapsedMinutes(value: string) {
-  return Math.max(
-    0,
-    Math.floor((Date.now() - new Date(value).getTime()) / 60000),
-  );
+function getElapsedMinutes(value: string, now: number) {
+  return Math.max(0, Math.floor((now - new Date(value).getTime()) / 60000));
 }
 
-function getElapsedLabel(value: string, t: TFunction) {
-  const minutes = getElapsedMinutes(value);
+function getElapsedLabel(value: string, t: TFunction, now: number) {
+  const minutes = getElapsedMinutes(value, now);
   if (minutes < 1) return t("assistance.justNow", "just now");
   if (minutes < 60)
     return t("assistance.minutesShort", "{{count}} min", { count: minutes });
@@ -59,7 +57,7 @@ function getElapsedLabel(value: string, t: TFunction) {
   return t("assistance.hoursShort", "{{count}} h", { count: hours });
 }
 
-function getUrgencyStyle(request: AssistanceRequest) {
+function getUrgencyStyle(request: AssistanceRequest, now: number) {
   if (request.isResolved) {
     return {
       card: "before:bg-emerald-500",
@@ -78,7 +76,7 @@ function getUrgencyStyle(request: AssistanceRequest) {
     };
   }
 
-  const minutes = getElapsedMinutes(request.createdAt);
+  const minutes = getElapsedMinutes(request.createdAt, now);
   if (minutes >= 10) {
     return {
       card: "before:bg-red-500",
@@ -125,7 +123,16 @@ function getCashRequestStatusLabel(request: CashPaymentRequest, t: TFunction) {
 }
 
 const AssistanceView = () => {
-  const { requests, markAsResolved, markAsUnresolved } = useAssistance();
+  const {
+    requests,
+    markAsResolved,
+    markAsUnresolved,
+    loadMoreResolved,
+    hasMoreResolved,
+    isLoadingMoreResolved,
+    error: assistanceError,
+    refreshRequests,
+  } = useAssistance();
   const { activeRestaurant } = useRestaurantContext();
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
@@ -134,7 +141,11 @@ const AssistanceView = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [cashRequests, setCashRequests] = useState<CashPaymentRequest[]>([]);
   const [cashActionId, setCashActionId] = useState<string | null>(null);
+  const [requestActionId, setRequestActionId] = useState<string | null>(null);
+  const [requestActionError, setRequestActionError] = useState(false);
   const [cashError, setCashError] = useState<string | null>(null);
+  const [cashFetchError, setCashFetchError] = useState(false);
+  const now = useMinuteTicker();
   const userRole = user?.role?.toUpperCase();
   const canManageCashPayments =
     !!userRole &&
@@ -147,10 +158,12 @@ const AssistanceView = () => {
     }
 
     try {
+      setCashFetchError(false);
       const data = await getCashPaymentRequests(activeRestaurant.id);
       setCashRequests(data);
     } catch (error) {
       console.error("Failed to fetch cash payment requests:", error);
+      setCashFetchError(true);
     }
   }, [activeRestaurant?.id]);
 
@@ -292,18 +305,28 @@ const AssistanceView = () => {
   ]);
 
   const handleResolve = async (requestId: string) => {
+    setRequestActionId(requestId);
+    setRequestActionError(false);
     try {
       await markAsResolved(requestId);
     } catch (error) {
       console.error("Failed to resolve request:", error);
+      setRequestActionError(true);
+    } finally {
+      setRequestActionId(null);
     }
   };
 
   const handleReopen = async (requestId: string) => {
+    setRequestActionId(requestId);
+    setRequestActionError(false);
     try {
       await markAsUnresolved(requestId);
     } catch (error) {
       console.error("Failed to reopen request:", error);
+      setRequestActionError(true);
+    } finally {
+      setRequestActionId(null);
     }
   };
 
@@ -373,13 +396,6 @@ const AssistanceView = () => {
     <section className="min-h-full bg-background text-foreground">
       <div className="mb-6 flex flex-col gap-5 border-b border-border/70 pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-3">
-          <button
-            type="button"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition hover:bg-muted"
-            aria-label={t("common.menu", "Menu")}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
           <div>
             <h1 className="text-2xl font-black leading-tight text-foreground">
               {t("assistance.title", "Assistance Requests")}
@@ -416,6 +432,28 @@ const AssistanceView = () => {
           </button>
         </div>
       </div>
+
+      {(assistanceError || cashFetchError) && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <span>
+            {t(
+              assistanceError ?? "assistance.cashFetchFailed",
+              "Some assistance requests could not be loaded.",
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              void refreshRequests();
+              void refreshCashRequests();
+            }}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-3 text-xs font-bold"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t("common.retry", "Retry")}
+          </button>
+        </div>
+      )}
 
       <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
@@ -547,7 +585,7 @@ const AssistanceView = () => {
                       </p>
                       <p className="mt-1 flex items-center justify-end gap-1.5 text-sm font-black text-foreground">
                         <Timer className="h-3.5 w-3.5 text-primary" />
-                        {getElapsedLabel(elapsedSource, t)}
+                        {getElapsedLabel(elapsedSource, t, now)}
                       </p>
                     </div>
                   </div>
@@ -617,7 +655,7 @@ const AssistanceView = () => {
       {visibleRequests.length > 0 ? (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visibleRequests.map((request) => {
-            const urgency = getUrgencyStyle(request);
+            const urgency = getUrgencyStyle(request, now);
             const elapsedSource = request.isResolved
               ? request.updatedAt
               : request.createdAt;
@@ -676,7 +714,7 @@ const AssistanceView = () => {
                     </p>
                     <p className="mt-1 flex items-center justify-end gap-1.5 text-sm font-black text-foreground">
                       <Timer className="h-3.5 w-3.5 text-primary" />
-                      {getElapsedLabel(elapsedSource, t)}
+                      {getElapsedLabel(elapsedSource, t, now)}
                     </p>
                   </div>
                 </div>
@@ -724,6 +762,7 @@ const AssistanceView = () => {
                   {request.isResolved ? (
                     <button
                       type="button"
+                      disabled={requestActionId === request.id}
                       onClick={() => handleReopen(request.id)}
                       className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary active:scale-[0.98]"
                     >
@@ -733,6 +772,7 @@ const AssistanceView = () => {
                   ) : (
                     <button
                       type="button"
+                      disabled={requestActionId === request.id}
                       onClick={() => handleResolve(request.id)}
                       className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
                     >
@@ -766,6 +806,34 @@ const AssistanceView = () => {
           </div>
         </div>
       ) : null}
+
+      {(filter === "resolved" || filter === "all") && hasMoreResolved && (
+        <div className="mt-5 flex justify-center">
+          <button
+            type="button"
+            onClick={() => void loadMoreResolved()}
+            disabled={isLoadingMoreResolved}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-50"
+          >
+            <RefreshCw
+              className={cn("h-4 w-4", isLoadingMoreResolved && "animate-spin")}
+            />
+            {t("assistance.loadMoreResolved", "Load older resolved requests")}
+          </button>
+        </div>
+      )}
+
+      {requestActionError && (
+        <p
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive"
+          role="alert"
+        >
+          {t(
+            "assistance.updateFailed",
+            "The request could not be updated. Please try again.",
+          )}
+        </p>
+      )}
     </section>
   );
 };

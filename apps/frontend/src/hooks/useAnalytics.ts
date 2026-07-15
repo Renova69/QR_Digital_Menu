@@ -191,6 +191,8 @@ export interface AnalyticsData {
   };
   prevPeriodStart?: string;
   prevPeriodEnd?: string;
+  periodStart?: string;
+  periodEnd?: string;
   // Phase B: new analytics features (PRO+)
   staffPerformance?: StaffPerformanceRow[];
   customerMetrics?: CustomerMetricsData;
@@ -210,9 +212,10 @@ export const useAnalytics = (
   startDate?: string,
   endDate?: string,
   enabled = true,
+  scope: "basic" | "full" = "full",
 ) => {
   return useQuery<AnalyticsData>({
-    queryKey: ["analytics", restaurantId, period, startDate, endDate],
+    queryKey: ["analytics", restaurantId, period, startDate, endDate, scope],
     queryFn: () => getAnalytics(restaurantId!, period, startDate, endDate),
     enabled: !!restaurantId && enabled,
     staleTime: 30_000,

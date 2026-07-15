@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useContext } from "react";
+import { useState, useRef, useCallback, useContext, useEffect } from "react";
 import {
   Upload,
   Key,
@@ -36,6 +36,21 @@ const KNOWN_ALLERGENS = [
   "egg",
 ];
 const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024; // 1MB — matches server body-parser limit
+const IMPORT_ERROR_DEFAULTS = {
+  "importExport.errors.csvUnclosedQuote":
+    "The CSV contains an unclosed quoted field.",
+  "importExport.errors.csvNoRows": "The CSV does not contain any data rows.",
+  "importExport.errors.csvMissingColumns":
+    "The CSV must include category and item_name columns.",
+  "importExport.errors.xlsxNoRows":
+    "The spreadsheet does not contain any data rows.",
+  "importExport.errors.xlsxMissingColumns":
+    "The spreadsheet must include category and item_name columns.",
+  "importExport.errors.parseFailed":
+    "The file could not be read. Check its format and try again.",
+} as const;
+
+type ImportErrorKey = keyof typeof IMPORT_ERROR_DEFAULTS;
 
 function splitTags(tags: string[]) {
   const allergens = tags.filter((t) =>
@@ -47,14 +62,16 @@ function splitTags(tags: string[]) {
   return { allergens, dietaryTags };
 }
 
-function parseCSVLine(line: string): string[] {
-  const fields: string[] = [];
+export function parseCSVRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let fields: string[] = [];
   let field = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  const input = text.replace(/^\uFEFF/, "");
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && input[i + 1] === '"') {
         field += '"';
         i++;
       } else {
@@ -63,12 +80,42 @@ function parseCSVLine(line: string): string[] {
     } else if (ch === "," && !inQuotes) {
       fields.push(field);
       field = "";
+    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      if (ch === "\r" && input[i + 1] === "\n") i++;
+      fields.push(field);
+      if (fields.some((value) => value.trim())) rows.push(fields);
+      fields = [];
+      field = "";
     } else {
       field += ch;
     }
   }
+  if (inQuotes) throw new Error("importExport.errors.csvUnclosedQuote");
   fields.push(field);
-  return fields;
+  if (fields.some((value) => value.trim())) rows.push(fields);
+  return rows;
+}
+
+function parseBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (["true", "1", "yes", "y", "available", "check"].includes(normalized)) {
+    return true;
+  }
+  if (["false", "0", "no", "n", "unavailable", "cross"].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function normalizeCurrency(value: unknown): "EUR" | "BGN" {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase() === "BGN"
+    ? "BGN"
+    : "EUR";
 }
 
 function parseVariants(str: string) {
@@ -87,18 +134,17 @@ function parseVariants(str: string) {
     });
 }
 
-function csvToPayload(text: string): any[] {
-  const lines = text
-    .replace(/^﻿/, "")
-    .split("\n")
-    .filter((l) => l.trim());
-  if (lines.length < 2) throw new Error("CSV has no data rows");
-  const headers = parseCSVLine(lines[0]).map((h) =>
-    h.trim().toLowerCase().replace(/"/g, ""),
+export function csvToPayload(text: string): any[] {
+  const rows = parseCSVRows(text);
+  if (rows.length < 2) throw new Error("importExport.errors.csvNoRows");
+  const headers = rows[0].map((h) =>
+    h.trim().toLowerCase().replace(/\s+/g, "_"),
   );
+  if (!headers.includes("category") || !headers.includes("item_name")) {
+    throw new Error("importExport.errors.csvMissingColumns");
+  }
   const catMap = new Map<string, any[]>();
-  for (const line of lines.slice(1)) {
-    const fields = parseCSVLine(line);
+  for (const fields of rows.slice(1)) {
     const row: Record<string, string> = {};
     headers.forEach((h, i) => {
       row[h] = (fields[i] || "").trim();
@@ -114,17 +160,26 @@ function csvToPayload(text: string): any[] {
       : [];
     const { allergens, dietaryTags } = splitTags(rawTags);
     const variants = parseVariants(row["variants"] || "");
+    const isAvailable = parseBoolean(row["is_available"]);
+    const isOutOfStock = parseBoolean(row["is_out_of_stock"]);
+    const isFeatured = parseBoolean(row["is_featured"]);
     catMap.get(catName)!.push({
       name: row["item_name"] || "",
       description: row["description"] || "",
       price: parseFloat(row["price"]) || 0,
       weight: row["weight"] || null,
-      currency: "BGN",
+      currency: normalizeCurrency(row["currency"]),
       allergens,
       dietaryTags,
       options: variants.length
         ? [{ name: "Size / Variant", type: "VARIATION", choices: variants }]
         : [],
+      ...(isOutOfStock !== undefined
+        ? { isOutOfStock }
+        : isAvailable !== undefined
+          ? { isOutOfStock: !isAvailable }
+          : {}),
+      ...(isFeatured !== undefined ? { isFeatured } : {}),
     });
   }
   return Array.from(catMap.entries()).map(([name, items], i) => ({
@@ -175,8 +230,14 @@ function jsonToPayload(text: string): any[] {
           ...(item.translations ? { translations: item.translations } : {}),
           ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
           ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
-          ...(item.isOutOfStock ? { isOutOfStock: item.isOutOfStock } : {}),
-          ...(item.isFeatured ? { isFeatured: item.isFeatured } : {}),
+          ...(typeof item.isOutOfStock === "boolean"
+            ? { isOutOfStock: item.isOutOfStock }
+            : typeof item.isAvailable === "boolean"
+              ? { isOutOfStock: !item.isAvailable }
+              : {}),
+          ...(typeof item.isFeatured === "boolean"
+            ? { isFeatured: item.isFeatured }
+            : {}),
           ...(item.rewardPointsMode
             ? { rewardPointsMode: item.rewardPointsMode }
             : {}),
@@ -199,7 +260,9 @@ function jsonToPayload(text: string): any[] {
       ...(cat.startTime ? { startTime: cat.startTime } : {}),
       ...(cat.endTime ? { endTime: cat.endTime } : {}),
       ...(cat.daysOfWeek?.length ? { daysOfWeek: cat.daysOfWeek } : {}),
-      ...(cat.isDrinkCategory ? { isDrinkCategory: cat.isDrinkCategory } : {}),
+      ...(typeof cat.isDrinkCategory === "boolean"
+        ? { isDrinkCategory: cat.isDrinkCategory }
+        : {}),
     };
   });
 }
@@ -207,7 +270,7 @@ function jsonToPayload(text: string): any[] {
 // XLSX export column order: Category, Item Name, Description, Price, Weight, Currency, Tags, Variants
 async function xlsxToPayload(file: File): Promise<any[]> {
   const rows = (await readXlsxSheet(file)) as unknown as any[][];
-  if (rows.length < 2) throw new Error("XLSX has no data rows");
+  if (rows.length < 2) throw new Error("importExport.errors.xlsxNoRows");
 
   const headers = rows[0].map((h: any) =>
     String(h ?? "")
@@ -225,9 +288,12 @@ async function xlsxToPayload(file: File): Promise<any[]> {
   const currencyIdx = col("currency");
   const tagsIdx = col("tags");
   const variantsIdx = col("variants");
+  const availableIdx = col("is_available");
+  const outOfStockIdx = col("is_out_of_stock");
+  const featuredIdx = col("is_featured");
 
   if (catIdx === -1 || nameIdx === -1)
-    throw new Error("XLSX missing required columns: category, item_name");
+    throw new Error("importExport.errors.xlsxMissingColumns");
 
   const catMap = new Map<string, any[]>();
   for (const row of rows.slice(1)) {
@@ -245,6 +311,12 @@ async function xlsxToPayload(file: File): Promise<any[]> {
     const { allergens, dietaryTags } = splitTags(rawTags);
     const variants =
       variantsIdx >= 0 ? parseVariants(String(row[variantsIdx] ?? "")) : [];
+    const isAvailable =
+      availableIdx >= 0 ? parseBoolean(row[availableIdx]) : undefined;
+    const isOutOfStock =
+      outOfStockIdx >= 0 ? parseBoolean(row[outOfStockIdx]) : undefined;
+    const isFeatured =
+      featuredIdx >= 0 ? parseBoolean(row[featuredIdx]) : undefined;
 
     catMap.get(catName)!.push({
       name: String(row[nameIdx] ?? "").trim(),
@@ -256,13 +328,20 @@ async function xlsxToPayload(file: File): Promise<any[]> {
             : parseFloat(String(row[priceIdx])) || 0
           : 0,
       weight: weightIdx >= 0 && row[weightIdx] ? String(row[weightIdx]) : null,
-      currency:
-        currencyIdx >= 0 && row[currencyIdx] ? String(row[currencyIdx]) : "BGN",
+      currency: normalizeCurrency(
+        currencyIdx >= 0 ? row[currencyIdx] : undefined,
+      ),
       allergens,
       dietaryTags,
       options: variants.length
         ? [{ name: "Size / Variant", type: "VARIATION", choices: variants }]
         : [],
+      ...(isOutOfStock !== undefined
+        ? { isOutOfStock }
+        : isAvailable !== undefined
+          ? { isOutOfStock: !isAvailable }
+          : {}),
+      ...(isFeatured !== undefined ? { isFeatured } : {}),
     });
   }
   return Array.from(catMap.entries()).map(([name, items], i) => ({
@@ -282,6 +361,12 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
   const [fullKey, setFullKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showRegen, setShowRegen] = useState(false);
+
+  useEffect(() => {
+    setFullKey(null);
+    setCopied(false);
+    setShowRegen(false);
+  }, [restaurantId]);
 
   const { data } = useQuery({
     queryKey: ["import-api-key", restaurantId],
@@ -442,6 +527,20 @@ function FileImporter({
   const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
+  const getImportError = useCallback(
+    (error: unknown) => {
+      const message = error instanceof Error ? error.message : "";
+      const key: ImportErrorKey = Object.prototype.hasOwnProperty.call(
+        IMPORT_ERROR_DEFAULTS,
+        message,
+      )
+        ? (message as ImportErrorKey)
+        : "importExport.errors.parseFailed";
+      return t(key, IMPORT_ERROR_DEFAULTS[key]);
+    },
+    [t],
+  );
+
   const processFile = useCallback(
     (file: File) => {
       const ext = file.name.split(".").pop()?.toLowerCase();
@@ -451,7 +550,10 @@ function FileImporter({
           filename: file.name,
           format: "json",
           totalItems: 0,
-          error: "Import files must be 1MB or smaller",
+          error: t(
+            "importExport.errors.fileTooLarge",
+            "Import files must be 1MB or smaller.",
+          ),
         });
         return;
       }
@@ -461,7 +563,10 @@ function FileImporter({
           filename: file.name,
           format: "json",
           totalItems: 0,
-          error: "Only .json, .csv, and .xlsx files are supported",
+          error: t(
+            "importExport.errors.unsupportedFormat",
+            "Only .json, .csv, and .xlsx files are supported.",
+          ),
         });
         return;
       }
@@ -485,7 +590,7 @@ function FileImporter({
               filename: file.name,
               format: "json",
               totalItems: 0,
-              error: err.message,
+              error: getImportError(err),
             });
           });
         return;
@@ -512,13 +617,13 @@ function FileImporter({
             filename: file.name,
             format: ext as "json" | "csv",
             totalItems: 0,
-            error: err.message,
+            error: getImportError(err),
           });
         }
       };
       reader.readAsText(file, "utf-8");
     },
-    [onParsed],
+    [getImportError, onParsed, t],
   );
 
   const onDrop = useCallback(
@@ -777,7 +882,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
         </div>
       )}
 
-      <ApiKeyPanel restaurantId={restaurantId} />
+      <ApiKeyPanel key={restaurantId} restaurantId={restaurantId} />
 
       <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-6">
         <div className="flex items-center gap-3">

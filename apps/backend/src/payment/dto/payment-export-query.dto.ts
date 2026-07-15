@@ -7,11 +7,9 @@ import {
   MaxLength,
 } from 'class-validator';
 import { PaymentProvider } from '@prisma/client';
-import { PaginationDto } from '../../common/dto/pagination.dto';
 
-export class PaymentHistoryQueryDto extends PaginationDto {
+export class PaymentExportQueryDto {
   @IsOptional()
-  @IsString()
   @IsIn(['PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED', 'ABANDONED'])
   status?: string;
 
@@ -26,9 +24,9 @@ export class PaymentHistoryQueryDto extends PaginationDto {
 
   @IsOptional()
   @IsDateString()
-  startDate?: string;
+  from?: string;
 
   @IsOptional()
   @IsDateString()
-  endDate?: string;
+  to?: string;
 }
