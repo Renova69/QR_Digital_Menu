@@ -685,6 +685,47 @@ describe('DashboardService', () => {
       });
     });
 
+    it('groups menu profitability by the same deleted-item key it selects', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+
+      await service['getMenuProfitability']('rest-1', start, end, 'en');
+
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0]
+        .join(' ')
+        .replace(/\s+/g, ' ');
+      expect(sql).toContain(
+        `GROUP BY COALESCE(oi."menuItemId", 'deleted:' || oi."itemName")`,
+      );
+      expect(sql).not.toContain(
+        'GROUP BY COALESCE(oi."menuItemId", oi."itemName")',
+      );
+    });
+
+    it('groups cancel analytics by the same deleted-item key it selects', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 0 },
+      });
+
+      await service['getCancelAnalytics'](
+        'rest-1',
+        start,
+        end,
+        'Europe/Sofia',
+        'en',
+      );
+
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0]
+        .join(' ')
+        .replace(/\s+/g, ' ');
+      expect(sql).toContain(
+        `GROUP BY COALESCE(oi."menuItemId", 'deleted:' || oi."itemName")`,
+      );
+      expect(sql).not.toContain(
+        'GROUP BY COALESCE(oi."menuItemId", oi."itemName")',
+      );
+    });
+
     it('orders table yield by revenue', async () => {
       mockPrisma.$queryRaw.mockResolvedValueOnce([]);
 

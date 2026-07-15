@@ -1139,7 +1139,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       WHERE o."restaurantId" = ${restaurantId}
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
-      GROUP BY COALESCE(oi."menuItemId", oi."itemName"),
+      GROUP BY COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"),
                oi."menuItemId", mi.name, mi.translations
       HAVING SUM(oi.quantity) FILTER (WHERE o.status = 'CANCELED') > 0
       ORDER BY "canceledQty" DESC
@@ -1303,7 +1303,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         AND o.status != 'CANCELED'
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
-      GROUP BY COALESCE(oi."menuItemId", oi."itemName"),
+      GROUP BY COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"),
                oi."menuItemId", mi.name, mi.translations, mi."costPrice"
       ORDER BY SUM(oi.quantity) DESC
     `;
