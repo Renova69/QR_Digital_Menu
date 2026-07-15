@@ -89,6 +89,14 @@ describe('LoyaltyService', () => {
         _count: { _all: true },
         _sum: { points: true },
       });
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith({
+        where: {
+          restaurantId: 'r1',
+          pointsRedeemed: { gt: 0 },
+          status: { not: 'CANCELED' },
+        },
+        _sum: { pointsRedeemed: true },
+      });
       expect(result.totalMembers).toBe(2);
       expect(result.totalPointsOutstanding).toBe(300);
     });

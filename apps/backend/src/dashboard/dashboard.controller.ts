@@ -25,6 +25,20 @@ import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 // memory (#28). 366 days covers the largest UI-selectable range with headroom.
 const MAX_ANALYTICS_RANGE_DAYS = 366;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DASHBOARD_LANGUAGES = new Set([
+  'ar',
+  'bg',
+  'de',
+  'el',
+  'en',
+  'es',
+  'fr',
+  'it',
+  'ja',
+  'ro',
+  'ru',
+  'zh',
+]);
 
 @Controller('dashboard')
 export class DashboardController {
@@ -112,16 +126,22 @@ export class DashboardController {
     @AuthUser() user: any,
     @Query('restaurantId') restaurantId: string,
     @Query() dateRange: DateRangeQueryDto,
+    @Query('period') periodStr?: string,
   ) {
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
     }
     this.assertDateRange(dateRange.startDate, dateRange.endDate);
+    const period = periodStr ? parseInt(periodStr, 10) : undefined;
+    if (period !== undefined && ![1, 7, 14, 30].includes(period)) {
+      throw new BadRequestException('period must be 1, 7, 14, or 30');
+    }
     await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getPaymentsSummary(
       restaurantId,
       dateRange.startDate,
       dateRange.endDate,
+      period,
     );
   }
 
@@ -133,6 +153,7 @@ export class DashboardController {
     @Query('restaurantId') restaurantId: string,
     @Query('period') periodStr?: string,
     @Query() dateRange?: DateRangeQueryDto,
+    @Query('lang') lang?: string,
   ) {
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
@@ -141,9 +162,14 @@ export class DashboardController {
     let period = 7;
     if (periodStr) {
       period = parseInt(periodStr, 10);
-      if (![7, 14, 30].includes(period)) {
-        throw new BadRequestException('period must be 7, 14, or 30');
+      if (![1, 7, 14, 30].includes(period)) {
+        throw new BadRequestException('period must be 1, 7, 14, or 30');
       }
+    }
+
+    const language = lang?.toLowerCase().split('-')[0];
+    if (language && !DASHBOARD_LANGUAGES.has(language)) {
+      throw new BadRequestException('Unsupported dashboard language');
     }
 
     this.assertDateRange(dateRange?.startDate, dateRange?.endDate);
@@ -173,6 +199,7 @@ export class DashboardController {
       // Skip computing the 7 premium metrics for non-FULL tiers — they're
       // stripped below anyway, so computing them only wastes DB work.
       hasFullAnalytics,
+      language,
     );
 
     if (!hasFullAnalytics) {

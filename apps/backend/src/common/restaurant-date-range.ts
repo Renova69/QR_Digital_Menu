@@ -24,3 +24,20 @@ export function buildRestaurantDateRange(
 
   return range;
 }
+
+/** Build an inclusive preset ending at the current instant in restaurant time. */
+export function buildRestaurantPresetDateRange(
+  period: number,
+  timezone = 'UTC',
+  now: DateTime = DateTime.now(),
+): Required<RestaurantDateRange> {
+  const localNow = now.setZone(timezone);
+  return {
+    gte: localNow
+      .minus({ days: Math.max(0, period - 1) })
+      .startOf('day')
+      .toUTC()
+      .toJSDate(),
+    lte: localNow.toUTC().toJSDate(),
+  };
+}

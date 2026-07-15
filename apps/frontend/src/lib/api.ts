@@ -140,6 +140,7 @@ export const createOrder = async (orderData: any) => {
 
 export interface OrderQueryParams {
   restaurantId?: string;
+  period?: number;
   startDate?: string;
   endDate?: string;
   statuses?: string[];
@@ -449,10 +450,12 @@ export const getAnalytics = async (
   period: number,
   startDate?: string,
   endDate?: string,
+  language?: string,
 ) => {
   const response = await api.get("/dashboard/analytics", {
     params: {
       restaurantId,
+      ...(language && { lang: language }),
       ...(startDate && endDate ? { startDate, endDate } : { period }),
     },
   });
@@ -461,12 +464,14 @@ export const getAnalytics = async (
 
 export const getPaymentSummary = async (
   restaurantId: string,
+  period: number,
   startDate?: string,
   endDate?: string,
 ) => {
   const response = await api.get("/dashboard/payments-summary", {
     params: {
       restaurantId,
+      ...(!startDate && !endDate ? { period } : {}),
       ...(startDate && { startDate }),
       ...(endDate && { endDate }),
     },
@@ -514,7 +519,7 @@ export const getDailyCloseout = async (restaurantId: string, date: string) => {
     totalCollected: number;
     totalTips: number;
     orderedRevenue: number;
-    pointsDiscount: number;
+    discountPointsRedeemed: number;
     refundedAmount: number;
     canceledRevenue: number;
     netRevenue: number;
@@ -1587,9 +1592,16 @@ export interface ScanStats {
   perTable: Array<{ tableName: string; views: number; uniqueVisitors: number }>;
 }
 
-export const getScanStats = (restaurantId: string): Promise<ScanStats> =>
+export const getScanStats = (
+  restaurantId: string,
+  period: number,
+  startDate?: string,
+  endDate?: string,
+): Promise<ScanStats> =>
   api
-    .get(`/dashboard/scan-stats/${restaurantId}`)
+    .get(`/dashboard/scan-stats/${restaurantId}`, {
+      params: startDate && endDate ? { startDate, endDate } : { period },
+    })
     .then((r) => r.data as ScanStats);
 
 // ─── Print Stations ───────────────────────────────────────────────────────────

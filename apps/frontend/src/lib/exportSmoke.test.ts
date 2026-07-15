@@ -33,7 +33,7 @@ const analyticsData: AnalyticsData = {
   refundedAmount: 0,
   paymentsByMethod: [{ method: "STRIPE", amount: 40 }],
   totalOrders: 3,
-  newCustomers: 2,
+  activeCustomers: 2,
   avgOrderValue: 14,
   completionRate: 100,
   repeatCustomerRate: 50,
@@ -43,7 +43,7 @@ const analyticsData: AnalyticsData = {
   comparison: {
     revenueChange: 0,
     ordersChange: 0,
-    newCustomersChange: 0,
+    activeCustomersChange: 0,
     avgOrderValueChange: 0,
   },
 };

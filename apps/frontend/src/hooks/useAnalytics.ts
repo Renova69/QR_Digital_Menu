@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getAnalytics, getDailyTarget } from "../lib/api";
 
 export interface RevenueTrendPoint {
@@ -58,6 +59,7 @@ export interface MenuProfitabilitySummary {
   totalCost: number;
   totalProfit: number;
   overallMargin: number;
+  missingCostItems: number;
 }
 
 export interface StaffPerformanceRow {
@@ -68,7 +70,6 @@ export interface StaffPerformanceRow {
   avgOrderValue: number;
   posOrders: number;
   qrOrders: number;
-  totalTips: number;
 }
 
 export interface CustomerMetric {
@@ -135,16 +136,17 @@ export interface TableTurnoverRow {
   tableName: string;
   sessionCount: number;
   avgDurationMinutes: number;
-  estimatedTurnsPerDay: number;
+  estimatedTurnsPer24Hours: number;
   totalRevenue: number;
-  revPASH: number;
+  revenuePerOccupiedHour: number;
 }
 
 export interface GrossProfitData {
-  collectedRevenue: number;
+  netSales: number;
   estimatedCOGS: number;
   grossProfit: number;
   grossMargin: number;
+  missingCostItems: number;
 }
 
 export interface DailyTargetData {
@@ -158,7 +160,7 @@ export interface CloseoutReport {
   totalCollected: number;
   totalTips: number;
   orderedRevenue: number;
-  pointsDiscount: number;
+  discountPointsRedeemed: number;
   refundedAmount: number;
   canceledRevenue: number;
   netRevenue: number;
@@ -176,7 +178,7 @@ export interface AnalyticsData {
   refundedAmount: number;
   paymentsByMethod: PaymentMethodTotal[];
   totalOrders: number;
-  newCustomers: number;
+  activeCustomers: number;
   avgOrderValue: number;
   completionRate: number;
   repeatCustomerRate: number;
@@ -186,7 +188,7 @@ export interface AnalyticsData {
   comparison: {
     revenueChange: number;
     ordersChange: number;
-    newCustomersChange: number;
+    activeCustomersChange: number;
     avgOrderValueChange: number;
   };
   prevPeriodStart?: string;
@@ -214,9 +216,23 @@ export const useAnalytics = (
   enabled = true,
   scope: "basic" | "full" = "full",
 ) => {
+  const { i18n } = useTranslation();
+  const language = (i18n.resolvedLanguage ?? i18n.language ?? "en")
+    .toLowerCase()
+    .split("-")[0];
+
   return useQuery<AnalyticsData>({
-    queryKey: ["analytics", restaurantId, period, startDate, endDate, scope],
-    queryFn: () => getAnalytics(restaurantId!, period, startDate, endDate),
+    queryKey: [
+      "analytics",
+      restaurantId,
+      period,
+      startDate,
+      endDate,
+      scope,
+      language,
+    ],
+    queryFn: () =>
+      getAnalytics(restaurantId!, period, startDate, endDate, language),
     enabled: !!restaurantId && enabled,
     staleTime: 30_000,
     placeholderData: (prev) => prev,
@@ -226,7 +242,7 @@ export const useAnalytics = (
 };
 
 /**
- * Today's revenue goal vs. actual collected revenue. Backend computes both
+ * Today's revenue goal vs. non-canceled ordered revenue. Backend computes both
  * server-side ({ target, actual }) so the card is self-contained. Gated at
  * ANALYTICS_BASIC (all tiers) — same tier as the summary KPIs it sits beside.
  */

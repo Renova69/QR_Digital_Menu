@@ -206,8 +206,8 @@ const AnalyticsView = () => {
         />
         <MetricCard
           label={t("analytics.activeCustomers", "Active customers")}
-          value={numberFormat.format(data.newCustomers)}
-          change={data.comparison.newCustomersChange}
+          value={numberFormat.format(data.activeCustomers)}
+          change={data.comparison.activeCustomersChange}
           comparisonLabel={comparisonLabel}
           Icon={Users}
         />
@@ -507,7 +507,7 @@ const AnalyticsView = () => {
           >
             <MenuEngineering
               items={insights.topItems}
-              totalRevenue={data.totalRevenue}
+              totalRevenue={insights.itemRevenueTotal}
             />
           </Panel>
         </section>
@@ -584,13 +584,23 @@ const AnalyticsView = () => {
       {/* ── Menu Profitability ─────────────────────────────────────────── */}
       {canFullAnalytics &&
         data.menuProfitability &&
-        data.menuProfitability.items.length > 0 && (
+        (data.menuProfitability.items.length > 0 ||
+          data.menuProfitability.summary.missingCostItems > 0) && (
           <MenuProfitabilityPanel data={data.menuProfitability} />
         )}
 
       {/* ── Gross Profit ───────────────────────────────────────────────── */}
       {canFullAnalytics && data.grossProfit && (
         <section className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          {data.grossProfit.missingCostItems > 0 && (
+            <p className="sm:col-span-4 text-xs text-amber-700 dark:text-amber-300">
+              {t("analytics.profitCostWarning", {
+                count: data.grossProfit.missingCostItems,
+                defaultValue:
+                  "{{count}} sold item(s) have no usable cost. Profit excludes those costs.",
+              })}
+            </p>
+          )}
           <div className="rounded-xl bg-surface p-4 border border-border/60">
             <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
               {t("analytics.grossProfit", "Gross Profit")}
@@ -612,7 +622,7 @@ const AnalyticsView = () => {
               {t("analytics.netSales", "Net Sales")}
             </div>
             <div className="text-xl font-display font-black text-foreground font-mono">
-              {formatEuro(data.grossProfit.collectedRevenue)}
+              {formatEuro(data.grossProfit.netSales)}
             </div>
           </div>
           <div className="rounded-xl bg-surface p-4 border border-border/60">

@@ -36,7 +36,8 @@ export const RevenueReconciliation = ({
 }) => {
   const { t } = useTranslation();
   const net = Math.round((collected - refunded) * 100) / 100;
-  const uncollected = Math.round(Math.max(0, ordered - collected) * 100) / 100;
+  const orderPaymentGap =
+    Math.round(Math.max(0, ordered - collected) * 100) / 100;
   const refundRate = collected > 0 ? (refunded / collected) * 100 : 0;
 
   const steps = [
@@ -58,7 +59,7 @@ export const RevenueReconciliation = ({
       value: refunded,
       hint:
         refunded > 0
-          ? `${formatPercent(refundRate)} ${t("analytics.ofCollected", "of collected")}`
+          ? `${formatPercent(refundRate)} ${t("analytics.vsPeriodSales", "vs period gross sales")}`
           : t("analytics.recoRefundedHint", "Reversed to guests"),
       tone: "text-red-600 dark:text-red-400",
     },
@@ -76,8 +77,8 @@ export const RevenueReconciliation = ({
       title={t("analytics.revenueReconciliation", "Revenue reconciliation")}
       eyebrow={t("analytics.moneyFlow", "Money flow")}
       action={
-        uncollected > 0
-          ? `${t("analytics.recoUncollected", "Uncollected")} ${formatEuro(uncollected)}`
+        orderPaymentGap > 0
+          ? `${t("analytics.recoOrderPaymentGap", "Order/payment gap")} ${formatEuro(orderPaymentGap)}`
           : undefined
       }
     >
@@ -109,8 +110,8 @@ export const RevenueReconciliation = ({
       </div>
       <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
         {t(
-          "analytics.recoExplainer",
-          "Ordered counts every placed order; collected counts recorded payments. They differ for cash orders not closed through the POS and for refunds.",
+          "analytics.recoTimingExplainer",
+          "Orders and payments use their own event dates. Timing, unpaid orders, cash not closed through the POS, and refunds can create a gap.",
         )}
       </p>
     </Panel>
@@ -337,7 +338,7 @@ export const MenuEngineering = ({
           item.quantity > 0 ? item.revenue / item.quantity : 0;
         return (
           <div
-            key={item.name}
+            key={`${item.name}-${index}`}
             className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg border border-border bg-secondary/20 p-3"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">
@@ -350,7 +351,8 @@ export const MenuEngineering = ({
               <p className="text-[11px] text-muted-foreground">
                 {numberFormat.format(item.quantity)} {t("analytics.soldLabel")}{" "}
                 - {formatEuro(averageItemYield)} {t("analytics.avgYield")} -{" "}
-                {formatPercent(share)} {t("analytics.ofRevenue")}
+                {formatPercent(share)}{" "}
+                {t("analytics.ofItemSales", "of item sales")}
               </p>
               <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
                 <div
@@ -375,7 +377,15 @@ export const CategoryMix = ({
   categories: Array<{ category: string; revenue: number }>;
 }) => {
   const { t } = useTranslation();
-  const total = categories.reduce((sum, category) => sum + category.revenue, 0);
+  const displayCategories = categories.map((category) => ({
+    ...category,
+    category:
+      category.category || t("analytics.uncategorized", "Uncategorized"),
+  }));
+  const total = displayCategories.reduce(
+    (sum, category) => sum + category.revenue,
+    0,
+  );
 
   if (categories.length === 0)
     return <EmptyState message={t("analytics.noCategoryData")} />;
@@ -385,7 +395,7 @@ export const CategoryMix = ({
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie
-            data={categories}
+            data={displayCategories}
             dataKey="revenue"
             nameKey="category"
             innerRadius={58}
@@ -393,7 +403,7 @@ export const CategoryMix = ({
             paddingAngle={3}
             stroke="none"
           >
-            {categories.map((_, index) => (
+            {displayCategories.map((_, index) => (
               <Cell
                 key={index}
                 fill={CHART_COLORS[index % CHART_COLORS.length]}
@@ -404,9 +414,9 @@ export const CategoryMix = ({
         </PieChart>
       </ResponsiveContainer>
       <div className="space-y-2">
-        {categories.slice(0, 6).map((category, index) => (
+        {displayCategories.slice(0, 6).map((category, index) => (
           <div
-            key={category.category}
+            key={`${category.category}-${index}`}
             className="flex items-center justify-between gap-3 rounded-lg bg-secondary/20 px-3 py-2"
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -489,11 +499,15 @@ export const OrderFlow = ({
   const { t } = useTranslation();
   if (statuses.length === 0)
     return <EmptyState message={t("analytics.noOrderStatusData")} />;
+  const observedOrders = statuses.reduce(
+    (sum, status) => sum + status.count,
+    0,
+  );
 
   return (
     <div className="space-y-3">
       {statuses.map((status) => {
-        const share = safePercent(status.count, totalOrders);
+        const share = safePercent(status.count, observedOrders || totalOrders);
         return (
           <div
             key={status.status}

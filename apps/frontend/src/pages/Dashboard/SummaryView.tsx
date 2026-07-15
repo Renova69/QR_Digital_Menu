@@ -61,6 +61,7 @@ const SummaryView = () => {
 
   const { data: paymentSummary } = usePaymentSummary(
     restaurantId,
+    dateRange.period,
     dateRange.startDate,
     dateRange.endDate,
     canPayments,
@@ -77,12 +78,16 @@ const SummaryView = () => {
     queryKey: [
       "recentOrders",
       restaurantId,
+      dateRange.period,
       dateRange.startDate,
       dateRange.endDate,
     ],
     queryFn: () =>
       getOrders({
         restaurantId: restaurantId!,
+        ...(!dateRange.startDate && !dateRange.endDate
+          ? { period: dateRange.period }
+          : {}),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         limit: 50,
@@ -99,7 +104,11 @@ const SummaryView = () => {
     refetchInterval: 30_000,
   });
 
-  const { data: scanStats, isLoading: scanLoading } = useScanStats();
+  const { data: scanStats, isLoading: scanLoading } = useScanStats(
+    dateRange.period,
+    dateRange.startDate,
+    dateRange.endDate,
+  );
 
   return (
     <div className="space-y-5 md:space-y-6">
@@ -169,7 +178,8 @@ const SummaryView = () => {
                     >
                       {/* Tablet+: large table number */}
                       <span className="text-sm text-muted-foreground font-medium tabular-nums shrink-0 min-w-[1.5rem] sm:text-xl sm:font-display sm:font-bold sm:text-foreground sm:min-w-[2.5rem] sm:text-center sm:leading-none sm:row-span-2">
-                        {row.tableName}
+                        {row.tableName ||
+                          t("dashboard.unknownTable", "Unknown table")}
                       </span>
 
                       {/* Tablet+: stacked stats */}
@@ -222,6 +232,7 @@ const SummaryView = () => {
           <p className="text-xs text-muted-foreground max-w-md">
             {t("dashboard.scanUpsellBody", {
               count: scanStats?.totalViews ?? 0,
+              period: dateRange.label.toLocaleLowerCase(i18n.language),
             })}
           </p>
           <a
@@ -250,7 +261,9 @@ const SummaryView = () => {
           )}
           {!canPayments ? (
             <UpgradeBanner feature={t("dashboard.payments")} />
-          ) : paymentSummary && paymentSummary.totalCollected > 0 ? (
+          ) : paymentSummary &&
+            (paymentSummary.totalCollected > 0 ||
+              paymentSummary.refundAmount > 0) ? (
             <PaymentsSummaryCard data={paymentSummary} />
           ) : (
             <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
@@ -277,7 +290,7 @@ const SummaryView = () => {
       </div>
 
       {/* Row 3: Top Dishes + Loyalty + Last 50 Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {!canFull ? (
           <UpgradeBanner feature={t("dashboard.topDishes")} />
         ) : analytics ? (
@@ -311,17 +324,19 @@ const SummaryView = () => {
             </p>
           </div>
         )}
-        {!canOrders ? (
-          <UpgradeBanner feature={t("dashboard.recentOrders")} />
-        ) : (
-          <RecentOrdersTable
-            orders={
-              Array.isArray(recentOrders)
-                ? recentOrders
-                : ((recentOrders as any)?.data ?? [])
-            }
-          />
-        )}
+        <div className="xl:col-span-2">
+          {!canOrders ? (
+            <UpgradeBanner feature={t("dashboard.recentOrders")} />
+          ) : (
+            <RecentOrdersTable
+              orders={
+                Array.isArray(recentOrders)
+                  ? recentOrders
+                  : ((recentOrders as any)?.data ?? [])
+              }
+            />
+          )}
+        </div>
       </div>
 
       {/* Quick Actions */}

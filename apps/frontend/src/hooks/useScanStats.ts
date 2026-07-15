@@ -4,8 +4,13 @@ import RestaurantContext, {
   type RestaurantContextType,
 } from "../context/RestaurantContext";
 import { getScanStats, type ScanStats } from "../lib/api";
+import type { DateRangePreset } from "./useSummaryDateRange";
 
-export function useScanStats(): {
+export function useScanStats(
+  period: DateRangePreset,
+  startDate?: string,
+  endDate?: string,
+): {
   data: ScanStats | undefined;
   isLoading: boolean;
 } {
@@ -15,8 +20,8 @@ export function useScanStats(): {
   const restaurantId = ctx?.activeRestaurant?.id ?? null;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["scan-stats", restaurantId],
-    queryFn: () => getScanStats(restaurantId!),
+    queryKey: ["scan-stats", restaurantId, period, startDate, endDate],
+    queryFn: () => getScanStats(restaurantId!, period, startDate, endDate),
     enabled: !!restaurantId,
     staleTime: 60_000,
     refetchInterval: 120_000,

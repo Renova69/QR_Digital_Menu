@@ -52,19 +52,19 @@ export class DashboardViewsService implements OnModuleInit {
       CREATE MATERIALIZED VIEW mv_item_stats AS
       SELECT
         o."restaurantId",
+        COALESCE(oi."menuItemId", 'deleted:' || oi."itemName") AS "itemKey",
         oi."menuItemId",
-        mi.name                                        AS item_name,
-        mi.price                                       AS item_price,
+        COALESCE(mi.name, oi."itemName")               AS item_name,
         DATE_TRUNC('day', o."createdAt")               AS day_utc,
         SUM(oi.quantity)::int                          AS total_quantity,
-        COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)       AS total_revenue
+        COALESCE(SUM(oi."unitPriceWithOptions" * oi.quantity), 0) AS total_revenue
       FROM order_item oi
       JOIN customer_order o  ON oi."orderId"    = o.id
-      JOIN menu_item     mi  ON oi."menuItemId" = mi.id
+      LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o.status != 'CANCELED'
-        AND oi."menuItemId" IS NOT NULL
-      GROUP BY o."restaurantId", oi."menuItemId", mi.name, mi.price, DATE_TRUNC('day', o."createdAt")`,
-      index: `CREATE UNIQUE INDEX mv_item_stats_uid ON mv_item_stats ("restaurantId", "menuItemId", day_utc)`,
+      GROUP BY o."restaurantId", COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"),
+               oi."menuItemId", COALESCE(mi.name, oi."itemName"), DATE_TRUNC('day', o."createdAt")`,
+      index: `CREATE UNIQUE INDEX mv_item_stats_uid ON mv_item_stats ("restaurantId", "itemKey", day_utc)`,
     },
   ];
 

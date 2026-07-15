@@ -141,6 +141,24 @@ describe('MenuViewService', () => {
       expect(t2.uniqueVisitors).toBe(1);
     });
 
+    it('does not double-count a visitor when a table was renamed', async () => {
+      mockPrisma.menuView.groupBy.mockResolvedValue([
+        { tableId: 'table1', tableName: 'Old name', _count: { id: 3 } },
+        { tableId: 'table1', tableName: 'New name', _count: { id: 2 } },
+      ]);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ count: 2 }])
+        .mockResolvedValueOnce([
+          { tableId: 'table1', tableName: 'New name', unique_visitors: 2 },
+        ]);
+
+      const result = await service.getScanStats('rest1');
+
+      expect(result.perTable).toHaveLength(1);
+      expect(result.perTable[0].views).toBe(5);
+      expect(result.perTable[0].uniqueVisitors).toBe(2);
+    });
+
     it('sorts per-table results by views descending', async () => {
       mockPrisma.menuView.groupBy.mockResolvedValue([
         { tableId: 't1', tableName: 'T1', _count: { id: 1 } },
@@ -162,6 +180,44 @@ describe('MenuViewService', () => {
 
       // todayViews count call should use a date gte boundary — just verify it fires twice
       expect(mockPrisma.menuView.count).toHaveBeenCalledTimes(2);
+    });
+
+    it('scopes the Today preset to the restaurant local day', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-15T10:30:00.000Z'));
+
+      try {
+        await service.getScanStats('rest1', { period: 1 });
+
+        expect(mockPrisma.menuView.count).toHaveBeenNthCalledWith(1, {
+          where: {
+            restaurantId: 'rest1',
+            createdAt: {
+              gte: new Date('2026-07-14T21:00:00.000Z'),
+              lte: new Date('2026-07-15T10:30:00.000Z'),
+            },
+          },
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('uses explicit custom date boundaries for scan statistics', async () => {
+      await service.getScanStats('rest1', {
+        startDate: '2026-07-01',
+        endDate: '2026-07-03',
+      });
+
+      expect(mockPrisma.menuView.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: {
+              gte: new Date('2026-06-30T21:00:00.000Z'),
+              lte: new Date('2026-07-03T20:59:59.999Z'),
+            },
+          }),
+        }),
+      );
     });
 
     it('falls back to UTC when restaurant has no timezone set', async () => {

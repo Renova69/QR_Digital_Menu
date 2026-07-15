@@ -21,6 +21,7 @@ interface MenuProfitabilityPanelProps {
  */
 const MenuProfitabilityPanel = ({ data }: MenuProfitabilityPanelProps) => {
   const { t } = useTranslation();
+  const missingCostItems = data.summary.missingCostItems ?? 0;
 
   return (
     <section>
@@ -28,7 +29,7 @@ const MenuProfitabilityPanel = ({ data }: MenuProfitabilityPanelProps) => {
         title={t("analytics.menuProfitability", "Menu Profitability")}
         eyebrow={t("analytics.menuEngineering", "Menu engineering")}
       >
-        {data.summary.totalCost === 0 ? (
+        {data.items.length === 0 ? (
           <div className="text-xs text-muted-foreground italic py-6 text-center">
             {t(
               "analytics.noCostData",
@@ -37,6 +38,15 @@ const MenuProfitabilityPanel = ({ data }: MenuProfitabilityPanelProps) => {
           </div>
         ) : (
           <>
+            {missingCostItems > 0 && (
+              <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
+                {t("analytics.missingCostItems", {
+                  count: missingCostItems,
+                  defaultValue:
+                    "{{count}} sold item(s) are excluded because cost data is missing.",
+                })}
+              </p>
+            )}
             <div className="flex items-center gap-3 text-[10px] font-mono mb-4">
               <span className="text-muted-foreground">
                 {t("analytics.totalCost", "Cost")}:{" "}

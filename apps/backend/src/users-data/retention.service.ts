@@ -3,9 +3,9 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
-// Scan-tracking rows (MenuView) are only ever read for the last 7 days of
-// stats, but accumulate one row per public-menu open forever. Prune rows older
-// than a year so the table stays bounded without losing long-range history.
+// Scan-tracking rows (MenuView) support dashboard ranges up to one year and
+// accumulate one row per public-menu open. Prune older rows so the table stays
+// bounded without losing supported reporting history.
 const MENU_VIEW_RETENTION_DAYS = 365;
 
 @Injectable()

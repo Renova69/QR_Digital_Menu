@@ -21,6 +21,9 @@ const LoyaltyRetentionCard = ({ data }: LoyaltyRetentionCardProps) => {
       <h3 className="text-sm font-display font-bold text-foreground mb-4">
         {t("dashboard.loyaltyRetention")}
       </h3>
+      <p className="-mt-3 mb-3 text-[10px] text-muted-foreground">
+        {t("dashboard.loyaltyLifetime", "Current lifetime totals")}
+      </p>
       <div className="space-y-2">
         {[
           {
@@ -74,8 +77,9 @@ const LoyaltyRetentionCard = ({ data }: LoyaltyRetentionCardProps) => {
             {t("dashboard.topMember")}
           </p>
           <p className="text-xs font-bold text-foreground">
-            {data.topMember.name} ·{" "}
-            {t("dashboard.pointsCount", { count: data.topMember.points })}
+            {data.topMember.name ||
+              t("dashboard.unknownCustomer", "Unknown customer")}{" "}
+            · {t("dashboard.pointsCount", { count: data.topMember.points })}
           </p>
         </div>
       )}

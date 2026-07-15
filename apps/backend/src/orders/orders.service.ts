@@ -33,7 +33,10 @@ import {
 } from '../loyalty/loyalty-tiers.utils';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
-import { buildRestaurantDateRange } from '../common/restaurant-date-range';
+import {
+  buildRestaurantDateRange,
+  buildRestaurantPresetDateRange,
+} from '../common/restaurant-date-range';
 import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
 import { getEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
 import { PrintStationService } from '../print-station/print-station.service';
@@ -1304,11 +1307,13 @@ export class OrdersService {
           select: { timezone: true },
         })
       : null;
-    const createdAt = buildRestaurantDateRange(
-      query.startDate,
-      query.endDate,
-      restaurant?.timezone ?? 'UTC',
-    );
+    const timezone = restaurant?.timezone ?? 'UTC';
+    const createdAt =
+      query.startDate || query.endDate
+        ? buildRestaurantDateRange(query.startDate, query.endDate, timezone)
+        : query.period
+          ? buildRestaurantPresetDateRange(query.period, timezone)
+          : {};
 
     const where = {
       ...baseWhere,

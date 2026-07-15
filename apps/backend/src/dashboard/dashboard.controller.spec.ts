@@ -3,6 +3,7 @@ import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
+import { BadRequestException } from '@nestjs/common';
 
 // Full analytics payload as DashboardService.getAnalytics returns it. The
 // controller is responsible for downgrading this for tiers below PROFESSIONAL.
@@ -11,14 +12,14 @@ const FULL_PAYLOAD = {
   revenueTrend: [{ date: '2026-06-20', revenue: 100, orders: 4 }],
   totalRevenue: 100,
   totalOrders: 4,
-  newCustomers: 2,
+  activeCustomers: 2,
   avgOrderValue: 25,
   completionRate: 90,
   ordersByStatus: [],
   comparison: {
     revenueChange: 0,
     ordersChange: 0,
-    newCustomersChange: 0,
+    activeCustomersChange: 0,
     avgOrderValueChange: 0,
   },
   // PROFESSIONAL-only drill-downs:
@@ -49,7 +50,7 @@ const BASIC_KEYS = [
   'revenueTrend',
   'totalRevenue',
   'totalOrders',
-  'newCustomers',
+  'activeCustomers',
   'avgOrderValue',
   'completionRate',
   'ordersByStatus',
@@ -171,5 +172,57 @@ describe('DashboardController analytics tier gating', () => {
 
     expect(result).toHaveProperty('paymentsByMethod');
     expect(result).toHaveProperty('repeatCustomerRate');
+  });
+
+  it('accepts Today and forwards the normalized dashboard language', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await controller.getAnalytics(OWNER, 'rest-1', '1', undefined, 'EN-us');
+
+    expect(mockDashboard.getAnalytics).toHaveBeenCalledWith(
+      'rest-1',
+      1,
+      undefined,
+      undefined,
+      true,
+      'en',
+    );
+  });
+
+  it('rejects unsupported dashboard languages', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await expect(
+      controller.getAnalytics(OWNER, 'rest-1', '1', undefined, 'unsupported'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(mockDashboard.getAnalytics).not.toHaveBeenCalled();
+  });
+
+  it('forwards Today to the payment summary', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await controller.getPaymentsSummary(OWNER, 'rest-1', {}, '1');
+
+    expect(mockDashboard.getPaymentsSummary).toHaveBeenCalledWith(
+      'rest-1',
+      undefined,
+      undefined,
+      1,
+    );
+  });
+
+  it('rejects an unsupported payment-summary period', async () => {
+    await expect(
+      controller.getPaymentsSummary(OWNER, 'rest-1', {}, '2'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
   });
 });

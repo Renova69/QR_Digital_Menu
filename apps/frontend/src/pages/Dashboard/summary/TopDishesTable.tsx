@@ -23,7 +23,7 @@ const TopDishesTable = ({ items }: TopDishesTableProps) => {
         <div className="space-y-2">
           {items.slice(0, 5).map((item, i) => (
             <div
-              key={item.name}
+              key={`${item.name}-${i}`}
               className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-secondary/50 transition-colors"
             >
               <span className="text-[10px] font-black text-muted-foreground w-4">

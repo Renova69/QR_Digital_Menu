@@ -493,7 +493,11 @@ export class LoyaltyService {
           _sum: { points: true },
         }),
         this.prisma.order.aggregate({
-          where: { restaurantId, pointsRedeemed: { gt: 0 } },
+          where: {
+            restaurantId,
+            pointsRedeemed: { gt: 0 },
+            status: { not: 'CANCELED' },
+          },
           _sum: { pointsRedeemed: true },
         }),
         this.prisma.order.groupBy({
@@ -528,7 +532,7 @@ export class LoyaltyService {
       repeatRate,
       topMember: topAccount
         ? {
-            name: topAccount.user?.name || topAccount.user?.email || 'Unknown',
+            name: topAccount.user?.name || topAccount.user?.email || '',
             points: topAccount.points,
           }
         : null,

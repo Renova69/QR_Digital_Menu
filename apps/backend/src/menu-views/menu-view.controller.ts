@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -7,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
   UsePipes,
@@ -56,7 +58,40 @@ export class MenuViewController {
   async getScanStats(
     @Param('restaurantId') restaurantId: string,
     @Req() req: any,
+    @Query('period') periodStr?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
+    let period = 7;
+    if (periodStr) {
+      period = Number.parseInt(periodStr, 10);
+      if (![1, 7, 14, 30].includes(period)) {
+        throw new BadRequestException('period must be 1, 7, 14, or 30');
+      }
+    }
+
+    if (!!startDate !== !!endDate) {
+      throw new BadRequestException(
+        'startDate and endDate must be provided together',
+      );
+    }
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end < start
+      ) {
+        throw new BadRequestException('Invalid date range');
+      }
+      const rangeDays =
+        (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+      if (rangeDays > 366) {
+        throw new BadRequestException('Date range cannot exceed 366 days');
+      }
+    }
+
     const userId = req.user?.id ?? req.user?.sub;
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
@@ -81,6 +116,10 @@ export class MenuViewController {
       throw new ForbiddenException('Access denied');
     }
 
-    return this.menuViewService.getScanStats(restaurantId);
+    return this.menuViewService.getScanStats(restaurantId, {
+      period,
+      startDate,
+      endDate,
+    });
   }
 }

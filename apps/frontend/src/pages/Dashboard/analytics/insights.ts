@@ -55,15 +55,23 @@ export const computeInsights = (data: any) => {
   const topThreeRevenue = topItems
     .slice(0, 3)
     .reduce((sum: number, item: any) => sum + item.revenue, 0);
+  const itemRevenueTotal = (data.categoryBreakdown ?? []).reduce(
+    (sum: number, category: any) => sum + category.revenue,
+    0,
+  );
   const heroItem = topItems[0];
   const bestTable = tables[0];
   const completed =
     statuses.find((status: any) => status.status === "COMPLETED")?.count ?? 0;
   const canceled =
     statuses.find((status: any) => status.status === "CANCELED")?.count ?? 0;
-  const cancelRate = safePercent(canceled, data.totalOrders);
-  const topThreeShare = safePercent(topThreeRevenue, data.totalRevenue);
-  const topItemShare = safePercent(heroItem?.revenue ?? 0, data.totalRevenue);
+  const observedOrders = statuses.reduce(
+    (sum: number, status: any) => sum + status.count,
+    0,
+  );
+  const cancelRate = safePercent(canceled, observedOrders);
+  const topThreeShare = safePercent(topThreeRevenue, itemRevenueTotal);
+  const topItemShare = safePercent(heroItem?.revenue ?? 0, itemRevenueTotal);
 
   const dayPartTotals = dayParts.map((part) => {
     const orders = part.range.reduce(
@@ -87,6 +95,7 @@ export const computeInsights = (data: any) => {
     peakRevenueHour,
     busiestWindow,
     topItemRevenue,
+    itemRevenueTotal,
     heroItem,
     bestTable,
     completed,

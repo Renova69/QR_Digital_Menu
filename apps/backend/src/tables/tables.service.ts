@@ -520,6 +520,9 @@ export class TablesService {
       }
 
       const status = session.status === 'PAID' ? 'paid' : 'occupied';
+      const activeOrders = session.orders.filter(
+        (order) => order.status !== 'CANCELED',
+      );
 
       return {
         id: table.id,
@@ -530,11 +533,11 @@ export class TablesService {
         status,
         sessionId: session.id,
         sessionToken: session.token,
-        orderCount: session.orders.length,
-        totalAmount: session.orders.reduce((sum, o) => sum + o.totalPrice, 0),
+        orderCount: activeOrders.length,
+        totalAmount: activeOrders.reduce((sum, o) => sum + o.totalPrice, 0),
         customerNames: [
           ...new Set(
-            session.orders
+            activeOrders
               .map((o) => {
                 // POS/staff orders: show "Waiter: 444" (role + first name)
                 // instead of the hardcoded "Staff" customerName.

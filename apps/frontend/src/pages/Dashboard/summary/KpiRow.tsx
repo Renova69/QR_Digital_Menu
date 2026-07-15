@@ -15,10 +15,11 @@ interface KpiRowProps {
   showTrends: boolean;
 }
 
-const formatDateShort = (iso: string, locale: string) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
-};
+const formatDateShort = (iso: string, locale: string) =>
+  new Date(iso).toLocaleDateString(locale, {
+    month: "short",
+    day: "numeric",
+  });
 
 const formatComparisonLabel = (
   data: AnalyticsData,
@@ -26,7 +27,7 @@ const formatComparisonLabel = (
   locale: string,
 ) => {
   if (data.prevPeriodStart && data.prevPeriodEnd) {
-    return `${formatDateShort(data.prevPeriodStart, locale)} – ${formatDateShort(data.prevPeriodEnd, locale)}`;
+    return `${formatDateShort(data.prevPeriodStart, locale)} - ${formatDateShort(data.prevPeriodEnd, locale)}`;
   }
   return fallback;
 };
@@ -36,10 +37,10 @@ const KpiRow = ({ data, showTrends }: KpiRowProps) => {
   const comparisonLabel = showTrends
     ? formatComparisonLabel(data, t("dashboard.prevPeriod"), i18n.language)
     : undefined;
-
+  const peakHours = data.peakHours ?? [];
   const peakHour =
-    data.peakHours.length > 0
-      ? data.peakHours.reduce((max, h) => (h.orders > max.orders ? h : max))
+    peakHours.length > 0
+      ? peakHours.reduce((max, hour) => (hour.orders > max.orders ? hour : max))
       : null;
 
   const kpis = [
@@ -66,24 +67,29 @@ const KpiRow = ({ data, showTrends }: KpiRowProps) => {
     },
     {
       label: t("dashboard.activeCustomers"),
-      value: data.newCustomers.toLocaleString(i18n.language),
+      value: data.activeCustomers.toLocaleString(i18n.language),
       Icon: Users,
-      change: showTrends ? data.comparison.newCustomersChange : null,
+      change: showTrends ? data.comparison.activeCustomersChange : null,
       detail: undefined as string | undefined,
     },
-    {
+  ];
+
+  if (showTrends) {
+    kpis.push({
       label: t("dashboard.peakHour"),
-      value: peakHour?.label ?? "—",
+      value: peakHour?.label ?? t("dashboard.notAvailable", "--"),
       Icon: Clock,
       change: null,
       detail: peakHour
         ? t("dashboard.ordersCount", { count: peakHour.orders })
         : undefined,
-    },
-  ];
+    });
+  }
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div
+      className={`grid grid-cols-2 gap-4 ${showTrends ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+    >
       {kpis.map((kpi) => (
         <KpiCard
           key={kpi.label}

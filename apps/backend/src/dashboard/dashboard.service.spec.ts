@@ -3,6 +3,7 @@ import { DashboardService } from './dashboard.service';
 import { DashboardViewsService } from './dashboard-views.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
+import { DateTime } from 'luxon';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
@@ -99,6 +100,77 @@ describe('DashboardService', () => {
     });
   });
 
+  describe('getPaymentsSummary', () => {
+    it('applies a preset using the restaurant timezone', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-15T10:30:00.000Z'));
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
+      mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+      mockPrisma.payment.groupBy.mockResolvedValue([]);
+
+      try {
+        await service.getPaymentsSummary(
+          'rest-payment-period',
+          undefined,
+          undefined,
+          1,
+        );
+
+        expect(mockPrisma.payment.aggregate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              createdAt: {
+                gte: new Date('2026-07-14T21:00:00.000Z'),
+                lte: new Date('2026-07-15T10:30:00.000Z'),
+              },
+            }),
+          }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  describe('getDailyCloseout', () => {
+    it('nets tips and successful refund sales without double-subtracting payments', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
+      mockPrisma.payment.groupBy.mockResolvedValueOnce([
+        { provider: 'STRIPE', _sum: { amount: 110 } },
+      ]);
+      mockPrisma.payment.aggregate.mockResolvedValueOnce({
+        _sum: { tipAmount: 10 },
+      });
+      mockPrisma.order.aggregate
+        .mockResolvedValueOnce({
+          _sum: { totalPrice: 100, pointsRedeemedForDiscount: 50 },
+        })
+        .mockResolvedValueOnce({ _sum: { totalPrice: 0 } });
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        { grossAmount: 110, salesAmount: 100 },
+      ]);
+      mockPrisma.order.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+
+      const result = await service.getDailyCloseout('rest-1', '2026-07-15');
+
+      expect(result.totalCollected).toBe(110);
+      expect(result.totalTips).toBe(10);
+      expect(result.refundedAmount).toBe(110);
+      expect(result.netRevenue).toBe(0);
+      expect(result.discountPointsRedeemed).toBe(50);
+      expect(mockPrisma.payment.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ['SUCCEEDED', 'REFUNDED'] },
+          }),
+        }),
+      );
+    });
+  });
+
   describe('cache lifecycle', () => {
     it('sweeps expired analytics cache entries on the module interval', () => {
       jest.useFakeTimers();
@@ -160,6 +232,48 @@ describe('DashboardService', () => {
 
       // Each period triggers a fresh DB call
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses different cache keys for different dashboard languages', async () => {
+      await service.getAnalytics(
+        'rest-language',
+        7,
+        undefined,
+        undefined,
+        true,
+        'en',
+      );
+      await service.getAnalytics(
+        'rest-language',
+        7,
+        undefined,
+        undefined,
+        true,
+        'bg',
+      );
+
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses the restaurant local day for the Today preset', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-15T10:30:00.000Z'));
+      mockViews.isReady.mockReturnValue(true);
+
+      try {
+        const result = (await service.getAnalytics(
+          'rest-today',
+          1,
+        )) as AnalyticsResult;
+
+        expect(result.periodStart).toBe('2026-07-14T21:00:00.000Z');
+        expect(result.periodEnd).toBe('2026-07-15T10:30:00.000Z');
+        expect(result.prevPeriodStart).toBe('2026-07-13T21:00:00.000Z');
+        expect(result.prevPeriodEnd).toBe('2026-07-14T10:30:00.000Z');
+        expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+      } finally {
+        mockViews.isReady.mockReturnValue(false);
+        jest.useRealTimers();
+      }
     });
 
     it('uses date range when startDate and endDate provided', async () => {
@@ -236,7 +350,7 @@ describe('DashboardService', () => {
       mockPrisma.orderItem.findMany.mockResolvedValue([]);
     });
 
-    it('returns all 5 statuses with 0 count when groupBy returns empty', async () => {
+    it('returns every order status with 0 count when groupBy returns empty', async () => {
       mockPrisma.order.groupBy.mockResolvedValue([]);
 
       const result = (await service.getAnalytics(
@@ -252,7 +366,8 @@ describe('DashboardService', () => {
       expect(statuses).toContain(OrderStatus.SERVED);
       expect(statuses).toContain(OrderStatus.COMPLETED);
       expect(statuses).toContain(OrderStatus.CANCELED);
-      expect(result['ordersByStatus']).toHaveLength(5);
+      expect(statuses).toContain(OrderStatus.PENDING_PAYMENT);
+      expect(result['ordersByStatus']).toHaveLength(6);
       result['ordersByStatus'].forEach((s: { count: number }) =>
         expect(s.count).toBe(0),
       );
@@ -318,10 +433,6 @@ describe('DashboardService', () => {
         _avg: { totalPrice: 50 },
       });
       mockPrisma.order.groupBy.mockResolvedValue([]);
-      // Return an order so revenueTrend loop body runs (getRevenueTrend still uses findMany)
-      mockPrisma.order.findMany.mockResolvedValue([
-        { createdAt: new Date(), totalPrice: 50, tableId: 'table-1' },
-      ]);
       // Phase B: spy on new private methods to prevent $queryRaw chaining races
       service['getStaffPerformance'] = jest.fn().mockResolvedValue([]);
       service['getCustomerMetrics'] = jest.fn().mockResolvedValue({
@@ -345,19 +456,26 @@ describe('DashboardService', () => {
       service['getTableTurnover'] = jest.fn().mockResolvedValue([]);
       service['getMenuProfitability'] = jest.fn().mockResolvedValue({
         items: [],
-        summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+        summary: {
+          totalCost: 0,
+          totalProfit: 0,
+          overallMargin: 0,
+          missingCostItems: 0,
+        },
       });
       service['getGrossProfit'] = jest.fn().mockResolvedValue({
-        collectedRevenue: 0,
+        netSales: 0,
         estimatedCOGS: 0,
         grossProfit: 0,
         grossMargin: 0,
+        missingCostItems: 0,
       });
-      // getTopItems, getPeakHours, getCategoryBreakdown, getOrdersByTable now use $queryRaw (Issue 44)
+      const today = DateTime.now().setZone('Europe/Sofia').toISODate();
       mockPrisma.$queryRaw
-        .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }]) // getTopItems
-        .mockResolvedValueOnce([]) // getPeakHours
-        .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }]) // getCategoryBreakdown
+        .mockResolvedValueOnce([{ date: today, orders: 1, revenue: 50 }])
+        .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }])
         .mockResolvedValueOnce([
           {
             table_id: 'table-1',
@@ -389,6 +507,21 @@ describe('DashboardService', () => {
       expect(result['categoryBreakdown'][0].category).toBe('Food');
     });
 
+    it('passes the dashboard language to localized aggregate queries', async () => {
+      await service.getAnalytics(
+        'rest-localized',
+        7,
+        undefined,
+        undefined,
+        true,
+        'en',
+      );
+
+      expect(
+        mockPrisma.$queryRaw.mock.calls.some((call) => call.includes('en')),
+      ).toBe(true);
+    });
+
     it('populates ordersByTable when orders with tableId exist', async () => {
       const result = (await service.getAnalytics(
         'rest-1',
@@ -399,10 +532,12 @@ describe('DashboardService', () => {
       expect(result['ordersByTable'][0].table).toBe('Table 1');
     });
 
-    it('falls back to "Unknown Table" when table_name is null and no restaurant_table match', async () => {
-      // Re-mock getOrdersByTable query: null table_name
+    it('returns an empty table label for the localized UI fallback', async () => {
+      // Re-mock getOrdersByTable query: null table_name.
+      const today = DateTime.now().setZone('Europe/Sofia').toISODate();
       mockPrisma.$queryRaw.mockReset();
       mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ date: today, orders: 1, revenue: 50 }])
         .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }])
@@ -416,18 +551,249 @@ describe('DashboardService', () => {
       )) as AnalyticsResult;
 
       expect(result['ordersByTable']).toHaveLength(1);
-      expect(result['ordersByTable'][0].table).toBe('Unknown Table');
+      expect(result['ordersByTable'][0].table).toBe('');
     });
 
-    it('calls order.findMany and returns non-empty revenueTrend array', async () => {
+    it('returns a complete SQL-aggregated revenue trend', async () => {
       const result = (await service.getAnalytics(
         'rest-1',
         7,
       )) as AnalyticsResult;
 
-      expect(mockPrisma.order.findMany).toHaveBeenCalled();
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
       expect(Array.isArray(result['revenueTrend'])).toBe(true);
       expect(result['revenueTrend'].length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('analytics card data contracts', () => {
+    const start = new Date('2026-07-01T00:00:00.000Z');
+    const end = new Date('2026-07-15T00:00:00.000Z');
+
+    it('uses the order-item price snapshot for historical item revenue', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+
+      await service['getTopItems']('rest-1', start, end, 'en');
+
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0].join(' ');
+      expect(sql).toContain('oi."unitPriceWithOptions" * oi.quantity');
+      expect(sql).not.toContain('NULLIF(oi."unitPriceWithOptions", 0)');
+      expect(sql).toContain('LEFT JOIN menu_item');
+      expect(sql).toContain('MIN(oi."itemName")');
+      expect(sql).not.toContain('oi."menuItemId" IS NOT NULL');
+    });
+
+    it('keeps deleted items in category revenue as uncategorized', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+
+      await service['getCategoryBreakdown']('rest-1', start, end, 'en');
+
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0].join(' ');
+      expect(sql).toContain('LEFT JOIN menu_item');
+      expect(sql).not.toContain('oi."menuItemId" IS NOT NULL');
+    });
+
+    it('reconciles gross sales, tips, and successful refunds on compatible bases', async () => {
+      mockPrisma.payment.aggregate.mockResolvedValueOnce({
+        _sum: { amount: 110, tipAmount: 10 },
+      });
+      mockPrisma.payment.groupBy.mockResolvedValueOnce([
+        { provider: 'STRIPE', _sum: { amount: 110, tipAmount: 10 } },
+      ]);
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        { grossAmount: 22, salesAmount: 20 },
+      ]);
+
+      const result = await service['getPaymentTotals']('rest-1', start, end);
+
+      expect(result).toEqual({
+        collectedRevenue: 100,
+        refundedAmount: 20,
+        paymentsByMethod: [{ method: 'STRIPE', amount: 100 }],
+      });
+      expect(mockPrisma.payment.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ['SUCCEEDED', 'REFUNDED'] },
+          }),
+        }),
+      );
+      const refundSql = mockPrisma.$queryRaw.mock.calls[0][0].join(' ');
+      expect(refundSql).toContain('FROM refund_attempt');
+      expect(refundSql).toContain('ra."updatedAt"');
+    });
+
+    it('uses the same order cohort for net sales and estimated COGS', async () => {
+      mockPrisma.order.aggregate.mockResolvedValueOnce({
+        _sum: { totalPrice: 120 },
+      });
+      mockPrisma.$queryRaw.mockResolvedValueOnce([{ totalCost: 40 }]);
+
+      const result = await service['getGrossProfit']('rest-1', start, end);
+
+      expect(result).toEqual({
+        netSales: 120,
+        estimatedCOGS: 40,
+        grossProfit: 80,
+        grossMargin: 66.7,
+        missingCostItems: 0,
+      });
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { not: OrderStatus.CANCELED },
+            createdAt: { gte: start, lte: end },
+          }),
+        }),
+      );
+    });
+
+    it('excludes uncosted items from profitability and reports the coverage gap', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        {
+          menuItemId: 'costed',
+          item_name: 'Costed item',
+          quantity: 2,
+          revenue: 20,
+          totalCost: 8,
+          costPrice: 4,
+        },
+        {
+          menuItemId: 'missing',
+          item_name: 'Missing cost',
+          quantity: 1,
+          revenue: 10,
+          totalCost: 0,
+          costPrice: 0,
+        },
+      ]);
+
+      const result = await service['getMenuProfitability'](
+        'rest-1',
+        start,
+        end,
+        'en',
+      );
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].name).toBe('Costed item');
+      expect(result.summary).toEqual({
+        totalCost: 8,
+        totalProfit: 12,
+        overallMargin: 60,
+        missingCostItems: 1,
+      });
+    });
+
+    it('orders table yield by revenue', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+
+      await service['getOrdersByTable']('rest-1', start, end);
+
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0].join(' ');
+      expect(sql).toContain('ORDER BY SUM(co."totalPrice") DESC');
+      expect(sql).toContain('co."servicePointType" = \'TABLE\'');
+    });
+
+    it('does not multiply staff orders through payment joins', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        {
+          staffUserId: 'staff-1',
+          staffName: 'Ana',
+          totalOrders: 2,
+          totalRevenue: 40,
+          avgOrderValue: 20,
+          posOrders: 1,
+          qrOrders: 1,
+        },
+      ]);
+
+      const rows = await service['getStaffPerformance']('rest-1', start, end);
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0].join(' ');
+
+      expect(rows[0].totalOrders).toBe(2);
+      expect(sql).not.toContain('JOIN payment');
+    });
+
+    it('calculates table revenue per occupied hour from total duration', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        {
+          tableId: 'table-1',
+          tableName: '1',
+          sessionCount: 2,
+          avgDurationMinutes: 60,
+          totalDurationMinutes: 120,
+          totalRevenue: 200,
+        },
+      ]);
+
+      const rows = await service['getTableTurnover']('rest-1', start, end);
+      const sql = mockPrisma.$queryRaw.mock.calls[0][0].join(' ');
+
+      expect(rows[0].sessionCount).toBe(2);
+      expect(rows[0].revenuePerOccupiedHour).toBe(100);
+      expect(rows[0].estimatedTurnsPer24Hours).toBe(24);
+      expect(sql).toContain('SUM(amount - "tipAmount")');
+      expect(sql).toContain('ts."isServicePoint" = false');
+    });
+
+    it('uses lifetime history for churn and CLV while ranking the selected period', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-15T00:00:00.000Z'));
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        {
+          phone: '+3591',
+          name: 'Ana',
+          periodSpend: 50,
+          periodVisits: 2,
+          lifetimeSpend: 100,
+          lifetimeVisits: 4,
+          lastVisit: new Date('2026-06-01T00:00:00.000Z'),
+        },
+      ]);
+
+      try {
+        const result = await service['getCustomerMetrics'](
+          'rest-1',
+          start,
+          end,
+          'Europe/Sofia',
+        );
+
+        expect(result.topCustomers[0].totalSpend).toBe(50);
+        expect(result.averageClv).toBe(100);
+        expect(result.churnRiskCount).toBe(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('measures churn in restaurant calendar days across local midnight', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-15T21:30:00.000Z'));
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        {
+          phone: '+3592',
+          name: 'Boris',
+          periodSpend: 10,
+          periodVisits: 1,
+          lifetimeSpend: 10,
+          lifetimeVisits: 1,
+          lastVisit: new Date('2026-06-16T20:30:00.000Z'),
+        },
+      ]);
+
+      try {
+        const result = await service['getCustomerMetrics'](
+          'rest-1',
+          start,
+          end,
+          'Europe/Sofia',
+        );
+
+        expect(result.topCustomers[0].daysSinceLastVisit).toBe(30);
+        expect(result.churnRiskCount).toBe(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -435,7 +801,7 @@ describe('DashboardService', () => {
     beforeEach(() => {
       mockViews.isReady.mockReturnValue(true);
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        timezone: 'Europe/Sofia',
+        timezone: 'UTC',
       });
       mockPrisma.$queryRaw.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue({
@@ -473,13 +839,19 @@ describe('DashboardService', () => {
       service['getTableTurnover'] = jest.fn().mockResolvedValue([]);
       service['getMenuProfitability'] = jest.fn().mockResolvedValue({
         items: [],
-        summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+        summary: {
+          totalCost: 0,
+          totalProfit: 0,
+          overallMargin: 0,
+          missingCostItems: 0,
+        },
       });
       service['getGrossProfit'] = jest.fn().mockResolvedValue({
-        collectedRevenue: 0,
+        netSales: 0,
         estimatedCOGS: 0,
         grossProfit: 0,
         grossMargin: 0,
+        missingCostItems: 0,
       });
     });
 
@@ -487,10 +859,25 @@ describe('DashboardService', () => {
       mockViews.isReady.mockReturnValue(false);
     });
 
-    it('calls $queryRaw five times (3 view + 2 non-view: categoryBreakdown, ordersByTable)', async () => {
+    it('bypasses UTC-day views for a restaurant in a non-UTC timezone', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
+      const directTrend = jest
+        .spyOn(service as any, 'getRevenueTrend')
+        .mockResolvedValue([]);
+      const viewTrend = jest.spyOn(service as any, 'getRevenueTrendFromView');
+
+      await service.getAnalytics('rest-local-time', 7);
+
+      expect(directTrend).toHaveBeenCalled();
+      expect(viewTrend).not.toHaveBeenCalled();
+    });
+
+    it('calls $queryRaw for 3 views plus category, table, and refund aggregates', async () => {
       await service.getAnalytics('rest-1', 7);
 
-      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(5);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(6);
     });
 
     it('maps revenue view rows to revenueTrend entries', async () => {
@@ -544,13 +931,19 @@ describe('DashboardService', () => {
       service['getTableTurnover'] = jest.fn().mockResolvedValue([]);
       service['getMenuProfitability'] = jest.fn().mockResolvedValue({
         items: [],
-        summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+        summary: {
+          totalCost: 0,
+          totalProfit: 0,
+          overallMargin: 0,
+          missingCostItems: 0,
+        },
       });
       service['getGrossProfit'] = jest.fn().mockResolvedValue({
-        collectedRevenue: 0,
+        netSales: 0,
         estimatedCOGS: 0,
         grossProfit: 0,
         grossMargin: 0,
+        missingCostItems: 0,
       });
       // Views path: $queryRaw called 5 times (3 view + categoryBreakdown + ordersByTable)
       mockPrisma.$queryRaw

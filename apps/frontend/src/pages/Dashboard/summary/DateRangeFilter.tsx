@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { DateRangePreset } from "../../../hooks/useSummaryDateRange";
 
 interface DateRangeFilterProps {
-  period: number;
+  period: DateRangePreset;
   startDate?: string;
   endDate?: string;
   label: string;
@@ -67,7 +67,7 @@ const CustomDateInput = ({
   );
 };
 
-const PRESET_DAYS: DateRangePreset[] = [7, 14, 30];
+const PRESET_DAYS: DateRangePreset[] = [1, 7, 14, 30];
 
 const DateRangeFilter = ({
   period,
@@ -115,38 +115,49 @@ const DateRangeFilter = ({
           {subtitle ?? label}
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        {PRESET_DAYS.map((days) => (
-          <button
-            key={days}
-            onClick={() => onPeriodChange(days)}
-            className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              period === days && !isCustomActive
-                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-            }`}
-          >
-            {days === 7
-              ? t("analytics.days7")
-              : days === 14
-                ? t("analytics.days14")
-                : t("analytics.days30")}
-          </button>
-        ))}
-        <div className="w-px h-5 bg-border mx-1" />
-        <CustomDateInput
-          value={draftStart}
-          max={draftEnd || undefined}
-          onChange={handleStartChange}
-          isCustomActive={isCustomActive}
-        />
-        <span className="text-[10px] text-muted-foreground">-</span>
-        <CustomDateInput
-          value={draftEnd}
-          min={draftStart || undefined}
-          onChange={handleEndChange}
-          isCustomActive={isCustomActive}
-        />
+      <div className="flex w-full flex-col gap-2 sm:w-auto lg:flex-row lg:items-center">
+        <div
+          className="grid grid-cols-4 gap-1 rounded-lg bg-secondary p-1"
+          role="group"
+          aria-label={t("analytics.datePresets", "Date presets")}
+        >
+          {PRESET_DAYS.map((days) => (
+            <button
+              key={days}
+              type="button"
+              onClick={() => onPeriodChange(days)}
+              aria-pressed={period === days && !isCustomActive}
+              className={`min-h-9 min-w-0 rounded-md px-2 text-[11px] font-bold uppercase transition-all cursor-pointer sm:px-3 ${
+                period === days && !isCustomActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+              }`}
+            >
+              {days === 1
+                ? t("analytics.today", "Today")
+                : days === 7
+                  ? t("analytics.days7")
+                  : days === 14
+                    ? t("analytics.days14")
+                    : t("analytics.days30")}
+            </button>
+          ))}
+        </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <CustomDateInput
+            value={draftStart}
+            max={draftEnd || undefined}
+            onChange={handleStartChange}
+            isCustomActive={isCustomActive}
+          />
+          <span className="text-[10px] text-muted-foreground">-</span>
+          <CustomDateInput
+            value={draftEnd}
+            min={draftStart || undefined}
+            onChange={handleEndChange}
+            isCustomActive={isCustomActive}
+          />
+        </div>
       </div>
     </div>
   );

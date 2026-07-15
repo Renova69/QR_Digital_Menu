@@ -460,6 +460,35 @@ describe('TablesService', () => {
       );
     });
 
+    it('excludes canceled orders from live table totals and customer names', async () => {
+      prisma.tableSession.findMany.mockResolvedValue([
+        {
+          id: 'sess-1',
+          tableId: 'table-1',
+          status: 'OPEN',
+          createdAt: new Date(),
+          orders: [
+            { customerName: 'Alice', totalPrice: 20, status: 'NEW' },
+            {
+              customerName: 'Canceled guest',
+              totalPrice: 99,
+              status: 'CANCELED',
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
+
+      expect(result[0].orderCount).toBe(1);
+      expect(result[0].totalAmount).toBe(20);
+      expect(result[0].customerNames).toEqual(['Alice']);
+    });
+
     it('returns waiting status for open session with no orders', async () => {
       const session = {
         id: 'sess-1',

@@ -25,15 +25,12 @@ export const dayPartKeyMap: Record<string, string> = {
 };
 
 export const orderStatusKeyMap: Record<string, string> = {
-  PENDING: "analytics.statusPending",
-  CONFIRMED: "analytics.statusConfirmed",
-  PREPARING: "analytics.statusPreparing",
-  READY: "analytics.statusReady",
-  SERVED: "analytics.statusServed",
-  COMPLETED: "analytics.statusCompleted",
-  DELIVERED: "analytics.statusDelivered",
-  CANCELED: "analytics.statusCanceled",
-  REJECTED: "analytics.statusRejected",
+  PENDING_PAYMENT: "orders.tabs.pendingPayment",
+  NEW: "orders.tabs.new",
+  IN_PROGRESS: "orders.tabs.inProgress",
+  SERVED: "orders.tabs.served",
+  COMPLETED: "orders.tabs.completed",
+  CANCELED: "orders.tabs.canceled",
 };
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {

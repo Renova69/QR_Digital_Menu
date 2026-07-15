@@ -37,9 +37,6 @@ export const StaffPerformancePanel = ({ rows }: { rows: any[] }) => {
                 <th className="text-right py-2 px-2 font-bold uppercase tracking-widest">
                   {t("analytics.qrOrders", "QR")}
                 </th>
-                <th className="text-right py-2 pl-2 font-bold uppercase tracking-widest">
-                  {t("analytics.totalTips", "Tips")}
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -49,7 +46,8 @@ export const StaffPerformancePanel = ({ rows }: { rows: any[] }) => {
                   className="border-b border-border/30 hover:bg-muted/40"
                 >
                   <td className="py-2 pr-3 font-semibold text-foreground">
-                    {s.staffName}
+                    {s.staffName ||
+                      t("analytics.unknownStaff", "Unknown staff")}
                   </td>
                   <td className="text-right py-2 px-2 tabular-nums">
                     {s.totalOrders}
@@ -65,9 +63,6 @@ export const StaffPerformancePanel = ({ rows }: { rows: any[] }) => {
                   </td>
                   <td className="text-right py-2 px-2 tabular-nums">
                     {s.qrOrders}
-                  </td>
-                  <td className="text-right py-2 pl-2 tabular-nums font-mono">
-                    {formatEuro(s.totalTips)}
                   </td>
                 </tr>
               ))}
@@ -298,13 +293,16 @@ export const TableTurnoverPanel = ({ tables }: { tables: any[] }) => {
                   {t("analytics.avgDuration", "Avg Duration")}
                 </th>
                 <th className="text-right py-2 px-2 font-bold uppercase tracking-widest">
-                  {t("analytics.turnsPerDay", "Est. Turns/Day")}
+                  {t("analytics.turnsPer24Hours", "Est. max turns / 24h")}
                 </th>
                 <th className="text-right py-2 px-2 font-bold uppercase tracking-widest">
                   {t("analytics.tableRevenue", "Revenue")}
                 </th>
                 <th className="text-right py-2 pl-2 font-bold uppercase tracking-widest">
-                  {t("analytics.revPASH", "RevPASH")}
+                  {t(
+                    "analytics.revenuePerOccupiedHour",
+                    "Revenue / occupied hour",
+                  )}
                 </th>
               </tr>
             </thead>
@@ -315,7 +313,8 @@ export const TableTurnoverPanel = ({ tables }: { tables: any[] }) => {
                   className="border-b border-border/30 hover:bg-muted/40"
                 >
                   <td className="py-2 pr-3 font-semibold text-foreground">
-                    {tbl.tableName}
+                    {tbl.tableName ||
+                      t("dashboard.unknownTable", "Unknown table")}
                   </td>
                   <td className="text-right py-2 px-2 tabular-nums">
                     {tbl.sessionCount}
@@ -324,13 +323,13 @@ export const TableTurnoverPanel = ({ tables }: { tables: any[] }) => {
                     {tbl.avgDurationMinutes}m
                   </td>
                   <td className="text-right py-2 px-2 tabular-nums">
-                    {tbl.estimatedTurnsPerDay}
+                    {tbl.estimatedTurnsPer24Hours}
                   </td>
                   <td className="text-right py-2 px-2 tabular-nums font-mono">
                     {formatEuro(tbl.totalRevenue)}
                   </td>
                   <td className="text-right py-2 pl-2 tabular-nums font-mono font-bold">
-                    {formatEuro(tbl.revPASH)}
+                    {formatEuro(tbl.revenuePerOccupiedHour)}
                   </td>
                 </tr>
               ))}

@@ -2282,6 +2282,38 @@ describe('OrdersService', () => {
       expect(result.data[0].status).toBe('PENDING_PAYMENT');
     });
 
+    it('applies dashboard presets in the restaurant timezone', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-15T10:30:00.000Z'));
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      prisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
+      prisma.order.findMany.mockResolvedValue([]);
+      prisma.order.count.mockResolvedValue(0);
+
+      try {
+        await service.findAll('staff-1', {
+          restaurantId: 'rest-1',
+          period: 1,
+          page: 1,
+          limit: 50,
+        });
+
+        expect(prisma.order.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              createdAt: {
+                gte: new Date('2026-07-14T21:00:00.000Z'),
+                lte: new Date('2026-07-15T10:30:00.000Z'),
+              },
+            }),
+          }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('uses default page=1 and limit=50 for NaN pagination', async () => {
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
       prisma.order.findMany.mockResolvedValue([]);

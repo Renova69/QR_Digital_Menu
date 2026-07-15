@@ -3,10 +3,12 @@ import {
   IsEnum,
   IsArray,
   IsDateString,
+  IsIn,
+  IsInt,
   IsString,
   MaxLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { OrderStatus } from '@prisma/client';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -35,4 +37,10 @@ export class OrderQueryDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([1, 7, 14, 30])
+  period?: number;
 }

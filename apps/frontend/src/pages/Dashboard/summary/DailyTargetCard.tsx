@@ -11,7 +11,7 @@ interface DailyTargetCardProps {
 }
 
 /**
- * Daily revenue goal with a live progress bar (today's collected revenue vs.
+ * Daily revenue goal with a live progress bar (today's ordered revenue vs.
  * the owner-set target). Owner/manager can set or edit the goal inline. Render
  * only inside an ANALYTICS_BASIC-gated block — the endpoint is STARTER+.
  */

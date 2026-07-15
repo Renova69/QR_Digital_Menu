@@ -6,9 +6,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardViewsService } from './dashboard-views.service';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
-import { buildRestaurantDateRange } from '../common/restaurant-date-range';
+import {
+  buildRestaurantDateRange,
+  buildRestaurantPresetDateRange,
+} from '../common/restaurant-date-range';
 
 // Upper bound for the createdAt→updatedAt prep-time estimate (kitchen efficiency).
 // Orders idle past this are treated as stale/edited, not real prep time.
@@ -108,12 +111,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     startDateStr?: string,
     endDateStr?: string,
     includePremium = true,
+    language?: string,
   ) {
     // The 7 premium (ANALYTICS_FULL) metrics below are stripped by the
     // controller for STARTER. Skip computing them when the caller lacks FULL so
     // a basic-tier request doesn't pay for raw SQL joins + a full-range order
     // scan it will never see.
-    const cacheKey = `${restaurantId}:${period}:${startDateStr ?? ''}:${endDateStr ?? ''}:${includePremium ? 'full' : 'basic'}`;
+    const cacheKey = `${restaurantId}:${period}:${startDateStr ?? ''}:${endDateStr ?? ''}:${includePremium ? 'full' : 'basic'}:${language ?? 'source'}`;
     const cached = this.analyticsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
 
@@ -125,10 +129,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     let nowDateTime = DateTime.now().setZone(tz);
     let periodStartDateTime = nowDateTime
-      .minus({ days: period })
+      .minus({ days: Math.max(0, period - 1) })
       .startOf('day');
+    const hasCustomRange = !!(startDateStr && endDateStr);
 
-    if (startDateStr && endDateStr) {
+    if (hasCustomRange) {
       periodStartDateTime = DateTime.fromISO(startDateStr, {
         zone: tz,
       }).startOf('day');
@@ -137,11 +142,22 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     const now = nowDateTime.toJSDate();
     const periodStart = periodStartDateTime.toJSDate();
-    const timeDeltaMs = now.getTime() - periodStart.getTime();
-    const prevPeriodStart = new Date(periodStart.getTime() - timeDeltaMs);
-    const prevPeriodEnd = new Date(periodStart.getTime() - 1);
+    let prevPeriodStart: Date;
+    let prevPeriodEnd: Date;
 
-    const useViews = this.views.isReady();
+    if (hasCustomRange) {
+      const timeDeltaMs = now.getTime() - periodStart.getTime();
+      prevPeriodEnd = new Date(periodStart.getTime() - 1);
+      prevPeriodStart = new Date(prevPeriodEnd.getTime() - timeDeltaMs);
+    } else {
+      prevPeriodStart = periodStartDateTime.minus({ days: period }).toJSDate();
+      prevPeriodEnd = nowDateTime.minus({ days: period }).toJSDate();
+    }
+
+    // UTC-day materialized views cannot represent a partial local "Today" or
+    // exact custom-day boundary. Use direct range queries for those windows.
+    const useViews =
+      this.views.isReady() && tz === 'UTC' && period !== 1 && !hasCustomRange;
     const [
       revenueTrend,
       topItems,
@@ -151,8 +167,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       ordersByStatus,
       categoryBreakdown,
       ordersByTable,
-      currentNewCustomers,
-      previousNewCustomers,
+      currentActiveCustomers,
+      previousActiveCustomers,
       paymentTotals,
       repeatCustomerRate,
       staffPerformance,
@@ -167,37 +183,37 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         ? this.getRevenueTrendFromView(restaurantId, periodStart, now, tz)
         : this.getRevenueTrend(restaurantId, periodStart, now, tz),
       useViews
-        ? this.getTopItemsFromView(restaurantId, periodStart, now)
-        : this.getTopItems(restaurantId, periodStart, now),
+        ? this.getTopItemsFromView(restaurantId, periodStart, now, language)
+        : this.getTopItems(restaurantId, periodStart, now, language),
       useViews
         ? this.getPeakHoursFromView(restaurantId, periodStart, now, tz)
         : this.getPeakHours(restaurantId, periodStart, now, tz),
       this.getPeriodStats(restaurantId, periodStart, now),
       this.getPeriodStats(restaurantId, prevPeriodStart, prevPeriodEnd),
       this.getOrdersByStatus(restaurantId, periodStart, now),
-      this.getCategoryBreakdown(restaurantId, periodStart, now),
+      this.getCategoryBreakdown(restaurantId, periodStart, now, language),
       this.getOrdersByTable(restaurantId, periodStart, now),
-      this.getNewCustomers(restaurantId, periodStart, now),
-      this.getNewCustomers(restaurantId, prevPeriodStart, prevPeriodEnd),
+      this.getActiveCustomers(restaurantId, periodStart, now),
+      this.getActiveCustomers(restaurantId, prevPeriodStart, prevPeriodEnd),
       this.getPaymentTotals(restaurantId, periodStart, now),
       this.getRepeatCustomerRate(restaurantId, periodStart, now),
       includePremium
         ? this.getStaffPerformance(restaurantId, periodStart, now)
         : undefined,
       includePremium
-        ? this.getCustomerMetrics(restaurantId, periodStart, now)
+        ? this.getCustomerMetrics(restaurantId, periodStart, now, tz)
         : undefined,
       includePremium
         ? this.getKitchenEfficiency(restaurantId, periodStart, now, tz)
         : undefined,
       includePremium
-        ? this.getCancelAnalytics(restaurantId, periodStart, now, tz)
+        ? this.getCancelAnalytics(restaurantId, periodStart, now, tz, language)
         : undefined,
       includePremium
         ? this.getTableTurnover(restaurantId, periodStart, now)
         : undefined,
       includePremium
-        ? this.getMenuProfitability(restaurantId, periodStart, now)
+        ? this.getMenuProfitability(restaurantId, periodStart, now, language)
         : undefined,
       includePremium
         ? this.getGrossProfit(restaurantId, periodStart, now)
@@ -223,12 +239,12 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           ? 100
           : 0;
 
-    const newCustomersChange =
-      previousNewCustomers > 0
-        ? ((currentNewCustomers - previousNewCustomers) /
-            previousNewCustomers) *
+    const activeCustomersChange =
+      previousActiveCustomers > 0
+        ? ((currentActiveCustomers - previousActiveCustomers) /
+            previousActiveCustomers) *
           100
-        : currentNewCustomers > 0
+        : currentActiveCustomers > 0
           ? 100
           : 0;
 
@@ -237,10 +253,12 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     // rate (not the near-empty SERVED snapshot) is the real fulfillment KPI.
     const completedOrders =
       ordersByStatus.find((s) => s.status === 'COMPLETED')?.count || 0;
+    const observedOrders = ordersByStatus.reduce(
+      (total, status) => total + status.count,
+      0,
+    );
     const completionRate =
-      currentPeriodStats.totalOrders > 0
-        ? (completedOrders / currentPeriodStats.totalOrders) * 100
-        : 0;
+      observedOrders > 0 ? (completedOrders / observedOrders) * 100 : 0;
 
     const avgOrderValueChange =
       previousPeriodStats.avgOrderValue > 0
@@ -266,7 +284,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       refundedAmount: paymentTotals.refundedAmount,
       paymentsByMethod: paymentTotals.paymentsByMethod,
       totalOrders: currentPeriodStats.totalOrders,
-      newCustomers: currentNewCustomers,
+      activeCustomers: currentActiveCustomers,
       repeatCustomerRate,
       avgOrderValue: currentPeriodStats.avgOrderValue,
       completionRate: Math.round(completionRate * 10) / 10,
@@ -293,10 +311,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
             : currentPeriodStats.totalOrders > 0
               ? 100
               : 0,
-        newCustomersChange:
-          previousNewCustomers > 0
-            ? Math.round(newCustomersChange * 10) / 10
-            : currentNewCustomers > 0
+        activeCustomersChange:
+          previousActiveCustomers > 0
+            ? Math.round(activeCustomersChange * 10) / 10
+            : currentActiveCustomers > 0
               ? 100
               : 0,
         avgOrderValueChange:
@@ -322,19 +340,19 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     end: Date,
     tz: string,
   ) {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        restaurantId,
-        status: { not: OrderStatus.CANCELED },
-        createdAt: { gte: start, lte: end },
-      },
-      select: {
-        totalPrice: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'asc' },
-      take: 50000,
-    });
+    type Row = { date: string; revenue: number; orders: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT TO_CHAR("createdAt" AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS date,
+             COALESCE(SUM("totalPrice"), 0)::float AS revenue,
+             COUNT(*)::int AS orders
+      FROM customer_order
+      WHERE "restaurantId" = ${restaurantId}
+        AND status != 'CANCELED'
+        AND "createdAt" >= ${start}
+        AND "createdAt" <= ${end}
+      GROUP BY date
+      ORDER BY date
+    `;
 
     const grouped: Record<
       string,
@@ -349,13 +367,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       current = current.plus({ days: 1 });
     }
 
-    for (const order of orders) {
-      const dateKey = DateTime.fromJSDate(order.createdAt, {
-        zone: tz,
-      }).toISODate()!;
-      if (grouped[dateKey]) {
-        grouped[dateKey].revenue += order.totalPrice;
-        grouped[dateKey].orders += 1;
+    for (const row of rows) {
+      if (grouped[row.date]) {
+        grouped[row.date].revenue += Number(row.revenue);
+        grouped[row.date].orders += row.orders;
       }
     }
 
@@ -365,21 +380,30 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
-  private async getTopItems(restaurantId: string, start: Date, end: Date) {
+  private async getTopItems(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+    language?: string,
+  ) {
     type Row = { name: string; quantity: number; revenue: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT mi.name,
+      SELECT COALESCE(
+               NULLIF(mi.translations #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
+               mi.name,
+               MIN(oi."itemName")
+             ) AS name,
              SUM(oi.quantity)::int                        AS quantity,
-             COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)::float AS revenue
+             COALESCE(SUM(oi."unitPriceWithOptions" * oi.quantity), 0)::float AS revenue
       FROM order_item oi
       JOIN customer_order o ON oi."orderId"    = o.id
-      JOIN menu_item     mi ON oi."menuItemId" = mi.id
+      LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
         AND o.status         != 'CANCELED'
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
-        AND oi."menuItemId" IS NOT NULL
-      GROUP BY oi."menuItemId", mi.name
+      GROUP BY COALESCE(oi."menuItemId", oi."itemName"),
+               oi."menuItemId", mi.name, mi.translations
       ORDER BY SUM(oi.quantity) DESC
       LIMIT 10
     `;
@@ -457,7 +481,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private async getNewCustomers(restaurantId: string, start: Date, end: Date) {
+  private async getActiveCustomers(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+  ) {
     const result = await this.prisma.order.groupBy({
       by: ['customerPhone'],
       _count: true,
@@ -494,45 +522,78 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     return distinct > 0 ? Math.round((repeat / distinct) * 1000) / 10 : 0;
   }
 
-  // Money actually collected vs reversed in the SAME window as ordered revenue,
-  // so the analytics page can reconcile "ordered" (order rows) against
-  // "collected" (payment rows). The two legitimately differ — unpaid/cash
-  // orders, refunds — and surfacing both prevents owner confusion.
+  // Refunds belong to the window in which they succeeded, not the original
+  // payment's creation window. The second branch preserves legacy refunds that
+  // predate RefundAttempt without double-counting current records.
+  private async getRefundTotals(restaurantId: string, start: Date, end: Date) {
+    type Row = { grossAmount: number; salesAmount: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      WITH successful_refunds AS (
+        SELECT ra.id AS "refundKey", ra.amount, p."tipAmount"
+        FROM refund_attempt ra
+        JOIN payment p ON p.id = ra."paymentId"
+        WHERE ra."restaurantId" = ${restaurantId}
+          AND ra.status = 'SUCCEEDED'
+          AND ra."updatedAt" >= ${start}
+          AND ra."updatedAt" <= ${end}
+
+        UNION ALL
+
+        SELECT p.id AS "refundKey", p.amount, p."tipAmount"
+        FROM payment p
+        WHERE p."restaurantId" = ${restaurantId}
+          AND p.status = 'REFUNDED'
+          AND p."updatedAt" >= ${start}
+          AND p."updatedAt" <= ${end}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM refund_attempt ra
+            WHERE ra."paymentId" = p.id AND ra.status = 'SUCCEEDED'
+          )
+      )
+      SELECT COALESCE(SUM(amount), 0)::float AS "grossAmount",
+             COALESCE(SUM(GREATEST(amount - "tipAmount", 0)), 0)::float AS "salesAmount"
+      FROM successful_refunds
+    `;
+
+    return {
+      grossAmount: Math.round(Number(rows?.[0]?.grossAmount ?? 0) * 100) / 100,
+      salesAmount: Math.round(Number(rows?.[0]?.salesAmount ?? 0) * 100) / 100,
+    };
+  }
+
   private async getPaymentTotals(restaurantId: string, start: Date, end: Date) {
     const [collected, refunded, byMethod] = await Promise.all([
       this.prisma.payment.aggregate({
-        _sum: { amount: true },
+        _sum: { amount: true, tipAmount: true },
         where: {
           restaurantId,
-          status: 'SUCCEEDED',
+          status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.REFUNDED] },
           createdAt: { gte: start, lte: end },
         },
       }),
-      this.prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: {
-          restaurantId,
-          status: 'REFUNDED',
-          createdAt: { gte: start, lte: end },
-        },
-      }),
+      this.getRefundTotals(restaurantId, start, end),
       this.prisma.payment.groupBy({
         by: ['provider'],
-        _sum: { amount: true },
+        _sum: { amount: true, tipAmount: true },
         where: {
           restaurantId,
-          status: 'SUCCEEDED',
+          status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.REFUNDED] },
           createdAt: { gte: start, lte: end },
         },
       }),
     ]);
+    const collectedSales =
+      (collected._sum.amount ?? 0) - (collected._sum.tipAmount ?? 0);
     return {
-      collectedRevenue: Math.round((collected._sum.amount || 0) * 100) / 100,
-      refundedAmount: Math.round((refunded._sum.amount || 0) * 100) / 100,
+      collectedRevenue: Math.round(collectedSales * 100) / 100,
+      refundedAmount: refunded.salesAmount,
       paymentsByMethod: byMethod
         .map((m) => ({
           method: m.provider,
-          amount: Math.round((m._sum.amount || 0) * 100) / 100,
+          amount:
+            Math.round(((m._sum.amount ?? 0) - (m._sum.tipAmount ?? 0)) * 100) /
+            100,
         }))
         .sort((a, b) => b.amount - a.amount),
     };
@@ -542,41 +603,49 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     restaurantId: string,
     startDateStr?: string,
     endDateStr?: string,
+    period?: number,
   ) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { timezone: true },
     });
-    const dateFilter = buildRestaurantDateRange(
-      startDateStr,
-      endDateStr,
-      restaurant?.timezone ?? 'UTC',
-    );
+    const timezone = restaurant?.timezone ?? 'UTC';
+    const dateFilter =
+      startDateStr || endDateStr
+        ? buildRestaurantDateRange(startDateStr, endDateStr, timezone)
+        : period
+          ? buildRestaurantPresetDateRange(period, timezone)
+          : {};
 
     const where = {
       restaurantId,
       ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
     };
 
+    const refundStart = dateFilter.gte ?? new Date(0);
+    const refundEnd = dateFilter.lte ?? new Date();
     const [collected, refunded, byMethod] = await Promise.all([
       this.prisma.payment.aggregate({
         _sum: { amount: true },
-        where: { ...where, status: 'SUCCEEDED' },
+        where: {
+          ...where,
+          status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.REFUNDED] },
+        },
       }),
-      this.prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: { ...where, status: 'REFUNDED' },
-      }),
+      this.getRefundTotals(restaurantId, refundStart, refundEnd),
       this.prisma.payment.groupBy({
         by: ['provider'],
         _sum: { amount: true },
-        where: { ...where, status: 'SUCCEEDED' },
+        where: {
+          ...where,
+          status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.REFUNDED] },
+        },
       }),
     ]);
 
     return {
       totalCollected: Math.round((collected._sum.amount || 0) * 100) / 100,
-      refundAmount: Math.round((refunded._sum.amount || 0) * 100) / 100,
+      refundAmount: refunded.grossAmount,
       byMethod: byMethod.map((m) => ({
         method: m.provider,
         amount: Math.round((m._sum.amount || 0) * 100) / 100,
@@ -602,6 +671,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       OrderStatus.SERVED,
       OrderStatus.COMPLETED,
       OrderStatus.CANCELED,
+      OrderStatus.PENDING_PAYMENT,
     ];
     return statuses.map((status) => ({
       status,
@@ -613,22 +683,26 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     restaurantId: string,
     start: Date,
     end: Date,
+    language?: string,
   ) {
     type Row = { category: string; revenue: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT COALESCE(mc.name, 'Uncategorized')              AS category,
-             COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)::float AS revenue
+      SELECT COALESCE(
+               NULLIF(mc.translations #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
+               mc.name,
+               ''
+             ) AS category,
+             COALESCE(SUM(oi."unitPriceWithOptions" * oi.quantity), 0)::float AS revenue
       FROM order_item oi
       JOIN customer_order  o  ON oi."orderId"    = o.id
-      JOIN menu_item       mi ON oi."menuItemId" = mi.id
+       LEFT JOIN menu_item  mi ON oi."menuItemId" = mi.id
       LEFT JOIN menu_category mc ON mi."categoryId" = mc.id
       WHERE o."restaurantId" = ${restaurantId}
         AND o.status         != 'CANCELED'
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
-        AND oi."menuItemId" IS NOT NULL
-      GROUP BY mc.name
-      ORDER BY SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity) DESC
+      GROUP BY mc.id, mc.name, mc.translations
+      ORDER BY SUM(oi."unitPriceWithOptions" * oi.quantity) DESC
     `;
     return rows.map((r) => ({
       category: r.category,
@@ -735,24 +809,31 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     restaurantId: string,
     start: Date,
     end: Date,
+    language?: string,
   ) {
     type Row = {
+      itemKey: string;
       menuItemId: string;
       item_name: string;
-      item_price: number;
       quantity: number;
       revenue: number;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT "menuItemId", item_name,
-             item_price::float AS item_price,
-             SUM(total_quantity)::int AS quantity,
-             SUM(total_revenue)::float AS revenue
-      FROM mv_item_stats
-      WHERE "restaurantId" = ${restaurantId}
-        AND day_utc >= ${start} AND day_utc <= ${end}
-      GROUP BY "menuItemId", item_name, item_price
-      ORDER BY SUM(total_quantity) DESC
+       SELECT stats."itemKey",
+              stats."menuItemId",
+             COALESCE(
+               NULLIF(mi.translations #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
+               mi.name,
+               stats.item_name
+             ) AS item_name,
+              SUM(stats.total_quantity)::int AS quantity,
+             SUM(stats.total_revenue)::float AS revenue
+      FROM mv_item_stats stats
+      LEFT JOIN menu_item mi ON stats."menuItemId" = mi.id
+      WHERE stats."restaurantId" = ${restaurantId}
+        AND stats.day_utc >= ${start} AND stats.day_utc <= ${end}
+       GROUP BY stats."itemKey", stats."menuItemId", stats.item_name, mi.name, mi.translations
+      ORDER BY SUM(stats.total_quantity) DESC
       LIMIT 10
     `;
 
@@ -783,12 +864,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         AND co."createdAt"   <= ${end}
         AND co."tableId"     IS NOT NULL
         AND co."tableId"     != ''
+        AND (co."servicePointType" IS NULL OR co."servicePointType" = 'TABLE')
       GROUP BY co."tableId"
-      ORDER BY COUNT(*) DESC
+      ORDER BY SUM(co."totalPrice") DESC
       LIMIT 10
     `;
     return rows.map((r) => ({
-      table: r.table_name || 'Unknown Table',
+      table: r.table_name || '',
       orders: r.orders,
       revenue: Math.round(Number(r.revenue) * 100) / 100,
     }));
@@ -809,7 +891,6 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       avgOrderValue: number;
       posOrders: number;
       qrOrders: number;
-      totalTips: number;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT
@@ -819,12 +900,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         COALESCE(SUM(o."totalPrice"), 0)::float AS "totalRevenue",
         COALESCE(AVG(o."totalPrice"), 0)::float AS "avgOrderValue",
         COUNT(*) FILTER (WHERE o.source = 'POS')::int AS "posOrders",
-        COUNT(*) FILTER (WHERE o.source = 'CUSTOMER')::int AS "qrOrders",
-        COALESCE(SUM(p."tipAmount"), 0)::float AS "totalTips"
+        COUNT(*) FILTER (WHERE o.source = 'CUSTOMER')::int AS "qrOrders"
       FROM customer_order o
       LEFT JOIN app_user u ON o."staffUserId" = u.id
-      LEFT JOIN table_session ts ON o."tableSessionId" = ts.id
-      LEFT JOIN payment p ON p."tableSessionId" = ts.id AND p.status = 'SUCCEEDED'
       WHERE o."restaurantId" = ${restaurantId}
         AND o.status != 'CANCELED'
         AND o."createdAt" >= ${start}
@@ -841,7 +919,6 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       avgOrderValue: Math.round(Number(r.avgOrderValue) * 100) / 100,
       posOrders: r.posOrders,
       qrOrders: r.qrOrders,
-      totalTips: Math.round(Number(r.totalTips) * 100) / 100,
     }));
   }
 
@@ -851,46 +928,81 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     restaurantId: string,
     start: Date,
     end: Date,
+    tz: string,
   ) {
     // Aggregate per customer in SQL (one row per phone, not one per order) so a
     // busy restaurant's full-range order history never lands in Node memory.
     type Row = {
       phone: string;
       name: string | null;
-      spend: number;
-      visits: number;
+      periodSpend: number;
+      periodVisits: number;
+      lifetimeSpend: number;
+      lifetimeVisits: number;
       lastVisit: Date;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT
-        "customerPhone" AS phone,
-        MAX("customerName") AS name,
-        COALESCE(SUM("totalPrice"), 0)::float AS spend,
-        COUNT(*)::int AS visits,
-        MAX("createdAt") AS "lastVisit"
-      FROM customer_order
-      WHERE "restaurantId" = ${restaurantId}
-        AND "customerPhone" IS NOT NULL
-        AND "customerPhone" <> ''
-        AND status != 'CANCELED'
-        AND "createdAt" >= ${start}
-        AND "createdAt" <= ${end}
-      GROUP BY "customerPhone"
-      ORDER BY spend DESC
+      WITH lifetime AS (
+        SELECT "customerPhone" AS phone,
+               MAX("customerName") AS name,
+               COALESCE(SUM("totalPrice"), 0)::float AS spend,
+               COUNT(*)::int AS visits,
+               MAX("createdAt") AS "lastVisit"
+        FROM customer_order
+        WHERE "restaurantId" = ${restaurantId}
+          AND "customerPhone" IS NOT NULL
+          AND "customerPhone" <> ''
+          AND status != 'CANCELED'
+        GROUP BY "customerPhone"
+      ), period AS (
+        SELECT "customerPhone" AS phone,
+               MAX("customerName") AS name,
+               COALESCE(SUM("totalPrice"), 0)::float AS spend,
+               COUNT(*)::int AS visits
+        FROM customer_order
+        WHERE "restaurantId" = ${restaurantId}
+          AND "customerPhone" IS NOT NULL
+          AND "customerPhone" <> ''
+          AND status != 'CANCELED'
+          AND "createdAt" >= ${start}
+          AND "createdAt" <= ${end}
+        GROUP BY "customerPhone"
+      )
+      SELECT lifetime.phone,
+             COALESCE(period.name, lifetime.name) AS name,
+             COALESCE(period.spend, 0)::float AS "periodSpend",
+             COALESCE(period.visits, 0)::int AS "periodVisits",
+             lifetime.spend::float AS "lifetimeSpend",
+             lifetime.visits::int AS "lifetimeVisits",
+             lifetime."lastVisit"
+      FROM lifetime
+      LEFT JOIN period ON period.phone = lifetime.phone
+      ORDER BY "periodSpend" DESC
     `;
 
-    const now = new Date();
+    const today = DateTime.now().setZone(tz).startOf('day');
     const all = rows.map((r) => {
-      const spend = Number(r.spend);
+      const periodSpend = Number(r.periodSpend);
       return {
         customerPhone: r.phone,
         customerName: r.name || '',
-        totalSpend: Math.round(spend * 100) / 100,
-        visitCount: r.visits,
+        totalSpend: Math.round(periodSpend * 100) / 100,
+        visitCount: r.periodVisits,
         avgSpendPerVisit:
-          r.visits > 0 ? Math.round((spend / r.visits) * 100) / 100 : 0,
-        daysSinceLastVisit: Math.floor(
-          (now.getTime() - new Date(r.lastVisit).getTime()) / 86400000,
+          r.periodVisits > 0
+            ? Math.round((periodSpend / r.periodVisits) * 100) / 100
+            : 0,
+        lifetimeSpend: Math.round(Number(r.lifetimeSpend) * 100) / 100,
+        daysSinceLastVisit: Math.max(
+          0,
+          Math.floor(
+            today.diff(
+              DateTime.fromJSDate(new Date(r.lastVisit), { zone: tz }).startOf(
+                'day',
+              ),
+              'days',
+            ).days,
+          ),
         ),
       };
     });
@@ -905,13 +1017,15 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const churn90 = all.filter((c) => c.daysSinceLastVisit >= 90).length;
 
     return {
-      topCustomers: all.slice(0, 20),
+      topCustomers: all
+        .filter((customer) => customer.visitCount > 0)
+        .slice(0, 20),
       churnRiskCount: churn30 + churn60 + churn90,
       churnRiskBreakdown: { '30d': churn30, '60d': churn60, '90d+': churn90 },
       averageClv:
         all.length > 0
           ? Math.round(
-              (all.reduce((s, c) => s + c.totalSpend, 0) / all.length) * 100,
+              (all.reduce((s, c) => s + c.lifetimeSpend, 0) / all.length) * 100,
             ) / 100
           : 0,
     };
@@ -1001,6 +1115,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     start: Date,
     end: Date,
     tz: string,
+    language?: string,
   ) {
     type ItemRow = {
       menuItemId: string;
@@ -1010,18 +1125,22 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     };
     const byItem = await this.prisma.$queryRaw<ItemRow[]>`
       SELECT
-        oi."menuItemId",
-        mi.name AS "itemName",
+        COALESCE(oi."menuItemId", 'deleted:' || oi."itemName") AS "menuItemId",
+        COALESCE(
+          NULLIF(mi.translations #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
+          mi.name,
+          MIN(oi."itemName")
+        ) AS "itemName",
         SUM(oi.quantity)::int AS "totalQty",
         SUM(oi.quantity) FILTER (WHERE o.status = 'CANCELED')::int AS "canceledQty"
       FROM order_item oi
       JOIN customer_order o ON oi."orderId" = o.id
-      JOIN menu_item mi ON oi."menuItemId" = mi.id
+      LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
-        AND oi."menuItemId" IS NOT NULL
-      GROUP BY oi."menuItemId", mi.name
+      GROUP BY COALESCE(oi."menuItemId", oi."itemName"),
+               oi."menuItemId", mi.name, mi.translations
       HAVING SUM(oi.quantity) FILTER (WHERE o.status = 'CANCELED') > 0
       ORDER BY "canceledQty" DESC
       LIMIT 20
@@ -1080,30 +1199,47 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  // ── Table turnover / RevPASH ───────────────────────────────────────────────
+  // ── Table turnover / revenue per occupied table-hour ──────────────────────
 
   private async getTableTurnover(restaurantId: string, start: Date, end: Date) {
     type Row = {
       tableId: string;
-      tableName: string;
+      tableName: string | null;
       sessionCount: number;
       avgDurationMinutes: number;
+      totalDurationMinutes: number;
       totalRevenue: number;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
+      WITH payment_totals AS (
+        SELECT "tableSessionId",
+               COALESCE(SUM(amount - "tipAmount"), 0)::float AS revenue
+        FROM payment
+        WHERE "restaurantId" = ${restaurantId}
+          AND status = 'SUCCEEDED'
+          AND "tableSessionId" IS NOT NULL
+        GROUP BY "tableSessionId"
+      )
       SELECT
         ts."tableId",
-        COALESCE(MIN(rt.name), 'Unknown') AS "tableName",
+        MIN(rt.name) AS "tableName",
         COUNT(*)::int AS "sessionCount",
         COALESCE(
-          AVG(EXTRACT(EPOCH FROM (COALESCE(ts."paidAt", ts."createdAt") - ts."createdAt")) / 60),
+          AVG(EXTRACT(EPOCH FROM (ts."paidAt" - ts."createdAt")) / 60)
+            FILTER (WHERE ts."paidAt" IS NOT NULL),
           0
         )::float AS "avgDurationMinutes",
-        COALESCE(SUM(p.amount), 0)::float AS "totalRevenue"
+        COALESCE(
+          SUM(EXTRACT(EPOCH FROM (ts."paidAt" - ts."createdAt")) / 60)
+            FILTER (WHERE ts."paidAt" IS NOT NULL),
+          0
+        )::float AS "totalDurationMinutes",
+        COALESCE(SUM(payment_totals.revenue), 0)::float AS "totalRevenue"
       FROM table_session ts
       LEFT JOIN restaurant_table rt ON ts."tableId" = rt.id
-      LEFT JOIN payment p ON p."tableSessionId" = ts.id AND p.status = 'SUCCEEDED'
+      LEFT JOIN payment_totals ON payment_totals."tableSessionId" = ts.id
       WHERE ts."restaurantId" = ${restaurantId}
+        AND ts."isServicePoint" = false
         AND ts."createdAt" >= ${start}
         AND ts."createdAt" <= ${end}
       GROUP BY ts."tableId"
@@ -1112,19 +1248,22 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     return rows.map((r) => {
       const avgDur = Number(r.avgDurationMinutes);
+      const totalDuration = Number(r.totalDurationMinutes);
       const rev = Number(r.totalRevenue);
-      const revPASH =
-        avgDur > 0 ? Math.round((rev / (avgDur / 60)) * 100) / 100 : 0;
+      const revenuePerOccupiedHour =
+        totalDuration > 0
+          ? Math.round((rev / (totalDuration / 60)) * 100) / 100
+          : 0;
       const estimatedTurns =
         avgDur > 0 ? Math.round(((24 * 60) / avgDur) * 10) / 10 : 0;
       return {
         tableId: r.tableId,
-        tableName: r.tableName,
+        tableName: r.tableName ?? '',
         sessionCount: r.sessionCount,
         avgDurationMinutes: Math.round(avgDur * 10) / 10,
-        estimatedTurnsPerDay: estimatedTurns,
+        estimatedTurnsPer24Hours: estimatedTurns,
         totalRevenue: Math.round(rev * 100) / 100,
-        revPASH,
+        revenuePerOccupiedHour,
       };
     });
   }
@@ -1135,6 +1274,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     restaurantId: string,
     start: Date,
     end: Date,
+    language?: string,
   ) {
     type Row = {
       menuItemId: string;
@@ -1142,41 +1282,52 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       quantity: number;
       revenue: number;
       totalCost: number;
+      costPrice: number | null;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT
-        oi."menuItemId",
-        mi.name AS item_name,
+        COALESCE(oi."menuItemId", 'deleted:' || oi."itemName") AS "menuItemId",
+        COALESCE(
+          NULLIF(mi.translations #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
+          mi.name,
+          MIN(oi."itemName")
+        ) AS item_name,
         SUM(oi.quantity)::int AS quantity,
-        COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)::float AS revenue,
-        COALESCE(SUM(mi."costPrice" * oi.quantity), 0)::float AS "totalCost"
+        COALESCE(SUM(oi."unitPriceWithOptions" * oi.quantity), 0)::float AS revenue,
+        COALESCE(SUM(COALESCE(mi."costPrice", 0) * oi.quantity), 0)::float AS "totalCost",
+        mi."costPrice" AS "costPrice"
       FROM order_item oi
       JOIN customer_order o ON oi."orderId" = o.id
-      JOIN menu_item mi ON oi."menuItemId" = mi.id
+      LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
         AND o.status != 'CANCELED'
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
-        AND oi."menuItemId" IS NOT NULL
-      GROUP BY oi."menuItemId", mi.name, mi."costPrice"
+      GROUP BY COALESCE(oi."menuItemId", oi."itemName"),
+               oi."menuItemId", mi.name, mi.translations, mi."costPrice"
       ORDER BY SUM(oi.quantity) DESC
     `;
 
-    const items = rows.map((r) => {
-      const revenue = Number(r.revenue);
-      const cost = Number(r.totalCost);
-      const profit = revenue - cost;
-      const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
-      return {
-        menuItemId: r.menuItemId,
-        name: r.item_name,
-        quantity: r.quantity,
-        revenue: Math.round(revenue * 100) / 100,
-        cost: Math.round(cost * 100) / 100,
-        profit: Math.round(profit * 100) / 100,
-        margin: Math.round(margin * 10) / 10,
-      };
-    });
+    const missingCostItems = rows.filter(
+      (row) => Number(row.costPrice ?? 0) <= 0,
+    ).length;
+    const items = rows
+      .filter((row) => Number(row.costPrice ?? 0) > 0)
+      .map((r) => {
+        const revenue = Number(r.revenue);
+        const cost = Number(r.totalCost);
+        const profit = revenue - cost;
+        const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+        return {
+          menuItemId: r.menuItemId,
+          name: r.item_name,
+          quantity: Number(r.quantity),
+          revenue: Math.round(revenue * 100) / 100,
+          cost: Math.round(cost * 100) / 100,
+          profit: Math.round(profit * 100) / 100,
+          margin: Math.round(margin * 10) / 10,
+        };
+      });
 
     // Median-based quadrant classification (menu engineering matrix)
     const quantities = items.map((i) => i.quantity).sort((a, b) => a - b);
@@ -1211,6 +1362,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           totalRevenue > 0
             ? Math.round((totalProfit / totalRevenue) * 1000) / 10
             : 0,
+        missingCostItems,
       },
     };
   }
@@ -1218,47 +1370,47 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   // ── Gross profit ───────────────────────────────────────────────────────────
 
   private async getGrossProfit(restaurantId: string, start: Date, end: Date) {
-    const [collected, cogsResult] = await Promise.all([
-      this.prisma.payment.aggregate({
-        // payment.amount INCLUDES the tip — net out tipAmount so gross profit
-        // reflects sales, not tips (which are pass-through to staff).
-        _sum: { amount: true, tipAmount: true },
+    const [sales, cogsResult] = await Promise.all([
+      this.prisma.order.aggregate({
+        _sum: { totalPrice: true },
         where: {
           restaurantId,
-          status: 'SUCCEEDED',
+          status: { not: OrderStatus.CANCELED },
           createdAt: { gte: start, lte: end },
         },
       }),
-      this.prisma.$queryRaw<{ totalCost: number }[]>`
-        SELECT COALESCE(SUM(mi."costPrice" * oi.quantity), 0)::float AS "totalCost"
+      this.prisma.$queryRaw<{ totalCost: number; missingCostItems: number }[]>`
+        SELECT COALESCE(SUM(COALESCE(mi."costPrice", 0) * oi.quantity), 0)::float AS "totalCost",
+               (COUNT(DISTINCT COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"))
+                 FILTER (WHERE mi.id IS NULL OR COALESCE(mi."costPrice", 0) <= 0))::int
+                 AS "missingCostItems"
         FROM order_item oi
         JOIN customer_order o ON oi."orderId" = o.id
-        JOIN menu_item mi ON oi."menuItemId" = mi.id
+        LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
         WHERE o."restaurantId" = ${restaurantId}
           AND o.status != 'CANCELED'
           AND o."createdAt" >= ${start}
           AND o."createdAt" <= ${end}
-          AND oi."menuItemId" IS NOT NULL
       `,
     ]);
 
-    // Net sales = gross collected − tips. This is the revenue base for profit.
-    const collectedRevenue =
-      Math.round(
-        ((collected._sum.amount ?? 0) - (collected._sum.tipAmount ?? 0)) * 100,
-      ) / 100;
+    // Sales and COGS use the same non-canceled, order-created cohort.
+    const netSales = Math.round((sales._sum.totalPrice ?? 0) * 100) / 100;
     const estimatedCOGS =
       cogsResult.length > 0
         ? Math.round(Number(cogsResult[0].totalCost) * 100) / 100
         : 0;
-    const grossProfit =
-      Math.round((collectedRevenue - estimatedCOGS) * 100) / 100;
+    const grossProfit = Math.round((netSales - estimatedCOGS) * 100) / 100;
     const grossMargin =
-      collectedRevenue > 0
-        ? Math.round((grossProfit / collectedRevenue) * 1000) / 10
-        : 0;
+      netSales > 0 ? Math.round((grossProfit / netSales) * 1000) / 10 : 0;
 
-    return { collectedRevenue, estimatedCOGS, grossProfit, grossMargin };
+    return {
+      netSales,
+      estimatedCOGS,
+      grossProfit,
+      grossMargin,
+      missingCostItems: Number(cogsResult[0]?.missingCostItems ?? 0),
+    };
   }
 
   // ── Daily target ───────────────────────────────────────────────────────────
@@ -1346,7 +1498,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         _sum: { amount: true },
         where: {
           restaurantId,
-          status: 'SUCCEEDED',
+          status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.REFUNDED] },
           createdAt: { gte: start, lte: end },
         },
       }),
@@ -1354,7 +1506,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         _sum: { tipAmount: true },
         where: {
           restaurantId,
-          status: 'SUCCEEDED',
+          status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.REFUNDED] },
           createdAt: { gte: start, lte: end },
         },
       }),
@@ -1369,14 +1521,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           createdAt: { gte: start, lte: end },
         },
       }),
-      this.prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: {
-          restaurantId,
-          status: 'REFUNDED',
-          createdAt: { gte: start, lte: end },
-        },
-      }),
+      this.getRefundTotals(restaurantId, start, end),
       this.prisma.order.aggregate({
         _sum: { totalPrice: true },
         where: {
@@ -1407,8 +1552,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const totalTips = Math.round((tips._sum.tipAmount ?? 0) * 100) / 100;
     const orderedRevenue =
       Math.round((orders._sum.totalPrice ?? 0) * 100) / 100;
-    const pointsDiscount = orders._sum.pointsRedeemedForDiscount ?? 0;
-    const refundedAmount = Math.round((refunds._sum.amount ?? 0) * 100) / 100;
+    const discountPointsRedeemed = orders._sum.pointsRedeemedForDiscount ?? 0;
+    const refundedAmount = refunds.grossAmount;
     const canceledRevenue =
       Math.round((cancelled._sum.totalPrice ?? 0) * 100) / 100;
 
@@ -1421,16 +1566,14 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       totalCollected: collectedRevenue,
       totalTips,
       orderedRevenue,
-      pointsDiscount,
+      discountPointsRedeemed,
       refundedAmount,
       canceledRevenue,
-      // Net revenue belongs to the restaurant, so tips (pass-through to staff)
-      // are excluded. payment.amount INCLUDES the tip (see computeSessionBalance:
-      // paidSubtotal = Σ amount − tipAmount), so collectedRevenue is gross.
-      // collected (SUCCEEDED) and refunded (REFUNDED) are disjoint status sets and
-      // totalTips covers SUCCEEDED only — no double subtraction.
+      // Gross intake includes tips and payments later refunded. Net sales remove
+      // tips from intake and the sales portion of refunds completed on this day.
       netRevenue:
-        Math.round((collectedRevenue - totalTips - refundedAmount) * 100) / 100,
+        Math.round((collectedRevenue - totalTips - refunds.salesAmount) * 100) /
+        100,
       totalOrderCount: orderCount,
       canceledOrderCount: canceledCount,
     };

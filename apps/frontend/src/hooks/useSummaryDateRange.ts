@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export type DateRangePreset = 0 | 7 | 14 | 30;
+export type DateRangePreset = 0 | 1 | 7 | 14 | 30;
 
 export interface SummaryDateRange {
   period: DateRangePreset;
@@ -24,7 +24,7 @@ const formatDate = (dateStr: string, locale: string = "en-GB") => {
 
 export function useSummaryDateRange(): SummaryDateRange {
   const { t, i18n } = useTranslation();
-  const [period, setPeriodState] = useState<DateRangePreset>(30);
+  const [period, setPeriodState] = useState<DateRangePreset>(1);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
@@ -43,7 +43,9 @@ export function useSummaryDateRange(): SummaryDateRange {
   const label =
     startDate && endDate
       ? `${formatDate(startDate, i18n.language)} - ${formatDate(endDate, i18n.language)}`
-      : t(`analytics.days${period}`, `Last ${period} days`);
+      : period === 1
+        ? t("analytics.today", "Today")
+        : t(`analytics.days${period}`, `Last ${period} days`);
 
   return {
     period,

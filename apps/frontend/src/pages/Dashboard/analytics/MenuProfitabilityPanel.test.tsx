@@ -29,10 +29,13 @@ describe("MenuProfitabilityPanel", () => {
     render(
       <MenuProfitabilityPanel
         data={{
-          items: [
-            item({ menuItemId: "a", name: "Margherita", margin: 100, cost: 0 }),
-          ],
-          summary: { totalCost: 0, totalProfit: 0, overallMargin: 100 },
+          items: [],
+          summary: {
+            totalCost: 0,
+            totalProfit: 0,
+            overallMargin: 0,
+            missingCostItems: 1,
+          },
         }}
       />,
     );
@@ -52,7 +55,12 @@ describe("MenuProfitabilityPanel", () => {
             item({ menuItemId: "a", name: "Margherita", quadrant: "Star" }),
             item({ menuItemId: "b", name: "Tap Water", quadrant: "Dog" }),
           ],
-          summary: { totalCost: 8, totalProfit: 12, overallMargin: 60 },
+          summary: {
+            totalCost: 8,
+            totalProfit: 12,
+            overallMargin: 60,
+            missingCostItems: 0,
+          },
         }}
       />,
     );
@@ -64,5 +72,24 @@ describe("MenuProfitabilityPanel", () => {
     expect(screen.getAllByText("Margherita").length).toBeGreaterThan(0);
     // Cost hint absent
     expect(screen.queryByText(/Add item costs/i)).toBeNull();
+  });
+
+  it("warns when the matrix excludes sold items without cost data", () => {
+    render(
+      <MenuProfitabilityPanel
+        data={{
+          items: [item({ menuItemId: "a", name: "Costed item" })],
+          summary: {
+            totalCost: 4,
+            totalProfit: 6,
+            overallMargin: 60,
+            missingCostItems: 2,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("analytics.missingCostItems")).toBeTruthy();
+    expect(screen.getAllByText("Costed item").length).toBeGreaterThan(0);
   });
 });
