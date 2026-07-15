@@ -1299,6 +1299,7 @@ const PublicMenuPage = () => {
       <Footer
         restaurantName={menuMeta?.restaurant?.name ?? ""}
         address={menuMeta?.restaurant?.address}
+        city={menuMeta?.restaurant?.city}
         contactInfo={menuMeta?.restaurant?.contactInfo}
         websiteUrl={menuMeta?.restaurant?.websiteUrl}
         facebookUrl={menuMeta?.restaurant?.facebookUrl}

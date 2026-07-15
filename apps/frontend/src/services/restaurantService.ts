@@ -3,6 +3,7 @@ import api from "../lib/api";
 export interface Restaurant {
   id: string;
   name: string;
+  city?: string;
   country: string;
   ownerId: string;
   dashboardLanguage?: string;

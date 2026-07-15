@@ -63,6 +63,12 @@ const MENU_EDIT_KEYS = [
   "forms.rewardCustomPoints",
   "forms.rewardCustomHint",
 ];
+const GENERAL_SETTINGS_KEYS = [
+  "settings.city",
+  "settings.cityPlaceholder",
+  "settings.country",
+  "settings.countryPlaceholder",
+];
 const LOCALES_DIR = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../locales",
@@ -118,6 +124,19 @@ describe("menu edit locale bundles", () => {
       expect(MENU_EDIT_KEYS.filter((key) => !localizedKeys.has(key))).toEqual(
         [],
       );
+    },
+  );
+});
+
+describe("general settings locale bundles", () => {
+  it.each(DASHBOARD_LANGUAGES)(
+    "%s contains every restaurant location key",
+    (language) => {
+      const localizedKeys = new Set(flatten(readLocale(language)));
+
+      expect(
+        GENERAL_SETTINGS_KEYS.filter((key) => !localizedKeys.has(key)),
+      ).toEqual([]);
     },
   );
 });

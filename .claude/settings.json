@@ -38,6 +38,15 @@
             "command": "FP=$(node -e \"let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{try{console.log((JSON.parse(s).tool_input||{}).file_path||'')}catch{console.log('')}})\" 2>/dev/null || true); case \"$FP\" in *.ts|*.tsx|*.js|*.jsx|*.json|*.md|*.css) npx prettier --write \"$FP\" >/dev/null 2>&1 || true ;; esac"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=$(node -e \"let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{try{const d=JSON.parse(s);console.log((d.tool_input||d).command||'')}catch{console.log('')}})\" 2>/dev/null || true); case \"$CMD\" in *graphify\\ update*) node scripts/graphify-to-vault.js >&2 || true ;; esac"
+          }
+        ]
       }
     ],
     "Stop": [

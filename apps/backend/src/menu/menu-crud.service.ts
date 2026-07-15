@@ -362,6 +362,7 @@ export class MenuCrudService {
         websiteUrl: true,
         youtubeUrl: true,
         address: true,
+        city: true,
         contactInfo: true,
         loyaltyRedeemRate: true,
         isActive: true,
@@ -476,6 +477,7 @@ export class MenuCrudService {
         websiteUrl: true,
         youtubeUrl: true,
         address: true,
+        city: true,
         contactInfo: true,
         paymentsEnabled: true,
         isActive: true,
@@ -883,6 +885,7 @@ export class MenuCrudService {
       const weatherContexts = await this.weatherUpsellService.getContexts({
         city: location.city,
         country: location.country,
+        timezone: location.timezone,
       });
       for (const context of weatherContexts) activeContexts.add(context);
     } catch (error: unknown) {

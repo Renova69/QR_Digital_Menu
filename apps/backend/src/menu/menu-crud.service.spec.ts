@@ -71,6 +71,7 @@ const BASE_RESTAURANT = {
   themeCardColor: '#F5F5F5',
   targetLanguages: ['en', 'bg'],
   dashboardLanguage: 'bg',
+  city: 'Sofia',
   timezone: 'Europe/Sofia',
   defaultTheme: 'light',
   tier: 'FREE',
@@ -164,6 +165,7 @@ describe('MenuCrudService', () => {
       const result = await service.getPublicMenu('rest-1');
 
       expect(result).toHaveProperty('restaurant');
+      expect(result.restaurant).toMatchObject({ city: 'Sofia' });
       expect(result).toHaveProperty('categories');
     });
 
@@ -348,12 +350,18 @@ describe('MenuCrudService', () => {
       const result = await service.getPublicMenuMeta('rest-1');
 
       expect(result).toHaveProperty('restaurant');
-      expect(result.restaurant).toMatchObject({ dashboardLanguage: 'bg' });
+      expect(result.restaurant).toMatchObject({
+        dashboardLanguage: 'bg',
+        city: 'Sofia',
+      });
       expect(result).toHaveProperty('categories');
       expect(result.categories).toHaveLength(1);
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
-          select: expect.objectContaining({ dashboardLanguage: true }),
+          select: expect.objectContaining({
+            dashboardLanguage: true,
+            city: true,
+          }),
         }),
       );
     });
@@ -1010,6 +1018,7 @@ describe('MenuCrudService', () => {
         expect(mockWeatherUpsell.getContexts).toHaveBeenCalledWith({
           city: 'Sofia',
           country: 'Bulgaria',
+          timezone: 'UTC',
         });
         expect((result[0] as { id: string }).id).toBe('item-3');
       });

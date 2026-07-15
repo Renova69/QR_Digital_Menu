@@ -4,6 +4,7 @@ import React from "react";
 interface FooterProps {
   restaurantName: string;
   address?: string;
+  city?: string;
   contactInfo?: string;
   websiteUrl?: string;
   facebookUrl?: string;
@@ -63,6 +64,25 @@ function TikTokIcon() {
 const PHONE_RE =
   /(\+?[\d]{1,4}[\s]?)?(\(?\d{2,4}\)?[\s]?)?[\d]{2,4}[\s-]?[\d]{2,4}[\s-]?[\d]{2,6}/g;
 
+function formatLocation(address?: string, city?: string): string {
+  const street = address?.trim();
+  const locality = city?.trim();
+
+  if (!street) return locality ?? "";
+  if (!locality) return street;
+
+  const normalizedStreet = street.toLocaleLowerCase();
+  const normalizedLocality = locality.toLocaleLowerCase();
+  if (
+    normalizedStreet === normalizedLocality ||
+    normalizedStreet.endsWith(`, ${normalizedLocality}`)
+  ) {
+    return street;
+  }
+
+  return `${street}, ${locality}`;
+}
+
 function linkifyPhones(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -95,6 +115,7 @@ function linkifyPhones(text: string): React.ReactNode {
 export default function Footer({
   restaurantName,
   address,
+  city,
   contactInfo,
   websiteUrl,
   facebookUrl,
@@ -109,7 +130,8 @@ export default function Footer({
     tiktokUrl ||
     youtubeUrl
   );
-  const hasContact = !!(address || contactInfo);
+  const location = formatLocation(address, city);
+  const hasContact = !!(location || contactInfo);
 
   return (
     <footer className="mt-10 pb-8 px-3">
@@ -122,10 +144,10 @@ export default function Footer({
         {/* Location & Contact */}
         {hasContact && (
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
-            {address && (
+            {location && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                {address}
+                {location}
               </span>
             )}
             {contactInfo && (

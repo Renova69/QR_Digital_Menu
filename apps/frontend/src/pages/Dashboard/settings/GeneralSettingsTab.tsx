@@ -53,6 +53,8 @@ const GeneralSettingsTab: React.FC = () => {
   const { t } = useTranslation();
 
   const [restaurantName, setRestaurantName] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("Bulgaria");
   const [address, setAddress] = useState("");
   const [contactInfo, setContactInfo] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -79,6 +81,8 @@ const GeneralSettingsTab: React.FC = () => {
     ) {
       initializedRestaurantId.current = activeRestaurant.id;
       setRestaurantName(activeRestaurant.name || "");
+      setCity(activeRestaurant.city || "");
+      setCountry(activeRestaurant.country || "Bulgaria");
       setAddress(activeRestaurant.address || "");
       setContactInfo(activeRestaurant.contactInfo || "");
       setWebsiteUrl(activeRestaurant.websiteUrl || "");
@@ -100,6 +104,8 @@ const GeneralSettingsTab: React.FC = () => {
     try {
       await updateRestaurant(activeRestaurant.id, {
         name: restaurantName.trim() || undefined,
+        city: city.trim() || null,
+        country: country.trim() || "Bulgaria",
         address,
         contactInfo,
         websiteUrl: websiteUrl || null,
@@ -279,8 +285,47 @@ const GeneralSettingsTab: React.FC = () => {
             />
           </div>
 
-          {/* Address */}
+          {/* City */}
           <div>
+            <label
+              htmlFor="restaurant-city"
+              className="block text-sm font-medium text-foreground/80 mb-1"
+            >
+              {t("settings.city", "City")}
+            </label>
+            <input
+              id="restaurant-city"
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder={t("settings.cityPlaceholder", "Sofia")}
+              autoComplete="address-level2"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Country */}
+          <div>
+            <label
+              htmlFor="restaurant-country"
+              className="block text-sm font-medium text-foreground/80 mb-1"
+            >
+              {t("settings.country", "Country")}
+            </label>
+            <input
+              id="restaurant-country"
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder={t("settings.countryPlaceholder", "Bulgaria")}
+              autoComplete="country-name"
+              className={inputCls}
+              required
+            />
+          </div>
+
+          {/* Address */}
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-foreground/80 mb-1">
               {t("settings.address")}
             </label>

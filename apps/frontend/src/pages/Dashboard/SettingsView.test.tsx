@@ -99,6 +99,9 @@ vi.mock("../../components/ui/button", () => ({
 const mockRestaurant = {
   id: "rest-1",
   name: "Test Restaurant",
+  city: "Sofia",
+  country: "Bulgaria",
+  address: "1 Test Street",
   targetLanguages: ["en"],
   timezone: "Europe/Sofia",
   isLoyaltyEnabled: true,
@@ -249,5 +252,30 @@ describe("SettingsView - Staff tab", () => {
       .find((button) => button?.hasAttribute("disabled"));
     expect(disabledCreateButton).toBeTruthy();
     expect(createStaff).not.toHaveBeenCalled();
+  });
+});
+
+describe("SettingsView - General tab", () => {
+  it("persists weather location separately from the public address", async () => {
+    render(<SettingsView />, { wrapper });
+
+    fireEvent.change(screen.getByLabelText("settings.city"), {
+      target: { value: " Plovdiv " },
+    });
+    fireEvent.change(screen.getByLabelText("settings.country"), {
+      target: { value: " Bulgaria " },
+    });
+    fireEvent.click(screen.getByText("settings.saveSettings"));
+
+    await waitFor(() => {
+      expect(updateRestaurant).toHaveBeenCalledWith(
+        "rest-1",
+        expect.objectContaining({
+          city: "Plovdiv",
+          country: "Bulgaria",
+          address: "1 Test Street",
+        }),
+      );
+    });
   });
 });

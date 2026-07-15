@@ -89,6 +89,76 @@ describe('WeatherUpsellService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('resolves a Cyrillic city by coordinates when the direct match is wrong', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            location: {
+              name: 'Bulgaria',
+              country: 'Colombia',
+              tz_id: 'America/Bogota',
+            },
+            current: {
+              temp_c: 13,
+              precip_mm: 0,
+              condition: { code: 1000 },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              name: 'Смолян',
+              country: 'Болгария',
+              lat: 41.59,
+              lon: 24.69,
+            },
+          ]),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            location: {
+              name: 'Smoljan',
+              country: 'Bulgaria',
+              tz_id: 'Europe/Sofia',
+            },
+            current: {
+              temp_c: 8,
+              precip_mm: 0,
+              condition: { code: 1000 },
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    const service = new WeatherUpsellService();
+
+    await expect(
+      service.getContexts({
+        city: 'Смолян',
+        country: 'Bulgaria',
+        timezone: 'Europe/Sofia',
+      }),
+    ).resolves.toEqual(new Set(['COLD']));
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const directUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    const searchUrl = new URL(String(fetchMock.mock.calls[1][0]));
+    const resolvedUrl = new URL(String(fetchMock.mock.calls[2][0]));
+    expect(directUrl.searchParams.get('q')).toBe('Смолян, Bulgaria');
+    expect(searchUrl.pathname).toBe('/v1/search.json');
+    expect(searchUrl.searchParams.get('q')).toBe('Смолян');
+    expect(resolvedUrl.searchParams.get('q')).toBe('41.59,24.69');
+  });
+
   it('falls back to no weather context when the provider fails', async () => {
     jest.spyOn(global, 'fetch').mockRejectedValue(new Error('offline'));
     const service = new WeatherUpsellService();
