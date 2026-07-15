@@ -52,7 +52,7 @@
     "postcss": "^8.4.31"
   },
   "scripts": {
-    "dev": "vite --host",
+    "dev": "node scripts/wait-for-backend.js && vite --host",
     "start": "serve -s dist -l 3001",
     "build": "vite build",
     "preview": "serve -s dist -l 3001",
