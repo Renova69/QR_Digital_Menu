@@ -1,5 +1,12 @@
 import api from "../lib/api";
 
+const PRIVATE_GET_CONFIG = {
+  headers: {
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  },
+};
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -90,7 +97,10 @@ export interface Restaurant {
 
 export const getRestaurants = async (): Promise<Restaurant[]> => {
   try {
-    const response = await api.get<Restaurant[]>("/restaurants");
+    const response = await api.get<Restaurant[]>(
+      "/restaurants",
+      PRIVATE_GET_CONFIG,
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching restaurants:", error);
@@ -114,7 +124,10 @@ export const createRestaurant = async (restaurantData: {
 
 export const getRestaurantById = async (id: string): Promise<Restaurant> => {
   try {
-    const response = await api.get<Restaurant>(`/restaurants/${id}`);
+    const response = await api.get<Restaurant>(
+      `/restaurants/${id}`,
+      PRIVATE_GET_CONFIG,
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching restaurant:", error);

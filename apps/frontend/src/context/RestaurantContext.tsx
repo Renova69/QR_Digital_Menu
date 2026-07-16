@@ -3,6 +3,7 @@ import React, {
   useState,
   useEffect,
   useContext,
+  useRef,
   ReactNode,
 } from "react";
 import {
@@ -62,6 +63,8 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
   const [error, setError] = useState<Error | null>(null);
   const { socket, isConnected } = useSocket();
   const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
+  const fetchVersionRef = useRef(0);
+  const initializedUserKeyRef = useRef<string | null>(null);
 
   // Watch for activeRestaurant changes and join/leave socket rooms
   useEffect(() => {
@@ -80,6 +83,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
     prefetchedData?: any[] | null,
     showLoading = true,
   ) => {
+    const requestVersion = ++fetchVersionRef.current;
     if (showLoading) setLoading(true);
     try {
       setError(null);
@@ -90,6 +94,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
 
       if (isAssignedStaff) {
         const restaurant = await getRestaurantById(user.restaurantId!);
+        if (requestVersion !== fetchVersionRef.current) return;
         setRestaurants([restaurant]);
         setActiveRestaurant(restaurant);
         saveOfflineRestaurant(restaurant, user.id);
@@ -101,6 +106,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
       const data: Restaurant[] = Array.isArray(prefetchedData)
         ? prefetchedData
         : await getRestaurants();
+      if (requestVersion !== fetchVersionRef.current) return;
 
       setRestaurants(data);
       if (data.length > 0) {
@@ -115,15 +121,18 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
         // Staff user: fetch their assigned restaurant
         try {
           const r = await getRestaurantById(user.restaurantId);
+          if (requestVersion !== fetchVersionRef.current) return;
           setRestaurants([r]);
           setActiveRestaurant(r);
         } catch {
+          if (requestVersion !== fetchVersionRef.current) return;
           setActiveRestaurant(null);
         }
       } else {
         setActiveRestaurant(null);
       }
     } catch (err) {
+      if (requestVersion !== fetchVersionRef.current) return;
       const cachedRestaurant =
         user && isPosTransportFailure(err)
           ? loadOfflineRestaurant(user.id, user.restaurantId)
@@ -136,7 +145,9 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
         setError(err as Error);
       }
     } finally {
-      if (showLoading) setLoading(false);
+      if (requestVersion === fetchVersionRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -144,18 +155,24 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
   const fetchRestaurants = () => _fetchRestaurants(undefined, false);
 
   useEffect(() => {
-    if (user) {
-      // Pass prefetched restaurants from AuthContext (set in parallel with /auth/me)
-      _fetchRestaurants(prefetchedRestaurants);
-      if (prefetchedRestaurants !== null && clearPrefetch) {
-        clearPrefetch();
-      }
-    } else {
+    if (!user) {
+      fetchVersionRef.current += 1;
+      initializedUserKeyRef.current = null;
       setRestaurants([]);
       setActiveRestaurant(null);
       setLoading(false);
+      return;
     }
-  }, [user]);
+
+    const userKey = `${user.id}:${user.role}:${user.restaurantId ?? ""}`;
+    const hasPrefetch = Array.isArray(prefetchedRestaurants);
+    const isNewUser = initializedUserKeyRef.current !== userKey;
+    if (!isNewUser && !hasPrefetch) return;
+
+    initializedUserKeyRef.current = userKey;
+    void _fetchRestaurants(hasPrefetch ? prefetchedRestaurants : undefined);
+    if (hasPrefetch && clearPrefetch) clearPrefetch();
+  }, [user?.id, user?.role, user?.restaurantId, prefetchedRestaurants]);
 
   const createRestaurant = async (restaurantData: {
     name: string;

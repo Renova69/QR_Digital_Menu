@@ -20,6 +20,7 @@ import {
   loadOfflineStaff,
   saveOfflineStaff,
 } from "../lib/posOfflineShift";
+import { getRestaurants } from "../services/restaurantService";
 
 interface User {
   id: string;
@@ -98,9 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only fetch restaurants if the user is authenticated, avoiding 401 errors
         if (userData) {
           try {
-            const restaurantsResult = await api.get("/restaurants");
+            const restaurantsResult = await getRestaurants();
             if (!active) return;
-            setPrefetchedRestaurants(restaurantsResult.data);
+            setPrefetchedRestaurants(restaurantsResult);
           } catch (err) {
             // It's safe to let the logger catch this if it fails despite auth
             if (!active) return;

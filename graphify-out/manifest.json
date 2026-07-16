@@ -388,8 +388,8 @@
     "hash": "cc141ce2cbac52960b490c3f60065ca7"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\main.ts": {
-    "mtime": 1783800829.8275557,
-    "hash": "e0eef6f6201cc94ec4c0f3df7926a2a1"
+    "mtime": 1784185996.6947699,
+    "hash": "177e7112bae49610267ad821bd322d75"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\adapters\\redis-io.adapter.ts": {
     "mtime": 1783614255.7209857,
@@ -542,6 +542,14 @@
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\client-logs\\client-logs.module.ts": {
     "mtime": 1780810150.8995738,
     "hash": "9254c0a666f7eab70ef3744d8db66309"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\common\\authenticated-no-store.middleware.spec.ts": {
+    "mtime": 1784186099.440339,
+    "hash": "77253918aceebde4b28ed69e1be6d780"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\common\\authenticated-no-store.middleware.ts": {
+    "mtime": 1784186099.4303107,
+    "hash": "24839085ac3e32c31cc2dd09c792f8e7"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\common\\key-mutex.spec.ts": {
     "mtime": 1783682247.7149184,
@@ -2124,8 +2132,8 @@
     "hash": "cb2e98a246fababd9fcf620b423abeee"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\AuthContext.tsx": {
-    "mtime": 1784145178.7560053,
-    "hash": "053ca9f3ab3ae0ac246fd5ace08b4fdf"
+    "mtime": 1784186099.1943529,
+    "hash": "a55d508b544320d4299a7d4f54c7e8be"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\CartContext.test.tsx": {
     "mtime": 1784145178.7570279,
@@ -2163,9 +2171,13 @@
     "mtime": 1783614260.7323017,
     "hash": "aa622abdf93493664dca737a37b2866c"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\RestaurantContext.test.tsx": {
+    "mtime": 1784185853.752211,
+    "hash": "b18efb0d5a259ec5a0b29b7b9a423547"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\RestaurantContext.tsx": {
-    "mtime": 1784184392.6170664,
-    "hash": "e2bae1925bc2ce699c5d768ae5871db9"
+    "mtime": 1784186171.8238568,
+    "hash": "1128438b17c174e6044f8ca6abfe63c5"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\SocketContext.tsx": {
     "mtime": 1784145178.7600045,
@@ -2268,8 +2280,8 @@
     "hash": "a73f446ee13b45df9a227da46bbc9cbd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\api.ts": {
-    "mtime": 1784145178.7650042,
-    "hash": "f35fd9a9a4a4202fd34899884c052caf"
+    "mtime": 1784186099.400311,
+    "hash": "b30fd731768ed09ebba0a78d62d14aa6"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\brandingFonts.ts": {
     "mtime": 1783614261.0845797,
@@ -2852,8 +2864,8 @@
     "hash": "dd695451e82a13c2bd2bd8624625958f"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\services\\restaurantService.ts": {
-    "mtime": 1784145179.0280046,
-    "hash": "3313026a0c980d8817abb4488b5307d6"
+    "mtime": 1784186099.2153566,
+    "hash": "2c0b4cfc71cc84fafa8bfb7a05a6438f"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\types\\index.ts": {
     "mtime": 1784145179.029009,

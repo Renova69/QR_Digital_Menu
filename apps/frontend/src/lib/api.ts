@@ -1338,6 +1338,10 @@ export interface SubscriptionDetails {
 export const getSubscriptionStatus = async (restaurantId?: string) => {
   const response = await api.get("/subscription/status", {
     params: restaurantId ? { restaurantId } : undefined,
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
   });
   return response.data as {
     tier: string;

@@ -13,6 +13,7 @@ import * as express from 'express';
 import helmet from 'helmet';
 import * as crypto from 'crypto';
 import cookieParser from 'cookie-parser';
+import { authenticatedNoStore } from './common/authenticated-no-store.middleware';
 import { AppLogger } from './common/logging/app-logger';
 import { requestLogger } from './common/logging/request-logger';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -137,6 +138,7 @@ async function bootstrap() {
     });
 
     app.use(cookieParser());
+    app.use(authenticatedNoStore);
 
     // Helmet — security headers before CSRF so 403 responses get them
     app.use(
