@@ -340,7 +340,7 @@ const SummaryView = () => {
       </div>
 
       {/* Quick Actions */}
-      <QuickActionsRow restaurantId={restaurantId} />
+      {restaurantId && <QuickActionsRow restaurantId={restaurantId} />}
     </div>
   );
 };

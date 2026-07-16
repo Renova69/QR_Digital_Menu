@@ -18,6 +18,7 @@ import {
   loadOfflineRestaurant,
   saveOfflineRestaurant,
 } from "../lib/posOfflineShift";
+import { normalizeRestaurantId } from "../lib/menuUrl";
 
 export type { Restaurant };
 
@@ -60,21 +61,18 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const { socket, isConnected } = useSocket();
+  const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
 
   // Watch for activeRestaurant changes and join/leave socket rooms
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket || !isConnected || !activeRestaurantId) return;
 
-    if (activeRestaurant) {
-      socket.emit("joinRestaurantRoom", activeRestaurant.id);
-    }
+    socket.emit("joinRestaurantRoom", activeRestaurantId);
 
     return () => {
-      if (activeRestaurant) {
-        socket.emit("leaveRestaurantRoom", activeRestaurant.id);
-      }
+      socket.emit("leaveRestaurantRoom", activeRestaurantId);
     };
-  }, [activeRestaurant, socket, isConnected]);
+  }, [activeRestaurantId, socket, isConnected]);
 
   // Internal fetch — accepts prefetched data to skip network call on initial load
   // showLoading=false for background refreshes to avoid unmounting mounted views

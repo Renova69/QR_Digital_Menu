@@ -40,6 +40,8 @@ import {
 import { usePaymentReturn } from "../hooks/usePaymentReturn";
 import { useMenuSocket } from "../hooks/useMenuSocket";
 import { usePublicMenuData } from "../hooks/usePublicMenuData";
+import { normalizeRestaurantId } from "../lib/menuUrl";
+import NotFoundPage from "./NotFoundPage";
 
 const DEFAULT_PUBLIC_LIGHT: BrandPalette = {
   bg: "#FFFFFF",
@@ -131,8 +133,7 @@ function hexToRgba(hex: string, alpha: number) {
 // Arabic (and any future RTL target) mirrors layout instead of rendering LTR.
 const RTL_LANGS = new Set(["ar", "he", "fa", "ur"]);
 
-const PublicMenuPage = () => {
-  const { restaurantId } = useParams<{ restaurantId: string }>();
+const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -1309,6 +1310,15 @@ const PublicMenuPage = () => {
       />
     </div>
   );
+};
+
+const PublicMenuPage = () => {
+  const params = useParams<{ restaurantId: string }>();
+  const restaurantId = normalizeRestaurantId(params.restaurantId);
+
+  if (!restaurantId) return <NotFoundPage />;
+
+  return <PublicMenuContent restaurantId={restaurantId} />;
 };
 
 export default PublicMenuPage;

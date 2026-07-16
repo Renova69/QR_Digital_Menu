@@ -7,9 +7,10 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { buildMenuReturnUrl } from "../../../lib/menuUrl";
 
 interface QuickActionsRowProps {
-  restaurantId?: string;
+  restaurantId: string;
 }
 
 interface QuickAction {
@@ -30,7 +31,7 @@ const QuickActionsRow = ({ restaurantId }: QuickActionsRowProps) => {
       label: t("dashboard.viewMenu", "View Menu"),
       description: t("dashboard.viewMenuDesc", "Public digital menu"),
       Icon: ExternalLink,
-      href: `/menu/public/${restaurantId}?table=1`,
+      href: buildMenuReturnUrl(restaurantId, "1"),
       external: true,
       colorClass: "text-blue-500",
       bgClass: "bg-blue-500/10 border-blue-500/15",

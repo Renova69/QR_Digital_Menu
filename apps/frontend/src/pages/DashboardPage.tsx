@@ -41,6 +41,7 @@ import { ThemeToggle } from "../components/ui/ThemeToggle";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { DashboardProfileModal } from "../components/dashboard/DashboardProfileModal";
 import { updateRestaurant } from "../lib/api";
+import { buildMenuReturnUrl, normalizeRestaurantId } from "../lib/menuUrl";
 
 const AnalyticsView = lazy(() => import("./Dashboard/AnalyticsView"));
 const SettingsView = lazy(() => import("./Dashboard/SettingsView"));
@@ -166,6 +167,10 @@ const DashboardPage = () => {
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
+  const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
+  const publicMenuUrl = activeRestaurantId
+    ? buildMenuReturnUrl(activeRestaurantId, "1")
+    : null;
   const canAnalytics = useFeature("analytics:full");
   const canOrders = useFeature("orders:receive");
   const canPayments = useFeature("payments:stripe");
@@ -592,9 +597,9 @@ const DashboardPage = () => {
             </select>
             <ThemeToggle size="sm" />
             {paymentsEnabled && <NotificationBell />}
-            {activeRestaurant && (
+            {publicMenuUrl && (
               <a
-                href={`/menu/public/${activeRestaurant.id}?table=1`}
+                href={publicMenuUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-[11px] font-bold text-white hover:opacity-90 transition-all"
@@ -846,9 +851,9 @@ const DashboardPage = () => {
             </div>
 
             {/* View public menu — opens the customer-facing menu in a new tab */}
-            {activeRestaurant && (
+            {publicMenuUrl && (
               <a
-                href={`/menu/public/${activeRestaurant.id}?table=1`}
+                href={publicMenuUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileMoreOpen(false)}

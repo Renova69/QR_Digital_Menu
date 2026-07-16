@@ -193,6 +193,16 @@ describe("PublicMenuPage", () => {
     }
   });
 
+  it("does not fetch or record a view for an invalid restaurant route", async () => {
+    renderMenu("/menu/undefined");
+
+    await act(async () => undefined);
+
+    expect(apiMocks.getMenuMeta).not.toHaveBeenCalled();
+    expect(apiMocks.getAllCategoryItems).not.toHaveBeenCalled();
+    expect(apiMocks.recordMenuView).not.toHaveBeenCalled();
+  });
+
   it("renders category and its items after the batched load resolves", async () => {
     renderMenu();
 
