@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createPosSyncEngine,
+  discardOrdersForSession,
+  MAX_SYNC_ATTEMPTS,
   type PosOutboxStore,
   type QueuedPosOrder,
 } from "./posOfflineOrders";
@@ -213,5 +215,70 @@ describe("POS offline order sync", () => {
       conflicts: 0,
       pending: 0,
     });
+  });
+
+  it("dead-letters a poison order into conflict after MAX_SYNC_ATTEMPTS instead of retrying forever (Bug 1e)", async () => {
+    const order = makeQueuedOrder({ attempts: MAX_SYNC_ATTEMPTS });
+    const store = makeStore([order]);
+    const submit = vi.fn().mockRejectedValue({
+      response: { status: 500, data: {} },
+    });
+    const onEvent = vi.fn();
+
+    const result = await createPosSyncEngine({ store, submit, onEvent }).sync();
+
+    expect(result).toEqual({ synced: 0, conflicts: 1, pending: 0 });
+    expect(store.values.get("client-1")).toMatchObject({
+      status: "conflict",
+      conflict: { code: "SYNC_ATTEMPTS_EXCEEDED" },
+    });
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "conflict",
+        conflict: expect.objectContaining({ code: "SYNC_ATTEMPTS_EXCEEDED" }),
+      }),
+    );
+  });
+
+  it("keeps retrying a 500 below the attempt ceiling", async () => {
+    // The run loop increments `attempts` before checking the ceiling, so an
+    // order seeded one below (attempts + 1 === MAX_SYNC_ATTEMPTS - 1) still
+    // has one retry left after this failed attempt.
+    const order = makeQueuedOrder({ attempts: MAX_SYNC_ATTEMPTS - 2 });
+    const store = makeStore([order]);
+    const submit = vi.fn().mockRejectedValue({
+      response: { status: 500, data: {} },
+    });
+
+    const result = await createPosSyncEngine({ store, submit }).sync();
+
+    expect(result).toEqual({ synced: 0, conflicts: 0, pending: 1 });
+    expect(store.values.get("client-1")?.status).toBe("pending");
+  });
+});
+
+describe("discardOrdersForSession", () => {
+  it("purges every queued order for a local session and dispatches a change (Bug 1c)", async () => {
+    const inSession = makeQueuedOrder({
+      clientOrderId: "client-1",
+      localSessionId: "local-session-1",
+    });
+    const otherSession = makeQueuedOrder({
+      clientOrderId: "client-2",
+      localSessionId: "local-session-2",
+    });
+    const store = makeStore([inSession, otherSession]);
+
+    await discardOrdersForSession("local-session-1", store);
+
+    expect(store.values.has("client-1")).toBe(false);
+    expect(store.values.has("client-2")).toBe(true);
+  });
+
+  it("is a no-op when nothing is queued for that session", async () => {
+    const store = makeStore([]);
+    await expect(
+      discardOrdersForSession("local-session-1", store),
+    ).resolves.toBeUndefined();
   });
 });

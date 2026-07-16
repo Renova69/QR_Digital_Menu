@@ -1,5 +1,11 @@
 // Shared constants + pure formatters for the analytics dashboard.
 // Extracted verbatim from AnalyticsView.tsx — no behavior change.
+// Import the i18next package singleton directly (not the app's "./i18n"
+// bootstrap module) — the same instance `useTranslation()` reads from once
+// index.tsx's side-effect import configures it, but without re-triggering
+// `.use(initReactI18next).init()` when this file loads in isolation (e.g.
+// unit tests that only mock react-i18next's hooks, not the full bootstrap).
+import i18n from "i18next";
 
 export const CHART_COLORS = [
   "hsl(var(--color-primary))",
@@ -52,7 +58,10 @@ const localeMap: Record<string, string> = {
 export const formatDate = (dateStr: string) => {
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
-  const lang = (window as any).i18n?.language || "en";
+  // `window.i18n` is never assigned anywhere in the app — this always fell
+  // back to "en", so chart dates ignored the selected dashboard language.
+  // Read the live i18next instance's current language instead.
+  const lang = i18n.language || "en";
   const locale = localeMap[lang] || localeMap.en;
   return date.toLocaleDateString(locale, { day: "2-digit", month: "short" });
 };

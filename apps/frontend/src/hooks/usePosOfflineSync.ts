@@ -17,6 +17,7 @@ const syncEngine = createPosSyncEngine({
 
 export function usePosOfflineSync(restaurantId?: string) {
   const {
+    items,
     markQueuedAsSubmitted,
     markQueuedAsConflict,
     loadQueuedOrderForEdit,
@@ -37,8 +38,28 @@ export function usePosOfflineSync(restaurantId?: string) {
     }
     try {
       const stored = await indexedDbPosOutbox.list();
-      setOrders(stored.filter((order) => order.restaurantId === restaurantId));
+      const filtered = stored.filter(
+        (order) => order.restaurantId === restaurantId,
+      );
+      setOrders(filtered);
       setStorageError(null);
+
+      // Reconcile missed "synced" events (Bug 1d). The POS_SYNC_EVENT
+      // listener only lives while this hook is mounted (PosSyncStatus in
+      // PosTopBar). If a queued order's submit resolves while POS is
+      // unmounted (idle-logout, route switch to /dashboard), the event is
+      // dropped and the cart item stays `syncState:"queued"` forever, which
+      // permanently disables card/cash/split/force-close (hasUnsynced).
+      // Any queued cart item whose outbox order no longer exists already
+      // synced successfully — release it here.
+      const outboxIds = new Set(filtered.map((order) => order.clientOrderId));
+      const orphanedIds = new Set(
+        items
+          .filter((item) => item.syncState === "queued" && item.queuedOrderId)
+          .map((item) => item.queuedOrderId as string)
+          .filter((id) => !outboxIds.has(id)),
+      );
+      orphanedIds.forEach((id) => markQueuedAsSubmitted(id));
     } catch (error) {
       setStorageError(
         error instanceof Error
@@ -46,7 +67,7 @@ export function usePosOfflineSync(restaurantId?: string) {
           : "Offline order storage is unavailable.",
       );
     }
-  }, [restaurantId]);
+  }, [restaurantId, items, markQueuedAsSubmitted]);
 
   const syncNow = useCallback(async () => {
     if (!restaurantId) return;
@@ -139,6 +160,11 @@ export function usePosOfflineSync(restaurantId?: string) {
 
   const edit = useCallback(
     async (clientOrderId: string) => {
+      // Reentrancy guard (Bug 1b): if the engine is mid-submit for this
+      // order, deleting the outbox row here races the in-flight request —
+      // the server can still commit it while the waiter re-submits the
+      // edited items under a new clientOrderId, creating a duplicate order.
+      if (isSyncing) return;
       const order = orders.find(
         (candidate) => candidate.clientOrderId === clientOrderId,
       );
@@ -147,16 +173,18 @@ export function usePosOfflineSync(restaurantId?: string) {
       loadQueuedOrderForEdit(order);
       await refresh();
     },
-    [loadQueuedOrderForEdit, orders, refresh],
+    [isSyncing, loadQueuedOrderForEdit, orders, refresh],
   );
 
   const discard = useCallback(
     async (clientOrderId: string) => {
+      // Reentrancy guard (Bug 1b) — see edit().
+      if (isSyncing) return;
       await discardPosOrder(clientOrderId);
       removeQueuedOrderItems(clientOrderId);
       await refresh();
     },
-    [refresh, removeQueuedOrderItems],
+    [isSyncing, refresh, removeQueuedOrderItems],
   );
 
   return useMemo(

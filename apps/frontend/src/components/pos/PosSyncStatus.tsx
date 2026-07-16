@@ -221,7 +221,16 @@ export default function PosSyncStatus() {
                             void edit(order.clientOrderId);
                             setOpen(false);
                           }}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted"
+                          disabled={isSyncing}
+                          title={
+                            isSyncing
+                              ? t(
+                                  "pos.syncInProgress",
+                                  "Sync in progress — wait for it to finish",
+                                )
+                              : undefined
+                          }
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-40"
                         >
                           <Pencil className="h-4 w-4" />
                           {t("pos.editQueuedOrder", "Edit order")}
@@ -240,7 +249,16 @@ export default function PosSyncStatus() {
                               void discard(order.clientOrderId);
                             }
                           }}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                          disabled={isSyncing}
+                          title={
+                            isSyncing
+                              ? t(
+                                  "pos.syncInProgress",
+                                  "Sync in progress — wait for it to finish",
+                                )
+                              : undefined
+                          }
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-40"
                         >
                           <Trash2 className="h-4 w-4" />
                           {t("common.discard", "Discard")}

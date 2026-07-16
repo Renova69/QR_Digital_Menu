@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { formatEuro } from "../../../lib/currency";
+import { orderStatusKeyMap } from "../analytics/shared";
 
 interface OrderRow {
   id: string;
@@ -56,7 +57,7 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
           <div className="divide-y divide-border/50">
             {orders.map((order) => {
               const itemCount = (order.items ?? []).reduce(
-                (sum, item) => sum + item.quantity,
+                (sum, item) => sum + (item.quantity ?? 0),
                 0,
               );
               const table = order.tableName || order.tableId;
@@ -102,7 +103,8 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
                     className={`w-fit max-w-full rounded-full px-2.5 py-1 text-[10px] font-bold leading-tight sm:justify-self-end ${statusClass(order.status)}`}
                   >
                     {t(
-                      `orders.tabs.${order.status === "IN_PROGRESS" ? "inProgress" : order.status.toLowerCase()}`,
+                      orderStatusKeyMap[order.status] ??
+                        `orders.tabs.${order.status.toLowerCase()}`,
                       order.status,
                     )}
                   </span>

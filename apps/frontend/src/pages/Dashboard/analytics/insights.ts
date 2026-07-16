@@ -70,8 +70,15 @@ export const computeInsights = (data: any) => {
     0,
   );
   const cancelRate = safePercent(canceled, observedOrders);
-  const topThreeShare = safePercent(topThreeRevenue, itemRevenueTotal);
-  const topItemShare = safePercent(heroItem?.revenue ?? 0, itemRevenueTotal);
+  // categoryBreakdown can be omitted by the payload even when topItems is
+  // populated; falling back to totalRevenue (or the item total itself)
+  // avoids showing a false "0.0%" share when there's real item revenue.
+  const shareBase =
+    itemRevenueTotal > 0
+      ? itemRevenueTotal
+      : data.totalRevenue || topItemRevenue;
+  const topThreeShare = safePercent(topThreeRevenue, shareBase);
+  const topItemShare = safePercent(heroItem?.revenue ?? 0, shareBase);
 
   const dayPartTotals = dayParts.map((part) => {
     const orders = part.range.reduce(

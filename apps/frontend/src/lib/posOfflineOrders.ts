@@ -243,6 +243,29 @@ export async function discardPosOrder(
   dispatchSyncEvent({ type: "changed" });
 }
 
+/**
+ * Purges every queued order for a local POS session (Bug 1c). `clearSession`
+ * only clears in-memory cart state + sessionStorage — it never touches the
+ * IndexedDB outbox. Without this, a queued order can outlive the session it
+ * belonged to (e.g. the table was paid via Payment QR while an order was
+ * still offline-queued) and later flush against an already-closed session.
+ * Call this alongside `clearSession` whenever a table is settled/closed.
+ */
+export async function discardOrdersForSession(
+  localSessionId: string,
+  store: PosOutboxStore = indexedDbPosOutbox,
+): Promise<void> {
+  const orders = await store.list();
+  const matching = orders.filter(
+    (order) => order.localSessionId === localSessionId,
+  );
+  if (matching.length === 0) return;
+  for (const order of matching) {
+    await store.delete(order.clientOrderId);
+  }
+  dispatchSyncEvent({ type: "changed" });
+}
+
 export async function putPosSnapshot<T>(key: string, value: T): Promise<void> {
   const database = await openPosDatabase();
   try {
@@ -346,6 +369,14 @@ export function isPosTransportFailure(error: unknown): boolean {
   );
 }
 
+// A retry-disposition failure (network hiccup, 5xx, 429...) resubmits every
+// sync cycle forever with no ceiling (Bug 1e). A poison order — one that
+// deterministically 500s — would keep the table's hasUnsynced flag true
+// indefinitely, blocking card/cash/split/force-close until a waiter notices
+// and manually discards it. Cap retries and dead-letter into "conflict" so
+// it surfaces for review instead of silently blocking payment forever.
+export const MAX_SYNC_ATTEMPTS = 8;
+
 export function createPosSyncEngine({
   store = indexedDbPosOutbox,
   submit,
@@ -443,13 +474,24 @@ export function createPosSyncEngine({
         const failure = classifySyncError(error);
         blockedLocalSessions.add(order.localSessionId);
 
-        if (failure.disposition === "conflict") {
+        const exceededRetries =
+          failure.disposition === "retry" &&
+          order.attempts >= MAX_SYNC_ATTEMPTS;
+
+        if (failure.disposition === "conflict" || exceededRetries) {
           conflicts += 1;
+          const conflict: PosSyncConflict = exceededRetries
+            ? {
+                code: "SYNC_ATTEMPTS_EXCEEDED",
+                message: `This order failed to sync after ${MAX_SYNC_ATTEMPTS} attempts and needs manual review.`,
+                details: failure.conflict,
+              }
+            : failure.conflict;
           const conflicted: QueuedPosOrder = {
             ...order,
             status: "conflict",
-            conflict: failure.conflict,
-            lastError: failure.conflict,
+            conflict,
+            lastError: conflict,
           };
           orders[index] = conflicted;
           await store.put(conflicted);
@@ -457,7 +499,7 @@ export function createPosSyncEngine({
             type: "conflict",
             clientOrderId: order.clientOrderId,
             localSessionId: order.localSessionId,
-            conflict: failure.conflict,
+            conflict,
           });
           onEvent({ type: "changed" });
           continue;

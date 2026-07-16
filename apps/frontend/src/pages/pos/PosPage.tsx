@@ -15,7 +15,11 @@ import PosTableModal from "../../components/pos/PosTableModal";
 import PosOptionsDrawer from "../../components/pos/PosOptionsDrawer";
 import PosSeatSelector from "../../components/pos/PosSeatSelector";
 import PosCartDrawer from "../../components/pos/PosCartDrawer";
-import { getPosSnapshot, putPosSnapshot } from "../../lib/posOfflineOrders";
+import {
+  discardOrdersForSession,
+  getPosSnapshot,
+  putPosSnapshot,
+} from "../../lib/posOfflineOrders";
 
 interface MenuItem {
   id: string;
@@ -73,6 +77,13 @@ export default function PosPage() {
         data.tableSessionId === session.sessionId
       ) {
         setPaidNotice(data.tableNumber ?? session.tableName ?? "");
+        // Bug 1c: the customer paid via the Payment QR while an order for
+        // this table may still be offline-queued on this device. Purge it
+        // before clearing — otherwise it later flushes against a session
+        // that's already closed.
+        if (session.localSessionId) {
+          void discardOrdersForSession(session.localSessionId);
+        }
         clearSession();
       }
     };

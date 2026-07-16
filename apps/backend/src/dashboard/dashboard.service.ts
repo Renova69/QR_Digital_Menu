@@ -251,12 +251,20 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     // Orders flow NEW -> IN_PROGRESS -> SERVED -> COMPLETED (batch-advanced).
     // SERVED is transient; fulfilled orders settle in COMPLETED, so completion
     // rate (not the near-empty SERVED snapshot) is the real fulfillment KPI.
+    // Denominator excludes CANCELED (never meant to complete) and
+    // PENDING_PAYMENT (abandoned online checkouts that never became real
+    // orders) — folding them in understates the rate for restaurants with
+    // normal cancel/abandon volume (e.g. 50 done / 30 canceled / 20 abandoned
+    // read as 50% instead of the correct 71%).
     const completedOrders =
       ordersByStatus.find((s) => s.status === 'COMPLETED')?.count || 0;
-    const observedOrders = ordersByStatus.reduce(
-      (total, status) => total + status.count,
-      0,
-    );
+    const observedOrders = ordersByStatus
+      .filter(
+        (s) =>
+          s.status !== OrderStatus.CANCELED &&
+          s.status !== OrderStatus.PENDING_PAYMENT,
+      )
+      .reduce((total, status) => total + status.count, 0);
     const completionRate =
       observedOrders > 0 ? (completedOrders / observedOrders) * 100 : 0;
 

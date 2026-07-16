@@ -44,7 +44,8 @@ type FieldState = "neutral" | "valid" | "invalid";
 
 const FIELD_FEEDBACK_CLASSES: Record<FieldState, string> = {
   neutral: "",
-  valid: "border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/40",
+  valid:
+    "border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/40",
   invalid: "border-red-500 focus:border-red-500 focus:ring-red-500/40",
 };
 
@@ -775,9 +776,7 @@ const CheckoutPage = () => {
                   navigate(
                     location.state?.menuReturnUrl
                       ? location.state.menuReturnUrl
-                      : sessionBill?.restaurantId
-                        ? `/menu/public/${sessionBill.restaurantId}`
-                        : "/",
+                      : buildMenuReturnUrl(sessionBill?.restaurantId),
                   )
                 }
                 className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
@@ -843,9 +842,23 @@ const CheckoutPage = () => {
                     {t("payment.total", "Total")}
                   </span>
                   <span className="text-2xl font-display font-bold text-foreground tabular-nums">
-                    {formatEuro(sessionBill.subtotal ?? 0)}
+                    {/* Bill-level Total must reflect what's still owed, not
+                        the original order total — on a partially-paid split
+                        (another guest already paid part of the table), the
+                        full subtotal overstates what this guest owes. */}
+                    {formatEuro(
+                      sessionBill.remaining ?? sessionBill.subtotal ?? 0,
+                    )}
                   </span>
                 </div>
+                {sessionBill.paidSubtotal > 0 && (
+                  <p className="mt-1 text-right text-xs text-muted-foreground">
+                    {t("checkout.alreadyPaid", {
+                      defaultValue: "{{amount}} already paid",
+                      amount: formatEuro(sessionBill.paidSubtotal),
+                    })}
+                  </p>
+                )}
               </div>
 
               {sessionBill.paymentProviders &&
@@ -857,7 +870,9 @@ const CheckoutPage = () => {
                     className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
                   >
                     {t("payment.pay", "Pay Now")} ·{" "}
-                    {formatEuro(sessionBill.subtotal ?? 0)}
+                    {formatEuro(
+                      sessionBill.remaining ?? sessionBill.subtotal ?? 0,
+                    )}
                   </button>
                   <PaymentTrustGrid />
                 </div>

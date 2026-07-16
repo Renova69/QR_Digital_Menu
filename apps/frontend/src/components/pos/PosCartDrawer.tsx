@@ -23,6 +23,7 @@ import {
 import {
   createPosClientOrderId,
   createPosLocalSessionId,
+  discardOrdersForSession,
   isPosTransportFailure,
   queuePosOrder,
   type PosOrderPayload,
@@ -169,7 +170,17 @@ export default function PosCartDrawer({
 
   // Handlers
   const handleSubmit = async () => {
-    if (pendingItems.length === 0 || !session || !activeRestaurant) return;
+    // Reentrancy guard (Bug 1a): a double-tap on a touch POS can fire two
+    // click events before the `disabled` prop re-renders. Each call mints a
+    // fresh clientOrderId, so without this the backend idempotency key can't
+    // dedup — two identical orders get created.
+    if (
+      submitting ||
+      pendingItems.length === 0 ||
+      !session ||
+      !activeRestaurant
+    )
+      return;
     setConfirmAction(null);
     setSubmitting(true);
     setSubmitError(null);
@@ -266,7 +277,9 @@ export default function PosCartDrawer({
   };
 
   const handleCardPayment = async () => {
-    if (!session?.sessionToken || !activeRestaurant || hasUnsynced) return;
+    // Reentrancy guard (Bug 1a) — see handleSubmit.
+    if (closing || !session?.sessionToken || !activeRestaurant || hasUnsynced)
+      return;
     setConfirmAction(null);
     setClosing(true);
     setSubmitError(null);
@@ -285,7 +298,9 @@ export default function PosCartDrawer({
   };
 
   const handleCashPayment = async () => {
-    if (!session?.sessionToken || !activeRestaurant || hasUnsynced) return;
+    // Reentrancy guard (Bug 1a) — see handleSubmit.
+    if (closing || !session?.sessionToken || !activeRestaurant || hasUnsynced)
+      return;
     setConfirmAction(null);
     setClosing(true);
     setSubmitError(null);
@@ -304,7 +319,8 @@ export default function PosCartDrawer({
   };
 
   const handleForceClose = async () => {
-    if (!activeRestaurant || hasUnsynced) return;
+    // Reentrancy guard (Bug 1a) — see handleSubmit.
+    if (closing || !activeRestaurant || hasUnsynced) return;
     setConfirmAction(null);
     if (!session?.sessionToken) {
       clearSession();
@@ -991,13 +1007,14 @@ export default function PosCartDrawer({
               </button>
               <button
                 type="button"
+                disabled={submitting || closing}
                 onClick={() => {
                   if (confirmAction?.type === "submit") handleSubmit();
                   else if (confirmAction?.type === "card") handleCardPayment();
                   else if (confirmAction?.type === "cash") handleCashPayment();
                   else if (confirmAction?.type === "force") handleForceClose();
                 }}
-                className={`flex-1 py-3 rounded-xl font-semibold min-h-[44px] ${
+                className={`flex-1 py-3 rounded-xl font-semibold min-h-[44px] disabled:opacity-40 ${
                   confirmAction?.type === "force"
                     ? "bg-destructive text-destructive-foreground"
                     : confirmAction?.type === "card"
@@ -1028,6 +1045,13 @@ export default function PosCartDrawer({
           sessionToken={session.sessionToken}
           restaurantId={activeRestaurant.id}
           onFullyPaid={() => {
+            // Bug 1c: purge any still-queued offline order for this session
+            // before clearing it — clearSession() only wipes in-memory cart
+            // state, not the IndexedDB outbox, so a queued order would
+            // otherwise survive and flush against an already-closed session.
+            if (session?.localSessionId) {
+              void discardOrdersForSession(session.localSessionId);
+            }
             clearSession();
             closeSheet();
           }}

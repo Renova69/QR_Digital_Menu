@@ -11,6 +11,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { useTranslation } from "react-i18next";
+import { buildMenuReturnUrl } from "../lib/menuUrl";
 
 type FeedbackStep = "rating" | "comment" | "redirect" | "thankyou";
 
@@ -21,7 +22,7 @@ const FeedbackPage = () => {
   const { t } = useTranslation();
   const orderId = searchParams.get("orderId");
   const returnUrl =
-    searchParams.get("returnUrl") || `/menu/public/${restaurantId}`;
+    searchParams.get("returnUrl") || buildMenuReturnUrl(restaurantId);
 
   const [step, setStep] = useState<FeedbackStep>("rating");
   const [rating, setRating] = useState(0);

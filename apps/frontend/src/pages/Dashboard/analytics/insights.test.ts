@@ -38,4 +38,25 @@ describe("computeInsights", () => {
     expect(insights?.topThreeShare).toBe(80);
     expect(insights?.topItemShare).toBe(50);
   });
+
+  it("falls back to totalRevenue for menu share when categoryBreakdown is absent (Bug 2b)", () => {
+    const insights = computeInsights({
+      totalOrders: 2,
+      totalRevenue: 80,
+      revenueTrend: [],
+      topItems: [
+        { name: "Main", quantity: 1, revenue: 40 },
+        { name: "Drink", quantity: 1, revenue: 20 },
+      ],
+      // categoryBreakdown omitted entirely — itemRevenueTotal would be 0
+      // and previously produced a false "0.0%" share despite real sales.
+      peakHours: [],
+      ordersByTable: [],
+      ordersByStatus: [],
+    });
+
+    expect(insights?.itemRevenueTotal).toBe(0);
+    expect(insights?.topThreeShare).toBeGreaterThan(0);
+    expect(insights?.topItemShare).toBeGreaterThan(0);
+  });
 });

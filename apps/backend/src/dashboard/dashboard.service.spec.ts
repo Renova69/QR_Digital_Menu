@@ -420,6 +420,36 @@ describe('DashboardService', () => {
 
       expect(result['completionRate']).toBe(0);
     });
+
+    it('excludes CANCELED and PENDING_PAYMENT from the denominator (Bug 2a)', async () => {
+      // 50 COMPLETED, 30 CANCELED, 20 PENDING_PAYMENT (abandoned online
+      // checkouts). Folding cancels/abandons into the denominator understates
+      // fulfillment (50/100 = 50%) for restaurants with normal cancel volume
+      // — the correct completion rate excludes orders that were never going
+      // to complete: 50 / (50 + 0 other in-flight) = 100% of what could.
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 0 },
+        _count: 0,
+        _avg: { totalPrice: 0 },
+      });
+      mockPrisma.order.groupBy.mockResolvedValue([
+        { status: OrderStatus.COMPLETED, _count: 50 },
+        { status: OrderStatus.CANCELED, _count: 30 },
+        { status: OrderStatus.PENDING_PAYMENT, _count: 20 },
+      ]);
+      mockPrisma.orderItem.findMany.mockResolvedValue([]);
+
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+
+      expect(result['completionRate']).toBe(100);
+    });
   });
 
   describe('getAnalytics with non-empty data (loop body coverage)', () => {

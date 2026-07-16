@@ -34,6 +34,7 @@ vi.mock("../../lib/posOfflineOrders", () => ({
   createPosLocalSessionId: vi.fn(() => "local-session-1"),
   isPosTransportFailure: vi.fn(() => false),
   queuePosOrder: vi.fn(),
+  discardOrdersForSession: vi.fn(),
 }));
 
 vi.mock("react-dom", async () => {
@@ -273,6 +274,52 @@ describe("PosCartDrawer", () => {
         }),
       );
       expect(markAsQueued).toHaveBeenCalledWith("client-order-1", ["c1"]);
+    });
+  });
+
+  it("does not double-submit when the confirm button fires twice before the request resolves (Bug 1a)", async () => {
+    const markAsSubmittedMock = vi.fn();
+    (usePos as Mock).mockReturnValue({
+      items: [
+        {
+          cartId: "c1",
+          menuItemId: "m1",
+          name: "Burger",
+          quantity: 1,
+          price: 10,
+          selectedOptions: [],
+          submitted: false,
+        },
+      ],
+      session: {
+        sessionToken: "token123",
+        sessionId: "session-1",
+        localSessionId: "local-session-1",
+        tableName: "Table 1",
+        tableId: "t1",
+      },
+      getPendingTotal: () => 10,
+      buildSpecialRequests: () => "",
+      markAsSubmitted: markAsSubmittedMock,
+      markAsQueued: vi.fn(),
+      setSession: vi.fn(),
+    });
+    // Never-resolving promise simulates a slow request: both clicks land
+    // while `submitting` is still true from the first one.
+    (api.createOrder as Mock).mockReturnValue(new Promise(() => {}));
+
+    renderWithContext(<PosCartDrawer itemCount={1} total={10} />);
+    fireEvent.click(screen.getByRole("button", { name: /item/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /pos.submitOrderTotal/i }),
+    );
+    const confirmBtn = screen.getByRole("button", { name: /pos.submit/i });
+    fireEvent.click(confirmBtn);
+    fireEvent.click(confirmBtn);
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(api.createOrder).toHaveBeenCalledTimes(1);
     });
   });
 
