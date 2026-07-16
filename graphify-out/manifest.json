@@ -644,8 +644,8 @@
     "hash": "99c46bee453218fae9956ed79a76b15c"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\dashboard\\dashboard.service.ts": {
-    "mtime": 1784146012.6638088,
-    "hash": "fa45ccf62f3aae9ade5d8defd2aee806"
+    "mtime": 1784181763.14772,
+    "hash": "f6934fc4cae1c4fae5d7c5aef67b30fe"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\events\\events.gateway.spec.ts": {
     "mtime": 1783855218.165536,
@@ -1610,6 +1610,10 @@
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\test\\app.e2e-spec.ts": {
     "mtime": 1783614259.4237103,
     "hash": "f8449198cbba2ada5a9288acbc4ad1ee"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\test\\dashboard-analytics-postgres.e2e-spec.ts": {
+    "mtime": 1784181732.3429193,
+    "hash": "66252f19c12e41b6834bc74c106b4bcd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\test\\dashboard.e2e-spec.ts": {
     "mtime": 1778858126.4254305,
