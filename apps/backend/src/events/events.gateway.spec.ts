@@ -143,6 +143,27 @@ describe('EventsGateway — room authorization', () => {
       );
     });
 
+    it('rejects a null restaurant ID without querying Prisma', async () => {
+      mockPrisma.restaurant.findUnique.mockImplementation(
+        ({ where }: { where: { id: string | null } }) => {
+          if (!where.id) throw new Error('Prisma rejects a null ID');
+          return null;
+        },
+      );
+      const client = makeClient({ userId: 'user-1' });
+
+      await expect(
+        gateway.handleJoinRoom(
+          null as unknown as string,
+          client as unknown as import('socket.io').Socket,
+        ),
+      ).resolves.toEqual({ event: 'roomError', data: null });
+
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.restaurant.findUnique).not.toHaveBeenCalled();
+      expect(client.join).not.toHaveBeenCalled();
+    });
+
     it('allows the owner', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         role: 'OWNER',

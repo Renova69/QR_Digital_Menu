@@ -234,6 +234,15 @@ export class EventsGateway
     userId: string,
     restaurantId: string,
   ): Promise<boolean> {
+    if (
+      typeof userId !== 'string' ||
+      userId.trim().length === 0 ||
+      typeof restaurantId !== 'string' ||
+      restaurantId.trim().length === 0
+    ) {
+      return false;
+    }
+
     const [user, restaurant] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
