@@ -9,20 +9,17 @@ import reportWebVitals from "./reportWebVitals";
 import "./i18n";
 import { installGlobalErrorLogging } from "./lib/clientLogger";
 import { reloadOnceForStaleChunk } from "./lib/lazyWithReload";
+import { configureServiceWorker } from "./lib/serviceWorkerRegistration";
 
-import { registerSW } from 'virtual:pwa-register';
+import { registerSW } from "virtual:pwa-register";
 
-if ('serviceWorker' in navigator) {
-  registerSW({
-    immediate: true,
-    onRegistered(r) {
-      console.log('SW Registered:', r);
-    },
-    onRegisterError(error) {
-      console.error('SW registration error', error);
-    }
-  });
-}
+void configureServiceWorker({
+  serviceWorker:
+    "serviceWorker" in navigator ? navigator.serviceWorker : undefined,
+  caches: "caches" in window ? window.caches : undefined,
+  isProduction: import.meta.env.PROD,
+  register: registerSW,
+});
 
 installGlobalErrorLogging();
 
