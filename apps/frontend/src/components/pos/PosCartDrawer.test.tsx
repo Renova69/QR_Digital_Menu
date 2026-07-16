@@ -277,6 +277,75 @@ describe("PosCartDrawer", () => {
     });
   });
 
+  it("clears the queued-offline notice once the order actually syncs", async () => {
+    const queuedItem = {
+      cartId: "c1",
+      menuItemId: "m1",
+      name: "Burger",
+      quantity: 1,
+      price: 10,
+      selectedOptions: [],
+      seatNumber: "Seat 1",
+      itemNote: "",
+      submitted: false,
+    };
+    const baseMock = {
+      session: {
+        sessionToken: null,
+        sessionId: null,
+        localSessionId: "local-session-1",
+        tableName: "Table 1",
+        tableId: "t1",
+      },
+      getPendingTotal: () => 10,
+      buildSpecialRequests: () => "",
+      markAsSubmitted: vi.fn(),
+      markAsQueued: vi.fn(),
+      setSession: vi.fn(),
+    };
+    (usePos as Mock).mockReturnValue({ ...baseMock, items: [queuedItem] });
+    (api.createOrder as Mock).mockRejectedValue({ code: "ERR_NETWORK" });
+    (offlineOrders.isPosTransportFailure as Mock).mockReturnValue(true);
+
+    const { rerender } = renderWithContext(
+      <PosCartDrawer itemCount={1} total={10} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /item/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /pos.submitOrderTotal/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /pos.submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/pos.orderQueuedOffline/i)).toBeInTheDocument();
+    });
+
+    // The order synced (its item flips submitted + syncState "sent"), but
+    // nothing previously cleared the queued-offline notice — it stuck around
+    // until the drawer remounted.
+    (usePos as Mock).mockReturnValue({
+      ...baseMock,
+      items: [{ ...queuedItem, submitted: true, syncState: "sent" }],
+    });
+    rerender(
+      <RestaurantContext.Provider
+        value={
+          {
+            activeRestaurant: { id: "r1", paymentsEnabled: true },
+          } as unknown as React.ContextType<typeof RestaurantContext>
+        }
+      >
+        <PosCartDrawer itemCount={1} total={10} />
+      </RestaurantContext.Provider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/pos.orderQueuedOffline/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it("does not double-submit when the confirm button fires twice before the request resolves (Bug 1a)", async () => {
     const markAsSubmittedMock = vi.fn();
     (usePos as Mock).mockReturnValue({

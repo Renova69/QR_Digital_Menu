@@ -116,6 +116,16 @@ export default function PosCartDrawer({
     (sum, item) => sum + item.quantity,
     0,
   );
+
+  // "Order saved on this device and queued for sync" is set once, on queue.
+  // Nothing cleared it once the order actually synced — it hung around
+  // (stale) until the drawer remounted. Clear it as soon as there's nothing
+  // left unsynced.
+  useEffect(() => {
+    if (unsyncedItems.length === 0 && submitNotice) {
+      setSubmitNotice(null);
+    }
+  }, [unsyncedItems.length, submitNotice]);
   const itemTotal = (item: (typeof items)[number]) =>
     (item.price +
       item.selectedOptions.reduce(

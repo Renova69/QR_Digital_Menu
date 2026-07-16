@@ -13,6 +13,7 @@ vi.mock("../../lib/api", () => ({
 vi.mock("../../lib/posOfflineOrders", () => ({
   getPosSnapshot: vi.fn().mockResolvedValue(null),
   putPosSnapshot: vi.fn().mockResolvedValue(undefined),
+  discardOrdersForSession: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../../context/PosContext", () => ({
   usePos: vi.fn(),
@@ -71,7 +72,10 @@ import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/AuthContext";
 import { useFeature } from "../../hooks/useFeature";
 import api from "../../lib/api";
-import { getPosSnapshot } from "../../lib/posOfflineOrders";
+import {
+  getPosSnapshot,
+  discardOrdersForSession,
+} from "../../lib/posOfflineOrders";
 
 describe("PosPage", () => {
   const mockRestaurant = { id: "rest-1", name: "Test Rest" };
@@ -126,7 +130,11 @@ describe("PosPage", () => {
     let socketCb: (payload?: unknown) => void = () => {};
     const clearSessionMock = vi.fn();
     (usePos as Mock).mockReturnValue({
-      session: { sessionId: "sess-1", tableName: "Table 1" },
+      session: {
+        sessionId: "sess-1",
+        localSessionId: "local-sess-1",
+        tableName: "Table 1",
+      },
       items: [],
       getTotal: () => 0,
       clearSession: clearSessionMock,
@@ -152,6 +160,39 @@ describe("PosPage", () => {
         screen.getByText(/Table Table 1 paid — bill cleared/i),
       ).toBeDefined();
     });
+
+    // Bug 1c: a queued offline order for this session must be purged before
+    // (or alongside) clearing it — otherwise it can later flush against a
+    // session that's already closed.
+    expect(discardOrdersForSession).toHaveBeenCalledWith("local-sess-1");
+  });
+
+  it("does not attempt to purge the outbox when the session has no localSessionId yet", async () => {
+    let socketCb: (payload?: unknown) => void = () => {};
+    (usePos as Mock).mockReturnValue({
+      session: { sessionId: "sess-2", tableName: "Table 2" },
+      items: [],
+      getTotal: () => 0,
+      clearSession: vi.fn(),
+    });
+    (useSocket as Mock).mockReturnValue({
+      socket: {
+        on: (event: string, cb: (payload?: unknown) => void) => {
+          if (event === "payment:confirmed") socketCb = cb;
+        },
+        off: vi.fn(),
+      },
+    });
+
+    renderPage();
+    socketCb({ tableSessionId: "sess-2", tableNumber: "Table 2" });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Table Table 2 paid — bill cleared/i),
+      ).toBeDefined();
+    });
+    expect(discardOrdersForSession).not.toHaveBeenCalled();
   });
 
   it("loads the last menu snapshot when the network is unavailable", async () => {
