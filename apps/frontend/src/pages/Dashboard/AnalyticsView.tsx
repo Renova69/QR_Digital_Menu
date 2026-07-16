@@ -43,6 +43,7 @@ import AnalyticsSkeleton from "./analytics/AnalyticsSkeleton";
 import { computeInsights } from "./analytics/insights";
 import {
   dayPartKeyMap,
+  dayPartRangeKeyMap,
   formatDate,
   formatPercent,
   numberFormat,
@@ -159,7 +160,7 @@ const AnalyticsView = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-end">
         <DateRangeFilter
           period={dateRange.period}
           startDate={dateRange.startDate}
@@ -174,7 +175,7 @@ const AnalyticsView = () => {
           <button
             onClick={handleExport}
             disabled={isPlaceholderData}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold shadow-sm hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-xs font-bold text-background shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto 2xl:self-end"
           >
             <Download className="w-4 h-4" />
             {t("analytics.exportLabel", "Export")}
@@ -481,6 +482,9 @@ const AnalyticsView = () => {
                 >
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     {t(dayPartKeyMap[part.id])}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold text-muted-foreground">
+                    {t(dayPartRangeKeyMap[part.id])}
                   </p>
                   <p className="text-lg font-display font-black text-foreground mt-1">
                     {numberFormat.format(part.orders)}

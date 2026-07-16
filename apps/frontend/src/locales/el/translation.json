@@ -1414,6 +1414,10 @@
     "dayPartLunch": "Μεσημεριανό",
     "dayPartDinner": "Δείπνο",
     "dayPartLate": "Αργά",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Κορυφή",
     "hourBarLabel": "{{label}}, {{orders}} παραγγελίες",
@@ -1786,6 +1790,13 @@
     "categoryIssue": "Κατηγορία Θέμα",
     "fieldLabel": "Πεδίο: {{field}}",
     "fix": "Διόρθωση",
+    "fields": {
+      "items": "Είδη",
+      "price": "Τιμή",
+      "description": "Περιγραφή",
+      "imageUrl": "Εικόνα",
+      "translations": "Μεταφράσεις"
+    },
     "issues": {
       "emptyCategory": "Η κατηγορία είναι κενή και δεν θα εμφανιστούν στοιχεία.",
       "missingCategoryTranslation": "Η κατηγορία {{lang}} δεν έχει μετάφραση.",
@@ -2677,7 +2688,7 @@
     "errorCheckout": "Δεν ήταν δυνατή η έναρξη της διαδικασίας ολοκλήρωσης της παραγγελίας. Παρακαλώ δοκιμάστε ξανά.",
     "errorPortal": "Δεν ήταν δυνατό να ανοίξει η πύλη χρέωσης. Παρακαλώ, δοκιμάστε ξανά.",
     "banner": {
-      "active": "Η συνδρομή σας {{tier}} είναι ενεργή",
+      "active": "Το πλάνο σας είναι ενεργό",
       "freePlan": "Βρίσκεστε στο δωρεάν πακέτο",
       "noSubscription": "Δεν υπάρχει ενεργή συνδρομή",
       "upgrade": "Αναβάθμιση"

@@ -69,6 +69,81 @@ const GENERAL_SETTINGS_KEYS = [
   "settings.country",
   "settings.countryPlaceholder",
 ];
+const DASHBOARD_UI_KEYS = [
+  "dashboard.roles.owner",
+  "dashboard.roles.manager",
+  "dashboard.roles.staff",
+  "dashboard.roles.superAdmin",
+  "tables.status.open",
+  "tables.status.paid",
+  "tables.status.closedNoPayment",
+  "reservations.openBookingLink",
+  "reservations.allergenSection",
+  "reservations.turnoverHelp",
+  "reservations.serviceHoursHelp",
+  "reservations.customPrefsHelp",
+  "reservations.blackoutHelp",
+  "reservations.weekdays.mon",
+  "reservations.weekdays.tue",
+  "reservations.weekdays.wed",
+  "reservations.weekdays.thu",
+  "reservations.weekdays.fri",
+  "reservations.weekdays.sat",
+  "reservations.weekdays.sun",
+  "assistance.cashPaymentRequested",
+  "assistance.cashScopeMyOrders",
+  "assistance.cashScopeFullTable",
+  "assistance.cashCollection",
+  "assistance.cashCollectionHint",
+  "assistance.confirmCashCollected",
+  "assistance.cashRecorded",
+  "assistance.cashCancelled",
+  "assistance.cashConfirmFailed",
+  "assistance.cashCancelFailed",
+  "assistance.cashFetchFailed",
+  "assistance.cash",
+  "assistance.loadMoreResolved",
+  "assistance.updateFailed",
+  "assistance.cancelled",
+  "assistance.saving",
+  "payments.paid",
+  "analytics.ofCollected",
+  "analytics.paymentMethod.cash",
+  "analytics.paymentMethod.mypos",
+  "analytics.paymentMethod.stripe",
+  "analytics.paymentMethod.borica",
+  "analytics.paymentMethod.epay",
+  "analytics.noCustomerData",
+  "analytics.menuEngineering",
+  "analytics.dayPartRangeMorning",
+  "analytics.dayPartRangeLunch",
+  "analytics.dayPartRangeDinner",
+  "analytics.dayPartRangeLate",
+  "menuCheck.title",
+  "menuCheck.subtitle",
+  "menuCheck.rescan",
+  "menuCheck.perfectScore",
+  "menuCheck.perfectScoreDesc",
+  "menuCheck.critical",
+  "menuCheck.warnings",
+  "menuCheck.suggestions",
+  "menuCheck.itemIssue",
+  "menuCheck.categoryIssue",
+  "menuCheck.fieldLabel",
+  "menuCheck.fix",
+  "menuCheck.fields.items",
+  "menuCheck.fields.price",
+  "menuCheck.fields.description",
+  "menuCheck.fields.imageUrl",
+  "menuCheck.fields.translations",
+  "menuCheck.issues.emptyCategory",
+  "menuCheck.issues.missingCategoryTranslation",
+  "menuCheck.issues.itemPriceZero",
+  "menuCheck.issues.missingItemDescription",
+  "menuCheck.issues.missingItemImage",
+  "menuCheck.issues.missingItemTranslation",
+  "menuCheck.all",
+];
 const LOCALES_DIR = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../locales",
@@ -137,6 +212,19 @@ describe("general settings locale bundles", () => {
       expect(
         GENERAL_SETTINGS_KEYS.filter((key) => !localizedKeys.has(key)),
       ).toEqual([]);
+    },
+  );
+});
+
+describe("dashboard UI locale bundles", () => {
+  it.each(DASHBOARD_LANGUAGES)(
+    "%s contains every translated dashboard chrome key",
+    (language) => {
+      const localizedKeys = new Set(flatten(readLocale(language)));
+
+      expect(DASHBOARD_UI_KEYS.filter((key) => !localizedKeys.has(key))).toEqual(
+        [],
+      );
     },
   );
 });

@@ -47,11 +47,7 @@ export default function SubscriptionBanner() {
         </span>
         <span className={`text-xs font-semibold truncate ${styles.text}`}>
           {hasSubscription
-            ? t(
-                "subscription.banner.active",
-                "Your {{tier}} subscription is active",
-                { tier },
-              )
+            ? t("subscription.banner.active", "Your plan is active")
             : tier === "FREE"
               ? t("subscription.banner.freePlan", "You are on the Free plan")
               : t(

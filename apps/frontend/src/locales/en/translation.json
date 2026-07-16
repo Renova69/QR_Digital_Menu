@@ -224,7 +224,13 @@
     "openPosDesc": "Manage live orders",
     "translateMenu": "Translate",
     "translateDesc": "Manage languages",
-    "quickActions": "Quick Actions"
+    "quickActions": "Quick Actions",
+    "roles": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "staff": "Staff",
+      "superAdmin": "Super admin"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -493,6 +499,22 @@
     "allGuestsAssisted": "All guests are currently assisted.",
     "tryAnotherFilter": "Try another filter or table number.",
     "searchPlaceholder": "Search by table...",
+    "cashPaymentRequested": "Cash payment requested",
+    "cashScopeMyOrders": "My orders",
+    "cashScopeFullTable": "Full table",
+    "cashCollection": "Cash collection",
+    "cashCollectionHint": "Confirm only after staff has physically collected the cash.",
+    "confirmCashCollected": "Confirm cash collected",
+    "cashRecorded": "Cash payment recorded",
+    "cashCancelled": "Cash request cancelled",
+    "cashConfirmFailed": "Could not confirm cash payment.",
+    "cashCancelFailed": "Could not cancel cash request.",
+    "cashFetchFailed": "Some cash payment requests could not be loaded.",
+    "cash": "Cash",
+    "loadMoreResolved": "Load older resolved requests",
+    "updateFailed": "The request could not be updated. Please try again.",
+    "cancelled": "Cancelled",
+    "saving": "Saving...",
     "justNow": "just now",
     "minutesShort": "{{count}} min",
     "hoursShort": "{{count}} h"
@@ -868,6 +890,10 @@
     "dayPartLunch": "Lunch",
     "dayPartDinner": "Dinner",
     "dayPartLate": "Late",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Peak",
     "hourBarLabel": "{{label}}, {{orders}} orders",
@@ -1159,7 +1185,16 @@
     "accountantTools": "Accountant tools",
     "generateCloseout": "Generate Closeout",
     "avgOrder": "Avg Order",
-    "orders": "Orders"
+    "orders": "Orders",
+    "paymentMethod": {
+      "cash": "Cash",
+      "mypos": "Card · myPOS",
+      "stripe": "Card · Stripe",
+      "borica": "Card · BORICA",
+      "epay": "ePay.bg"
+    },
+    "ofCollected": "of collected",
+    "noCustomerData": "No customer data in this period"
   },
   "tables": {
     "title": "Manage Tables",
@@ -1213,6 +1248,12 @@
       "served": "Served",
       "completed": "Completed",
       "canceled": "Canceled"
+    },
+    "status": {
+      "open": "Open",
+      "paid": "Paid",
+      "closedNoPayment": "Closed",
+      "unknown": "Unknown status"
     }
   },
   "common": {
@@ -1383,6 +1424,13 @@
     "categoryIssue": "Category Issue",
     "fieldLabel": "Field: {{field}}",
     "fix": "Fix",
+    "fields": {
+      "items": "Items",
+      "price": "Price",
+      "description": "Description",
+      "imageUrl": "Image",
+      "translations": "Translations"
+    },
     "issues": {
       "emptyCategory": "Category is empty and will not display any items.",
       "missingCategoryTranslation": "Category is missing translation for {{lang}}.",
@@ -2138,6 +2186,7 @@
     "amount": "Amount",
     "tip": "Tip",
     "status": "Status",
+    "paid": "Paid",
     "paymentReceived": "Payment Received",
     "stripeNotConnected": "Connect Stripe in Settings to start accepting payments.",
     "stripeNotConnectedTitle": "Stripe not connected",
@@ -2317,7 +2366,7 @@
     "errorCheckout": "Could not start checkout. Please try again.",
     "errorPortal": "Could not open billing portal. Please try again.",
     "banner": {
-      "active": "Your {{tier}} subscription is active",
+      "active": "Your plan is active",
       "freePlan": "You are on the Free plan",
       "noSubscription": "No active subscription",
       "upgrade": "Upgrade"
@@ -3684,7 +3733,22 @@
       "QUIET_TABLE": "Quiet Table"
     },
     "upcomingHelp": "Pending, confirmed & arrived, from today, by day.",
-    "allHelp": "Every reservation incl. past, declined and cancelled."
+    "allHelp": "Every reservation incl. past, declined and cancelled.",
+    "openBookingLink": "Open booking page",
+    "turnoverHelp": "Used to show staff when each table is expected to free up.",
+    "serviceHoursHelp": "Set opening and last-slot time per day. Leave a day empty to close it.",
+    "customPrefsHelp": "Extra options guests can pick on the booking form (e.g. Swimming pool, Terrace, Kids area).",
+    "blackoutHelp": "Block specific dates (holidays, private events). No slots are offered on a closed day.",
+    "weekdays": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "allergenSection": "Show menu allergen section"
   },
   "manage": {
     "title": "Manage your reservation",

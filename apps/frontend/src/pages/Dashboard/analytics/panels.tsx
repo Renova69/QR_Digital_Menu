@@ -18,7 +18,7 @@ import { Panel } from "./Panel";
 import { CustomTooltip, EmptyState } from "./primitives";
 import {
   CHART_COLORS,
-  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_LABEL_KEYS,
   formatPercent,
   numberFormat,
   orderStatusKeyMap,
@@ -143,7 +143,9 @@ export const PaymentMethods = ({
               <div key={m.method}>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-black uppercase tracking-widest text-foreground">
-                    {PAYMENT_METHOD_LABELS[m.method] ?? m.method}
+                    {PAYMENT_METHOD_LABEL_KEYS[m.method]
+                      ? t(PAYMENT_METHOD_LABEL_KEYS[m.method])
+                      : m.method}
                   </p>
                   <p className="text-sm font-black text-foreground">
                     {formatEuro(m.amount)}
@@ -233,7 +235,7 @@ export const HourlyDemand = ({
         </div>
 
         <div
-          className="relative flex h-full items-end gap-1.5 overflow-x-auto pb-10 sm:gap-2"
+          className="relative flex h-full items-end gap-1 overflow-x-auto pb-10 sm:gap-1.5 md:overflow-hidden lg:gap-2"
           onMouseLeave={() => setHoveredHour(null)}
         >
           {displayHours.map((hour) => {
@@ -254,7 +256,7 @@ export const HourlyDemand = ({
                   label: hour.label,
                   orders: hour.orders,
                 })}
-                className={`relative flex h-full min-w-[34px] flex-1 cursor-pointer flex-col items-center justify-end rounded-md px-0.5 outline-none transition ${
+                className={`relative flex h-full min-w-[24px] flex-1 cursor-pointer flex-col items-center justify-end rounded-md px-0 outline-none transition md:min-w-0 ${
                   isActive
                     ? "bg-primary/10 ring-1 ring-primary/20"
                     : "hover:bg-secondary"
@@ -265,7 +267,7 @@ export const HourlyDemand = ({
                 onBlur={() => setHoveredHour(null)}
               >
                 <div
-                  className={`w-full max-w-[34px] rounded-t-lg transition-all duration-300 ${
+                  className={`w-2 rounded-t-lg transition-all duration-300 sm:w-2.5 lg:w-3 xl:w-3.5 ${
                     isPeak
                       ? "bg-rose-500 shadow-lg shadow-rose-500/25"
                       : isBusy
@@ -449,10 +451,21 @@ export const TableYield = ({
   if (tables.length === 0)
     return <EmptyState message={t("analytics.noTableYieldData")} />;
 
+  const displayTables = tables.slice(0, 10);
+  const maxRevenue = Math.max(
+    1,
+    ...displayTables.map((table) => table.revenue),
+  );
+  const averageRevenue =
+    displayTables.length > 0
+      ? displayTables.reduce((sum, table) => sum + table.revenue, 0) /
+        displayTables.length
+      : 0;
+
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart
-        data={tables.slice(0, 10)}
+        data={displayTables}
         margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
       >
         <CartesianGrid
@@ -480,10 +493,22 @@ export const TableYield = ({
         <Bar
           dataKey="revenue"
           name={t("analytics.revenue")}
-          fill="hsl(var(--color-primary))"
           radius={[6, 6, 0, 0]}
           barSize={26}
-        />
+        >
+          {displayTables.map((table, index) => {
+            const isPeak = table.revenue === maxRevenue && table.revenue > 0;
+            const isBusy =
+              table.revenue >= averageRevenue && table.revenue > 0;
+            return (
+              <Cell
+                key={`${table.table}-${index}`}
+                fill={isPeak ? "#f43f5e" : isBusy ? "#38bdf8" : "#10b981"}
+                fillOpacity={isPeak ? 1 : isBusy ? 0.92 : 0.78}
+              />
+            );
+          })}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

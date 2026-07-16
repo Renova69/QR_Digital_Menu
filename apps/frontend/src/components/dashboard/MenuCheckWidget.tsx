@@ -74,6 +74,9 @@ export const MenuCheckWidget = () => {
   const filteredIssues =
     filter === "all" ? issues : issues.filter((i) => i.type === filter);
 
+  const getFieldLabel = (field: string) =>
+    t(`menuCheck.fields.${field}`, field);
+
   return (
     <div className="glass-panel p-4 sm:p-5 rounded-2xl border-white/5 flex flex-col shadow-lg relative overflow-hidden">
       <div className="flex justify-between items-start mb-6 relative z-10">
@@ -206,12 +209,18 @@ export const MenuCheckWidget = () => {
                           })
                         : issue.message}
                     </p>
-                    <p className="text-[10px] opacity-60 mt-0.5 capitalize">
-                      {issue.itemId
-                        ? t("menuCheck.itemIssue")
-                        : t("menuCheck.categoryIssue")}{" "}
-                      {t("auto.Middot", "&middot;")}
-                      {t("menuCheck.fieldLabel", { field: issue.field })}
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] opacity-60">
+                      <span>
+                        {issue.itemId
+                          ? t("menuCheck.itemIssue")
+                          : t("menuCheck.categoryIssue")}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        {t("menuCheck.fieldLabel", {
+                          field: getFieldLabel(issue.field),
+                        })}
+                      </span>
                     </p>
                   </div>
                 </div>

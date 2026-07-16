@@ -236,7 +236,39 @@
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  .dashboard-date-range-popper {
+    z-index: 1000;
+  }
+
   .animate-float { animation: float 6s ease-in-out infinite; }
+}
+
+@media (max-width: 640px) {
+  .dashboard-date-range-popper {
+    max-width: calc(100vw - 1rem);
+  }
+
+  .dashboard-date-range-popper .react-datepicker {
+    max-width: calc(100vw - 1rem);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .dashboard-date-range-popper .react-datepicker__month-container {
+    float: none;
+    width: 100%;
+  }
+
+  .dashboard-date-range-popper .react-datepicker__month {
+    margin: 0.35rem;
+  }
+
+  .dashboard-date-range-popper .react-datepicker__day,
+  .dashboard-date-range-popper .react-datepicker__day-name {
+    width: 2rem;
+    line-height: 2rem;
+    margin: 0.075rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

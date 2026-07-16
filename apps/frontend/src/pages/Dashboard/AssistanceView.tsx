@@ -118,7 +118,8 @@ function getCashRequestScopeLabel(request: CashPaymentRequest, t: TFunction) {
 
 function getCashRequestStatusLabel(request: CashPaymentRequest, t: TFunction) {
   if (request.status === "PAID") return t("payments.paid", "Paid");
-  if (request.status === "CANCELLED") return t("common.cancelled", "Cancelled");
+  if (request.status === "CANCELLED")
+    return t("assistance.cancelled", "Cancelled");
   return t("assistance.waiting", "Waiting");
 }
 
@@ -619,7 +620,7 @@ const AssistanceView = () => {
                       >
                         <Check className="h-3.5 w-3.5" />
                         {isBusy
-                          ? t("common.saving", "Saving...")
+                          ? t("assistance.saving", "Saving...")
                           : t(
                               "assistance.confirmCashCollected",
                               "Confirm cash collected",

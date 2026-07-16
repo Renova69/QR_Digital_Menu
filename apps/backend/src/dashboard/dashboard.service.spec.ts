@@ -34,6 +34,11 @@ interface AnalyticsResult {
   [key: string]: unknown; // fallback for tests
 }
 
+function sqlFromQueryRawCall(index: number): string {
+  const strings = mockPrisma.$queryRaw.mock.calls[index]?.[0];
+  return Array.isArray(strings) ? strings.join('') : String(strings ?? '');
+}
+
 describe('DashboardService', () => {
   let service: DashboardService;
 
@@ -333,6 +338,41 @@ describe('DashboardService', () => {
       )) as AnalyticsResult;
 
       expect(result['comparison']['revenueChange']).toBe(0);
+    });
+
+    it('converts stored UTC timestamps to restaurant local time in aggregate SQL', async () => {
+      const start = new Date('2026-07-11T00:00:00.000Z');
+      const end = new Date('2026-07-12T00:00:00.000Z');
+
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      await service['getRevenueTrend']('rest-1', start, end, 'Europe/Sofia');
+      await service['getPeakHours']('rest-1', start, end, 'Europe/Sofia');
+      await service['getKitchenEfficiency'](
+        'rest-1',
+        start,
+        end,
+        'Europe/Sofia',
+      );
+      await service['getCancelAnalytics'](
+        'rest-1',
+        start,
+        end,
+        'Europe/Sofia',
+      );
+
+      expect(sqlFromQueryRawCall(0)).toContain(
+        `("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE`,
+      );
+      expect(sqlFromQueryRawCall(1)).toContain(
+        `("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE`,
+      );
+      expect(sqlFromQueryRawCall(2)).toContain(
+        `(o."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE`,
+      );
+      expect(sqlFromQueryRawCall(4)).toContain(
+        `("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE`,
+      );
     });
   });
 

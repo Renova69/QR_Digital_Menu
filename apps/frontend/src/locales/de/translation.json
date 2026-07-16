@@ -1413,6 +1413,10 @@
     "dayPartLunch": "Mittagessen",
     "dayPartDinner": "Abendessen",
     "dayPartLate": "Spät",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Spitzenwert",
     "hourBarLabel": "{{label}}, {{orders}} Bestellungen",
@@ -1785,6 +1789,13 @@
     "categoryIssue": "Kategorie: Thema",
     "fieldLabel": "Feld: {{field}}",
     "fix": "Beheben",
+    "fields": {
+      "items": "Artikel",
+      "price": "Preis",
+      "description": "Beschreibung",
+      "imageUrl": "Bild",
+      "translations": "Übersetzungen"
+    },
     "issues": {
       "emptyCategory": "Die Kategorie ist leer und es werden keine Artikel angezeigt.",
       "missingCategoryTranslation": "Für die Kategorie {{lang}} fehlt eine Übersetzung.",
@@ -2676,7 +2687,7 @@
     "errorCheckout": "Der Bestellvorgang konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
     "errorPortal": "Das Abrechnungsportal konnte nicht geöffnet werden. Bitte versuchen Sie es erneut.",
     "banner": {
-      "active": "Ihr {{tier}}-Abonnement ist aktiv",
+      "active": "Ihr Plan ist aktiv",
       "freePlan": "Sie nutzen derzeit den kostenlosen Tarif",
       "noSubscription": "Kein aktives Abonnement",
       "upgrade": "Upgrade"

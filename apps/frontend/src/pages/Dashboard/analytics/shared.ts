@@ -30,6 +30,13 @@ export const dayPartKeyMap: Record<string, string> = {
   late: "analytics.dayPartLate",
 };
 
+export const dayPartRangeKeyMap: Record<string, string> = {
+  morning: "analytics.dayPartRangeMorning",
+  lunch: "analytics.dayPartRangeLunch",
+  dinner: "analytics.dayPartRangeDinner",
+  late: "analytics.dayPartRangeLate",
+};
+
 export const orderStatusKeyMap: Record<string, string> = {
   PENDING_PAYMENT: "orders.tabs.pendingPayment",
   NEW: "orders.tabs.new",
@@ -45,6 +52,14 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BORICA: "Card · BORICA",
   EPAY: "ePay.bg",
   CASH: "Cash",
+};
+
+export const PAYMENT_METHOD_LABEL_KEYS: Record<string, string> = {
+  STRIPE: "analytics.paymentMethod.stripe",
+  MYPOS: "analytics.paymentMethod.mypos",
+  BORICA: "analytics.paymentMethod.borica",
+  EPAY: "analytics.paymentMethod.epay",
+  CASH: "analytics.paymentMethod.cash",
 };
 
 export const numberFormat = new Intl.NumberFormat("en-GB");

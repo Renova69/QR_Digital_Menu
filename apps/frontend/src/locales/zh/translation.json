@@ -1413,6 +1413,10 @@
     "dayPartLunch": "午餐",
     "dayPartDinner": "晚餐",
     "dayPartLate": "晚了",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "峰值",
     "hourBarLabel": "{{label}}，{{orders}} 笔订单",
@@ -1785,6 +1789,13 @@
     "categoryIssue": "类别 问题",
     "fieldLabel": "字段：{{field}}",
     "fix": "修复",
+    "fields": {
+      "items": "项目",
+      "price": "价格",
+      "description": "描述",
+      "imageUrl": "图片",
+      "translations": "翻译"
+    },
     "issues": {
       "emptyCategory": "该分类为空，因此不会显示任何项目。",
       "missingCategoryTranslation": "该分类缺少 {{lang}} 的翻译。",
@@ -2676,7 +2687,7 @@
     "errorCheckout": "无法开始结账。请重试。",
     "errorPortal": "无法打开账单门户。请重试。",
     "banner": {
-      "active": "您的 {{tier}} 订阅已激活",
+      "active": "您的方案已启用",
       "freePlan": "您目前使用的是免费套餐",
       "noSubscription": "没有有效的订阅",
       "upgrade": "升级"

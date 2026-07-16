@@ -1413,6 +1413,10 @@
     "dayPartLunch": "Déjeuner",
     "dayPartDinner": "Dîner",
     "dayPartLate": "Tard",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Pic",
     "hourBarLabel": "{{label}}, {{orders}} commandes",
@@ -1785,6 +1789,13 @@
     "categoryIssue": "Catégorie : Problématique",
     "fieldLabel": "Champ : {{field}}",
     "fix": "Corriger",
+    "fields": {
+      "items": "Articles",
+      "price": "Prix",
+      "description": "Description",
+      "imageUrl": "Image",
+      "translations": "Traductions"
+    },
     "issues": {
       "emptyCategory": "La catégorie est vide et n'affichera aucun élément.",
       "missingCategoryTranslation": "La traduction de la catégorie est manquante pour {{lang}}.",
@@ -2676,7 +2687,7 @@
     "errorCheckout": "Impossible de lancer la procédure de paiement. Veuillez réessayer.",
     "errorPortal": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer.",
     "banner": {
-      "active": "Votre abonnement {{tier}} est actif",
+      "active": "Votre forfait est actif",
       "freePlan": "Vous bénéficiez actuellement de la formule gratuite",
       "noSubscription": "Aucun abonnement actif",
       "upgrade": "Mise à jour"

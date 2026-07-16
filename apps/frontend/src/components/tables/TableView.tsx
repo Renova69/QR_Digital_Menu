@@ -68,6 +68,19 @@ const ONLINE_PAYMENT_FEATURES: FeatureFlag[] = [
   "payments:mypos",
 ];
 
+const SESSION_STATUS_LABEL_KEYS: Record<string, string> = {
+  OPEN: "tables.status.open",
+  PAID: "tables.status.paid",
+  CLOSED_NO_PAYMENT: "tables.status.closedNoPayment",
+};
+
+function humanizeSessionStatus(status: string): string {
+  return status
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 type TablesSubTab = "live" | "qr" | "zones" | "service-points";
 
 const TableView: React.FC = () => {
@@ -877,6 +890,15 @@ const TableView: React.FC = () => {
               {filteredTables.map((table: any) => {
                 const session = sessionByTableId.get(table.id);
                 const publicUrl = `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(table.name)}`;
+                const sessionStatusLabel = session
+                  ? t(
+                      SESSION_STATUS_LABEL_KEYS[session.status] ??
+                        "tables.status.unknown",
+                      {
+                        defaultValue: humanizeSessionStatus(session.status),
+                      },
+                    )
+                  : "";
                 return (
                   <article
                     key={table.id}
@@ -896,7 +918,7 @@ const TableView: React.FC = () => {
                               : "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200",
                           )}
                         >
-                          {session.status}
+                          {sessionStatusLabel}
                         </span>
                       )}
                     </div>

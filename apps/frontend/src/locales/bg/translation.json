@@ -226,7 +226,13 @@
     "openPosDesc": "Управление на живи поръчки",
     "translateMenu": "Превод",
     "translateDesc": "Управление на езици",
-    "quickActions": "Бързи действия"
+    "quickActions": "Бързи действия",
+    "roles": {
+      "owner": "Собственик",
+      "manager": "Мениджър",
+      "staff": "Персонал",
+      "superAdmin": "Супер админ"
+    }
   },
   "settings": {
     "title": "Настройки",
@@ -495,6 +501,22 @@
     "allGuestsAssisted": "Всички гости са обслужени.",
     "tryAnotherFilter": "Опитайте друг филтър или номер на маса.",
     "searchPlaceholder": "Търсене по маса...",
+    "cashPaymentRequested": "Поискано плащане в брой",
+    "cashScopeMyOrders": "Моите поръчки",
+    "cashScopeFullTable": "Цялата маса",
+    "cashCollection": "Събиране на пари в брой",
+    "cashCollectionHint": "Потвърждавайте само след като персоналът физически е получил парите.",
+    "confirmCashCollected": "Потвърди получени пари",
+    "cashRecorded": "Плащането в брой е записано",
+    "cashCancelled": "Заявката за плащане в брой е отказана",
+    "cashConfirmFailed": "Плащането в брой не можа да бъде потвърдено.",
+    "cashCancelFailed": "Заявката за плащане в брой не можа да бъде отказана.",
+    "cashFetchFailed": "Някои заявки за плащане в брой не можаха да бъдат заредени.",
+    "cash": "В брой",
+    "loadMoreResolved": "Зареди по-стари приключени заявки",
+    "updateFailed": "Заявката не можа да бъде обновена. Опитайте отново.",
+    "cancelled": "Отказана",
+    "saving": "Запазване...",
     "justNow": "сега",
     "minutesShort": "{{count}} мин",
     "hoursShort": "{{count}} ч"
@@ -836,7 +858,7 @@
     "lowDemand": "Подобри тихите дни",
     "lowDemandDetail": "{{date}} имаше само {{orders}} поръчки. Тествай оферта за ограничено време.",
     "demandMap": "Карта на търсенето",
-    "menuEngineering": "Menu engineering",
+    "menuEngineering": "Анализ на менюто",
     "topRevenueTracked": "Проследен приход от топ артикули",
     "categoryMix": "Микс по категории",
     "tableYield": "Доходност на маси",
@@ -870,6 +892,10 @@
     "dayPartLunch": "Обяд",
     "dayPartDinner": "Вечеря",
     "dayPartLate": "Късно",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Пик",
     "hourBarLabel": "{{label}}, {{orders}} поръчки",
@@ -1161,7 +1187,16 @@
     "accountantTools": "Счетоводни инструменти",
     "generateCloseout": "Генерирай отчет",
     "avgOrder": "Ср. поръчка",
-    "orders": "Поръчки"
+    "orders": "Поръчки",
+    "paymentMethod": {
+      "cash": "В брой",
+      "mypos": "Карта · myPOS",
+      "stripe": "Карта · Stripe",
+      "borica": "Карта · BORICA",
+      "epay": "ePay.bg"
+    },
+    "ofCollected": "от събраната сума",
+    "noCustomerData": "Няма данни за клиенти за този период"
   },
   "tables": {
     "title": "Управление на Маси",
@@ -1215,6 +1250,12 @@
       "served": "Сервирани",
       "completed": "Завършени",
       "canceled": "Отказани"
+    },
+    "status": {
+      "open": "Отворена",
+      "paid": "Платена",
+      "closedNoPayment": "Затворена",
+      "unknown": "Неизвестен статус"
     }
   },
   "pos": {
@@ -1482,6 +1523,13 @@
     "categoryIssue": "Проблем с категория",
     "fieldLabel": "Поле: {{field}}",
     "fix": "Оправи",
+    "fields": {
+      "items": "Артикули",
+      "price": "Цена",
+      "description": "Описание",
+      "imageUrl": "Снимка",
+      "translations": "Преводи"
+    },
     "issues": {
       "emptyCategory": "Категорията е празна и няма да се показва.",
       "missingCategoryTranslation": "Липсва превод на категорията за {{lang}}.",
@@ -2237,6 +2285,7 @@
     "amount": "Сума",
     "tip": "Бакшиш",
     "status": "Статус",
+    "paid": "Платено",
     "paymentReceived": "Получено плащане",
     "stripeNotConnected": "Свържете Stripe в Настройки, за да приемате плащания.",
     "stripeNotConnectedTitle": "Stripe не е свързан",
@@ -2416,7 +2465,7 @@
     "errorCheckout": "Неуспешно стартиране на плащане. Опитайте отново.",
     "errorPortal": "Неуспешно отваряне на портала. Опитайте отново.",
     "banner": {
-      "active": "Вашият абонамент {{tier}} е активен",
+      "active": "Планът ви е активен",
       "freePlan": "Използвате безплатния план",
       "noSubscription": "Няма активен абонамент",
       "upgrade": "Надграждане"
@@ -3686,7 +3735,22 @@
       "QUIET_TABLE": "Тиха маса"
     },
     "upcomingHelp": "Очакващи, потвърдени и пристигнали, от днес, по дни.",
-    "allHelp": "Всички резервации, включително минали, отхвърлени и отказани."
+    "allHelp": "Всички резервации, включително минали, отхвърлени и отказани.",
+    "openBookingLink": "Отвори страницата за резервации",
+    "turnoverHelp": "Показва на персонала кога се очаква всяка маса да се освободи.",
+    "serviceHoursHelp": "Задайте начален час и последен слот за всеки ден. Оставете ден празен, за да бъде затворен.",
+    "customPrefsHelp": "Допълнителни опции, които гостите могат да изберат във формата за резервация (напр. басейн, тераса, детски кът).",
+    "blackoutHelp": "Блокирайте конкретни дати (празници, частни събития). В затворен ден не се предлагат слотове.",
+    "weekdays": {
+      "mon": "Пон",
+      "tue": "Вто",
+      "wed": "Сря",
+      "thu": "Чет",
+      "fri": "Пет",
+      "sat": "Съб",
+      "sun": "Нед"
+    },
+    "allergenSection": "Показвай секцията за алергени в менюто"
   },
   "manage": {
     "title": "Управление на резервацията",

@@ -224,7 +224,13 @@
     "openPosDesc": "Gestionează comenzile active",
     "translateMenu": "Traducere",
     "translateDesc": "Gestionează limbile",
-    "quickActions": "Acțiuni rapide"
+    "quickActions": "Acțiuni rapide",
+    "roles": {
+      "owner": "Proprietar",
+      "manager": "Manager",
+      "staff": "Personal",
+      "superAdmin": "Super admin"
+    }
   },
   "settings": {
     "title": "Setări",
@@ -493,6 +499,22 @@
     "allGuestsAssisted": "Toți clienții sunt asistați.",
     "tryAnotherFilter": "Încercați alt filtru sau număr de masă.",
     "searchPlaceholder": "Căutare după masă...",
+    "cashPaymentRequested": "Plată numerar solicitată",
+    "cashScopeMyOrders": "Comenzile mele",
+    "cashScopeFullTable": "Toată masa",
+    "cashCollection": "Încasare numerar",
+    "cashCollectionHint": "Confirmați doar după ce personalul a încasat fizic banii.",
+    "confirmCashCollected": "Confirmă numerarul încasat",
+    "cashRecorded": "Plata numerar a fost înregistrată",
+    "cashCancelled": "Cererea de plată numerar a fost anulată",
+    "cashConfirmFailed": "Plata numerar nu a putut fi confirmată.",
+    "cashCancelFailed": "Cererea de plată numerar nu a putut fi anulată.",
+    "cashFetchFailed": "Unele cereri de plată numerar nu au putut fi încărcate.",
+    "cash": "Numerar",
+    "loadMoreResolved": "Încarcă cereri rezolvate mai vechi",
+    "updateFailed": "Cererea nu a putut fi actualizată. Încercați din nou.",
+    "cancelled": "Anulată",
+    "saving": "Se salvează...",
     "justNow": "acum",
     "minutesShort": "{{count}} min",
     "hoursShort": "{{count}} h"
@@ -834,7 +856,7 @@
     "lowDemand": "Îmbunătățește zilele slabe",
     "lowDemandDetail": "{{date}} a avut doar {{orders}} comenzi. Testează o ofertă limitată acolo.",
     "demandMap": "Harta cererii",
-    "menuEngineering": "Menu engineering",
+    "menuEngineering": "Analiza meniului",
     "topRevenueTracked": "Venituri urmărite articole de top",
     "categoryMix": "Mix pe categorii",
     "tableYield": "Randament mese",
@@ -868,6 +890,10 @@
     "dayPartLunch": "Prânz",
     "dayPartDinner": "Cină",
     "dayPartLate": "Noapte",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Vârf",
     "hourBarLabel": "{{label}}, {{orders}} comenzi",
@@ -1159,7 +1185,16 @@
     "accountantTools": "Instrumente contabile",
     "generateCloseout": "Generează închiderea",
     "avgOrder": "Comandă medie",
-    "orders": "Comenzi"
+    "orders": "Comenzi",
+    "paymentMethod": {
+      "cash": "Numerar",
+      "mypos": "Card · myPOS",
+      "stripe": "Card · Stripe",
+      "borica": "Card · BORICA",
+      "epay": "ePay.bg"
+    },
+    "ofCollected": "din suma încasată",
+    "noCustomerData": "Nu există date despre clienți în această perioadă"
   },
   "tables": {
     "title": "Administrare Mese",
@@ -1213,6 +1248,12 @@
       "served": "Servit",
       "completed": "Finalizat",
       "canceled": "Anulat"
+    },
+    "status": {
+      "open": "Deschisă",
+      "paid": "Plătită",
+      "closedNoPayment": "Închisă",
+      "unknown": "Status necunoscut"
     }
   },
   "common": {
@@ -1383,6 +1424,13 @@
     "categoryIssue": "Problemă Categorie",
     "fieldLabel": "Câmp: {{field}}",
     "fix": "Rezolvă",
+    "fields": {
+      "items": "Articole",
+      "price": "Preț",
+      "description": "Descriere",
+      "imageUrl": "Imagine",
+      "translations": "Traduceri"
+    },
     "issues": {
       "emptyCategory": "Categoria este goală și nu va afișa niciun articol.",
       "missingCategoryTranslation": "Categoriei îi lipsește traducerea pentru {{lang}}.",
@@ -2217,6 +2265,7 @@
     "amount": "Sumă",
     "tip": "Bacșiș",
     "status": "Status",
+    "paid": "Plătit",
     "paymentReceived": "Plată Primită",
     "stripeNotConnected": "Conectați Stripe în Setări pentru a accepta plăți.",
     "stripeNotConnectedTitle": "Stripe neconectat",
@@ -2396,7 +2445,7 @@
     "errorCheckout": "Nu s-a putut iniția plata. Încercați din nou.",
     "errorPortal": "Nu s-a putut deschide portalul. Încercați din nou.",
     "banner": {
-      "active": "Abonamentul dvs. {{tier}} este activ",
+      "active": "Planul dvs. este activ",
       "freePlan": "Utilizați planul gratuit",
       "noSubscription": "Niciun abonament activ",
       "upgrade": "Actualizare"
@@ -3771,7 +3820,22 @@
       "QUIET_TABLE": "Masă liniștită"
     },
     "upcomingHelp": "Pending, confirmed & arrived, from today, by day.",
-    "allHelp": "Every reservation incl. past, declined and cancelled."
+    "allHelp": "Every reservation incl. past, declined and cancelled.",
+    "openBookingLink": "Deschide pagina de rezervări",
+    "turnoverHelp": "Folosit pentru a arăta personalului când se eliberează fiecare masă.",
+    "serviceHoursHelp": "Setați ora de deschidere și ultimul interval pentru fiecare zi. Lăsați ziua goală pentru a o închide.",
+    "customPrefsHelp": "Opțiuni suplimentare pe care oaspeții le pot alege în formularul de rezervare (de ex. piscină, terasă, zonă pentru copii).",
+    "blackoutHelp": "Blocați date specifice (sărbători, evenimente private). Nu se oferă intervale într-o zi închisă.",
+    "weekdays": {
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mie",
+      "thu": "Joi",
+      "fri": "Vin",
+      "sat": "Sâm",
+      "sun": "Dum"
+    },
+    "allergenSection": "Afișează secțiunea de alergeni din meniu"
   },
   "manage": {
     "title": "Gestionează rezervarea",

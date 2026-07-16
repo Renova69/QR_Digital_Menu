@@ -721,5 +721,10 @@
     "wheat": "Wheat",
     "fish": "Fish",
     "vegan": "Vegan"
+  },
+  "subscription": {
+    "banner": {
+      "active": "プランは有効です"
+    }
   }
 }

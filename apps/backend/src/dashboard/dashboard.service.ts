@@ -350,7 +350,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   ) {
     type Row = { date: string; revenue: number; orders: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT TO_CHAR("createdAt" AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS date,
+      SELECT TO_CHAR((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}), 'YYYY-MM-DD') AS date,
              COALESCE(SUM("totalPrice"), 0)::float AS revenue,
              COUNT(*)::int AS orders
       FROM customer_order
@@ -430,7 +430,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   ) {
     type Row = { hour: number; orders: number; revenue: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int AS hour,
+      SELECT EXTRACT(HOUR FROM (("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}))::int AS hour,
              COUNT(*)::int AS orders,
              COALESCE(SUM("totalPrice"), 0)::float AS revenue
       FROM customer_order
@@ -777,7 +777,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       total_revenue: number;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT EXTRACT(HOUR FROM (day_utc + (hour_utc * INTERVAL '1 hour')) AT TIME ZONE ${tz})::int AS local_hour,
+      SELECT EXTRACT(HOUR FROM (((day_utc + (hour_utc * INTERVAL '1 hour')) AT TIME ZONE 'UTC') AT TIME ZONE ${tz}))::int AS local_hour,
              SUM(order_count)::int AS total_orders,
              SUM(revenue)::float AS total_revenue
       FROM mv_peak_hours
@@ -1055,7 +1055,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT
         EXTRACT(EPOCH FROM (o."updatedAt" - o."createdAt")) / 60 AS "prepMinutes",
-        EXTRACT(HOUR FROM o."createdAt" AT TIME ZONE ${tz})::int AS hour,
+        EXTRACT(HOUR FROM ((o."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}))::int AS hour,
         tz.name AS "zoneName"
       FROM customer_order o
       LEFT JOIN restaurant_table rt ON o."tableId" = rt.id
@@ -1161,7 +1161,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     };
     const byHour = await this.prisma.$queryRaw<HourRow[]>`
       SELECT
-        EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int AS hour,
+        EXTRACT(HOUR FROM (("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}))::int AS hour,
         COUNT(*)::int AS "totalOrders",
         COUNT(*) FILTER (WHERE status = 'CANCELED')::int AS "canceledOrders"
       FROM customer_order

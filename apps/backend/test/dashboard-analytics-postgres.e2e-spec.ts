@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { DashboardService } from '../src/dashboard/dashboard.service';
 import { DashboardViewsService } from '../src/dashboard/dashboard-views.service';
+import { DateTime } from 'luxon';
 
 const databaseUrl = process.env.DATABASE_URL;
 const describeWithDatabase = databaseUrl ? describe : describe.skip;
@@ -15,6 +16,7 @@ jest.setTimeout(30_000);
 interface AnalyticsResult {
   period: number;
   topItems: Array<{ name: string }>;
+  peakHours: Array<{ hour: number; orders: number }>;
   cancelAnalytics: {
     cancelRateByItem: Array<{ itemName: string; cancelRate: number }>;
   };
@@ -36,6 +38,7 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
   let prisma: PrismaClient;
   let service: DashboardService;
   let restaurantId: string;
+  let localNineDateStr: string;
   const runPrefix = `analytics-postgres-${Date.now()}`;
 
   beforeAll(async () => {
@@ -61,6 +64,11 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
       },
     });
     restaurantId = restaurant.id;
+    const localNine = DateTime.now()
+      .setZone('Europe/Sofia')
+      .minus({ days: 1 })
+      .set({ hour: 9, minute: 15, second: 0, millisecond: 0 });
+    localNineDateStr = localNine.toISODate()!;
 
     await prisma.order.create({
       data: {
@@ -75,6 +83,25 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
             quantity: 1,
             unitPrice: 12,
             unitPriceWithOptions: 12,
+            selectedOptions: [],
+          },
+        },
+      },
+    });
+    await prisma.order.create({
+      data: {
+        customerName: 'Timezone customer',
+        customerPhone: '+359000000003',
+        restaurantId,
+        status: OrderStatus.COMPLETED,
+        totalPrice: 15,
+        createdAt: localNine.toUTC().toJSDate(),
+        items: {
+          create: {
+            itemName: 'Timezone item',
+            quantity: 1,
+            unitPrice: 15,
+            unitPriceWithOptions: 15,
             selectedOptions: [],
           },
         },
@@ -142,4 +169,20 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
       expect(result.menuProfitability.summary.missingCostItems).toBe(1);
     },
   );
+
+  it('buckets UTC-stored orders into the restaurant local demand hour', async () => {
+    const result = (await service.getAnalytics(
+      restaurantId,
+      7,
+      localNineDateStr,
+      localNineDateStr,
+      true,
+      'bg',
+    )) as AnalyticsResult;
+
+    expect(result.peakHours.reduce((sum, hour) => sum + hour.orders, 0)).toBe(
+      1,
+    );
+    expect(result.peakHours.find((hour) => hour.hour === 9)?.orders).toBe(1);
+  });
 });

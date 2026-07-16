@@ -1413,6 +1413,10 @@
     "dayPartLunch": "Almuerzo",
     "dayPartDinner": "Cena",
     "dayPartLate": "Tarde",
+    "dayPartRangeMorning": "06:00-11:59",
+    "dayPartRangeLunch": "12:00-15:59",
+    "dayPartRangeDinner": "16:00-21:59",
+    "dayPartRangeLate": "22:00-05:59",
     "noTimeSelected": "--:--",
     "peakHour": "Pico",
     "hourBarLabel": "{{label}}, {{orders}} pedidos",
@@ -1785,6 +1789,13 @@
     "categoryIssue": "Categoría: Tema",
     "fieldLabel": "Campo: {{field}}",
     "fix": "Corregir",
+    "fields": {
+      "items": "Artículos",
+      "price": "Precio",
+      "description": "Descripción",
+      "imageUrl": "Imagen",
+      "translations": "Traducciones"
+    },
     "issues": {
       "emptyCategory": "La categoría está vacía y no mostrará ningún artículo.",
       "missingCategoryTranslation": "Falta la traducción de la categoría para {{lang}}.",
@@ -2676,7 +2687,7 @@
     "errorCheckout": "No se ha podido iniciar el proceso de pago. Inténtalo de nuevo.",
     "errorPortal": "No se ha podido abrir el portal de facturación. Inténtalo de nuevo.",
     "banner": {
-      "active": "Tu suscripción de {{tier}} está activa",
+      "active": "Tu plan está activo",
       "freePlan": "Estás en el plan gratuito",
       "noSubscription": "No hay ninguna suscripción activa",
       "upgrade": "Actualización"

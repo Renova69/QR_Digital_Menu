@@ -17,7 +17,16 @@ export function ServiceHoursEditor({
   saving,
 }: ServiceHoursEditorProps) {
   const { t } = useTranslation();
-  const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dayNames = [
+    "",
+    t("reservations.weekdays.mon", "Mon"),
+    t("reservations.weekdays.tue", "Tue"),
+    t("reservations.weekdays.wed", "Wed"),
+    t("reservations.weekdays.thu", "Thu"),
+    t("reservations.weekdays.fri", "Fri"),
+    t("reservations.weekdays.sat", "Sat"),
+    t("reservations.weekdays.sun", "Sun"),
+  ];
   const [rows, setRows] = useState<
     Record<number, { open: string; last: string }>
   >(() => {

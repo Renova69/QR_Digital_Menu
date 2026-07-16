@@ -65,6 +65,7 @@ export function ReservationSettingsForm({
       { open: toHHMM(h.openMinute), last: toHHMM(h.lastSlotMinute) },
     ]),
   );
+  const bookingPath = `/book/${restaurantId}`;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -79,10 +80,20 @@ export function ReservationSettingsForm({
             saveSettings.mutate({ enabled: v });
           }}
         />
-        <p className="text-xs text-gray-500">
-          {t("reservations.bookingUrl", "Public booking link")}:{" "}
-          <code>/book/{restaurantId}</code>
-        </p>
+        <div className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs font-medium text-gray-600">
+            {t("reservations.bookingUrl", "Public booking link")}
+          </span>
+          <a
+            href={bookingPath}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={bookingPath}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+          >
+            {t("reservations.openBookingLink", "Open booking page")}
+          </a>
+        </div>
         <ToggleRow
           label={t("reservations.autoConfirm", "Auto-confirm requests")}
           checked={!!settings?.autoConfirm}

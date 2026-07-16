@@ -110,6 +110,21 @@ const DASHBOARD_LANGUAGES = [
   { code: "ro", label: "RO" },
 ];
 
+const USER_ROLE_LABEL_KEYS: Record<string, string> = {
+  OWNER: "dashboard.roles.owner",
+  MANAGER: "dashboard.roles.manager",
+  STAFF: "dashboard.roles.staff",
+  SUPER_ADMIN: "dashboard.roles.superAdmin",
+};
+
+function humanizeUserRole(role?: string | null): string {
+  if (!role) return "";
+  return role
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 const DashboardPage = () => {
   const { user, logout, updateUser } = useAuth();
   const { orders } = useOrders();
@@ -331,6 +346,12 @@ const DashboardPage = () => {
 
   const userName =
     user?.name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
+  const roleCode = user?.role?.toUpperCase?.() ?? "";
+  const userRoleLabel = roleCode
+    ? t(USER_ROLE_LABEL_KEYS[roleCode] ?? "dashboard.roles.unknown", {
+        defaultValue: humanizeUserRole(roleCode),
+      })
+    : "";
   const restaurantName = activeRestaurant?.name || "";
 
   return (
@@ -538,7 +559,7 @@ const DashboardPage = () => {
                   {user?.name || user?.email}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {user?.role}
+                  {userRoleLabel}
                 </p>
               </div>
             </button>
@@ -837,7 +858,7 @@ const DashboardPage = () => {
                     {user?.name || user?.email}
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate">
-                    {user?.role}
+                    {userRoleLabel}
                   </p>
                 </div>
               </button>

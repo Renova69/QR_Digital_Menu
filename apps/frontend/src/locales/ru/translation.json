@@ -736,5 +736,10 @@
     "wheat": "Wheat",
     "fish": "Fish",
     "vegan": "Vegan"
+  },
+  "subscription": {
+    "banner": {
+      "active": "Ваш план активен"
+    }
   }
 }
