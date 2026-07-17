@@ -246,6 +246,17 @@ describe("CheckoutPage", () => {
     expect(screen.queryByText(/pts to/)).not.toBeInTheDocument();
   });
 
+  it("does not render the tier progress row for a guest (no user)", () => {
+    (useAuth as Mock).mockReturnValue({ user: null });
+
+    render(<CheckoutPage />);
+
+    expect(screen.queryByText(/pts to/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Earning .*x on every order/),
+    ).not.toBeInTheDocument();
+  });
+
   it("requires explicit choices when a service point offers multiple options", async () => {
     (useCart as Mock).mockReturnValue({
       items: [
