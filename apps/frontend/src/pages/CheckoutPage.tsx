@@ -1122,7 +1122,7 @@ const CheckoutPage = () => {
                             <div
                               className="h-full rounded-full bg-primary"
                               style={{
-                                width: `${loyaltyData.tierProgressPercent}%`,
+                                width: `${Math.min(100, loyaltyData.tierProgressPercent)}%`,
                               }}
                             />
                           </div>
