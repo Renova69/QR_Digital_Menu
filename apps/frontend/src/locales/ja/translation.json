@@ -312,6 +312,8 @@
     "failedSubmit": "注文の送信に失敗しました。もう一度お試しください。",
     "loyaltyPoints": "ポイント",
     "pointsAvailable": "{{count}}ポイントがあります（価値: EUR {{value}}）",
+    "tierProgressToNext": "{{tier}}まであと{{points}}pt",
+    "tierProgressMaxTier": "毎回のご注文で{{multiplier}}倍のポイント獲得中",
     "redeemForDiscount": "ポイントで割引",
     "discountApplied": "割引適用:",
     "finalTotal": "最終合計:",

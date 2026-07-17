@@ -1237,6 +1237,8 @@
     "failedSubmit": "No se ha podido enviar el pedido. Inténtalo de nuevo.",
     "loyaltyPoints": "Puntos de fidelidad",
     "pointsAvailable": "Tienes {{count}} puntos disponibles (Valor: {{value}} EUR)",
+    "tierProgressToNext": "{{points}} pts para {{tier}}",
+    "tierProgressMaxTier": "Ganas {{multiplier}}x puntos en cada pedido",
     "redeemForDiscount": "Canjear puntos por un descuento",
     "discountApplied": "Descuento aplicado:",
     "finalTotal": "Total final:",

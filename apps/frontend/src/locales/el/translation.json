@@ -1238,6 +1238,8 @@
     "failedSubmit": "Δεν κατέστη δυνατή η υποβολή της παραγγελίας. Παρακαλώ δοκιμάστε ξανά.",
     "loyaltyPoints": "Πόντοι πιστότητας",
     "pointsAvailable": "Έχετε {{count}} διαθέσιμους πόντους (Αξία: {{value}} ευρώ)",
+    "tierProgressToNext": "{{points}} πόντοι μέχρι {{tier}}",
+    "tierProgressMaxTier": "Κερδίζετε {{multiplier}}x πόντους σε κάθε παραγγελία",
     "redeemForDiscount": "Εξαργυρώστε πόντους για έκπτωση",
     "discountApplied": "Εφαρμοζόμενη έκπτωση:",
     "finalTotal": "Τελικό σύνολο:",

@@ -713,6 +713,8 @@
     "failedSubmit": "Неуспешна поръчка. Моля опитайте отново.",
     "loyaltyPoints": "Точки за лоялност",
     "pointsAvailable": "Имате {{count}} точки (Стойност: EUR {{value}})",
+    "tierProgressToNext": "{{points}} точки до {{tier}}",
+    "tierProgressMaxTier": "Печелите {{multiplier}}x точки на всяка поръчка",
     "redeemForDiscount": "Използвай точки за отстъпка",
     "discountApplied": "Приложена отстъпка:",
     "finalTotal": "Крайна сума:",

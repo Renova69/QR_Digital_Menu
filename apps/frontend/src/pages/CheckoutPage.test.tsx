@@ -83,7 +83,23 @@ describe("CheckoutPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     i18nMock.resolvedLanguage = "en";
-    i18nMock.translate.mockImplementation((key: string) => key);
+    // Most keys just echo back (existing tests assert on raw keys). The two
+    // tier-progress keys carry interpolated variables the tier-progress
+    // tests assert on, so those two are resolved to their real en-locale
+    // copy here.
+    i18nMock.translate.mockImplementation(
+      (key: string, options?: Record<string, unknown>) => {
+        if (options && typeof options === "object") {
+          if (key === "checkout.tierProgressToNext") {
+            return `${options.points} pts to ${options.tier}`;
+          }
+          if (key === "checkout.tierProgressMaxTier") {
+            return `Earning ${options.multiplier}x on every order`;
+          }
+        }
+        return key;
+      },
+    );
     (useNavigate as Mock).mockReturnValue(mockNavigate);
     (useLocation as Mock).mockReturnValue({
       state: { restaurantId: "r1" },
@@ -251,6 +267,75 @@ describe("CheckoutPage", () => {
         expect.anything(),
       );
     });
+  });
+
+  it("shows tier progress bar and points-to-next-tier for a Silver member", async () => {
+    (useAuth as Mock).mockReturnValue({ user: { id: "u1", name: "Jane" } });
+    (api.default.post as Mock).mockImplementation((url: string) => {
+      if (url.includes("/loyalty/") && url.includes("/enroll")) {
+        return Promise.resolve({
+          data: {
+            points: 340,
+            lifetimePoints: 340,
+            tier: "Silver",
+            tierMultiplier: 1.2,
+            tierProgressPercent: 68,
+            pointsToNextTier: 160,
+            nextTierName: "Gold",
+            restaurantConfig: { isLoyaltyEnabled: true },
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Silver/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/160 pts to Gold/)).toBeInTheDocument();
+  });
+
+  it("shows a static max-tier badge with no progress bar for a Gold member", async () => {
+    (useAuth as Mock).mockReturnValue({ user: { id: "u1", name: "Jane" } });
+    (api.default.post as Mock).mockImplementation((url: string) => {
+      if (url.includes("/loyalty/") && url.includes("/enroll")) {
+        return Promise.resolve({
+          data: {
+            points: 2500,
+            lifetimePoints: 2500,
+            tier: "Gold",
+            tierMultiplier: 1.5,
+            tierProgressPercent: 100,
+            pointsToNextTier: 0,
+            nextTierName: "Max Tier",
+            restaurantConfig: { isLoyaltyEnabled: true },
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Earning 1.5x on every order/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/pts to/)).not.toBeInTheDocument();
+  });
+
+  it("does not render the tier progress row for a guest (no user)", () => {
+    (useAuth as Mock).mockReturnValue({ user: null });
+
+    render(<CheckoutPage />);
+
+    expect(screen.queryByText(/pts to/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Earning .*x on every order/),
+    ).not.toBeInTheDocument();
   });
 
   it("requires explicit choices when a service point offers multiple options", async () => {

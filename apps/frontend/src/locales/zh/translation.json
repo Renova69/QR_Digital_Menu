@@ -1237,6 +1237,8 @@
     "failedSubmit": "提交订单失败。请重试。",
     "loyaltyPoints": "积分",
     "pointsAvailable": "您目前有 {{count}} 积分（价值：{{value}} 欧元）",
+    "tierProgressToNext": "距{{tier}}还差{{points}}积分",
+    "tierProgressMaxTier": "每笔订单可获得{{multiplier}}倍积分",
     "redeemForDiscount": "使用积分兑换折扣",
     "discountApplied": "已应用折扣：",
     "finalTotal": "最终总计：",

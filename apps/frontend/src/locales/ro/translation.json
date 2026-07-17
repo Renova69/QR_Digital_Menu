@@ -711,6 +711,8 @@
     "failedSubmit": "Comanda a eșuat. Vă rugăm să încercați din nou.",
     "loyaltyPoints": "Puncte de loialitate",
     "pointsAvailable": "Aveți {{count}} puncte disponibile (Valoare: EUR {{value}})",
+    "tierProgressToNext": "{{points}} puncte până la {{tier}}",
+    "tierProgressMaxTier": "Câștigi {{multiplier}}x puncte la fiecare comandă",
     "redeemForDiscount": "Folosiți puncte pentru reducere",
     "discountApplied": "Reducere aplicată:",
     "finalTotal": "Total final:",
