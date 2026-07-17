@@ -18,7 +18,6 @@ import { Zap, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { PaymentModal } from "../components/payment/PaymentModal";
-import { CheckoutProgressSteps } from "../components/checkout/CheckoutProgressSteps";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { getCustomerFacingOrderSourceLabel } from "../lib/orderSourceLabel";
 import { Toggle } from "../components/ui/Toggle";
@@ -110,7 +109,7 @@ function PaymentPartnerMark({
       <span
         aria-label={label}
         title={label}
-        className="flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-[11px] font-black tracking-tight text-foreground shadow-sm"
+        className="flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-sm font-black tracking-tight text-foreground shadow-sm"
         role="img"
       >
         {label}
@@ -123,7 +122,7 @@ function PaymentPartnerMark({
       aria-label={label}
       title={label}
       className={cn(
-        "flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-[11px] font-black uppercase tracking-wide shadow-sm",
+        "flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-sm font-black uppercase tracking-wide shadow-sm",
         partner.className,
       )}
       role="img"
@@ -138,7 +137,7 @@ function PaymentTrustGrid() {
 
   return (
     <div className="rounded-2xl border border-border/70 bg-background/45 p-3">
-      <p className="mb-2 flex items-center justify-center gap-1.5 text-[11px] font-bold text-muted-foreground">
+      <p className="mb-2 flex items-center justify-center gap-1.5 text-sm font-bold text-muted-foreground">
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
         {t("checkout.paymentTrust.secure", "Secure checkout supported by")}
       </p>
@@ -725,15 +724,11 @@ const CheckoutPage = () => {
               "max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))",
           }}
         >
-          <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
+          <h1 className="text-base font-extrabold text-foreground mb-8">
             {paymentComplete
               ? t("checkout.paymentComplete", "Payment Complete")
               : t("payment.yourBill", "Your Bill")}
           </h1>
-
-          <div className="mb-8">
-            <CheckoutProgressSteps currentStep={paymentComplete ? 4 : 3} />
-          </div>
 
           {!paymentComplete &&
             (sessionBill?.targetLanguages?.length ?? 0) > 1 && (
@@ -764,7 +759,7 @@ const CheckoutPage = () => {
           {paymentComplete && (
             <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center gap-4">
               <CheckCircle2 className="h-14 w-14 text-green-500" />
-              <p className="text-lg font-semibold text-foreground">
+              <p className="text-base font-semibold text-foreground">
                 {t(
                   "checkout.paymentThanks",
                   "Thank you! Your payment was received.",
@@ -779,7 +774,7 @@ const CheckoutPage = () => {
                       : buildMenuReturnUrl(sessionBill?.restaurantId),
                   )
                 }
-                className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
+                className="w-full py-4 rounded-xl brand-cta text-white font-bold text-base min-h-[52px]"
               >
                 {t("checkout.backToMenu", "Back to Menu")}
               </button>
@@ -807,7 +802,7 @@ const CheckoutPage = () => {
                 {sessionBill.orders?.map((order: any, oi: number) => (
                   <div key={order.id ?? oi} className="mb-4 last:mb-0">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         {t("checkout.orderN", {
                           n: oi + 1,
                           defaultValue: "Order {{n}}",
@@ -838,10 +833,10 @@ const CheckoutPage = () => {
                   </div>
                 ))}
                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
-                  <span className="text-lg font-bold text-foreground">
+                  <span className="text-base font-bold text-foreground">
                     {t("payment.total", "Total")}
                   </span>
-                  <span className="text-2xl font-display font-bold text-foreground tabular-nums">
+                  <span className="text-base font-display font-bold text-foreground tabular-nums">
                     {/* Bill-level Total must reflect what's still owed, not
                         the original order total — on a partially-paid split
                         (another guest already paid part of the table), the
@@ -852,7 +847,7 @@ const CheckoutPage = () => {
                   </span>
                 </div>
                 {sessionBill.paidSubtotal > 0 && (
-                  <p className="mt-1 text-right text-xs text-muted-foreground">
+                  <p className="mt-1 text-right text-sm text-muted-foreground">
                     {t("checkout.alreadyPaid", {
                       defaultValue: "{{amount}} already paid",
                       amount: formatEuro(sessionBill.paidSubtotal),
@@ -867,7 +862,7 @@ const CheckoutPage = () => {
                   <button
                     type="button"
                     onClick={openPayment}
-                    className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
+                    className="w-full py-4 rounded-xl brand-cta text-white font-bold text-base min-h-[52px]"
                   >
                     {t("payment.pay", "Pay Now")} ·{" "}
                     {formatEuro(
@@ -925,13 +920,9 @@ const CheckoutPage = () => {
           {t("checkout.back")}
         </button>
 
-        <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
+        <h1 className="text-base font-extrabold text-foreground mb-8">
           {t("checkout.title")}
         </h1>
-
-        <div className="mb-8">
-          <CheckoutProgressSteps currentStep={2} />
-        </div>
 
         {error && (
           <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8 shadow-md">
@@ -956,7 +947,7 @@ const CheckoutPage = () => {
         )}
 
         <div className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl mb-8 border border-white/20">
-          <h2 className="text-2xl font-bold mb-6 text-foreground">
+          <h2 className="text-base font-bold mb-6 text-foreground">
             {t("checkout.orderSummary")}
           </h2>
           <ul className="space-y-4">
@@ -966,7 +957,7 @@ const CheckoutPage = () => {
                 className="flex justify-between items-start pb-4 border-b border-border/40 last:border-0 last:pb-0"
               >
                 <div>
-                  <p className="font-bold text-foreground text-lg">
+                  <p className="font-bold text-foreground text-base">
                     {resolveCartItemName(item, menuCategories, selectedLang)}{" "}
                     <span className="text-muted-foreground ml-2">
                       x{item.quantity}
@@ -1024,7 +1015,7 @@ const CheckoutPage = () => {
                             );
                           }
                         }}
-                        className={`mt-2 min-h-[44px] text-xs font-bold px-2 py-1 rounded-md transition-colors ${
+                        className={`mt-2 min-h-[44px] text-sm font-bold px-2 py-1 rounded-md transition-colors ${
                           redeemedCartIds.has(item.cartId)
                             ? "bg-primary text-white"
                             : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
@@ -1038,14 +1029,14 @@ const CheckoutPage = () => {
                             })}
                       </button>
                       {notEnoughPointsItemId === item.cartId && (
-                        <p className="text-red-500 text-xs mt-1">
+                        <p className="text-red-500 text-sm mt-1">
                           {t("checkout.notEnoughPoints")}
                         </p>
                       )}
                     </>
                   )}
                 </div>
-                <p className="font-bold text-lg text-foreground">
+                <p className="font-bold text-base text-foreground">
                   {redeemedCartIds.has(item.cartId) ? (
                     <>
                       {t("checkout.free")}
@@ -1053,7 +1044,7 @@ const CheckoutPage = () => {
                         (sum, option) => sum + (option.priceModifier || 0),
                         0,
                       ) > 0 && (
-                        <span className="block text-xs text-muted-foreground text-right">
+                        <span className="block text-sm text-muted-foreground text-right">
                           +
                           {formatInlineDual(
                             item.selectedOptions.reduce(
@@ -1073,11 +1064,11 @@ const CheckoutPage = () => {
               </li>
             ))}
           </ul>
-          <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-2xl text-foreground">
+          <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-base text-foreground">
             <span>{t("cart.total")}:</span>
             <div className="text-right">
               <div>{formatEuro(getTotal(redeemedCartIds))}</div>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {formatBgn(getTotal(redeemedCartIds))}
               </span>
             </div>
@@ -1143,13 +1134,13 @@ const CheckoutPage = () => {
               )}
 
               {usePoints && loyaltyPoints - getItemsPointsCost() > 0 && (
-                <div className="flex justify-between font-bold text-lg text-green-600">
+                <div className="flex justify-between font-bold text-base text-green-600">
                   <span>{t("checkout.discountApplied")}</span>
                   <span>-{formatEuro(getEstimatedPointsDiscount())}</span>
                 </div>
               )}
 
-              <div className="flex justify-between font-extrabold text-3xl text-foreground">
+              <div className="flex justify-between font-extrabold text-base text-foreground">
                 <span>{t("checkout.finalTotal")}</span>
                 <div className="text-right">
                   <div>
@@ -1157,7 +1148,7 @@ const CheckoutPage = () => {
                       getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-sm text-muted-foreground">
                     {formatBgn(
                       getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
                     )}
@@ -1181,7 +1172,7 @@ const CheckoutPage = () => {
                   ),
                 })}
                 {finalMultiplier > 1 && (
-                  <span className="ml-1 text-xs text-primary/70">
+                  <span className="ml-1 text-sm text-primary/70">
                     ({finalMultiplier}
                     {t("auto.x", "x)")}
                   </span>
@@ -1218,7 +1209,7 @@ const CheckoutPage = () => {
           className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl space-y-6 border border-white/20"
         >
           <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-8">
-            <p className="font-bold text-primary text-lg flex items-center gap-2">
+            <p className="font-bold text-primary text-base flex items-center gap-2">
               <span className="bg-primary text-white px-2 py-0.5 rounded-md text-sm">
                 {locationTypeLabel}
               </span>
@@ -1310,7 +1301,7 @@ const CheckoutPage = () => {
               )}
             />
             {nameFieldState === "invalid" && (
-              <p className="text-xs font-semibold text-red-500">
+              <p className="text-sm font-semibold text-red-500">
                 {t(
                   "checkout.nameTooShort",
                   "Use at least 2 characters, or leave it blank.",
@@ -1318,7 +1309,7 @@ const CheckoutPage = () => {
               </p>
             )}
             {nameFieldState === "valid" && customerNameTrimmed && (
-              <p className="text-xs font-semibold text-emerald-600">
+              <p className="text-sm font-semibold text-emerald-600">
                 {t(
                   "checkout.nameLooksGood",
                   "Great - we'll use this for your order.",
@@ -1354,7 +1345,7 @@ const CheckoutPage = () => {
               )}
             />
             {phoneFieldState === "invalid" && (
-              <p className="text-xs font-semibold text-red-500">
+              <p className="text-sm font-semibold text-red-500">
                 {t(
                   "checkout.phoneInvalid",
                   "Enter a reachable phone number with at least 7 digits, or leave it blank.",
@@ -1362,7 +1353,7 @@ const CheckoutPage = () => {
               </p>
             )}
             {phoneFieldState === "valid" && customerPhoneTrimmed && (
-              <p className="text-xs font-semibold text-emerald-600">
+              <p className="text-sm font-semibold text-emerald-600">
                 {t(
                   "checkout.phoneLooksGood",
                   "Looks good - staff can reach you if needed.",

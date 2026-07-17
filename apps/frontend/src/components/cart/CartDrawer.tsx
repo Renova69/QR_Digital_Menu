@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types";
 import { formatInlineDual, BGN_RATE } from "../../lib/currency";
-import { CheckoutProgressSteps } from "../checkout/CheckoutProgressSteps";
 import {
   resolveCartChoiceName,
   resolveCartItemName,
@@ -104,7 +103,7 @@ const CartDrawer = ({
         </div>
 
         <div className="flex justify-between items-center px-6 py-5 md:p-8 border-b border-border flex-shrink-0">
-          <h2 className="text-2xl md:text-3xl font-display font-black text-foreground tracking-tighter">
+          <h2 className="text-base font-display font-black text-foreground">
             {showDrinkUpsell
               ? t("publicMenu.drinkUpsell.title")
               : t("cart.yourOrder")}
@@ -118,18 +117,12 @@ const CartDrawer = ({
           </button>
         </div>
 
-        {items.length > 0 && (
-          <div className="px-5 pt-4 md:px-6">
-            <CheckoutProgressSteps currentStep={1} />
-          </div>
-        )}
-
         <div className="flex-grow overflow-y-auto p-5 md:p-6 hide-scrollbar">
           {showDrinkUpsell ? (
             <div className="space-y-5">
               <div className="text-center p-5 bg-primary/10 border border-primary/20 rounded-2xl mb-6">
-                <span className="text-4xl block mb-3">🥤</span>
-                <h3 className="text-lg font-bold text-foreground leading-tight mb-2">
+                <span className="text-base block mb-3">🥤</span>
+                <h3 className="text-base font-bold text-foreground leading-tight mb-2">
                   {t("publicMenu.drinkUpsell.question")}
                 </h3>
                 <p className="text-sm text-muted-foreground">
@@ -212,7 +205,7 @@ const CartDrawer = ({
                     </p>
                     {item.selectedOptions &&
                       item.selectedOptions.length > 0 && (
-                        <ul className="text-xs text-muted-foreground mt-1.5 space-y-1">
+                        <ul className="text-sm text-muted-foreground mt-1.5 space-y-1">
                           {item.selectedOptions.map((opt, idx) => (
                             <li
                               key={`${item.cartId}-opt-${idx}`}
@@ -244,7 +237,7 @@ const CartDrawer = ({
                     </p>
                     <button
                       onClick={() => removeItem(item.cartId)}
-                      className="mt-2 min-h-[44px] text-xs font-semibold text-red-500 transition-colors hover:text-red-400"
+                      className="mt-2 min-h-[44px] text-sm font-semibold text-red-500 transition-colors hover:text-red-400"
                     >
                       {t("cart.remove")}
                     </button>
@@ -264,10 +257,10 @@ const CartDrawer = ({
             }}
           >
             <div className="flex justify-between items-baseline mb-6">
-              <span className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
+              <span className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
                 {t("cart.total")}
               </span>
-              <span className="text-3xl font-display font-black text-primary tracking-tighter">
+              <span className="text-base font-display font-black text-primary">
                 {formatInlineDual(getTotal(), "EUR")}
               </span>
             </div>
@@ -275,13 +268,13 @@ const CartDrawer = ({
               <div className="space-y-3">
                 <button
                   onClick={finishCheckout}
-                  className="w-full min-h-[52px] brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-xs"
+                  className="w-full min-h-[52px] brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-sm"
                 >
                   {t("cart.proceedCheckout")}
                 </button>
                 <button
                   onClick={finishCheckout}
-                  className="w-full min-h-[44px] bg-transparent border border-border hover:bg-muted text-muted-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[11px] uppercase tracking-widest"
+                  className="w-full min-h-[44px] bg-transparent border border-border hover:bg-muted text-muted-foreground font-bold py-3 px-6 rounded-2xl transition-all text-sm uppercase tracking-widest"
                 >
                   {t("publicMenu.drinkUpsell.noThanks")}
                 </button>
@@ -290,13 +283,13 @@ const CartDrawer = ({
               <div className="space-y-3">
                 <button
                   onClick={handleCheckout}
-                  className="w-full min-h-[52px] brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-[11px]"
+                  className="w-full min-h-[52px] brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-sm"
                 >
                   {t("cart.proceedCheckout")}
                 </button>
                 <button
                   onClick={clearCart}
-                  className="w-full min-h-[44px] bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[10px] uppercase tracking-widest"
+                  className="w-full min-h-[44px] bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground font-bold py-3 px-6 rounded-2xl transition-all text-sm uppercase tracking-widest"
                 >
                   {t("cart.clearCart")}
                 </button>
