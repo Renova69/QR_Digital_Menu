@@ -52,7 +52,7 @@ npx prisma db push     # preferred when migration history is drifted (additive s
 npm run dev      # vite --host (strictPort, fails fast on conflict)
 npm run build    # vite build
 npm test         # Vitest with jsdom
-npm start        # serve dist/ on :3001
+npm start        # serve dist/ on :3002 (kept off :3001 so a built PWA's service worker never colonizes the vite-dev origin — see fixed_issues_main.md)
 ```
 
 ## Environment & DB

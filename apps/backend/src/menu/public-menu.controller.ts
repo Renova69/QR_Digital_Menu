@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Param,
   Query,
   UseGuards,
@@ -24,6 +25,7 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId')
   @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
   async getPublicMenu(
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
@@ -33,6 +35,7 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId/meta')
   @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
   async getPublicMenuMeta(
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
@@ -42,6 +45,7 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId/categories/:categoryId/items')
   @Throttle({ default: { limit: 120, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
   async getCategoryItems(
     @Param('restaurantId') restaurantId: string,
     @Param('categoryId') categoryId: string,
@@ -55,6 +59,7 @@ export class PublicMenuController {
   // category (kills the N restaurant reads + N DeepL bursts).
   @Get('public/:restaurantId/items')
   @Throttle({ default: { limit: 120, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
   async getPublicMenuItems(
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
@@ -64,6 +69,7 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId/trending')
   @Throttle({ default: { limit: 120, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
   async getTrendingItems(
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
