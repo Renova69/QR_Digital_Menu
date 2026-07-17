@@ -153,6 +153,7 @@ export class CreateOrderDto {
 
   @IsString()
   @IsOptional()
+  @IsIn(['CUSTOMER', 'POS'])
   source?: 'CUSTOMER' | 'POS';
 
   @ValidateNested()

@@ -39,6 +39,12 @@ describe('CreateOrderDto validation', () => {
     expect(validate(basePayload)).toHaveLength(0);
   });
 
+  it('rejects an unknown order source', () => {
+    const errors = validate({ ...basePayload, source: 'PUBLIC_POS' });
+
+    expect(constraintKeys(errors)).toContain('isIn');
+  });
+
   describe('quantity', () => {
     it('rejects zero', () => {
       const errors = validate({

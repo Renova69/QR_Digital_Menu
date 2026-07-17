@@ -107,10 +107,8 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     authenticatedUserId: string | null = null,
   ) {
-    // `createOrderDto.source` is the caller's INTENT only — used here to require
-    // an authenticated staff identity for POS orders. The source actually
-    // recorded on the Order is DERIVED from resolvePosStaff below (#L3); never
-    // trust the client to label an order as staff-created.
+    // POS intent is accepted only with a verified restaurant staff identity;
+    // every other request is persisted as customer checkout.
     if (createOrderDto.source === 'POS' && !authenticatedUserId) {
       throw new UnauthorizedException('Session expired. Please log in again.');
     }
@@ -322,17 +320,18 @@ export class OrdersService {
       });
     }
 
-    // Attribute the order to POS staff ONLY when the authenticated caller is a
-    // staff member of THIS restaurant (or its owner). Otherwise — a logged-in
-    // customer, or an owner browsing another restaurant — the order is a normal
-    // customer order, not POS (#4). Prevents misclassifying customers as staff.
+    // Staff identity alone does not make a public checkout a POS order. POS
+    // attribution requires both explicit POS intent and verified restaurant
+    // staff; every other authenticated caller remains the order's customer.
     const resolvedStaffUserId =
-      posStaffUserId ??
-      (await this.resolvePosStaff(
-        authenticatedUserId,
-        restaurant.ownerId,
-        restaurantId,
-      ));
+      createOrderDto.source === 'POS'
+        ? (posStaffUserId ??
+          (await this.resolvePosStaff(
+            authenticatedUserId,
+            restaurant.ownerId,
+            restaurantId,
+          )))
+        : null;
     if (createOrderDto.source === 'POS' && !resolvedStaffUserId) {
       throw new UnauthorizedException(
         'Only active staff assigned to this restaurant can create POS orders.',

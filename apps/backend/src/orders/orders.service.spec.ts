@@ -364,6 +364,173 @@ describe('OrdersService', () => {
       expect(data.staffUserId).toBeUndefined();
     });
 
+    it('attributes public checkout to the owner as a customer order', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'owner-1',
+        restaurantId: null,
+        role: 'OWNER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create(
+        {
+          customerName: '666',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
+        'owner-1',
+      );
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data.source).toBe('CUSTOMER');
+      expect(data.staffUserId).toBeUndefined();
+      expect(data.customerId).toBe('owner-1');
+    });
+
+    it('awards loyalty points on an owner public checkout', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          ownerId: 'owner-1',
+          isLoyaltyEnabled: true,
+          loyaltySilverMultiplier: 1.2,
+          loyaltyGoldMultiplier: 1.5,
+        }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'owner-1',
+        restaurantId: null,
+        role: 'OWNER',
+        isActive: true,
+        disabledAt: null,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 1242,
+        lifetimePoints: 1242,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create(
+        {
+          customerName: '666',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
+        'owner-1',
+      );
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data).toEqual(
+        expect.objectContaining({
+          customerId: 'owner-1',
+          source: 'CUSTOMER',
+          pointsEarned: 120,
+        }),
+      );
+      expect(tx.loyaltyAccount.update).toHaveBeenCalledWith({
+        where: { id: 'acc-1' },
+        data: {
+          points: { increment: 120 },
+          lifetimePoints: { increment: 120 },
+        },
+      });
+      expect(tx.loyaltyPointLedger.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          loyaltyAccountId: 'acc-1',
+          orderId: 'order-1',
+          type: 'EARN',
+          points: 120,
+          remainingPoints: 120,
+        }),
+      });
+    });
+
+    it('attributes public checkout to assigned staff as a customer order', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create(
+        {
+          customerName: 'Staff customer',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
+        'waiter-1',
+      );
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data.source).toBe('CUSTOMER');
+      expect(data.staffUserId).toBeUndefined();
+      expect(data.customerId).toBe('waiter-1');
+    });
+
+    it('attributes an explicit owner POS order to the owner as staff', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'owner-1',
+        restaurantId: null,
+        role: 'OWNER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create(
+        {
+          customerName: 'POS guest',
+          source: 'POS',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
+        'owner-1',
+      );
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data.source).toBe('POS');
+      expect(data.staffUserId).toBe('owner-1');
+      expect(data.customerId).toBeNull();
+    });
+
     it('rejects customerId spoofing from the request body', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       mockAuthenticatedCustomer(prisma, 'cust-1');
@@ -409,6 +576,7 @@ describe('OrdersService', () => {
       await expect(
         service.create(
           {
+            source: 'POS',
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'some-customer-id',
             tableId: 'T1',
@@ -441,6 +609,7 @@ describe('OrdersService', () => {
       await expect(
         service.create(
           {
+            source: 'POS',
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'ghost-id',
           } as unknown as Partial<
@@ -474,6 +643,7 @@ describe('OrdersService', () => {
       await expect(
         service.create(
           {
+            source: 'POS',
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'disabled-cust',
           } as unknown as Partial<
@@ -507,6 +677,7 @@ describe('OrdersService', () => {
       await expect(
         service.create(
           {
+            source: 'POS',
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'manager-id',
           } as unknown as Partial<
@@ -522,8 +693,8 @@ describe('OrdersService', () => {
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
       );
-      // resolvePosStaff fetches user: isActive false → returns null (not staff)
-      // resolveCustomerUserId fetches same user: isActive false → throws
+      // Public checkout resolves the caller as a customer and rejects the
+      // disabled account before creating the order.
       prisma.user.findUnique.mockResolvedValue({
         id: 'disabled-cust',
         restaurantId: null,
