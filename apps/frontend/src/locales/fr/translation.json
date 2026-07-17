@@ -1871,6 +1871,7 @@
     "maxTier": "Niveau maximal atteint",
     "pastOrders": "Commandes précédentes",
     "loading": "Chargement de l'historique...",
+    "historyLoadFailed": "Impossible de charger les commandes précédentes. Veuillez réessayer.",
     "noOrders": "Aucune commande pour l'instant",
     "noOrdersHint": "Lorsque vous passerez commande auprès des restaurants participants, ceux-ci s'afficheront ici.",
     "at": "à",

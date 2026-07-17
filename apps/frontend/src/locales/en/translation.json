@@ -1539,6 +1539,7 @@
     "maxTier": "Max Tier Reached",
     "pastOrders": "Past Orders",
     "loading": "Loading history...",
+    "historyLoadFailed": "Could not load past orders. Please try again.",
     "noOrders": "No orders yet",
     "noOrdersHint": "When you order from participating restaurants, they'll appear here.",
     "at": "at",

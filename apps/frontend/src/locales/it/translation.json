@@ -1871,6 +1871,7 @@
     "maxTier": "Livello massimo raggiunto",
     "pastOrders": "Ordini precedenti",
     "loading": "Caricamento della cronologia...",
+    "historyLoadFailed": "Impossibile caricare gli ordini precedenti. Riprova.",
     "noOrders": "Non ci sono ancora ordini",
     "noOrdersHint": "Quando effettui un ordine presso i ristoranti aderenti all'iniziativa, questi appariranno qui.",
     "at": "a",

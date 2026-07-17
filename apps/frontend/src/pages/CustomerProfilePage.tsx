@@ -14,26 +14,46 @@ export const CustomerProfilePage: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loyaltyAccounts, setLoyaltyAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
 
   useEffect(() => {
     if (user) {
+      let active = true;
       setIsLoading(true);
-      Promise.all([
-        api.get("/loyalty/orders/history"),
-        api.get("/loyalty/accounts"),
-      ])
-        .then(([historyRes, accountsRes]) => {
-          setHistory(historyRes.data || []);
-          setLoyaltyAccounts(accountsRes.data || []);
+      setHistoryLoadFailed(false);
+
+      api
+        .get("/loyalty/orders/history")
+        .then((historyRes) => {
+          if (active) setHistory(historyRes.data || []);
         })
         .catch((err) => {
-          console.error("Failed to load profile data:", err);
-          setHistory([]);
-          setLoyaltyAccounts([]);
+          console.error("Failed to load order history:", err);
+          if (active) {
+            setHistory([]);
+            setHistoryLoadFailed(true);
+          }
         })
-        .finally(() => setIsLoading(false));
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
+
+      api
+        .get("/loyalty/accounts")
+        .then((accountsRes) => {
+          if (active) setLoyaltyAccounts(accountsRes.data || []);
+        })
+        .catch((err) => {
+          console.error("Failed to load loyalty accounts:", err);
+          if (active) setLoyaltyAccounts([]);
+        });
+
+      return () => {
+        active = false;
+      };
     } else {
       setIsLoading(false);
+      setHistoryLoadFailed(false);
     }
   }, [user]);
 
@@ -226,6 +246,15 @@ export const CustomerProfilePage: React.FC = () => {
         <h2 className="text-xl font-bold mb-6">{t("profile.pastOrders")}</h2>
         {isLoading ? (
           <p className="text-muted-foreground">{t("profile.loading")}</p>
+        ) : historyLoadFailed ? (
+          <div className="text-center py-10 text-muted-foreground">
+            <p className="font-bold">
+              {t(
+                "profile.historyLoadFailed",
+                "Could not load past orders. Please try again.",
+              )}
+            </p>
+          </div>
         ) : history.length === 0 ? (
           <div className="text-center py-10 opacity-60">
             <p className="font-bold mb-2">{t("profile.noOrders")}</p>

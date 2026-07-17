@@ -1871,6 +1871,7 @@
     "maxTier": "Se ha alcanzado el nivel máximo",
     "pastOrders": "Pedidos anteriores",
     "loading": "Cargando el historial...",
+    "historyLoadFailed": "No se pudieron cargar los pedidos anteriores. Inténtalo de nuevo.",
     "noOrders": "Aún no hay pedidos",
     "noOrdersHint": "Cuando hagas un pedido en los restaurantes participantes, aparecerán aquí.",
     "at": "en",

@@ -1871,6 +1871,7 @@
     "maxTier": "Höchste Stufe erreicht",
     "pastOrders": "Frühere Bestellungen",
     "loading": "Verlauf wird geladen...",
+    "historyLoadFailed": "Frühere Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
     "noOrders": "Noch keine Bestellungen",
     "noOrdersHint": "Wenn Sie bei teilnehmenden Restaurants bestellen, werden diese hier angezeigt.",
     "at": "bei",

@@ -1543,6 +1543,7 @@
     "maxTier": "Nivel maxim atins",
     "pastOrders": "Comenzi anterioare",
     "loading": "Se încarcă istoricul…",
+    "historyLoadFailed": "Comenzile anterioare nu au putut fi încărcate. Încercați din nou.",
     "noOrders": "Nicio comandă încă",
     "noOrdersHint": "Când comandați de la restaurante participante, vor apărea aici.",
     "at": "la",

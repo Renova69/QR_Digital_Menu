@@ -7,11 +7,21 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import * as api from "../lib/api";
+import bgTranslation from "../locales/bg/translation.json";
+
+const i18nMock = vi.hoisted(() => ({
+  resolvedLanguage: "en",
+  translate: vi.fn((key: string) => key),
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { resolvedLanguage: "en", changeLanguage: vi.fn(), dir: () => "ltr" },
+    t: i18nMock.translate,
+    i18n: {
+      resolvedLanguage: i18nMock.resolvedLanguage,
+      changeLanguage: vi.fn(),
+      dir: () => "ltr",
+    },
   }),
 }));
 
@@ -72,6 +82,8 @@ describe("CheckoutPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    i18nMock.resolvedLanguage = "en";
+    i18nMock.translate.mockImplementation((key: string) => key);
     (useNavigate as Mock).mockReturnValue(mockNavigate);
     (useLocation as Mock).mockReturnValue({
       state: { restaurantId: "r1" },
@@ -115,6 +127,50 @@ describe("CheckoutPage", () => {
       paymentProviders: ["MYPOS"],
       pendingPayment: null,
     });
+  });
+
+  it("renders Bulgarian checkout copy instead of English fallbacks", () => {
+    i18nMock.resolvedLanguage = "bg";
+    i18nMock.translate.mockImplementation(
+      (key: string, fallback?: string | Record<string, unknown>) => {
+        const translated = key
+          .split(".")
+          .reduce<unknown>(
+            (value, part) =>
+              value &&
+              typeof value === "object" &&
+              part in (value as Record<string, unknown>)
+                ? (value as Record<string, unknown>)[part]
+                : undefined,
+            bgTranslation,
+          );
+        return typeof translated === "string"
+          ? translated
+          : typeof fallback === "string"
+            ? fallback
+            : key;
+      },
+    );
+    (useLocation as Mock).mockReturnValue({
+      state: { restaurantId: "r1", paymentsEnabled: true },
+      hash: "",
+    });
+
+    render(<CheckoutPage />);
+
+    expect(screen.getByLabelText("Име (по избор)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Телефон (по избор)")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Специални изисквания (по избор)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Сигурно плащане чрез")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Име (по избор)"), {
+      target: { value: "Мария" },
+    });
+    expect(
+      screen.getByText("Чудесно - ще използваме това име за поръчката ви."),
+    ).toBeInTheDocument();
   });
 
   it("renders cart items and total", () => {
