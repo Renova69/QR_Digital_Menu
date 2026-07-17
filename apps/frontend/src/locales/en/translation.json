@@ -711,6 +711,8 @@
     "failedSubmit": "Failed to submit order. Please try again.",
     "loyaltyPoints": "Loyalty Points",
     "pointsAvailable": "You have {{count}} points available (Value: EUR {{value}})",
+    "tierProgressToNext": "{{points}} pts to {{tier}}",
+    "tierProgressMaxTier": "Earning {{multiplier}}x on every order",
     "redeemForDiscount": "Redeem points for discount",
     "discountApplied": "Discount applied:",
     "finalTotal": "Final Total:",

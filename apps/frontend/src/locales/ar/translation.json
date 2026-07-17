@@ -357,6 +357,8 @@
     "failedSubmit": "فشل إرسال الطلب. يرجى المحاولة مجدداً.",
     "loyaltyPoints": "نقاط الولاء",
     "pointsAvailable": "لديك {{count}} نقطة (القيمة: EUR {{value}})",
+    "tierProgressToNext": "{{points}} نقطة حتى {{tier}}",
+    "tierProgressMaxTier": "تكسب {{multiplier}}x نقطة في كل طلب",
     "redeemForDiscount": "استبدال النقاط بخصم",
     "discountApplied": "تم تطبيق الخصم:",
     "finalTotal": "المجموع النهائي:",

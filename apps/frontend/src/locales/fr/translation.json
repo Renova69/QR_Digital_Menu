@@ -1237,6 +1237,8 @@
     "failedSubmit": "Échec de l'envoi de la commande. Veuillez réessayer.",
     "loyaltyPoints": "Points de fidélité",
     "pointsAvailable": "Vous disposez de {{count}} points (valeur : {{value}} EUR)",
+    "tierProgressToNext": "{{points}} pts avant {{tier}}",
+    "tierProgressMaxTier": "Vous gagnez {{multiplier}}x points à chaque commande",
     "redeemForDiscount": "Échanger des points contre une réduction",
     "discountApplied": "Réduction appliquée :",
     "finalTotal": "Total final :",

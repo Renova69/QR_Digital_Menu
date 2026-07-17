@@ -312,6 +312,8 @@
     "failedSubmit": "Не удалось отправить заказ. Пожалуйста, попробуйте снова.",
     "loyaltyPoints": "Баллы лояльности",
     "pointsAvailable": "У вас {{count}} баллов (Стоимость: EUR {{value}})",
+    "tierProgressToNext": "{{points}} баллов до {{tier}}",
+    "tierProgressMaxTier": "Начисляем {{multiplier}}x баллов за каждый заказ",
     "redeemForDiscount": "Использовать баллы для скидки",
     "discountApplied": "Скидка применена:",
     "finalTotal": "Итоговая сумма:",

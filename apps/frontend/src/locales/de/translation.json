@@ -1237,6 +1237,8 @@
     "failedSubmit": "Die Bestellung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
     "loyaltyPoints": "Treuepunkte",
     "pointsAvailable": "Sie haben {{count}} Punkte zur Verfügung (Wert: {{value}} EUR)",
+    "tierProgressToNext": "{{points}} Punkte bis {{tier}}",
+    "tierProgressMaxTier": "Du erhältst {{multiplier}}x Punkte bei jeder Bestellung",
     "redeemForDiscount": "Punkte gegen einen Rabatt einlösen",
     "discountApplied": "Rabatt angewendet:",
     "finalTotal": "Endsumme:",
