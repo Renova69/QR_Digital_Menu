@@ -49,6 +49,12 @@ const FIELD_FEEDBACK_CLASSES: Record<FieldState, string> = {
   invalid: "border-red-500 focus:border-red-500 focus:ring-red-500/40",
 };
 
+const TIER_EMOJI: Record<string, string> = {
+  Bronze: "🥉",
+  Silver: "🥈",
+  Gold: "🥇",
+};
+
 const PAYMENT_PARTNERS = [
   {
     key: "visa",
@@ -1105,6 +1111,37 @@ const CheckoutPage = () => {
                       value: getAvailableRewardValue().toFixed(2),
                     })}
                   </p>
+                  {loyaltyData?.tier && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-[11px] font-black whitespace-nowrap">
+                        {TIER_EMOJI[loyaltyData.tier]} {loyaltyData.tier}
+                      </span>
+                      {loyaltyData.pointsToNextTier > 0 ? (
+                        <>
+                          <div className="h-1.5 flex-1 rounded-full bg-primary/15 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{
+                                width: `${loyaltyData.tierProgressPercent}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-primary/70 whitespace-nowrap">
+                            {t("checkout.tierProgressToNext", {
+                              points: loyaltyData.pointsToNextTier,
+                              tier: loyaltyData.nextTierName,
+                            })}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-primary/70">
+                          {t("checkout.tierProgressMaxTier", {
+                            multiplier: loyaltyData.tierMultiplier,
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {loyaltyPoints - getItemsPointsCost() > 0 &&
                   getTotal(redeemedCartIds) > 0 && (

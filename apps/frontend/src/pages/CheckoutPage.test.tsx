@@ -10,7 +10,20 @@ import * as api from "../lib/api";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    // Most keys just echo back (existing tests assert on raw keys). The two
+    // tier-progress keys carry interpolated variables the new tests assert
+    // on, so those two are resolved to their real en-locale copy here.
+    t: (key: string, options?: Record<string, unknown>) => {
+      if (options && typeof options === "object") {
+        if (key === "checkout.tierProgressToNext") {
+          return `${options.points} pts to ${options.tier}`;
+        }
+        if (key === "checkout.tierProgressMaxTier") {
+          return `Earning ${options.multiplier}x on every order`;
+        }
+      }
+      return key;
+    },
     i18n: { resolvedLanguage: "en", changeLanguage: vi.fn(), dir: () => "ltr" },
   }),
 }));
@@ -173,6 +186,64 @@ describe("CheckoutPage", () => {
         expect.anything(),
       );
     });
+  });
+
+  it("shows tier progress bar and points-to-next-tier for a Silver member", async () => {
+    (useAuth as Mock).mockReturnValue({ user: { id: "u1", name: "Jane" } });
+    (api.default.post as Mock).mockImplementation((url: string) => {
+      if (url.includes("/loyalty/") && url.includes("/enroll")) {
+        return Promise.resolve({
+          data: {
+            points: 340,
+            lifetimePoints: 340,
+            tier: "Silver",
+            tierMultiplier: 1.2,
+            tierProgressPercent: 68,
+            pointsToNextTier: 160,
+            nextTierName: "Gold",
+            restaurantConfig: { isLoyaltyEnabled: true },
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Silver/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/160 pts to Gold/)).toBeInTheDocument();
+  });
+
+  it("shows a static max-tier badge with no progress bar for a Gold member", async () => {
+    (useAuth as Mock).mockReturnValue({ user: { id: "u1", name: "Jane" } });
+    (api.default.post as Mock).mockImplementation((url: string) => {
+      if (url.includes("/loyalty/") && url.includes("/enroll")) {
+        return Promise.resolve({
+          data: {
+            points: 2500,
+            lifetimePoints: 2500,
+            tier: "Gold",
+            tierMultiplier: 1.5,
+            tierProgressPercent: 100,
+            pointsToNextTier: 0,
+            nextTierName: "Max Tier",
+            restaurantConfig: { isLoyaltyEnabled: true },
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Earning 1.5x on every order/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/pts to/)).not.toBeInTheDocument();
   });
 
   it("requires explicit choices when a service point offers multiple options", async () => {
