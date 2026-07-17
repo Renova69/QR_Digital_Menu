@@ -124,6 +124,28 @@ describe("CheckoutPage", () => {
     expect(screen.getAllByText(/20/)[0]).toBeInTheDocument();
   });
 
+  it("shows only supported card network trust badges", () => {
+    (useLocation as Mock).mockReturnValue({
+      state: { restaurantId: "r1", paymentsEnabled: true },
+      hash: "",
+    });
+
+    render(<CheckoutPage />);
+
+    expect(
+      screen.getByRole("img", { name: "checkout.paymentTrust.visa" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "checkout.paymentTrust.mastercard" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("checkout.paymentTrust.paypal"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("checkout.paymentTrust.applePay"),
+    ).not.toBeInTheDocument();
+  });
+
   it("calculates total correctly and submits order", async () => {
     const clearCartMock = vi.fn();
     (useCart as Mock).mockReturnValue({

@@ -61,18 +61,6 @@ const PAYMENT_PARTNERS = [
     fallback: "Mastercard",
     className: "",
   },
-  {
-    key: "paypal",
-    labelKey: "checkout.paymentTrust.paypal",
-    fallback: "PayPal",
-    className: "text-sky-700",
-  },
-  {
-    key: "applePay",
-    labelKey: "checkout.paymentTrust.applePay",
-    fallback: "Apple Pay",
-    className: "text-foreground",
-  },
 ] as const;
 
 function getFieldState(hasSignal: boolean, isValid: boolean): FieldState {
@@ -104,19 +92,6 @@ function PaymentPartnerMark({
     );
   }
 
-  if (partner.key === "applePay") {
-    return (
-      <span
-        aria-label={label}
-        title={label}
-        className="flex min-h-[36px] items-center justify-center rounded-lg border border-border bg-card px-2 text-center text-sm font-black tracking-tight text-foreground shadow-sm"
-        role="img"
-      >
-        {label}
-      </span>
-    );
-  }
-
   return (
     <span
       aria-label={label}
@@ -141,7 +116,7 @@ function PaymentTrustGrid() {
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
         {t("checkout.paymentTrust.secure", "Secure checkout supported by")}
       </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2">
         {PAYMENT_PARTNERS.map((partner) => (
           <PaymentPartnerMark key={partner.key} partner={partner} />
         ))}
