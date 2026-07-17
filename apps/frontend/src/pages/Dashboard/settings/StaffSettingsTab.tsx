@@ -36,6 +36,7 @@ import {
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useFeature, useTier } from "../../../hooks/useFeature";
 import { useMinuteTicker } from "../../../hooks/useMinuteTicker";
+import { getApiError } from "../../../lib/apiError";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -372,7 +373,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       const data = await listStaff(activeRestaurant.id);
       setStaffMembers(data);
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || t("staff.failedLoad"));
+      setStaffError(t(getApiError(err)));
     } finally {
       setStaffLoading(false);
     }
@@ -451,7 +452,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
         ...(canPos ? [fetchDeviceEnrollments()] : []),
       ]);
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || t("staff.failedCreate"));
+      setStaffError(t(getApiError(err)));
     }
   };
 
@@ -503,7 +504,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       }
       if (canPos) await fetchDeviceEnrollments();
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || t("staff.failedUpdate"));
+      setStaffError(t(getApiError(err)));
       await fetchStaff();
     } finally {
       setBusyStaffId(null);
@@ -525,7 +526,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
         ),
       );
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || t("staff.failedRemove"));
+      setStaffError(t(getApiError(err)));
     } finally {
       setBusyStaffId(null);
       setOpenActionId(null);
@@ -573,7 +574,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
         ...(canPos ? [fetchDeviceEnrollments()] : []),
       ]);
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || t("staff.failedResetPin"));
+      setStaffError(t(getApiError(err)));
     } finally {
       setBusyStaffId(null);
       setOpenActionId(null);
@@ -588,7 +589,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       await removeStaff(activeRestaurant.id, member.id, { hard: true });
       setStaffMembers((prev) => prev.filter((item) => item.id !== member.id));
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || t("staff.failedRemove"));
+      setStaffError(t(getApiError(err)));
     } finally {
       setBusyStaffId(null);
       setOpenActionId(null);
@@ -632,7 +633,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       await Promise.all([fetchStaff(), fetchDeviceEnrollments()]);
     } catch (err: any) {
       setDeviceEnrollmentError(
-        err.response?.data?.message || t("staff.failedRebond"),
+        t(getApiError(err)),
       );
     } finally {
       setBusyStaffId(null);
@@ -660,7 +661,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       await fetchDeviceEnrollments();
     } catch (err: any) {
       setDeviceEnrollmentError(
-        err.response?.data?.message || t("staff.failedGenerateQr"),
+        t(getApiError(err)),
       );
     } finally {
       setDeviceEnrollmentLoading(false);

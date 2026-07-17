@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createRestaurant } from "../../../services/restaurantService";
+import { getApiError } from "../../../lib/apiError";
 
 const DASHBOARD_LANGUAGES = [
   { value: "bg", label: "Български" },
@@ -78,7 +79,7 @@ export default function RestaurantBasicsStep({
       onCreated(restaurant.id, restaurant.name, ownerName.trim());
     } catch (err: any) {
       setError(
-        err.response?.data?.message || t("onboarding.basics.createError"),
+        t(getApiError(err)),
       );
     } finally {
       setLoading(false);

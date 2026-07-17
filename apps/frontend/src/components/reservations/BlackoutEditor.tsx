@@ -7,6 +7,7 @@ import {
   removeReservationBlackout,
 } from "../../lib/api";
 import { todayISO } from "./shared";
+import { getApiError } from "../../lib/apiError";
 
 export interface BlackoutEditorProps {
   restaurantId: string;
@@ -35,7 +36,7 @@ export function BlackoutEditor({ restaurantId }: BlackoutEditorProps) {
       qc.invalidateQueries({ queryKey: key });
     },
     onError: (e: any) =>
-      setError(e?.response?.data?.message ?? "Could not add closed day"),
+      setError(t(getApiError(e))),
   });
 
   const remove = useMutation({

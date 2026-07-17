@@ -30,6 +30,7 @@ import {
 import { formatEuro } from "../../lib/currency";
 import { cn } from "../../lib/utils";
 import { useMinuteTicker } from "../../hooks/useMinuteTicker";
+import { getApiError } from "../../lib/apiError";
 
 type AssistanceContextValue = ReturnType<typeof useAssistance>;
 type AssistanceRequest = AssistanceContextValue["requests"][number];
@@ -338,10 +339,7 @@ const AssistanceView = () => {
       await confirmCashPaymentRequest(requestId);
       await refreshCashRequests();
     } catch (error: any) {
-      setCashError(
-        error?.response?.data?.message ||
-          t("assistance.cashConfirmFailed", "Could not confirm cash payment."),
-      );
+      setCashError(t(getApiError(error)));
     } finally {
       setCashActionId(null);
     }
@@ -354,10 +352,7 @@ const AssistanceView = () => {
       await cancelCashPaymentRequest(requestId);
       await refreshCashRequests();
     } catch (error: any) {
-      setCashError(
-        error?.response?.data?.message ||
-          t("assistance.cashCancelFailed", "Could not cancel cash request."),
-      );
+      setCashError(t(getApiError(error)));
     } finally {
       setCashActionId(null);
     }

@@ -6,6 +6,7 @@ import { Input } from "../ui/input";
 import { Item, MenuOption } from "../../types";
 import { OptionType } from "@prisma/client";
 import api from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 import { Plus, Trash2, X, Wand2, Pencil } from "lucide-react";
 
 interface ManageOptionsModalProps {
@@ -152,11 +153,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
       setIsAdding(false);
     } catch (error: any) {
       console.error("Failed to save option", error);
-      const msg =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to save option. Please try again.";
-      setErrorMsg(Array.isArray(msg) ? msg.join(", ") : msg);
+      setErrorMsg(t(getApiError(error)));
     } finally {
       setIsSaving(false);
     }

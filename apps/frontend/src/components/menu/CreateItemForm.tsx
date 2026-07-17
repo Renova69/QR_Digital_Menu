@@ -7,6 +7,7 @@ import { ImageUploadInput } from "../ui/ImageUploadInput";
 import { Modal } from "../ui/modal";
 import { useToast } from "../ui/toast";
 import { useTranslation } from "react-i18next";
+import { getApiError } from "../../lib/apiError";
 import { UpsellContextSelector } from "./UpsellContextSelector";
 import { UpsellContext } from "../../lib/upsellContexts";
 import { RewardPricingFields } from "./RewardPricingFields";
@@ -83,11 +84,7 @@ export const CreateItemForm: React.FC = () => {
       resetForm();
       setOpen(false);
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to create item";
-      showToast(message, "error");
+      showToast(t(getApiError(error)), "error");
     } finally {
       setIsSubmitting(false);
     }

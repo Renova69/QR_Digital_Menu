@@ -3866,5 +3866,20 @@
     "wheat": "Grâu",
     "fish": "Pește",
     "vegan": "Vegan"
+  },
+  "apiErrors": {
+    "badRequest": "Cerere invalidă.",
+    "unauthorized": "Nu ești autentificat. Te rugăm să te loghezi și să încerci din nou.",
+    "forbidden": "Nu ai permisiunea să efectuezi această acțiune.",
+    "notFound": "Resursa solicitată nu a fost găsită.",
+    "conflict": "A apărut un conflict. Te rugăm să încerci din nou.",
+    "unprocessable": "Unele date sunt invalide. Te rugăm să verifici informațiile introduse.",
+    "tooManyRequests": "Prea multe cereri. Te rugăm să aștepți un moment și să încerci din nou.",
+    "internalServerError": "A apărut o eroare de server. Te rugăm să încerci din nou.",
+    "badGateway": "Serverul este temporar inaccesibil. Te rugăm să încerci din nou.",
+    "serviceUnavailable": "Serviciul este temporar indisponibil. Te rugăm să încerci din nou.",
+    "gatewayTimeout": "Cererea a expirat. Te rugăm să încerci din nou.",
+    "unexpected": "A apărut o eroare neașteptată. Te rugăm să încerci din nou.",
+    "invalidCredentials": "Email sau parolă incorectă"
   }
 }

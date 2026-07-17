@@ -9,6 +9,7 @@ import {
   cancelManageReservation,
   modifyManageReservation,
 } from "../lib/api";
+import { getApiError } from "../lib/apiError";
 import type {
   AvailabilitySlot,
   ReservationPublicConfig,
@@ -136,10 +137,7 @@ const BookingManagePage = () => {
       setChildren(data.childrenCount);
       setDate(localDateISO(new Date(data.startsAt)));
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          t("manage.notFound", "We couldn't find this reservation."),
-      );
+      setError(t(getApiError(e)));
     } finally {
       setLoading(false);
     }
@@ -228,10 +226,7 @@ const BookingManagePage = () => {
       setConfirmCancel(false);
       await loadReservation();
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          t("manage.cancelError", "Could not cancel. Please try again."),
-      );
+      setError(t(getApiError(e)));
     } finally {
       setCancelling(false);
     }
@@ -251,13 +246,7 @@ const BookingManagePage = () => {
       setEditing(false);
       await loadReservation();
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          t(
-            "manage.saveError",
-            "Could not update. Please choose another time.",
-          ),
-      );
+      setError(t(getApiError(e)));
     } finally {
       setSaving(false);
     }

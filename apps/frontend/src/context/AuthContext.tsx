@@ -21,6 +21,7 @@ import {
   saveOfflineStaff,
 } from "../lib/posOfflineShift";
 import { getRestaurants } from "../services/restaurantService";
+import { getApiError } from "../lib/apiError";
 
 interface User {
   id: string;
@@ -151,10 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg =
-        error.response?.data?.message ||
-        t("auto.loginFailed", "Login failed. Please check your credentials.");
-      setErrorMessage(msg);
+      setErrorMessage(t(getApiError(error)));
       throw error;
     }
   };
@@ -177,10 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg =
-        error.response?.data?.message ||
-        t("auto.registrationFailed", "Registration failed. Please try again.");
-      setErrorMessage(msg);
+      setErrorMessage(t(getApiError(error)));
       throw error;
     }
   };
@@ -201,13 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg =
-        error.response?.data?.message ||
-        t(
-          "auto.verificationFailed",
-          "Verification failed. Please check the code.",
-        );
-      setErrorMessage(msg);
+      setErrorMessage(t(getApiError(error)));
       throw error;
     }
   };

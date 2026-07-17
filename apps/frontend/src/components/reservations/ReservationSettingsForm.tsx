@@ -10,6 +10,7 @@ import { BlackoutEditor } from "./BlackoutEditor";
 import { CustomPreferencesEditor } from "./CustomPreferencesEditor";
 import { ServiceHoursEditor } from "./ServiceHoursEditor";
 import { NumInput, ToggleRow, toHHMM } from "./shared";
+import { getApiError } from "../../lib/apiError";
 
 export interface ReservationSettingsFormProps {
   restaurantId: string;
@@ -38,7 +39,7 @@ export function ReservationSettingsForm({
         queryKey: ["reservation-settings", restaurantId],
       }),
     onError: (e: any) =>
-      setError(e?.response?.data?.message ?? "Could not save settings"),
+      setError(t(getApiError(e))),
   });
 
   const saveHours = useMutation({

@@ -8,6 +8,7 @@ import { Modal } from "../ui/modal";
 import { useToast } from "../ui/toast";
 import { Item, RewardPointsMode } from "../../types";
 import { useTranslation } from "react-i18next";
+import { getApiError } from "../../lib/apiError";
 import { UpsellContextSelector } from "./UpsellContextSelector";
 import { UpsellContext } from "../../lib/upsellContexts";
 import { RewardPricingFields } from "./RewardPricingFields";
@@ -88,11 +89,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
       );
       setOpen(false);
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        t("forms.itemUpdateFailed", "Failed to update item.");
-      showToast(message, "error");
+      showToast(t(getApiError(error)), "error");
     } finally {
       setIsSubmitting(false);
     }

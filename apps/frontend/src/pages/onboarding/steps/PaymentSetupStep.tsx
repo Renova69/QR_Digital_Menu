@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CreditCard, ExternalLink, CheckCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { generateStripeConnectLink } from "../../../lib/api";
+import { getApiError } from "../../../lib/apiError";
 
 interface Props {
   restaurantId: string;
@@ -33,7 +34,7 @@ export default function PaymentSetupStep({
       );
       window.location.href = data.url;
     } catch (err: any) {
-      setError(err.response?.data?.message || t("onboarding.payment.error"));
+      setError(t(getApiError(err)));
       setLoading(false);
     }
   };

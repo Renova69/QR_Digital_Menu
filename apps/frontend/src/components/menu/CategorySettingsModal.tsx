@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { getPrintStations } from "../../lib/api";
 import { useRestaurantContext } from "../../context/RestaurantContext";
+import { getApiError } from "../../lib/apiError";
 
 interface CategorySettingsModalProps {
   category: Category;
@@ -85,11 +86,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
       showToast("Category settings saved successfully", "success");
       onClose();
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to save settings";
-      showToast(message, "error");
+      showToast(t(getApiError(error)), "error");
     } finally {
       setIsSaving(false);
     }

@@ -51,6 +51,7 @@ import { zoneLabel } from "../lib/zoneCatalog";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "../lib/dateLocales";
+import { getApiError } from "../lib/apiError";
 
 function parseDateString(dateStr: string): Date {
   if (!dateStr) return new Date();
@@ -277,13 +278,7 @@ const BookingPage = () => {
         )}&r=${encodeURIComponent(restaurantId)}`,
       );
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          t(
-            "booking.submitError",
-            "Could not submit your reservation. Please try again.",
-          ),
-      );
+      setError(t(getApiError(e)));
     } finally {
       setSubmitting(false);
     }

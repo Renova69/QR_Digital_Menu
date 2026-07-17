@@ -9,6 +9,7 @@ import {
 } from "../../lib/api";
 import { usePosTheme } from "../../context/PosThemeContext";
 import { useSocket } from "../../context/SocketContext";
+import { getApiError } from "../../lib/apiError";
 
 interface PosSplitDrawerProps {
   open: boolean;
@@ -191,13 +192,7 @@ export default function PosSplitDrawer({
       setTipPercent(0);
       loadBill();
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ??
-          t(
-            "pos.split.settleError",
-            "Could not record the payment. Try again.",
-          ),
-      );
+      setError(t(getApiError(err)));
     } finally {
       setSubmitting(false);
     }

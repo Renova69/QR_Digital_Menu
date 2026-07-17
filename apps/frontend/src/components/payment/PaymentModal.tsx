@@ -25,6 +25,7 @@ import {
   hostedCheckoutStorageKey,
   stripUrlFragment,
 } from "../../lib/tableSessionCredential";
+import { getApiError } from "../../lib/apiError";
 
 const stripePublishableKey = (import.meta as any).env
   .VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
@@ -697,10 +698,7 @@ export function PaymentModal({
           : "pay",
       );
     } catch (e: any) {
-      setError(
-        e.response?.data?.message ||
-          t("payment.failedToLoad", "Failed to load payment options"),
-      );
+      setError(t(getApiError(e)));
     } finally {
       setLoading(false);
     }
@@ -742,13 +740,7 @@ export function PaymentModal({
       onCashRequestCreated?.(request.id);
       setCashRequested(true);
     } catch (e: any) {
-      setCashError(
-        e?.response?.data?.message ||
-          t(
-            "payment.cashRequestFailed",
-            "Could not ask staff for cash payment.",
-          ),
-      );
+      setCashError(t(getApiError(e)));
     } finally {
       setCashRequesting(false);
     }

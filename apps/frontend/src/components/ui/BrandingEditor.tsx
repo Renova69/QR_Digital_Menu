@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { ImageUploadInput } from "./ImageUploadInput";
 import { useToast } from "./toast";
 import api from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 import { FontPicker } from "../branding/FontPicker";
 import { ColorSchemeEditor } from "../branding/ColorSchemeEditor";
 import { BrandingPreview } from "../branding/BrandingPreview";
@@ -323,16 +324,7 @@ export const BrandingEditor = ({
       );
       await onUpdate();
     } catch (err: unknown) {
-      const msg =
-        (
-          err as {
-            response?: { data?: { message?: string } };
-            message?: string;
-          }
-        )?.response?.data?.message ||
-        (err as { message?: string })?.message ||
-        t("branding.saveError", "Failed to save branding settings");
-      showToast(msg, "error");
+      showToast(t(getApiError(err)), "error");
     } finally {
       setIsUpdating(false);
     }

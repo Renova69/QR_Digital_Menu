@@ -5,6 +5,7 @@ import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
 import ToggleSwitch from "../../../components/ui/ToggleSwitch";
+import { getApiError } from "../../../lib/apiError";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -131,7 +132,7 @@ const LoyaltySettingsTab: React.FC = () => {
     } catch (err: any) {
       setStatus({
         loading: false,
-        error: err.response?.data?.message || t("settings.failedSave"),
+        error: t(getApiError(err)),
         success: "",
       });
     }

@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createManualReservation } from "../../lib/api";
 import { STAFF_PATRON_TAGS } from "../../types/reservations";
 import { Button } from "../ui/button";
+import { getApiError } from "../../lib/apiError";
 
 export interface ManualBookingFormProps {
   restaurantId: string;
@@ -39,7 +40,7 @@ export function ManualBookingForm({
       }),
     onSuccess: onDone,
     onError: (e: any) =>
-      setError(e?.response?.data?.message ?? "Could not create the booking"),
+      setError(t(getApiError(e))),
   });
 
   const canSubmit =

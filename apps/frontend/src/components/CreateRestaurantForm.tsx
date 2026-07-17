@@ -1,6 +1,7 @@
 import React, { useState, useContext, FormEvent } from "react";
 import RestaurantContext from "../context/RestaurantContext";
 import { useTranslation } from "react-i18next";
+import { getApiError } from "../lib/apiError";
 
 const CreateRestaurantForm: React.FC = () => {
   const [name, setName] = useState<string>("");
@@ -19,7 +20,7 @@ const CreateRestaurantForm: React.FC = () => {
       setCity("");
       i18n.changeLanguage(dashboardLanguage);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create restaurant.");
+      setError(t(getApiError(err)));
     }
   };
 

@@ -23,6 +23,7 @@ import {
   confirmMenuImport,
   exportMenu,
 } from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 
 type SubTabId = "import" | "export";
 
@@ -939,8 +940,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
             </div>
             {importMutation.isError && (
               <p className="text-xs text-destructive">
-                {(importMutation.error as any)?.response?.data?.message ||
-                  t("importExport.importFailed", "Import failed")}
+                {t(getApiError(importMutation.error))}
               </p>
             )}
           </>
@@ -1106,8 +1106,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 flex items-center gap-3">
             <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
             <p className="text-sm text-destructive">
-              {(error as any)?.response?.data?.message ||
-                t("importExport.fetchFailed", "Failed to fetch menu data")}
+              {t(getApiError(error))}
             </p>
           </div>
         )}

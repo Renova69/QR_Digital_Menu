@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import api from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "react-i18next";
 
@@ -116,7 +117,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
       setStep("otp");
       startCountdown();
     } catch (err: any) {
-      setError(err.response?.data?.message || t("auth.otp.tooManyRequests"));
+      setError(t(getApiError(err)));
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +146,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || t("auth.otp.invalidCode"));
+      setError(t(getApiError(err)));
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +163,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
       if (res.data.devCode) setDevCode(res.data.devCode);
       startCountdown();
     } catch (err: any) {
-      setError(err.response?.data?.message || t("auth.otp.tooManyRequests"));
+      setError(t(getApiError(err)));
     } finally {
       setIsLoading(false);
     }

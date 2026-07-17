@@ -4,6 +4,7 @@ import { Globe, Plus, X, Star, CheckCircle2 } from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
+import { getApiError } from "../../../lib/apiError";
 
 const AVAILABLE_LANGUAGES = [
   { code: "en", name: "English" },
@@ -127,7 +128,7 @@ const GeneralSettingsTab: React.FC = () => {
     } catch (err: any) {
       setStatus({
         loading: false,
-        error: err.response?.data?.message || t("settings.failedSave"),
+        error: t(getApiError(err)),
         success: "",
       });
     }
@@ -155,7 +156,7 @@ const GeneralSettingsTab: React.FC = () => {
     } catch (err: any) {
       setStatus({
         loading: false,
-        error: err.response?.data?.message || t("settings.failedInitiate"),
+        error: t(getApiError(err)),
         success: "",
       });
     } finally {

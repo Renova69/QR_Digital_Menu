@@ -8,6 +8,7 @@ import {
   exportUserData,
   deleteUserAccount,
 } from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 import { useAuth } from "../../context/AuthContext";
 
 export default function DataPrivacyTab() {
@@ -112,8 +113,7 @@ export default function DataPrivacyTab() {
               </div>
               {deleteMutation.isError && (
                 <p className="text-xs text-red-500 mt-3 text-center">
-                  {(deleteMutation.error as any)?.response?.data?.message ||
-                    "Deletion failed."}
+                  {t(getApiError(deleteMutation.error))}
                 </p>
               )}
             </AlertDialog.Content>

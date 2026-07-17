@@ -20,6 +20,7 @@ import {
   closeSessionWithCard,
   closeSessionWithCash,
 } from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 import {
   createPosClientOrderId,
   createPosLocalSessionId,
@@ -275,12 +276,7 @@ export default function PosCartDrawer({
         }
         return;
       }
-      const response = (err as { response?: { data?: { message?: string } } })
-        .response;
-      setSubmitError(
-        response?.data?.message ??
-          t("pos.failedSubmitOrder", "Failed to submit order. Try again."),
-      );
+      setSubmitError(t(getApiError(err)));
     } finally {
       setSubmitting(false);
     }
@@ -298,10 +294,7 @@ export default function PosCartDrawer({
       clearSession();
       closeSheet();
     } catch (err: any) {
-      setSubmitError(
-        err.response?.data?.message ??
-          t("pos.failedCloseSession", "Failed to close session. Try again."),
-      );
+      setSubmitError(t(getApiError(err)));
     } finally {
       setClosing(false);
     }
@@ -319,10 +312,7 @@ export default function PosCartDrawer({
       clearSession();
       closeSheet();
     } catch (err: any) {
-      setSubmitError(
-        err.response?.data?.message ??
-          t("pos.failedCloseSession", "Failed to close session. Try again."),
-      );
+      setSubmitError(t(getApiError(err)));
     } finally {
       setClosing(false);
     }
@@ -344,10 +334,7 @@ export default function PosCartDrawer({
       clearSession();
       closeSheet();
     } catch (err: any) {
-      setSubmitError(
-        err.response?.data?.message ??
-          t("pos.failedCloseSession", "Failed to close session. Try again."),
-      );
+      setSubmitError(t(getApiError(err)));
     } finally {
       setClosing(false);
     }

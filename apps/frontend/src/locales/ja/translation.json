@@ -727,5 +727,20 @@
     "banner": {
       "active": "プランは有効です"
     }
+  },
+  "apiErrors": {
+    "badRequest": "Invalid request.",
+    "unauthorized": "You are not signed in. Please log in and try again.",
+    "forbidden": "You do not have permission to do this.",
+    "notFound": "The requested resource was not found.",
+    "conflict": "A conflict occurred. Please try again.",
+    "unprocessable": "Some data was invalid. Please check your input.",
+    "tooManyRequests": "Too many requests. Please wait a moment and try again.",
+    "internalServerError": "A server error occurred. Please try again.",
+    "badGateway": "The server is temporarily unreachable. Please try again.",
+    "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
+    "gatewayTimeout": "The request timed out. Please try again.",
+    "unexpected": "An unexpected error occurred. Please try again.",
+    "invalidCredentials": "無効なメールアドレスまたはパスワード"
   }
 }

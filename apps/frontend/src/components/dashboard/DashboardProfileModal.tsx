@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
 import { changePassword, updateProfile } from "../../lib/api";
+import { getApiError } from "../../lib/apiError";
 
 type DashboardUser = {
   id: string;
@@ -65,9 +66,7 @@ export function DashboardProfileModal({
       onUserUpdate({ ...user, ...updated });
       setProfileMessage(t("profileDashboard.nameSaved"));
     } catch (error: any) {
-      setProfileError(
-        error.response?.data?.message || t("profileDashboard.nameError"),
-      );
+      setProfileError(t(getApiError(error)));
     } finally {
       setProfileSaving(false);
     }
@@ -95,9 +94,7 @@ export function DashboardProfileModal({
       setConfirmPassword("");
       setPasswordMessage(t("profileDashboard.passwordSaved"));
     } catch (error: any) {
-      setPasswordError(
-        error.response?.data?.message || t("profileDashboard.passwordError"),
-      );
+      setPasswordError(t(getApiError(error)));
     } finally {
       setPasswordSaving(false);
     }
