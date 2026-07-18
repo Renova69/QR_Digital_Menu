@@ -5,6 +5,7 @@ import { useSocket } from "../../context/SocketContext";
 import { useFeature } from "../../hooks/useFeature";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import RestaurantContext from "../../context/RestaurantContext";
 
 function elapsedMinutes(createdAt: string): number {
@@ -51,6 +52,10 @@ interface KdsOrderLocation {
   tableName?: string | null;
   servicePointType?: string | null;
   servicePointLabel?: string | null;
+}
+
+interface FailedStatusUpdate {
+  fromStatus: OrderStatus;
 }
 
 function withLocationPrefix(raw: string, prefix: string, english: string) {
@@ -106,6 +111,9 @@ export default function KitchenPage() {
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [failedUpdates, setFailedUpdates] = useState<
+    Record<string, FailedStatusUpdate>
+  >({});
 
   useEffect(() => {
     if (activeRestaurant && !canKds) {
@@ -165,12 +173,37 @@ export default function KitchenPage() {
         CANCELED: "NEW",
         COMPLETED: "NEW",
       };
+      setFailedUpdates((previous) => {
+        if (!(orderId in previous)) return previous;
+        const nextFailures = { ...previous };
+        delete nextFailures[orderId];
+        return nextFailures;
+      });
       try {
         await updateOrderStatus(orderId, next[current]);
-      } catch {}
+      } catch {
+        setFailedUpdates((previous) => ({
+          ...previous,
+          [orderId]: { fromStatus: current },
+        }));
+      }
     },
     [updateOrderStatus],
   );
+
+  useEffect(() => {
+    setFailedUpdates((previous) => {
+      let nextFailures = previous;
+      for (const [orderId, failure] of Object.entries(previous)) {
+        const currentOrder = orders.find((order) => order.id === orderId);
+        if (!currentOrder || currentOrder.status !== failure.fromStatus) {
+          if (nextFailures === previous) nextFailures = { ...previous };
+          delete nextFailures[orderId];
+        }
+      }
+      return nextFailures;
+    });
+  }, [orders]);
 
   const getElapsed = (id: string, createdAt: string) => {
     if (elapsed[id] !== undefined) return elapsed[id];
@@ -289,6 +322,47 @@ export default function KitchenPage() {
         </div>
       )}
 
+      {Object.keys(failedUpdates).length > 0 && (
+        <div className="mb-4 space-y-2" aria-live="assertive">
+          {Object.keys(failedUpdates).map((orderId) => {
+            const order = orders.find((candidate) => candidate.id === orderId);
+            if (!order) return null;
+            return (
+              <div
+                key={orderId}
+                role="alert"
+                className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-950/60 px-4 py-3 text-red-100"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <AlertTriangle
+                    className="h-5 w-5 shrink-0 text-red-400"
+                    aria-hidden="true"
+                  />
+                  <p className="text-sm">
+                    <span className="font-bold">
+                      {t("kitchen.statusUpdateFailed", "Status update failed.")}
+                    </span>{" "}
+                    {t(
+                      "kitchen.statusUnchanged",
+                      "The order kept its current status.",
+                    )}{" "}
+                    <span className="text-red-300">#{order.id.slice(-8)}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleCycle(order.id, order.status)}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-red-400/50 px-3 py-2 text-sm font-bold text-red-100 hover:bg-red-900/70 focus:outline-none focus:ring-2 focus:ring-red-300"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  {t("common.retry", "Retry")}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Kanban columns */}
       <div
         className="grid grid-cols-4 gap-4"
@@ -326,7 +400,7 @@ export default function KitchenPage() {
                     <button
                       key={order.id}
                       disabled={order.status === "PENDING_PAYMENT"}
-                      onClick={() => handleCycle(order.id, order.status)}
+                      onClick={() => void handleCycle(order.id, order.status)}
                       className={`w-full text-left bg-gray-800 rounded-xl p-4 border transition-all ${
                         order.status === "PENDING_PAYMENT"
                           ? "cursor-default opacity-80"

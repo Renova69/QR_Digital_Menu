@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import KitchenPage from "./KitchenPage";
 import { MemoryRouter } from "react-router-dom";
 import RestaurantContext from "../../context/RestaurantContext";
@@ -144,6 +144,40 @@ describe("KitchenPage", () => {
     const button = screen.getByRole("button", { name: /#order-1/ });
     fireEvent.click(button);
     expect(updateSpy).toHaveBeenCalledWith("order-1", "IN_PROGRESS");
+  });
+
+  it("keeps the current status visible and offers retry when an update fails", async () => {
+    const updateSpy = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockResolvedValueOnce(undefined);
+    (useOrders as Mock).mockReturnValue({
+      orders: [
+        {
+          id: "order-1",
+          status: "NEW",
+          items: [],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      updateOrderStatus: updateSpy,
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: /#order-1/ }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Status update failed");
+    expect(alert.textContent).toContain("kept its current status");
+    expect(screen.getByText("(1)")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /Retry/i }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(2);
+      expect(updateSpy).toHaveBeenLastCalledWith("order-1", "IN_PROGRESS");
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
   });
 
   it("shows pending-payment orders without allowing kitchen progression", () => {
