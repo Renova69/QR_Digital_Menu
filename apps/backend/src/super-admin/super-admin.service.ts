@@ -1187,26 +1187,71 @@ export class SuperAdminService {
 
   async updateDataRequest(
     id: string,
-    patch: { status?: string; notes?: string; downloadUrl?: string },
+    patch: {
+      status?: string;
+      notes?: string;
+      downloadUrl?: string;
+      confirmation?: string;
+    },
     actorUserId: string,
   ) {
-    const request = await this.prisma.dataRequest.findUnique({ where: { id } });
-    if (!request)
-      throw new NotFoundException({
-        code: 'REQUEST_NOT_FOUND',
-        message: 'Data request not found',
+    const { confirmation, ...requestPatch } = patch;
+
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.dataRequest.findUnique({ where: { id } });
+      if (!request) {
+        throw new NotFoundException({
+          code: 'REQUEST_NOT_FOUND',
+          message: 'Data request not found',
+        });
+      }
+
+      const statusChanged =
+        requestPatch.status !== undefined &&
+        requestPatch.status !== request.status;
+      const isTerminalTransition =
+        statusChanged &&
+        (requestPatch.status === 'COMPLETED' ||
+          requestPatch.status === 'REJECTED');
+      if (isTerminalTransition && confirmation !== 'CONFIRM') {
+        throw new BadRequestException({
+          code: 'CONFIRMATION_REQUIRED',
+          message: 'Terminal data request status changes require confirmation',
+        });
+      }
+
+      const processingPatch = statusChanged
+        ? isTerminalTransition
+          ? { processedAt: new Date(), processedByUserId: actorUserId }
+          : { processedAt: null, processedByUserId: null }
+        : {};
+      const updated = await tx.dataRequest.update({
+        where: { id },
+        data: {
+          ...requestPatch,
+          ...processingPatch,
+        },
       });
 
-    const isTerminal =
-      patch.status === 'COMPLETED' || patch.status === 'REJECTED';
-    return this.prisma.dataRequest.update({
-      where: { id },
-      data: {
-        ...patch,
-        ...(isTerminal
-          ? { processedAt: new Date(), processedByUserId: actorUserId }
-          : {}),
-      },
+      const changedFields = (
+        ['status', 'notes', 'downloadUrl'] as const
+      ).filter((field) => requestPatch[field] !== undefined);
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'DATA_REQUEST_UPDATE',
+          targetType: 'DATA_REQUEST',
+          targetId: id,
+          metadata: {
+            changedFields,
+            previousStatus: request.status,
+            nextStatus: updated.status,
+            terminalStatusConfirmed: isTerminalTransition,
+          },
+        },
+      });
+
+      return updated;
     });
   }
 
