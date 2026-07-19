@@ -740,6 +740,47 @@
     "fish": "Fish",
     "vegan": "Vegan"
   },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "Глютен",
+      "crustaceans": "Ракообразные",
+      "egg": "Яйца",
+      "fish": "Рыба",
+      "peanut": "Арахис",
+      "soy": "Соя",
+      "milk": "Молоко",
+      "nuts": "Орехи",
+      "celery": "Сельдерей",
+      "mustard": "Горчица",
+      "sesame": "Кунжут",
+      "sulphites": "Сульфиты",
+      "lupin": "Люпин",
+      "mollusc": "Моллюски"
+    },
+    "dietary": {
+      "vegetarian": "Вегетарианское",
+      "vegan": "Веганское",
+      "gluten-free": "Без глютена",
+      "lactose-free": "Без лактозы",
+      "halal": "Халяль",
+      "kosher": "Кошерное",
+      "spicy": "Острое",
+      "organic": "Органическое",
+      "sugar-free": "Без сахара",
+      "nut-free": "Без орехов",
+      "keto": "Кето",
+      "paleo": "Палео"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "Выбрано: {{count}}",
+    "select": "Выбрать...",
+    "search": "Поиск...",
+    "noneFound": "Совпадений не найдено",
+    "remove": "Удалить",
+    "addAllergen": "+ Добавить аллерген",
+    "addDietaryTag": "+ Добавить диетический тег"
+  },
   "subscription": {
     "banner": {
       "active": "Ваш план активен"

@@ -27,7 +27,7 @@ export default function StaffCreatedModal({
   expiresAt,
   enrollmentError,
 }: StaffCreatedModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [pinCopied, setPinCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [pinVisible, setPinVisible] = useState(true);
@@ -144,7 +144,11 @@ export default function StaffCreatedModal({
             {expiresAt && !isNaN(new Date(expiresAt).getTime()) && (
               <p className="text-xs text-muted-foreground text-center mb-4">
                 {t("staff.created.expiresIn")} {timeLeft} ·{" "}
-                {new Date(expiresAt).toLocaleTimeString()}
+                {new Date(expiresAt).toLocaleTimeString(i18n.language, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })}
               </p>
             )}
           </>

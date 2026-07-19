@@ -276,22 +276,18 @@ export class MenuTranslationService {
           item.originalDescription ??= item.description;
           item.description = t[lang].description;
         }
-        if (t?.[lang]?.allergens) {
-          const canonicalAllergens = item.allergens || [];
-          item.allergens = Array.isArray(t[lang].allergens)
-            ? canonicalAllergens.length > 0
-              ? t[lang].allergens
-              : []
-            : canonicalAllergens.map((a: string) => t[lang].allergens[a] ?? a);
-        }
-        if (t?.[lang]?.dietaryTags) {
-          const canonicalTags = item.dietaryTags || [];
-          item.dietaryTags = Array.isArray(t[lang].dietaryTags)
-            ? canonicalTags.length > 0
-              ? t[lang].dietaryTags
-              : []
-            : canonicalTags.map((d: string) => t[lang].dietaryTags[d] ?? d);
-        }
+        // allergens/dietaryTags: unlike name/description, item.allergens and
+        // item.dietaryTags are NOT swapped to the translated text here. The
+        // menu-tags preset system (apps/frontend/src/lib/menuTags.ts)
+        // resolves an icon from the RAW stored value — swapping it to
+        // DeepL's translated wording would break that lookup for any
+        // language the item hasn't been re-edited with a preset key for, and
+        // would do so unpredictably per-language depending on what happened
+        // to be cached. The frontend already reads the translated array
+        // separately via item.translations[lang].allergens/dietaryTags
+        // (getTranslatedArray) purely as a display-label fallback for
+        // legacy/custom tags — item.allergens/item.dietaryTags stay
+        // canonical so the icon lookup is identical across every language.
 
         for (const option of item.options ?? []) {
           const t = option.translations as Record<string, any> | null;

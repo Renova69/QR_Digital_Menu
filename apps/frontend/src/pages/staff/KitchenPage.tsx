@@ -127,12 +127,14 @@ export default function KitchenPage() {
     };
   }, [canKds, socket]);
 
-  const [clock, setClock] = useState(() => new Date().toLocaleTimeString());
+  const [clock, setClock] = useState(() =>
+    new Date().toLocaleTimeString([], { hour12: false }),
+  );
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const t = setInterval(
-      () => setClock(new Date().toLocaleTimeString()),
+      () => setClock(new Date().toLocaleTimeString([], { hour12: false })),
       1000,
     );
     return () => clearInterval(t);
@@ -248,7 +250,9 @@ export default function KitchenPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {completedOrders.map((order) => {
                   const completedAt = order.updatedAt
-                    ? new Date(order.updatedAt).toLocaleTimeString()
+                    ? new Date(order.updatedAt).toLocaleTimeString([], {
+                        hour12: false,
+                      })
                     : "—";
                   return (
                     <div

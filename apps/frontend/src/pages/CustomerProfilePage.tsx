@@ -9,7 +9,7 @@ import DataPrivacyTab from "./profile/DataPrivacyTab";
 export const CustomerProfilePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [history, setHistory] = useState<any[]>([]);
   const [loyaltyAccounts, setLoyaltyAccounts] = useState<any[]>([]);
@@ -204,7 +204,9 @@ export const CustomerProfilePage: React.FC = () => {
                           count: expiringSoonPoints,
                           date: nextExpirationAt
                             ? t("profile.expiringSoonOn", {
-                                date: nextExpirationAt.toLocaleDateString(),
+                                date: nextExpirationAt.toLocaleDateString(
+                                  i18n.language,
+                                ),
                               })
                             : "",
                         })}
@@ -272,9 +274,14 @@ export const CustomerProfilePage: React.FC = () => {
                     {order.restaurant.name}
                   </h3>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
-                    {new Date(order.createdAt).toLocaleDateString()}{" "}
+                    {new Date(order.createdAt).toLocaleDateString(
+                      i18n.language,
+                    )}{" "}
                     {t("profile.at")}{" "}
-                    {new Date(order.createdAt).toLocaleTimeString()}
+                    {new Date(order.createdAt).toLocaleTimeString(
+                      i18n.language,
+                      { hour: "2-digit", minute: "2-digit", hour12: false },
+                    )}
                   </p>
                   <p className="text-sm mt-3 font-medium">
                     {order.items
@@ -295,7 +302,7 @@ export const CustomerProfilePage: React.FC = () => {
                     </span>
                     {order.pointsRedeemed > 0 && (
                       <span className="text-red-500 ml-1">
-                        (-{order.pointsRedeemed} {t("auto.pts", "Pts)")}
+                        (-{order.pointsRedeemed} {t("auto.pts", "Pts")})
                       </span>
                     )}
                   </div>

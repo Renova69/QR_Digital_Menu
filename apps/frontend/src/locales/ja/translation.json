@@ -725,6 +725,47 @@
     "fish": "Fish",
     "vegan": "Vegan"
   },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "グルテン",
+      "crustaceans": "甲殻類",
+      "egg": "卵",
+      "fish": "魚",
+      "peanut": "ピーナッツ",
+      "soy": "大豆",
+      "milk": "乳",
+      "nuts": "ナッツ類",
+      "celery": "セロリ",
+      "mustard": "マスタード",
+      "sesame": "ごま",
+      "sulphites": "亜硫酸塩",
+      "lupin": "ルピナス",
+      "mollusc": "貝類"
+    },
+    "dietary": {
+      "vegetarian": "ベジタリアン",
+      "vegan": "ヴィーガン",
+      "gluten-free": "グルテンフリー",
+      "lactose-free": "乳糖フリー",
+      "halal": "ハラール",
+      "kosher": "コーシャ",
+      "spicy": "スパイシー",
+      "organic": "オーガニック",
+      "sugar-free": "砂糖不使用",
+      "nut-free": "ナッツフリー",
+      "keto": "ケト",
+      "paleo": "パレオ"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "{{count}}件選択済み",
+    "select": "選択...",
+    "search": "検索...",
+    "noneFound": "一致なし",
+    "remove": "削除",
+    "addAllergen": "+ アレルゲンを追加",
+    "addDietaryTag": "+ 食事タグを追加"
+  },
   "subscription": {
     "banner": {
       "active": "プランは有効です"

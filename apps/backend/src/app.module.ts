@@ -42,7 +42,7 @@ import { PushModule } from './push/push.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 100,
+        limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10) || 100,
       },
     ]),
     ScheduleModule.forRoot(),

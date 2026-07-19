@@ -1,21 +1,28 @@
 import React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CategoryList } from "../components/menu/CategoryList";
 import { ItemList } from "../components/menu/ItemList";
 import { CreateCategoryForm } from "../components/menu/CreateCategoryForm";
 import { CreateItemForm } from "../components/menu/CreateItemForm";
+import { MenuSearchResults } from "../components/menu/MenuSearchResults";
 import { useMenuContext } from "../context/MenuContext";
 import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { updateCategoryOrder, updateItemOrder } from "../services/menuService";
+import {
+  updateCategoryOrder,
+  updateItemOrder,
+  getItems,
+} from "../services/menuService";
 import { updateRestaurant } from "../services/restaurantService";
 import RestaurantContext from "../context/RestaurantContext";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Download, Settings2 } from "lucide-react";
+import { ArrowLeft, Download, Search, Settings2, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { useAuth } from "../context/AuthContext";
 import MenuImportExportView from "./Dashboard/MenuImportExportView";
 import { MenuCheckWidget } from "../components/dashboard/MenuCheckWidget";
+import { searchMenuItems } from "../lib/menuSearch";
 
 type EditorTab = "editor" | "importExport";
 
@@ -41,8 +48,64 @@ const MenuEditorPage: React.FC = () => {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [activeEditorTab, setActiveEditorTab] =
     React.useState<EditorTab>("editor");
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const isSearching = searchQuery.trim().length > 0;
+
+  // Fetched once (and cached) the first time a search starts — reuses the
+  // same ["items", categoryId] cache key as the normal per-category fetch,
+  // so results are warm if the owner then clicks into that category.
+  const categoryIds = React.useMemo(
+    () => (categories ?? []).map((c) => c.id).join(","),
+    [categories],
+  );
+  const { data: searchItemsByCategory, isFetching: isSearchLoading } = useQuery(
+    {
+      queryKey: ["menu-search-items", activeRestaurant?.id, categoryIds],
+      queryFn: async () => {
+        const entries = await Promise.all(
+          (categories ?? []).map(async (c) => {
+            const catItems = await queryClient.fetchQuery({
+              queryKey: ["items", c.id],
+              queryFn: () => getItems(c.id),
+              staleTime: 60_000,
+            });
+            return [c.id, catItems] as const;
+          }),
+        );
+        return Object.fromEntries(entries);
+      },
+      enabled: !!activeRestaurant?.id && !!categories?.length && isSearching,
+      staleTime: 60_000,
+    },
+  );
+
+  const categoryNameById = React.useMemo(
+    () => Object.fromEntries((categories ?? []).map((c) => [c.id, c.name])),
+    [categories],
+  );
+
+  const searchResults = React.useMemo(
+    () =>
+      isSearching
+        ? searchMenuItems(
+            searchItemsByCategory,
+            categoryNameById,
+            searchQuery,
+            (key: string) => t(key),
+          )
+        : [],
+    [isSearching, searchItemsByCategory, categoryNameById, searchQuery, t],
+  );
+
+  const handleSelectSearchResult = (categoryId: string) => {
+    const cat = categories?.find((c) => c.id === categoryId);
+    if (cat) selectCategory(cat);
+    setActiveEditorTab("editor");
+    setSearchQuery("");
+  };
 
   React.useEffect(() => {
     if (categories && location.state?.targetCategoryId) {
@@ -149,46 +212,83 @@ const MenuEditorPage: React.FC = () => {
       </header>
 
       <div className="py-6 sm:py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div
-          className="mb-6 inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-border/60 bg-card p-1"
-          role="tablist"
-          aria-label={t("menuAdmin.editorSections", "Menu editor sections")}
-        >
-          {[
-            {
-              id: "editor" as EditorTab,
-              label: t("menuAdmin.itemsTab", "Items"),
-              icon: Settings2,
-            },
-            {
-              id: "importExport" as EditorTab,
-              label: t("dashboard.tabs.importExport", "Import/Export"),
-              icon: Download,
-            },
-          ].map(({ id, label, icon: Icon }) => {
-            const isActive = activeEditorTab === id;
-            return (
+        <div className="mb-6 flex flex-wrap items-center gap-3 justify-between">
+          <div
+            className="inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-border/60 bg-card p-1"
+            role="tablist"
+            aria-label={t("menuAdmin.editorSections", "Menu editor sections")}
+          >
+            {[
+              {
+                id: "editor" as EditorTab,
+                label: t("menuAdmin.itemsTab", "Items"),
+                icon: Settings2,
+              },
+              {
+                id: "importExport" as EditorTab,
+                label: t("dashboard.tabs.importExport", "Import/Export"),
+                icon: Download,
+              },
+            ].map(({ id, label, icon: Icon }) => {
+              const isActive = activeEditorTab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveEditorTab(id)}
+                  className={`flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${
+                    isActive
+                      ? "text-white"
+                      : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                  }`}
+                  style={isActive ? { background: "var(--brand)" } : {}}
+                  role="tab"
+                  aria-selected={isActive}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t(
+                "menuAdmin.searchPlaceholder",
+                "Search name, price, allergens…",
+              )}
+              aria-label={t(
+                "menuAdmin.searchPlaceholder",
+                "Search name, price, allergens…",
+              )}
+              className="w-full h-10 pl-9 pr-9 rounded-xl text-sm font-medium bg-card border border-border focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            {searchQuery && (
               <button
-                key={id}
                 type="button"
-                onClick={() => setActiveEditorTab(id)}
-                className={`flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${
-                  isActive
-                    ? "text-white"
-                    : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-                }`}
-                style={isActive ? { background: "var(--brand)" } : {}}
-                role="tab"
-                aria-selected={isActive}
+                onClick={() => setSearchQuery("")}
+                aria-label={t("common.clear", "Clear")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary text-muted-foreground"
               >
-                <Icon className="h-4 w-4" />
-                {label}
+                <X className="h-3.5 w-3.5" />
               </button>
-            );
-          })}
+            )}
+          </div>
         </div>
 
-        {activeEditorTab === "editor" ? (
+        {isSearching ? (
+          <MenuSearchResults
+            results={searchResults}
+            isLoading={isSearchLoading}
+            query={searchQuery}
+            onSelect={handleSelectSearchResult}
+          />
+        ) : activeEditorTab === "editor" ? (
           <DndContext
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}

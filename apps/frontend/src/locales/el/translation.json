@@ -3659,6 +3659,47 @@
     "fish": "Fish",
     "vegan": "Vegan"
   },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "Γλουτένη",
+      "crustaceans": "Καρκινοειδή",
+      "egg": "Αυγό",
+      "fish": "Ψάρι",
+      "peanut": "Αράπικο φιστίκι",
+      "soy": "Σόγια",
+      "milk": "Γάλα",
+      "nuts": "Ξηροί καρποί",
+      "celery": "Σέλινο",
+      "mustard": "Μουστάρδα",
+      "sesame": "Σουσάμι",
+      "sulphites": "Θειώδη",
+      "lupin": "Λούπινο",
+      "mollusc": "Μαλάκια"
+    },
+    "dietary": {
+      "vegetarian": "Χορτοφαγικό",
+      "vegan": "Vegan",
+      "gluten-free": "Χωρίς γλουτένη",
+      "lactose-free": "Χωρίς λακτόζη",
+      "halal": "Halal",
+      "kosher": "Kosher",
+      "spicy": "Πικάντικο",
+      "organic": "Βιολογικό",
+      "sugar-free": "Χωρίς ζάχαρη",
+      "nut-free": "Χωρίς ξηρούς καρπούς",
+      "keto": "Κέτο",
+      "paleo": "Παλαιό"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "{{count}} επιλεγμένα",
+    "select": "Επιλογή...",
+    "search": "Αναζήτηση...",
+    "noneFound": "Δεν βρέθηκαν αποτελέσματα",
+    "remove": "Αφαίρεση",
+    "addAllergen": "+ Προσθήκη αλλεργιογόνου",
+    "addDietaryTag": "+ Προσθήκη διατροφικής ετικέτας"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

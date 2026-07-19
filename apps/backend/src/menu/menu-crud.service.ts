@@ -35,6 +35,7 @@ import {
 } from './upsell/upsell-context';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { withEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
+import { isPresetTagKey } from './menu-tags';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -620,10 +621,7 @@ export class MenuCrudService {
     }
 
     return items.map((item: any) =>
-      withEffectiveRewardPointsPrice(
-        item,
-        restaurant.loyaltyRedeemRate ?? 150,
-      ),
+      withEffectiveRewardPointsPrice(item, restaurant.loyaltyRedeemRate ?? 150),
     );
   }
 
@@ -945,10 +943,7 @@ export class MenuCrudService {
       );
     }
     return items.map((item) =>
-      withEffectiveRewardPointsPrice(
-        item,
-        restaurant.loyaltyRedeemRate ?? 150,
-      ),
+      withEffectiveRewardPointsPrice(item, restaurant.loyaltyRedeemRate ?? 150),
     );
   }
 
@@ -1390,12 +1385,20 @@ export class MenuCrudService {
           };
           if (createItemDto.description)
             textToTranslate.description = createItemDto.description;
-          (createItemDto.allergens || []).forEach((a: string) => {
-            textToTranslate[`allergen_${a}`] = a;
-          });
-          (createItemDto.dietaryTags || []).forEach((t: string) => {
-            textToTranslate[`tag_${t}`] = t;
-          });
+          // Preset allergen/dietary keys (e.g. "gluten", "milk") resolve to an
+          // icon + localized name from the app's own locale files on the
+          // client — never DeepL. Only genuinely custom free-text values need
+          // translation here.
+          (createItemDto.allergens || [])
+            .filter((a: string) => !isPresetTagKey(a))
+            .forEach((a: string) => {
+              textToTranslate[`allergen_${a}`] = a;
+            });
+          (createItemDto.dietaryTags || [])
+            .filter((t: string) => !isPresetTagKey(t))
+            .forEach((t: string) => {
+              textToTranslate[`tag_${t}`] = t;
+            });
 
           const newTranslations = await this.translationService.translateObject(
             textToTranslate,

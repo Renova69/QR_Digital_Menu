@@ -75,6 +75,11 @@ export const BRANDING_FONTS: BrandingFont[] = [
     pairsWith: ["Playfair Display", "Crimson Text", "Lora"],
   },
   {
+    name: "Sofia Sans",
+    category: "Sans-Serif",
+    pairsWith: ["Sofia Sans", "Playfair Display", "Lora"],
+  },
+  {
     name: "Oswald",
     category: "Display",
     pairsWith: ["Open Sans", "Roboto", "Lato"],

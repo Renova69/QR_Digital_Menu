@@ -17,6 +17,7 @@ import { downloadMenuExport } from "../../lib/menuExport";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import RestaurantContext from "../../context/RestaurantContext";
+import { resolveTag } from "../../lib/menuTags";
 import {
   getImportApiKey,
   regenerateImportApiKey,
@@ -53,13 +54,35 @@ const IMPORT_ERROR_DEFAULTS = {
 
 type ImportErrorKey = keyof typeof IMPORT_ERROR_DEFAULTS;
 
+// Normalizes a raw imported tag to its canonical preset key (e.g. "Gluten" /
+// "gluten-free" / "без глутен" -> "gluten-free") when it matches a known
+// allergen/dietary preset; otherwise passes the trimmed text through
+// unchanged (legacy/custom tags keep working).
+function normalizeTag(raw: string): string {
+  const trimmed = raw.trim();
+  return resolveTag(trimmed)?.key ?? trimmed;
+}
+
+// Splits a single combined "tags" column into allergens vs. dietary tags —
+// used by import formats that don't separate the two (legacy CSV/XLSX/JSON).
+// Preset values are classified via the shared registry (and normalized to
+// their canonical key); anything unrecognized falls back to the old
+// substring heuristic so custom/legacy tags keep their prior behavior.
 function splitTags(tags: string[]) {
-  const allergens = tags.filter((t) =>
-    KNOWN_ALLERGENS.some((a) => t.toLowerCase().includes(a)),
-  );
-  const dietaryTags = tags.filter(
-    (t) => !KNOWN_ALLERGENS.some((a) => t.toLowerCase().includes(a)),
-  );
+  const allergens: string[] = [];
+  const dietaryTags: string[] = [];
+  for (const raw of tags) {
+    const preset = resolveTag(raw);
+    if (preset) {
+      (preset.kind === "allergen" ? allergens : dietaryTags).push(preset.key);
+      continue;
+    }
+    const trimmed = raw.trim();
+    const isKnownAllergen = KNOWN_ALLERGENS.some((a) =>
+      trimmed.toLowerCase().includes(a),
+    );
+    (isKnownAllergen ? allergens : dietaryTags).push(trimmed);
+  }
   return { allergens, dietaryTags };
 }
 
@@ -135,6 +158,35 @@ function parseVariants(str: string) {
     });
 }
 
+function splitCommaList(value: string | undefined): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean)
+    : [];
+}
+
+// Resolves allergens/dietaryTags for one imported row. Prefers separate
+// "allergens" / "dietary_tags" columns (our own export's shape — each token
+// normalized to its preset key via the registry); falls back to splitting a
+// single combined "tags" column (legacy/external spreadsheet shape) when
+// those columns aren't present.
+function resolveRowTags(row: Record<string, string>): {
+  allergens: string[];
+  dietaryTags: string[];
+} {
+  const hasSeparateColumns =
+    row["allergens"] !== undefined || row["dietary_tags"] !== undefined;
+  if (hasSeparateColumns) {
+    return {
+      allergens: splitCommaList(row["allergens"]).map(normalizeTag),
+      dietaryTags: splitCommaList(row["dietary_tags"]).map(normalizeTag),
+    };
+  }
+  return splitTags(splitCommaList(row["tags"]));
+}
+
 export function csvToPayload(text: string): any[] {
   const rows = parseCSVRows(text);
   if (rows.length < 2) throw new Error("importExport.errors.csvNoRows");
@@ -153,13 +205,7 @@ export function csvToPayload(text: string): any[] {
     const catName = row["category"];
     if (!catName) continue;
     if (!catMap.has(catName)) catMap.set(catName, []);
-    const rawTags = row["tags"]
-      ? row["tags"]
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : [];
-    const { allergens, dietaryTags } = splitTags(rawTags);
+    const { allergens, dietaryTags } = resolveRowTags(row);
     const variants = parseVariants(row["variants"] || "");
     const isAvailable = parseBoolean(row["is_available"]);
     const isOutOfStock = parseBoolean(row["is_out_of_stock"]);
@@ -196,8 +242,8 @@ function jsonToPayload(text: string): any[] {
   return cats.map((cat: any, i: number) => {
     const items = (cat.items || cat.dishes || cat.products || []).map(
       (item: any) => {
-        let allergens = item.allergens || [];
-        let dietaryTags = item.dietaryTags || [];
+        let allergens = (item.allergens || []).map(normalizeTag);
+        let dietaryTags = (item.dietaryTags || []).map(normalizeTag);
         if (item.tags && !item.allergens) {
           const split = splitTags(item.tags);
           allergens = split.allergens;
@@ -288,6 +334,8 @@ async function xlsxToPayload(file: File): Promise<any[]> {
   const weightIdx = col("weight");
   const currencyIdx = col("currency");
   const tagsIdx = col("tags");
+  const allergensIdx = col("allergens");
+  const dietaryTagsIdx = col("dietary_tags");
   const variantsIdx = col("variants");
   const availableIdx = col("is_available");
   const outOfStockIdx = col("is_out_of_stock");
@@ -302,14 +350,35 @@ async function xlsxToPayload(file: File): Promise<any[]> {
     if (!catName) continue;
     if (!catMap.has(catName)) catMap.set(catName, []);
 
-    const rawTags =
-      tagsIdx >= 0 && row[tagsIdx]
-        ? String(row[tagsIdx])
-            .split(",")
+    // Prefer separate Allergens / Dietary Tags columns (our own export's
+    // shape — each token normalized to its preset key) over a single
+    // combined "tags" column (legacy/external spreadsheet shape).
+    const hasSeparateTagColumns = allergensIdx >= 0 || dietaryTagsIdx >= 0;
+    const { allergens, dietaryTags } = hasSeparateTagColumns
+      ? {
+          allergens: (allergensIdx >= 0 && row[allergensIdx]
+            ? String(row[allergensIdx]).split(",")
+            : []
+          )
             .map((t: string) => t.trim())
             .filter(Boolean)
-        : [];
-    const { allergens, dietaryTags } = splitTags(rawTags);
+            .map(normalizeTag),
+          dietaryTags: (dietaryTagsIdx >= 0 && row[dietaryTagsIdx]
+            ? String(row[dietaryTagsIdx]).split(",")
+            : []
+          )
+            .map((t: string) => t.trim())
+            .filter(Boolean)
+            .map(normalizeTag),
+        }
+      : splitTags(
+          tagsIdx >= 0 && row[tagsIdx]
+            ? String(row[tagsIdx])
+                .split(",")
+                .map((t: string) => t.trim())
+                .filter(Boolean)
+            : [],
+        );
     const variants =
       variantsIdx >= 0 ? parseVariants(String(row[variantsIdx] ?? "")) : [];
     const isAvailable =
@@ -1105,9 +1174,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
         {isError && (
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 flex items-center gap-3">
             <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-            <p className="text-sm text-destructive">
-              {t(getApiError(error))}
-            </p>
+            <p className="text-sm text-destructive">{t(getApiError(error))}</p>
           </div>
         )}
       </div>

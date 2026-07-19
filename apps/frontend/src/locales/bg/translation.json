@@ -588,7 +588,10 @@
     "editorSections": "Секции на редактора",
     "itemsTab": "Артикули",
     "addCategoryDesc": "Добавете нова категория към менюто си.",
-    "categoryNamePlaceholder": "Име на категория"
+    "categoryNamePlaceholder": "Име на категория",
+    "searchPlaceholder": "Търсене по име, цена, алергени…",
+    "searchResultsCount": "{{count}} резултата за „{{query}}“",
+    "noSearchResults": "Няма артикули, отговарящи на „{{query}}“."
   },
   "forms": {
     "create": "Създай",
@@ -3134,7 +3137,7 @@
   "auto": {
     "qRMENU": "QR МЕНЮ",
     "deviceNotLinked": "Това устройство вече не е свързано с този ресторант.",
-    "pts": "тчк",
+    "pts": "точки",
     "valueEUR": "Стойност: EUR",
     "errorLoadingRestaurants": "Грешка при зареждане на ресторанти.",
     "table12": "Маса 12",
@@ -3793,6 +3796,47 @@
     "wheat": "Пшеница",
     "fish": "Риба",
     "vegan": "Веган"
+  },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "Глутен",
+      "crustaceans": "Ракообразни",
+      "egg": "Яйца",
+      "fish": "Риба",
+      "peanut": "Фъстъци",
+      "soy": "Соя",
+      "milk": "Мляко",
+      "nuts": "Ядки",
+      "celery": "Целина",
+      "mustard": "Горчица",
+      "sesame": "Сусам",
+      "sulphites": "Сулфити",
+      "lupin": "Лупина",
+      "mollusc": "Мекотели"
+    },
+    "dietary": {
+      "vegetarian": "Вегетарианско",
+      "vegan": "Веган",
+      "gluten-free": "Без глутен",
+      "lactose-free": "Без лактоза",
+      "halal": "Халал",
+      "kosher": "Кошер",
+      "spicy": "Люто",
+      "organic": "Био",
+      "sugar-free": "Без захар",
+      "nut-free": "Без ядки",
+      "keto": "Кето",
+      "paleo": "Палео"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "{{count}} избрани",
+    "select": "Избери...",
+    "search": "Търсене...",
+    "noneFound": "Няма съвпадения",
+    "remove": "Премахни",
+    "addAllergen": "+ Добави алерген",
+    "addDietaryTag": "+ Добави диетичен етикет"
   },
   "apiErrors": {
     "badRequest": "Невалидна заявка.",

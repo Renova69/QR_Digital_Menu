@@ -1,6 +1,7 @@
 import { X, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
+import { resolveTag } from "../../lib/menuTags";
 
 interface TagCount {
   tag: string;
@@ -58,7 +59,11 @@ export function FilterPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    // z-[70]: above the public menu's floating Action Bar (call waiter /
+    // profile / cart, z-50) and the assistance dialog (z-[60]) — at equal
+    // z-index the Action Bar rendered later in the DOM would win the
+    // stacking order and swallow taps on the bottom of this panel (#41).
+    <div className="fixed inset-0 z-[70] flex">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
@@ -99,59 +104,73 @@ export function FilterPanel({
         </div>
 
         {dietary.length > 0 && (
-          <div className="p-4 border-b border-border">
-            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
+          <div className="p-3.5 border-b border-border">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">
               {t("publicMenu.dietaryPreferences", "Dietary Preferences")}
             </h3>
-            <div className="space-y-1">
-              {dietary.map(({ tag, count }) => (
-                <label
-                  key={tag}
-                  className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={activeDietTags.includes(tag)}
-                      onChange={() => onDietTagToggle(tag)}
-                      className="w-4 h-4 rounded accent-primary"
-                    />
-                    <span className="text-sm font-medium">{tag}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{count}</span>
-                </label>
-              ))}
+            <div>
+              {dietary.map(({ tag, count }) => {
+                const preset = resolveTag(tag);
+                const label = preset ? t(preset.labelKey, tag) : tag;
+                return (
+                  <label
+                    key={tag}
+                    className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={activeDietTags.includes(tag)}
+                        onChange={() => onDietTagToggle(tag)}
+                        className="w-4 h-4 rounded accent-primary"
+                      />
+                      {preset && (
+                        <preset.Icon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-medium">{label}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {count}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </div>
         )}
 
         {allergens.length > 0 && (
-          <div className="p-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
+          <div className="p-3.5 pb-24">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">
               {t("publicMenu.excludeAllergens", "Exclude Allergens")}
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {allergens.map(({ tag, count }) => (
-                <button
-                  key={tag}
-                  onClick={() => onAllergenToggle(tag)}
-                  aria-pressed={excludedAllergens.includes(tag)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 ${
-                    excludedAllergens.includes(tag)
-                      ? "bg-destructive/15 text-destructive border border-destructive/30 line-through"
-                      : "bg-secondary text-muted-foreground hover:text-foreground border border-transparent"
-                  }`}
-                >
-                  {tag}
-                  <span className="ml-1 opacity-50">{count}</span>
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-1.5">
+              {allergens.map(({ tag, count }) => {
+                const preset = resolveTag(tag);
+                const label = preset ? t(preset.labelKey, tag) : tag;
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => onAllergenToggle(tag)}
+                    aria-pressed={excludedAllergens.includes(tag)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 ${
+                      excludedAllergens.includes(tag)
+                        ? "bg-destructive/15 text-destructive border border-destructive/30 line-through"
+                        : "bg-secondary text-muted-foreground hover:text-foreground border border-transparent"
+                    }`}
+                  >
+                    {preset && <preset.Icon className="h-3.5 w-3.5" />}
+                    {label}
+                    <span className="opacity-50">{count}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {filtersActive && onClearFilters && (
-          <div className="p-4 border-t border-border">
+          <div className="p-4 border-t border-border sticky bottom-0 bg-card">
             <button
               onClick={() => {
                 onClearFilters();

@@ -135,7 +135,9 @@ export default function DataRequestsPage() {
                       {req.user.email}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {new Date(req.requestedAt).toLocaleString()}
+                      {new Date(req.requestedAt).toLocaleString([], {
+                        hour12: false,
+                      })}
                     </p>
                   </div>
                   <span
@@ -161,7 +163,9 @@ export default function DataRequestsPage() {
                         <p>
                           Processed:{" "}
                           <span className="text-slate-300">
-                            {new Date(req.processedAt).toLocaleString()}
+                            {new Date(req.processedAt).toLocaleString([], {
+                              hour12: false,
+                            })}
                           </span>
                         </p>
                       )}

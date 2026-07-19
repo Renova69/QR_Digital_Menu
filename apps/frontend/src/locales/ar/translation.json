@@ -725,6 +725,47 @@
     "fish": "Fish",
     "vegan": "Vegan"
   },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "جلوتين",
+      "crustaceans": "قشريات",
+      "egg": "بيض",
+      "fish": "سمك",
+      "peanut": "فول سوداني",
+      "soy": "صويا",
+      "milk": "حليب",
+      "nuts": "مكسرات",
+      "celery": "كرفس",
+      "mustard": "خردل",
+      "sesame": "سمسم",
+      "sulphites": "كبريتات",
+      "lupin": "ترمس",
+      "mollusc": "رخويات"
+    },
+    "dietary": {
+      "vegetarian": "نباتي",
+      "vegan": "نباتي صرف",
+      "gluten-free": "خالٍ من الجلوتين",
+      "lactose-free": "خالٍ من اللاكتوز",
+      "halal": "حلال",
+      "kosher": "كوشر",
+      "spicy": "حار",
+      "organic": "عضوي",
+      "sugar-free": "خالٍ من السكر",
+      "nut-free": "خالٍ من المكسرات",
+      "keto": "كيتو",
+      "paleo": "باليو"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "تم اختيار {{count}}",
+    "select": "اختر...",
+    "search": "بحث...",
+    "noneFound": "لا توجد نتائج",
+    "remove": "إزالة",
+    "addAllergen": "+ إضافة مسبب حساسية",
+    "addDietaryTag": "+ إضافة وسم غذائي"
+  },
   "subscription": {
     "banner": {
       "active": "خطتك نشطة"

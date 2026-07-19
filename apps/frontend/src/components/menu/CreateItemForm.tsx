@@ -11,6 +11,8 @@ import { getApiError } from "../../lib/apiError";
 import { UpsellContextSelector } from "./UpsellContextSelector";
 import { UpsellContext } from "../../lib/upsellContexts";
 import { RewardPricingFields } from "./RewardPricingFields";
+import { TagPicker } from "./TagPicker";
+import { ALLERGEN_TAGS, DIETARY_TAGS } from "../../lib/menuTags";
 import type { RewardPointsMode } from "../../types";
 
 export const CreateItemForm: React.FC = () => {
@@ -22,8 +24,8 @@ export const CreateItemForm: React.FC = () => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
-  const [allergens, setAllergens] = useState("");
-  const [dietaryTags, setDietaryTags] = useState("");
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [dietaryTags, setDietaryTags] = useState<string[]>([]);
   const [isFeatured, setIsFeatured] = useState(false);
   const [upsellContexts, setUpsellContexts] = useState<UpsellContext[]>([]);
   const [rewardPointsMode, setRewardPointsMode] =
@@ -40,8 +42,8 @@ export const CreateItemForm: React.FC = () => {
     setDescription("");
     setPrice("");
     setCostPrice("");
-    setAllergens("");
-    setDietaryTags("");
+    setAllergens([]);
+    setDietaryTags([]);
     setIsFeatured(false);
     setUpsellContexts([]);
     setRewardPointsMode("OFF");
@@ -61,22 +63,16 @@ export const CreateItemForm: React.FC = () => {
         description,
         price: parseFloat(price),
         currency: "EUR",
-        allergens: allergens
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s !== ""),
-        dietaryTags: dietaryTags
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s !== ""),
+        allergens,
+        dietaryTags,
         isFeatured,
         upsellContexts,
         costPrice: costPrice ? parseFloat(costPrice) : undefined,
         rewardPointsMode,
         rewardPointsPrice:
           rewardPointsMode === "CUSTOM" && rewardPointsPrice
-          ? parseInt(rewardPointsPrice)
-          : undefined,
+            ? parseInt(rewardPointsPrice)
+            : undefined,
         relatedItemIds,
         imageFile,
       });
@@ -172,37 +168,21 @@ export const CreateItemForm: React.FC = () => {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t("forms.allergens", "Allergens")}{" "}
-              {t("auto.CommaSeparated", "(comma separated)")}
-            </label>
-            <Input
-              type="text"
-              value={allergens}
-              onChange={(e) => setAllergens(e.target.value)}
-              placeholder={t(
-                "auto.eGNutsDairyGluten",
-                "e.g. Nuts, Dairy, Gluten",
-              )}
-            />
-          </div>
+          <TagPicker
+            label={t("forms.allergens", "Allergens")}
+            value={allergens}
+            onChange={setAllergens}
+            options={ALLERGEN_TAGS}
+            placeholder={t("tagPicker.addAllergen", "+ Add allergen")}
+          />
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t("forms.dietaryTags", "Dietary Tags")}{" "}
-              {t("auto.CommaSeparated", "(comma separated)")}
-            </label>
-            <Input
-              type="text"
-              value={dietaryTags}
-              onChange={(e) => setDietaryTags(e.target.value)}
-              placeholder={t(
-                "auto.eGVeganVegetarianSpicy",
-                "e.g. Vegan, Vegetarian, Spicy",
-              )}
-            />
-          </div>
+          <TagPicker
+            label={t("forms.dietaryTags", "Dietary Tags")}
+            value={dietaryTags}
+            onChange={setDietaryTags}
+            options={DIETARY_TAGS}
+            placeholder={t("tagPicker.addDietaryTag", "+ Add dietary tag")}
+          />
 
           <div className="flex items-center space-x-2 pt-2 border-t mt-4 border-border/50">
             <input

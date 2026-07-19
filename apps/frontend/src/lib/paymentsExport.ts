@@ -169,7 +169,7 @@ export async function downloadPaymentsExport(
     [text(ex("dateRange", "Date Range")), text(dateRange), empty()],
     [
       text(ex("generatedAt", "Generated At")),
-      text(new Date().toLocaleString()),
+      text(new Date().toLocaleString([], { hour12: false })),
       empty(),
     ],
     [text(ex("txCount", "Transaction Count")), int(payments.length), empty()],

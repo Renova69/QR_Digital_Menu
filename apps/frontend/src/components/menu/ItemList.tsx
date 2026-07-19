@@ -19,6 +19,7 @@ import {
   Ban,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { resolveTag } from "../../lib/menuTags";
 
 export const ItemList: React.FC = () => {
   const { items, isLoadingItems, selectedCategory, deleteItem, updateItem } =
@@ -189,14 +190,19 @@ const ItemRow = ({
               </span>
             )}
             <div className="flex gap-1">
-              {item.dietaryTags?.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-medium border border-green-100"
-                >
-                  {tag}
-                </span>
-              ))}
+              {item.dietaryTags?.map((tag) => {
+                const preset = resolveTag(tag);
+                const label = preset ? t(preset.labelKey, tag) : tag;
+                return (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-medium border border-green-100"
+                  >
+                    {preset && <preset.Icon className="h-2.5 w-2.5" />}
+                    {label}
+                  </span>
+                );
+              })}
             </div>
           </div>
           <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
@@ -208,12 +214,22 @@ const ItemRow = ({
               {item.price.toFixed(2)}
             </span>
             {item.allergens && item.allergens.length > 0 && (
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
-                <Info className="h-3 w-3" />
-                <span>
-                  {t("publicMenu.contains", "Contains")}:{" "}
-                  {item.allergens.join(", ")}
-                </span>
+              <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground/70">
+                <Info className="h-3 w-3 flex-shrink-0" />
+                <span>{t("publicMenu.contains", "Contains")}:</span>
+                {item.allergens.map((tag) => {
+                  const preset = resolveTag(tag);
+                  const label = preset ? t(preset.labelKey, tag) : tag;
+                  return (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100"
+                    >
+                      {preset && <preset.Icon className="h-2.5 w-2.5" />}
+                      {label}
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>

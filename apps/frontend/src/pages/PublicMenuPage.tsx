@@ -557,13 +557,20 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   // Dietary and allergen tags are aggregated separately, straight from the item
   // fields (item.allergens vs item.dietaryTags). This keeps the two groups apart
   // without a language-specific keyword list, so allergens entered in any
-  // language classify correctly.
+  // language classify correctly. Must stay on the raw canonical value
+  // (item[field]) rather than the translated display array — resolveTag()
+  // matches preset tags by their stable key ("organic"), not by a cached
+  // DeepL translation of it ("биологичен"), which was silently breaking
+  // icon lookups (and surfacing stale/garbled pre-preset-system
+  // translations like "halal" -> "да избере") for any tag with a cached
+  // translation. The translated array is now only a fallback for legacy
+  // free-text tags that have no raw value at all.
   const aggregateTags = useCallback(
     (field: "allergens" | "dietaryTags"): { tag: string; count: number }[] => {
       const tagCounts = new Map<string, number>();
       for (const item of allLoadedItems) {
         const tags =
-          getTranslatedArray(item, selectedLang, field) ?? item[field] ?? [];
+          item[field] ?? getTranslatedArray(item, selectedLang, field) ?? [];
         for (const tag of tags) {
           tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
         }
@@ -1088,7 +1095,7 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
             }}
           >
             <div
-              className={`flex items-center w-full max-w-[480px] ${ordersEnabled ? "justify-between" : "justify-end"} p-1.5 pb-safe md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90`}
+              className={`flex items-center w-full max-w-[480px] ${ordersEnabled ? "justify-between" : "justify-end"} p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90`}
             >
               {/* LEFT GROUP: Waiter + Profile/Sign-In */}
               <div className="flex items-center gap-0.5">

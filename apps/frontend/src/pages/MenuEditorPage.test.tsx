@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import MenuEditorPage from "./MenuEditorPage";
 import { useAuth } from "../context/AuthContext";
@@ -45,6 +46,7 @@ vi.mock("../context/MenuContext", () => ({
 vi.mock("../services/menuService", () => ({
   updateCategoryOrder: vi.fn(),
   updateItemOrder: vi.fn(),
+  getItems: vi.fn(),
 }));
 
 vi.mock("../services/restaurantService", () => ({
@@ -122,18 +124,23 @@ describe("MenuEditorPage", () => {
       React.ContextType<typeof RestaurantContext>
     > | null = null,
   ) => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     return render(
-      <BrowserRouter>
-        <RestaurantContext.Provider
-          value={
-            restaurantContextValue as unknown as React.ContextType<
-              typeof RestaurantContext
-            >
-          }
-        >
-          {ui}
-        </RestaurantContext.Provider>
-      </BrowserRouter>,
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <RestaurantContext.Provider
+            value={
+              restaurantContextValue as unknown as React.ContextType<
+                typeof RestaurantContext
+              >
+            }
+          >
+            {ui}
+          </RestaurantContext.Provider>
+        </BrowserRouter>
+      </QueryClientProvider>,
     );
   };
 

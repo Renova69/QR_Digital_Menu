@@ -17,7 +17,8 @@ import {
 import { getImageUrl as resolveImageUrl } from "../../lib/getImageUrl";
 import { getTranslatedField, getTranslatedArray } from "../../lib/translation";
 import { cn } from "../../lib/utils";
-import { Check, Plus, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { MenuTagBadges } from "./MenuTagBadges";
 
 interface ItemWithOptionsProps {
   item: Item;
@@ -332,55 +333,45 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
             {itemName}
           </h3>
 
-          <p className="text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2 break-words">
-            {/* Add a <wbr> break opportunity after each comma/semicolon/slash
-                          so a spaceless list ("tomato,cucumber,cheese") wraps whole
-                          words to the next line instead of splitting mid-word. */}
-            {(itemDesc || "").split(/(?<=[,;/])/).map((seg, i) => (
-              <React.Fragment key={i}>
-                {seg}
-                <wbr />
-              </React.Fragment>
-            ))}
-          </p>
+          {itemDesc && (
+            <p className="text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2 break-words">
+              {/* Add a <wbr> break opportunity after each comma/semicolon/slash
+                            so a spaceless list ("tomato,cucumber,cheese") wraps whole
+                            words to the next line instead of splitting mid-word. */}
+              {itemDesc.split(/(?<=[,;/])/).map((seg, i) => (
+                <React.Fragment key={i}>
+                  {seg}
+                  <wbr />
+                </React.Fragment>
+              ))}
+            </p>
+          )}
 
-          {/* Dietary & Allergens */}
-          {item.dietaryTags?.length || item.allergens?.length
-            ? (() => {
-                const translatedAllergens =
-                  getTranslatedArray(item, currentLang, "allergens") ||
-                  item.allergens ||
-                  [];
-                const translatedTags =
-                  getTranslatedArray(item, currentLang, "dietaryTags") ||
-                  item.dietaryTags ||
-                  [];
-                return (
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {translatedTags.map((tag: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="px-1.5 py-0 rounded-full border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[8px] uppercase font-black tracking-wide bg-emerald-500/5 leading-[1.4]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {translatedAllergens.map(
-                      (allergen: string, idx: number) => (
-                        <span
-                          key={idx}
-                          className="px-1.5 py-0 rounded-full border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[8px] uppercase font-black tracking-wide bg-amber-500/5 leading-[1.4]"
-                        >
-                          {allergen}
-                        </span>
-                      ),
-                    )}
-                  </div>
-                );
-              })()
-            : null}
+          {/* Dietary & Allergens — icons w/ hover/tap tooltip; preset tags
+              resolve to a localized name, legacy free text falls back to the
+              stored translated label. */}
+          {item.dietaryTags?.length || item.allergens?.length ? (
+            <MenuTagBadges
+              className="mt-1.5"
+              dietaryTags={item.dietaryTags ?? []}
+              allergens={item.allergens ?? []}
+              dietaryLabels={
+                getTranslatedArray(item, currentLang, "dietaryTags") ||
+                item.dietaryTags ||
+                []
+              }
+              allergenLabels={
+                getTranslatedArray(item, currentLang, "allergens") ||
+                item.allergens ||
+                []
+              }
+            />
+          ) : null}
 
-          {/* Price + Add Button — price always visible; add button only when ordering is enabled */}
+          {/* Price + Add Button — always pinned to the card's bottom edge
+              (price bottom-left, button bottom-right) so both line up across
+              every card regardless of content; any slack from a missing
+              description/tags collapses into the middle, not below the CTA. */}
           <div className="mt-auto pt-3 flex items-center justify-between gap-2">
             <div className="shrink-0 leading-tight">
               <div
@@ -405,9 +396,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                   color: "var(--brand-contrast, #fff)",
                 }}
               >
-                <Plus className="relative z-10 h-3.5 w-3.5" />
                 <span className="relative z-10">
-                  {t("publicMenu.addItem", "Add")}
+                  {t("publicMenu.addShort", "+ Add")}
                 </span>
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
               </button>

@@ -3648,6 +3648,47 @@
     "fish": "Fish",
     "vegan": "Vegan"
   },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "Gluten",
+      "crustaceans": "Crustáceos",
+      "egg": "Huevo",
+      "fish": "Pescado",
+      "peanut": "Cacahuete",
+      "soy": "Soja",
+      "milk": "Leche",
+      "nuts": "Frutos secos",
+      "celery": "Apio",
+      "mustard": "Mostaza",
+      "sesame": "Sésamo",
+      "sulphites": "Sulfitos",
+      "lupin": "Altramuces",
+      "mollusc": "Moluscos"
+    },
+    "dietary": {
+      "vegetarian": "Vegetariano",
+      "vegan": "Vegano",
+      "gluten-free": "Sin gluten",
+      "lactose-free": "Sin lactosa",
+      "halal": "Halal",
+      "kosher": "Kosher",
+      "spicy": "Picante",
+      "organic": "Orgánico",
+      "sugar-free": "Sin azúcar",
+      "nut-free": "Sin frutos secos",
+      "keto": "Keto",
+      "paleo": "Paleo"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "{{count}} seleccionados",
+    "select": "Seleccionar...",
+    "search": "Buscar...",
+    "noneFound": "Sin resultados",
+    "remove": "Eliminar",
+    "addAllergen": "+ Añadir alérgeno",
+    "addDietaryTag": "+ Añadir etiqueta dietética"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

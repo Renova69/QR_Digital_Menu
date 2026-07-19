@@ -586,7 +586,10 @@
     "editorSections": "Menu editor sections",
     "itemsTab": "Items",
     "addCategoryDesc": "Add a new category to your menu.",
-    "categoryNamePlaceholder": "Category name"
+    "categoryNamePlaceholder": "Category name",
+    "searchPlaceholder": "Search name, price, allergens…",
+    "searchResultsCount": "{{count}} results for \"{{query}}\"",
+    "noSearchResults": "No items match \"{{query}}\"."
   },
   "forms": {
     "create": "Create",
@@ -3781,6 +3784,47 @@
     "wheat": "Wheat",
     "fish": "Fish",
     "vegan": "Vegan"
+  },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "Gluten",
+      "crustaceans": "Crustaceans",
+      "egg": "Egg",
+      "fish": "Fish",
+      "peanut": "Peanut",
+      "soy": "Soy",
+      "milk": "Milk",
+      "nuts": "Tree Nuts",
+      "celery": "Celery",
+      "mustard": "Mustard",
+      "sesame": "Sesame",
+      "sulphites": "Sulphites",
+      "lupin": "Lupin",
+      "mollusc": "Molluscs"
+    },
+    "dietary": {
+      "vegetarian": "Vegetarian",
+      "vegan": "Vegan",
+      "gluten-free": "Gluten-Free",
+      "lactose-free": "Lactose-Free",
+      "halal": "Halal",
+      "kosher": "Kosher",
+      "spicy": "Spicy",
+      "organic": "Organic",
+      "sugar-free": "Sugar-Free",
+      "nut-free": "Nut-Free",
+      "keto": "Keto",
+      "paleo": "Paleo"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "{{count}} selected",
+    "select": "Select...",
+    "search": "Search...",
+    "noneFound": "No matches found",
+    "remove": "Remove",
+    "addAllergen": "+ Add allergen",
+    "addDietaryTag": "+ Add dietary tag"
   },
   "apiErrors": {
     "badRequest": "Invalid request.",

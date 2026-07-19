@@ -58,11 +58,11 @@ export default function DataPrivacyTab() {
     return null;
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-6 space-y-5">
+    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 space-y-3">
       <h3 className="text-base font-semibold">{t("gdpr.dataPrivacyTab")}</h3>
 
-      {settings.dataExportEndpointEnabled && (
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        {settings.dataExportEndpointEnabled && (
           <button
             onClick={() => exportMutation.mutate()}
             disabled={exportMutation.isPending}
@@ -70,56 +70,55 @@ export default function DataPrivacyTab() {
           >
             {exportMutation.isPending ? "Downloading…" : t("gdpr.downloadData")}
           </button>
-          {exportError && (
-            <p className="text-xs text-red-500 mt-1">{exportError}</p>
-          )}
-        </div>
-      )}
+        )}
 
-      {settings.erasureEndpointEnabled && (
-        <AlertDialog.Root>
-          <AlertDialog.Trigger asChild>
-            <button className="px-4 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
-              {t("gdpr.deleteAccount")}
-            </button>
-          </AlertDialog.Trigger>
+        {settings.erasureEndpointEnabled && (
+          <AlertDialog.Root>
+            <AlertDialog.Trigger asChild>
+              <button className="px-4 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                {t("gdpr.deleteAccount")}
+              </button>
+            </AlertDialog.Trigger>
 
-          <AlertDialog.Portal>
-            <AlertDialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-            <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 p-6 shadow-2xl">
-              <AlertDialog.Title className="text-base font-semibold mb-2">
-                {t("gdpr.deleteAccountConfirmTitle")}
-              </AlertDialog.Title>
-              <AlertDialog.Description className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                {t("gdpr.deleteAccountConfirmBody")}
-              </AlertDialog.Description>
-              <div className="flex gap-3 justify-end">
-                <AlertDialog.Cancel asChild>
-                  <button className="px-4 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-                    {t("gdpr.deleteAccountCancel")}
-                  </button>
-                </AlertDialog.Cancel>
-                <AlertDialog.Action asChild>
-                  <button
-                    onClick={() => deleteMutation.mutate()}
-                    disabled={deleteMutation.isPending}
-                    className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
-                  >
-                    {deleteMutation.isPending
-                      ? "Deleting…"
-                      : t("gdpr.deleteAccountConfirm")}
-                  </button>
-                </AlertDialog.Action>
-              </div>
-              {deleteMutation.isError && (
-                <p className="text-xs text-red-500 mt-3 text-center">
-                  {t(getApiError(deleteMutation.error))}
-                </p>
-              )}
-            </AlertDialog.Content>
-          </AlertDialog.Portal>
-        </AlertDialog.Root>
-      )}
+            <AlertDialog.Portal>
+              <AlertDialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+              <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 p-6 shadow-2xl">
+                <AlertDialog.Title className="text-base font-semibold mb-2">
+                  {t("gdpr.deleteAccountConfirmTitle")}
+                </AlertDialog.Title>
+                <AlertDialog.Description className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                  {t("gdpr.deleteAccountConfirmBody")}
+                </AlertDialog.Description>
+                <div className="flex gap-3 justify-end">
+                  <AlertDialog.Cancel asChild>
+                    <button className="px-4 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+                      {t("gdpr.deleteAccountCancel")}
+                    </button>
+                  </AlertDialog.Cancel>
+                  <AlertDialog.Action asChild>
+                    <button
+                      onClick={() => deleteMutation.mutate()}
+                      disabled={deleteMutation.isPending}
+                      className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      {deleteMutation.isPending
+                        ? "Deleting…"
+                        : t("gdpr.deleteAccountConfirm")}
+                    </button>
+                  </AlertDialog.Action>
+                </div>
+                {deleteMutation.isError && (
+                  <p className="text-xs text-red-500 mt-3 text-center">
+                    {t(getApiError(deleteMutation.error))}
+                  </p>
+                )}
+              </AlertDialog.Content>
+            </AlertDialog.Portal>
+          </AlertDialog.Root>
+        )}
+      </div>
+
+      {exportError && <p className="text-xs text-red-500">{exportError}</p>}
     </div>
   );
 }

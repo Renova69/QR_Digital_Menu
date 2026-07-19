@@ -105,6 +105,7 @@ function formatTime(value?: string, locale: string = "en-US") {
   return new Date(value).toLocaleTimeString(locale, {
     hour: "numeric",
     minute: "2-digit",
+    hour12: false,
   });
 }
 

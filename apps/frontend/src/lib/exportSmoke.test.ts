@@ -174,4 +174,27 @@ describe("XLSX export smoke coverage", () => {
     expect(String(items.data[1][1].value)).toMatch(/^'=cmd/);
     expect(String(categories.data[1][1].value)).toMatch(/^'=SUM/);
   });
+
+  it("includes a Tags Reference legend sheet mapping preset keys to names", async () => {
+    await downloadMenuExport(
+      {
+        restaurantId: "restaurant-12345678",
+        categories: [
+          { id: "cat-1", name: "Lunch", items: [{ name: "Soup", price: 5 }] },
+        ],
+      },
+      t,
+      "Demo Restaurant",
+    );
+
+    const sheets = xlsxMocks.writeXlsxFile.mock.calls[0][0] as Array<{
+      sheet: string;
+      data: Array<Array<{ value: unknown }>>;
+    }>;
+    const legend = sheets.find((s) => s.sheet === "Tags Reference")!;
+    expect(legend).toBeDefined();
+    const rows = legend.data.slice(1).map((row) => row.map((c) => c.value));
+    expect(rows).toContainEqual(["gluten", "Allergen", "gluten"]);
+    expect(rows).toContainEqual(["vegan", "Dietary", "vegan"]);
+  });
 });

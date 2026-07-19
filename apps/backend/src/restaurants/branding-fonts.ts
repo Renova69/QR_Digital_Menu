@@ -26,6 +26,7 @@ export const BRANDING_FONT_NAMES = [
   'Lato',
   'Poppins',
   'Karla',
+  'Sofia Sans',
   'Oswald',
   'Bebas Neue',
   'Lobster',

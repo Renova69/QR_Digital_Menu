@@ -31,11 +31,27 @@ export function formatDualCurrency(
   };
 }
 
-/** Single-line inline format: "12.50 € / 24.45 лв" */
+/** Single-line inline format: "12.50 € / 24.45 лв" — reserved for tight
+ * single-line contexts (e.g. inside a CTA button) where a 2-line stack
+ * doesn't fit. Prefer formatStackedDual everywhere else. */
 export function formatInlineDual(
   value: number,
   primaryCurrency: "EUR" | "BGN" = "EUR",
 ): string {
   const { primary, secondary } = formatDualCurrency(value, primaryCurrency);
   return `${primary} / ${secondary}`;
+}
+
+/**
+ * Canonical two-line price pair: EUR always on top, BGN always underneath,
+ * regardless of the item's stored currency — the layout every price display
+ * (item cards, cart, checkout) should use for consistency. `value` is in
+ * `currency`; normalizes to EUR first so the EUR line is always correct.
+ */
+export function formatStackedDual(
+  value: number,
+  currency: "EUR" | "BGN" = "EUR",
+): { eur: string; bgn: string } {
+  const eurValue = currency === "BGN" ? value / BGN_RATE : value;
+  return { eur: formatEuro(eurValue), bgn: formatBgn(eurValue) };
 }

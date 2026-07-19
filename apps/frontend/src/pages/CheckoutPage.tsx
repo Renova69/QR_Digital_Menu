@@ -48,12 +48,6 @@ const FIELD_FEEDBACK_CLASSES: Record<FieldState, string> = {
   invalid: "border-red-500 focus:border-red-500 focus:ring-red-500/40",
 };
 
-const TIER_EMOJI: Record<string, string> = {
-  Bronze: "🥉",
-  Silver: "🥈",
-  Gold: "🥇",
-};
-
 const PAYMENT_PARTNERS = [
   {
     key: "visa",
@@ -806,32 +800,48 @@ const CheckoutPage = () => {
                             </span>
                           )}
                         </span>
-                        <span className="font-semibold text-foreground tabular-nums">
-                          {formatEuro((it.unitPrice ?? 0) * (it.quantity ?? 1))}
+                        <span className="text-right leading-tight font-semibold text-foreground tabular-nums whitespace-nowrap">
+                          <span className="block">
+                            {formatEuro(
+                              (it.unitPrice ?? 0) * (it.quantity ?? 1),
+                            )}
+                          </span>
+                          <span className="block text-xs font-medium text-muted-foreground">
+                            {formatBgn(
+                              (it.unitPrice ?? 0) * (it.quantity ?? 1),
+                            )}
+                          </span>
                         </span>
                       </div>
                     ))}
                   </div>
                 ))}
-                <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                <div className="flex justify-between items-start mt-4 pt-3 border-t border-border">
                   <span className="text-base font-bold text-foreground">
                     {t("payment.total", "Total")}
                   </span>
-                  <span className="text-base font-display font-bold text-foreground tabular-nums">
+                  <span className="text-right leading-tight whitespace-nowrap">
                     {/* Bill-level Total must reflect what's still owed, not
                         the original order total — on a partially-paid split
                         (another guest already paid part of the table), the
                         full subtotal overstates what this guest owes. */}
-                    {formatEuro(
-                      sessionBill.remaining ?? sessionBill.subtotal ?? 0,
-                    )}
+                    <span className="block text-base font-display font-bold text-foreground tabular-nums">
+                      {formatEuro(
+                        sessionBill.remaining ?? sessionBill.subtotal ?? 0,
+                      )}
+                    </span>
+                    <span className="block text-xs font-medium text-muted-foreground">
+                      {formatBgn(
+                        sessionBill.remaining ?? sessionBill.subtotal ?? 0,
+                      )}
+                    </span>
                   </span>
                 </div>
                 {sessionBill.paidSubtotal > 0 && (
                   <p className="mt-1 text-right text-sm text-muted-foreground">
                     {t("checkout.alreadyPaid", {
                       defaultValue: "{{amount}} already paid",
-                      amount: formatEuro(sessionBill.paidSubtotal),
+                      amount: formatInlineDual(sessionBill.paidSubtotal),
                     })}
                   </p>
                 )}
@@ -846,7 +856,7 @@ const CheckoutPage = () => {
                     className="w-full py-4 rounded-xl brand-cta text-white font-bold text-base min-h-[52px]"
                   >
                     {t("payment.pay", "Pay Now")} ·{" "}
-                    {formatEuro(
+                    {formatInlineDual(
                       sessionBill.remaining ?? sessionBill.subtotal ?? 0,
                     )}
                   </button>
@@ -896,7 +906,7 @@ const CheckoutPage = () => {
       >
         <button
           onClick={() => navigate(-1)}
-          className="mb-8 flex min-h-[44px] items-center gap-2 text-muted-foreground hover:text-foreground font-semibold transition-colors"
+          className="mb-4 flex min-h-[44px] items-center gap-2 text-muted-foreground hover:text-foreground font-semibold transition-colors"
         >
           {t("checkout.back")}
         </button>
@@ -927,15 +937,15 @@ const CheckoutPage = () => {
           </div>
         )}
 
-        <div className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl mb-8 border border-white/20">
-          <h2 className="text-base font-bold mb-6 text-foreground">
+        <div className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl mb-5 border border-white/20">
+          <h2 className="text-base font-bold mb-4 text-foreground">
             {t("checkout.orderSummary")}
           </h2>
-          <ul className="space-y-4">
+          <ul className="space-y-3">
             {items.map((item) => (
               <li
                 key={item.cartId}
-                className="flex justify-between items-start pb-4 border-b border-border/40 last:border-0 last:pb-0"
+                className="flex justify-between items-start pb-3 border-b border-border/40 last:border-0 last:pb-0"
               >
                 <div>
                   <p className="font-bold text-foreground text-base">
@@ -1017,7 +1027,7 @@ const CheckoutPage = () => {
                     </>
                   )}
                 </div>
-                <p className="font-bold text-base text-foreground">
+                <p className="font-bold text-base text-foreground text-right leading-tight whitespace-nowrap">
                   {redeemedCartIds.has(item.cartId) ? (
                     <>
                       {t("checkout.free")}
@@ -1025,21 +1035,37 @@ const CheckoutPage = () => {
                         (sum, option) => sum + (option.priceModifier || 0),
                         0,
                       ) > 0 && (
-                        <span className="block text-sm text-muted-foreground text-right">
+                        <span className="block text-sm font-normal text-muted-foreground">
                           +
-                          {formatInlineDual(
+                          {formatEuro(
                             item.selectedOptions.reduce(
                               (sum, option) =>
                                 sum + (option.priceModifier || 0),
                               0,
                             ) * item.quantity,
-                            "EUR",
                           )}
+                          <span className="block text-xs">
+                            +
+                            {formatBgn(
+                              item.selectedOptions.reduce(
+                                (sum, option) =>
+                                  sum + (option.priceModifier || 0),
+                                0,
+                              ) * item.quantity,
+                            )}
+                          </span>
                         </span>
                       )}
                     </>
                   ) : (
-                    formatInlineDual(item.price * item.quantity, "EUR")
+                    <>
+                      <span className="block">
+                        {formatEuro(item.price * item.quantity)}
+                      </span>
+                      <span className="block text-sm font-normal text-muted-foreground">
+                        {formatBgn(item.price * item.quantity)}
+                      </span>
+                    </>
                   )}
                 </p>
               </li>
@@ -1047,7 +1073,7 @@ const CheckoutPage = () => {
           </ul>
           <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-base text-foreground">
             <span>{t("cart.total")}:</span>
-            <div className="text-right">
+            <div className="text-right whitespace-nowrap">
               <div>{formatEuro(getTotal(redeemedCartIds))}</div>
               <span className="text-sm text-muted-foreground">
                 {formatBgn(getTotal(redeemedCartIds))}
@@ -1066,8 +1092,8 @@ const CheckoutPage = () => {
 
           {user && restaurantId && restaurantConfig?.isLoyaltyEnabled && (
             <div className="mt-6 pt-6 border-t border-border space-y-4">
-              <div className="flex justify-between items-center p-4 bg-primary/10 border border-primary/20 rounded-xl">
-                <div>
+              <div className="flex flex-col gap-3 p-4 bg-primary/10 border border-primary/20 rounded-xl sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <p className="font-bold text-primary">
                     {t("checkout.loyaltyPoints")}
                   </p>
@@ -1078,13 +1104,13 @@ const CheckoutPage = () => {
                     })}
                   </p>
                   {loyaltyData?.tier && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[11px] font-black whitespace-nowrap">
-                        {TIER_EMOJI[loyaltyData.tier]} {loyaltyData.tier}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[11px] font-black shrink-0">
+                        {loyaltyData.tier}
                       </span>
                       {loyaltyData.pointsToNextTier > 0 ? (
                         <>
-                          <div className="h-1.5 flex-1 rounded-full bg-primary/15 overflow-hidden">
+                          <div className="h-1.5 min-w-[40px] flex-1 rounded-full bg-primary/15 overflow-hidden">
                             <div
                               className="h-full rounded-full bg-primary"
                               style={{
@@ -1092,7 +1118,7 @@ const CheckoutPage = () => {
                               }}
                             />
                           </div>
-                          <span className="text-[10px] text-primary/70 whitespace-nowrap">
+                          <span className="text-[10px] text-primary/70 shrink-0">
                             {t("checkout.tierProgressToNext", {
                               points: loyaltyData.pointsToNextTier,
                               tier: loyaltyData.nextTierName,
@@ -1111,7 +1137,7 @@ const CheckoutPage = () => {
                 </div>
                 {loyaltyPoints - getItemsPointsCost() > 0 &&
                   getTotal(redeemedCartIds) > 0 && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                       <span className="text-sm font-bold text-foreground">
                         {t("checkout.redeemForDiscount")}
                       </span>
@@ -1146,15 +1172,22 @@ const CheckoutPage = () => {
               )}
 
               {usePoints && loyaltyPoints - getItemsPointsCost() > 0 && (
-                <div className="flex justify-between font-bold text-base text-green-600">
+                <div className="flex justify-between items-start font-bold text-base text-green-600">
                   <span>{t("checkout.discountApplied")}</span>
-                  <span>-{formatEuro(getEstimatedPointsDiscount())}</span>
+                  <span className="text-right leading-tight whitespace-nowrap">
+                    <span className="block">
+                      -{formatEuro(getEstimatedPointsDiscount())}
+                    </span>
+                    <span className="block text-xs font-medium opacity-80">
+                      -{formatBgn(getEstimatedPointsDiscount())}
+                    </span>
+                  </span>
                 </div>
               )}
 
               <div className="flex justify-between font-extrabold text-base text-foreground">
                 <span>{t("checkout.finalTotal")}</span>
-                <div className="text-right">
+                <div className="text-right whitespace-nowrap">
                   <div>
                     {formatEuro(
                       getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
@@ -1218,9 +1251,9 @@ const CheckoutPage = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl space-y-6 border border-white/20"
+          className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl space-y-4 border border-white/20"
         >
-          <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-8">
+          <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-6">
             <p className="font-bold text-primary text-base flex items-center gap-2">
               <span className="bg-primary text-white px-2 py-0.5 rounded-md text-sm">
                 {locationTypeLabel}

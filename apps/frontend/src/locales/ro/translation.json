@@ -586,7 +586,10 @@
     "editorSections": "Secțiuni editor meniu",
     "itemsTab": "Articole",
     "addCategoryDesc": "Adaugă o nouă categorie în meniul tău.",
-    "categoryNamePlaceholder": "Nume categorie"
+    "categoryNamePlaceholder": "Nume categorie",
+    "searchPlaceholder": "Caută nume, preț, alergeni…",
+    "searchResultsCount": "{{count}} rezultate pentru \"{{query}}\"",
+    "noSearchResults": "Niciun articol nu se potrivește cu \"{{query}}\"."
   },
   "forms": {
     "create": "Creează",
@@ -3868,6 +3871,47 @@
     "wheat": "Grâu",
     "fish": "Pește",
     "vegan": "Vegan"
+  },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "Gluten",
+      "crustaceans": "Crustacee",
+      "egg": "Ouă",
+      "fish": "Pește",
+      "peanut": "Arahide",
+      "soy": "Soia",
+      "milk": "Lapte",
+      "nuts": "Nuci",
+      "celery": "Țelină",
+      "mustard": "Muștar",
+      "sesame": "Susan",
+      "sulphites": "Sulfiți",
+      "lupin": "Lupin",
+      "mollusc": "Moluște"
+    },
+    "dietary": {
+      "vegetarian": "Vegetarian",
+      "vegan": "Vegan",
+      "gluten-free": "Fără gluten",
+      "lactose-free": "Fără lactoză",
+      "halal": "Halal",
+      "kosher": "Kosher",
+      "spicy": "Picant",
+      "organic": "Bio",
+      "sugar-free": "Fără zahăr",
+      "nut-free": "Fără nuci",
+      "keto": "Keto",
+      "paleo": "Paleo"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "{{count}} selectate",
+    "select": "Selectează...",
+    "search": "Căutare...",
+    "noneFound": "Niciun rezultat",
+    "remove": "Elimină",
+    "addAllergen": "+ Adaugă alergen",
+    "addDietaryTag": "+ Adaugă etichetă dietetică"
   },
   "apiErrors": {
     "badRequest": "Cerere invalidă.",

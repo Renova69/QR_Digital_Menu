@@ -301,7 +301,7 @@ export async function downloadAnalyticsExport(
     ],
     [
       text(ex("summary.generatedAt", "Generated at")),
-      text(new Date().toLocaleString()),
+      text(new Date().toLocaleString([], { hour12: false })),
       empty(),
       empty(),
       empty(),

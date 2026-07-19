@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types";
-import { formatInlineDual, BGN_RATE } from "../../lib/currency";
+import { formatStackedDual, BGN_RATE } from "../../lib/currency";
 import {
   resolveCartChoiceName,
   resolveCartItemName,
@@ -146,11 +146,23 @@ const CartDrawer = ({
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-primary">
-                          {formatInlineDual(
-                            drink.price ?? 0,
-                            drink.currency ?? "EUR",
-                          )}
+                        <span className="text-right leading-tight">
+                          <span className="block text-sm font-semibold text-primary">
+                            {
+                              formatStackedDual(
+                                drink.price ?? 0,
+                                drink.currency ?? "EUR",
+                              ).eur
+                            }
+                          </span>
+                          <span className="block text-[10px] text-muted-foreground">
+                            {
+                              formatStackedDual(
+                                drink.price ?? 0,
+                                drink.currency ?? "EUR",
+                              ).bgn
+                            }
+                          </span>
                         </span>
                         <Button
                           size="sm"
@@ -220,10 +232,19 @@ const CartDrawer = ({
                               )}{" "}
                               <span className="text-primary/70 font-semibold">
                                 (+
-                                {formatInlineDual(
-                                  opt.priceModifier || 0,
-                                  "EUR",
-                                )}
+                                {
+                                  formatStackedDual(
+                                    opt.priceModifier || 0,
+                                    "EUR",
+                                  ).eur
+                                }{" "}
+                                /{" "}
+                                {
+                                  formatStackedDual(
+                                    opt.priceModifier || 0,
+                                    "EUR",
+                                  ).bgn
+                                }
                                 )
                               </span>
                             </li>
@@ -232,9 +253,20 @@ const CartDrawer = ({
                       )}
                   </div>
                   <div className="text-right flex flex-col justify-between shrink-0">
-                    <p className="font-bold text-base text-foreground">
-                      {formatInlineDual(item.price * item.quantity, "EUR")}
-                    </p>
+                    <span className="leading-tight">
+                      <p className="font-bold text-base text-foreground">
+                        {
+                          formatStackedDual(item.price * item.quantity, "EUR")
+                            .eur
+                        }
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {
+                          formatStackedDual(item.price * item.quantity, "EUR")
+                            .bgn
+                        }
+                      </p>
+                    </span>
                     <button
                       onClick={() => removeItem(item.cartId)}
                       className="mt-2 min-h-[44px] text-sm font-semibold text-red-500 transition-colors hover:text-red-400"
@@ -256,12 +288,17 @@ const CartDrawer = ({
                 "max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))",
             }}
           >
-            <div className="flex justify-between items-baseline mb-6">
+            <div className="flex justify-between items-start mb-6">
               <span className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
                 {t("cart.total")}
               </span>
-              <span className="text-base font-display font-black text-primary">
-                {formatInlineDual(getTotal(), "EUR")}
+              <span className="text-right leading-tight">
+                <span className="block text-base font-display font-black text-primary">
+                  {formatStackedDual(getTotal(), "EUR").eur}
+                </span>
+                <span className="block text-xs font-semibold text-muted-foreground">
+                  {formatStackedDual(getTotal(), "EUR").bgn}
+                </span>
               </span>
             </div>
             {showDrinkUpsell ? (

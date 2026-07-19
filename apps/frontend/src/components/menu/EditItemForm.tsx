@@ -12,6 +12,8 @@ import { getApiError } from "../../lib/apiError";
 import { UpsellContextSelector } from "./UpsellContextSelector";
 import { UpsellContext } from "../../lib/upsellContexts";
 import { RewardPricingFields } from "./RewardPricingFields";
+import { TagPicker } from "./TagPicker";
+import { ALLERGEN_TAGS, DIETARY_TAGS } from "../../lib/menuTags";
 
 interface EditItemFormProps {
   item: Item;
@@ -32,9 +34,9 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
   const [description, setDescription] = useState(item.description || "");
   const [price, setPrice] = useState(item.price.toString());
   const [costPrice, setCostPrice] = useState(item.costPrice?.toString() || "");
-  const [allergens, setAllergens] = useState(item.allergens?.join(", ") || "");
-  const [dietaryTags, setDietaryTags] = useState(
-    item.dietaryTags?.join(", ") || "",
+  const [allergens, setAllergens] = useState<string[]>(item.allergens || []);
+  const [dietaryTags, setDietaryTags] = useState<string[]>(
+    item.dietaryTags || [],
   );
   const [isFeatured, setIsFeatured] = useState(item.isFeatured || false);
   const [upsellContexts, setUpsellContexts] = useState<UpsellContext[]>(
@@ -63,22 +65,16 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
         description,
         price: parseFloat(price),
         currency: "EUR",
-        allergens: allergens
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s !== ""),
-        dietaryTags: dietaryTags
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s !== ""),
+        allergens,
+        dietaryTags,
         isFeatured,
         upsellContexts,
         costPrice: costPrice ? parseFloat(costPrice) : undefined,
         rewardPointsMode,
         rewardPointsPrice:
           rewardPointsMode === "CUSTOM" && rewardPointsPrice
-          ? parseInt(rewardPointsPrice)
-          : undefined,
+            ? parseInt(rewardPointsPrice)
+            : undefined,
         relatedItemIds,
         imageFile,
         imageRemoved,
@@ -252,32 +248,23 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
             </p>
           </div>
 
-          <div className="space-y-2 border-t border-border/50 pt-4">
-            <label className="text-sm font-medium">
-              {t("auto.allergensCommaSeparated", "Allergens (comma separated)")}
-            </label>
-            <Input
-              type="text"
+          <div className="border-t border-border/50 pt-4">
+            <TagPicker
+              label={t("forms.allergens", "Allergens")}
               value={allergens}
-              onChange={(e) => setAllergens(e.target.value)}
-              placeholder={t("auto.eGNutsDairy", "e.g. Nuts, Dairy")}
+              onChange={setAllergens}
+              options={ALLERGEN_TAGS}
+              placeholder={t("tagPicker.addAllergen", "+ Add allergen")}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t(
-                "auto.dietaryTagsCommaSeparated",
-                "Dietary Tags (comma separated)",
-              )}
-            </label>
-            <Input
-              type="text"
-              value={dietaryTags}
-              onChange={(e) => setDietaryTags(e.target.value)}
-              placeholder={t("auto.eGVeganSpicy", "e.g. Vegan, Spicy")}
-            />
-          </div>
+          <TagPicker
+            label={t("forms.dietaryTags", "Dietary Tags")}
+            value={dietaryTags}
+            onChange={setDietaryTags}
+            options={DIETARY_TAGS}
+            placeholder={t("tagPicker.addDietaryTag", "+ Add dietary tag")}
+          />
 
           <ImageUploadInput
             currentImageUrl={item.imageUrl}

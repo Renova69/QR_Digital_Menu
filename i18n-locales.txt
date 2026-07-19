@@ -1,0 +1,12 @@
+ar
+bg
+de
+el
+en
+es
+fr
+it
+ja
+ro
+ru
+zh

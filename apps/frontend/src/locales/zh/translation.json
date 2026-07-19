@@ -3648,6 +3648,47 @@
     "fish": "Fish",
     "vegan": "Vegan"
   },
+  "presetMenuTags": {
+    "allergen": {
+      "gluten": "麸质",
+      "crustaceans": "甲壳类",
+      "egg": "鸡蛋",
+      "fish": "鱼类",
+      "peanut": "花生",
+      "soy": "大豆",
+      "milk": "牛奶",
+      "nuts": "坚果",
+      "celery": "芹菜",
+      "mustard": "芥末",
+      "sesame": "芝麻",
+      "sulphites": "亚硫酸盐",
+      "lupin": "羽扇豆",
+      "mollusc": "软体动物"
+    },
+    "dietary": {
+      "vegetarian": "素食",
+      "vegan": "纯素",
+      "gluten-free": "无麸质",
+      "lactose-free": "无乳糖",
+      "halal": "清真",
+      "kosher": "洁食",
+      "spicy": "辣",
+      "organic": "有机",
+      "sugar-free": "无糖",
+      "nut-free": "无坚果",
+      "keto": "生酮",
+      "paleo": "旧石器"
+    }
+  },
+  "tagPicker": {
+    "selectedCount": "已选择 {{count}} 项",
+    "select": "选择...",
+    "search": "搜索...",
+    "noneFound": "未找到匹配项",
+    "remove": "移除",
+    "addAllergen": "+ 添加过敏原",
+    "addDietaryTag": "+ 添加饮食标签"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

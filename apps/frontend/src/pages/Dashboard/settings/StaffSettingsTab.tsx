@@ -113,6 +113,7 @@ const formatDateTime = (value?: string | null, timeZone?: string | null) => {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
     ...(timeZone ? { timeZone } : {}),
   };
   try {
@@ -632,9 +633,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       });
       await Promise.all([fetchStaff(), fetchDeviceEnrollments()]);
     } catch (err: any) {
-      setDeviceEnrollmentError(
-        t(getApiError(err)),
-      );
+      setDeviceEnrollmentError(t(getApiError(err)));
     } finally {
       setBusyStaffId(null);
       setOpenActionId(null);
@@ -660,9 +659,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       setDeviceEnrollmentCopied(false);
       await fetchDeviceEnrollments();
     } catch (err: any) {
-      setDeviceEnrollmentError(
-        t(getApiError(err)),
-      );
+      setDeviceEnrollmentError(t(getApiError(err)));
     } finally {
       setDeviceEnrollmentLoading(false);
     }
@@ -1191,7 +1188,11 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         {t("staff.expiresAt", {
                           time: new Date(
                             deviceEnrollmentExpiresAt,
-                          ).toLocaleTimeString(),
+                          ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: false,
+                          }),
                         })}
                       </p>
                       <Button

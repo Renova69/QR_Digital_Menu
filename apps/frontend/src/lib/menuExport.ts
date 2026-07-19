@@ -1,6 +1,7 @@
 import writeXlsxFile from "write-excel-file/browser";
 import type { TFunction } from "i18next";
 import { BGN_RATE } from "./currency";
+import { MENU_TAGS } from "./menuTags";
 
 export interface MenuExportCategory {
   id: string;
@@ -191,6 +192,29 @@ export async function downloadMenuExport(
     ]);
   }
 
+  // Sheet 4 — Tags Reference. Allergens/Dietary Tags columns above hold the
+  // stable KEY (e.g. "gluten", "milk"), not localized text — this legend
+  // maps each key to its icon meaning and localized name, and doubles as the
+  // list of strings the Import tab recognizes. Custom/legacy free-text tags
+  // an owner typed before the preset picker existed aren't preset keys and
+  // won't appear here — they still round-trip as plain text.
+  const tagsSheet: Cell[][] = [
+    [
+      h(ex("colTagKey", "Key")),
+      h(ex("colTagType", "Type")),
+      h(ex("colTagName", "Name")),
+    ],
+    ...MENU_TAGS.map((tag) => [
+      text(tag.key),
+      text(
+        tag.kind === "allergen"
+          ? ex("tagKindAllergen", "Allergen")
+          : ex("tagKindDietary", "Dietary"),
+      ),
+      text(t(tag.labelKey, { defaultValue: tag.key })),
+    ]),
+  ];
+
   const sheets = [
     {
       sheet: ex("sheetCategories", "Categories"),
@@ -223,6 +247,11 @@ export async function downloadMenuExport(
         { width: 14 },
       ],
       data: optionsSheet as any,
+    },
+    {
+      sheet: ex("sheetTagsReference", "Tags Reference"),
+      columns: [{ width: 16 }, { width: 12 }, { width: 24 }],
+      data: tagsSheet as any,
     },
   ];
 

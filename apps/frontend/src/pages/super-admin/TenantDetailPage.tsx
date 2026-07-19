@@ -954,7 +954,9 @@ export default function TenantDetailPage() {
                     </p>
                     <p className="text-[11px] text-slate-500">
                       {s._count.orders} orders · {s.status} ·{" "}
-                      {new Date(s.createdAt).toLocaleString()}
+                      {new Date(s.createdAt).toLocaleString([], {
+                        hour12: false,
+                      })}
                     </p>
                   </div>
                   {s.status !== "CLOSED_NO_PAYMENT" && (
