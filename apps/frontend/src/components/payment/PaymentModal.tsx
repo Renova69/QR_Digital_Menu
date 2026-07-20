@@ -118,6 +118,14 @@ type PaymentState =
   | BoricaPaymentState
   | MyposPaymentState;
 
+// Brand names, not translated — proper nouns stay literal in every locale.
+const PROVIDER_BRAND: Record<CheckoutProvider, string> = {
+  STRIPE: "Stripe",
+  EPAY: "ePay.bg",
+  BORICA: "BORICA",
+  MYPOS: "myPOS",
+};
+
 function showGroupHeaders(orders: BillOrder[]): boolean {
   return orders.some((o) => o.source === "POS");
 }
@@ -590,15 +598,28 @@ export function PaymentModal({
     !!cashRequestId &&
     pendingBillPayment.id === cashRequestId;
   const pendingBillMessage =
-    pendingBillPayment?.scope === "FULL_TABLE"
+    // A full-table cash request reads the same to everyone at the table
+    // regardless of which device sent it — never the "someone else is
+    // paying" copy, which is for a different customer's online payment.
+    // Also keeps the message identical before and after a refresh, since
+    // `cashRequested` (the local "request just sent" flag) doesn't survive
+    // one. An order-items-scoped cash request is still a split-by-design
+    // scenario, so it keeps the partial-payment message below.
+    pendingBillPayment?.source === "CASH_REQUEST" &&
+    pendingBillPayment.scope === "FULL_TABLE"
       ? t(
-          "payment.fullTablePaymentPending",
-          "Someone else is already paying the full table bill. This screen will update automatically once it is finished or cancelled.",
+          "payment.cashRequestSent",
+          "Staff has been asked to collect cash at your table.",
         )
-      : t(
-          "payment.partialPaymentPending",
-          "Part of this table bill is already being paid. You can pay your own unpaid orders, or wait until it is finished or cancelled to pay the full table.",
-        );
+      : pendingBillPayment?.scope === "FULL_TABLE"
+        ? t(
+            "payment.fullTablePaymentPending",
+            "Someone else is already paying the full table bill. This screen will update automatically once it is finished or cancelled.",
+          )
+        : t(
+            "payment.partialPaymentPending",
+            "Part of this table bill is already being paid. You can pay your own unpaid orders, or wait until it is finished or cancelled to pay the full table.",
+          );
   const activePaymentScopeLocked =
     !paymentInitiated &&
     pendingPaymentOverlapsScope(
@@ -977,13 +998,9 @@ export function PaymentModal({
                             : "border-border bg-background hover:bg-muted"
                         } disabled:cursor-not-allowed disabled:opacity-60`}
                       >
-                        {provider === "EPAY"
-                          ? "ePay.bg"
-                          : provider === "BORICA"
-                            ? t("payment.cardBorica", "Card (BORICA)")
-                            : provider === "MYPOS"
-                              ? t("payment.cardMypos", "Card (myPOS)")
-                              : t("payment.cardOnline", "Card online")}
+                        {t("payment.cardVia", "Card via {{provider}}", {
+                          provider: PROVIDER_BRAND[provider],
+                        })}
                       </button>
                     ))}
                   </div>

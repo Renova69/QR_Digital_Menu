@@ -35,7 +35,7 @@ export function TopBar({
   const { t } = useTranslation();
 
   return (
-    <div className="sticky top-[2.5rem] z-[25] px-3 pt-safe pb-2">
+    <div className="sticky top-[2.5rem] z-[25] pb-2">
       <div className="flex items-center gap-2 p-2 rounded-[1.75rem] glass-panel border-white/10 shadow-lg">
         {tableNumber && (
           <div

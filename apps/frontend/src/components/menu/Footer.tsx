@@ -1,5 +1,6 @@
 import { Globe, MapPin, Phone, Youtube } from "lucide-react";
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 interface FooterProps {
   restaurantName: string;
@@ -123,6 +124,7 @@ export default function Footer({
   tiktokUrl,
   youtubeUrl,
 }: FooterProps) {
+  const { t } = useTranslation();
   const hasSocials = !!(
     websiteUrl ||
     facebookUrl ||
@@ -221,7 +223,7 @@ export default function Footer({
         )}
       </div>
       <p className="mt-3 text-center text-xs text-muted-foreground/70">
-        Weather data by{" "}
+        {t("auto.weatherDataBy", "Weather data by")}{" "}
         <a
           href="https://www.weatherapi.com/"
           target="_blank"

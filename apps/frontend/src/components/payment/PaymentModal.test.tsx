@@ -21,33 +21,23 @@ const stripeMocks = vi.hoisted(() => ({
   confirmPayment: vi.fn(),
 }));
 const i18nMocks = vi.hoisted(() => ({
+  // Mirrors real i18next's two calling conventions: `t(key, options)` where
+  // options carries `defaultValue`, or `t(key, fallback, options)`. Either
+  // way, interpolation vars come from whichever side is the options object,
+  // substituted generically so new `{{placeholder}}` keys need no mock changes.
   t: (
     key: string,
-    fallbackOrOptions?:
-      | string
-      | { defaultValue?: string; name?: string; n?: number },
+    fallbackOrOptions?: string | Record<string, unknown>,
+    maybeOptions?: Record<string, unknown>,
   ) => {
-    const value =
-      typeof fallbackOrOptions === "string"
-        ? fallbackOrOptions
-        : (fallbackOrOptions?.defaultValue ?? key);
-    return value
-      .replace(
-        /\{\{\s*name\s*\}\}/g,
-        fallbackOrOptions &&
-          typeof fallbackOrOptions !== "string" &&
-          fallbackOrOptions.name
-          ? fallbackOrOptions.name
-          : "",
-      )
-      .replace(
-        /\{\{\s*n\s*\}\}/g,
-        fallbackOrOptions &&
-          typeof fallbackOrOptions !== "string" &&
-          fallbackOrOptions.n
-          ? String(fallbackOrOptions.n)
-          : "",
-      );
+    const isFallbackString = typeof fallbackOrOptions === "string";
+    const template = isFallbackString
+      ? fallbackOrOptions
+      : ((fallbackOrOptions?.defaultValue as string | undefined) ?? key);
+    const vars = (isFallbackString ? maybeOptions : fallbackOrOptions) ?? {};
+    return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, varName) =>
+      vars[varName] !== undefined ? String(vars[varName]) : "",
+    );
   },
 }));
 const socketMocks = vi.hoisted(() => {
@@ -239,8 +229,12 @@ describe("PaymentModal hosted provider choices", () => {
       />,
     );
 
-    expect(await screen.findByRole("button", { name: "ePay.bg" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Card online" })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Card via ePay.bg" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Card via Stripe" }),
+    ).toBeTruthy();
 
     cleanup();
     apiMocks.getSessionBill.mockResolvedValueOnce(
@@ -466,6 +460,42 @@ describe("PaymentModal hosted provider choices", () => {
       (screen.getByTestId("payment-continue-button") as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it("shows the consistent cash-request message for a full-table cash request, even on a fresh mount", async () => {
+    // Regression: simulates the customer refreshing the page after asking
+    // staff for cash — local `cashRequested`/`cashRequestId` state is gone,
+    // so the banner must derive its wording from the fetched bill alone.
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(["STRIPE"]),
+      sessionId: "s1",
+      pendingPayment: {
+        id: "pending-cash-full",
+        tableSessionId: "s1",
+        source: "CASH_REQUEST",
+        provider: "CASH",
+        status: "PENDING",
+        scope: "FULL_TABLE",
+        orderIds: [],
+        amount: 20,
+        createdAt: "2026-06-21T08:00:00.000Z",
+      },
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        /Staff has been asked to collect cash at your table/i,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Someone else is already paying/i)).toBeNull();
   });
 
   it("disables full-table payment while allowing non-overlapping owned orders", async () => {
