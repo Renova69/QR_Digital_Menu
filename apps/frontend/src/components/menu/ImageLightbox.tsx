@@ -5,12 +5,14 @@ import { useTranslation } from "react-i18next";
 interface ImageLightboxProps {
   src: string;
   alt: string;
+  description?: string | null;
   onClose: () => void;
 }
 
 export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   src,
   alt,
+  description,
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -159,6 +161,11 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
         <p className="text-white/50 text-[11px] font-bold uppercase tracking-[0.2em]">
           {alt}
         </p>
+        {description && (
+          <p className="text-white/70 text-xs font-medium leading-relaxed max-w-md mx-auto px-6 normal-case tracking-normal">
+            {description}
+          </p>
+        )}
       </div>
     </div>,
     document.body,

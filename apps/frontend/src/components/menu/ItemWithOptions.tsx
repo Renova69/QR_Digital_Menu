@@ -19,6 +19,7 @@ import { getTranslatedField, getTranslatedArray } from "../../lib/translation";
 import { cn } from "../../lib/utils";
 import { Check, X } from "lucide-react";
 import { MenuTagBadges } from "./MenuTagBadges";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface ItemWithOptionsProps {
   item: Item;
@@ -50,6 +51,9 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [descTruncated, setDescTruncated] = useState(false);
+  const [descTooltipOpen, setDescTooltipOpen] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
   const [pendingMainItem, setPendingMainItem] = useState<CartItem | null>(null);
   const [imageInView, setImageInView] = useState(!item.imageUrl);
   const { t, i18n } = useTranslation();
@@ -66,6 +70,30 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
     item.description;
   const getChoiceLabel = (option: MenuOption, choice: OptionChoice) =>
     option.translations?.[currentLang]?.choices?.[choice.name] || choice.name;
+
+  // Only offer the tap-to-expand tooltip when the 2-line clamp actually
+  // clips the text — short descriptions shouldn't get a fake tap target.
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    const measure = () =>
+      setDescTruncated(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [itemDesc]);
+
+  useEffect(() => {
+    if (!descTooltipOpen) return;
+    const closeOnOutside = (e: PointerEvent) => {
+      if (descRef.current && !descRef.current.contains(e.target as Node)) {
+        setDescTooltipOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    return () => document.removeEventListener("pointerdown", closeOnOutside);
+  }, [descTooltipOpen]);
 
   const showToast = (itemName: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -299,7 +327,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       >
         {/* Image — left side */}
         <div
-          className="w-[34%] aspect-square self-center rounded-2xl overflow-hidden shrink-0 cursor-zoom-in"
+          className="w-[34%] self-stretch min-h-[92px] rounded-2xl overflow-hidden shrink-0 cursor-zoom-in"
           onClick={() => item.imageUrl && setLightboxOpen(true)}
         >
           {item.imageUrl && imageInView ? (
@@ -334,17 +362,47 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
           </h3>
 
           {itemDesc && (
-            <p className="text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2 break-words">
-              {/* Add a <wbr> break opportunity after each comma/semicolon/slash
-                            so a spaceless list ("tomato,cucumber,cheese") wraps whole
-                            words to the next line instead of splitting mid-word. */}
-              {itemDesc.split(/(?<=[,;/])/).map((seg, i) => (
-                <React.Fragment key={i}>
-                  {seg}
-                  <wbr />
-                </React.Fragment>
-              ))}
-            </p>
+            <Tooltip
+              open={descTruncated && descTooltipOpen}
+              onOpenChange={(next) => {
+                if (!descTruncated) return;
+                setDescTooltipOpen(next);
+              }}
+            >
+              <TooltipTrigger asChild>
+                <p
+                  ref={descRef}
+                  onPointerDown={(e) => {
+                    // Same fix as MenuTagBadges: block the pointer-triggered
+                    // focus so it can't race our click toggle and cancel
+                    // out the first tap. Keyboard Tab focus is unaffected.
+                    if (descTruncated) e.preventDefault();
+                  }}
+                  onClick={() => {
+                    if (descTruncated) setDescTooltipOpen((v) => !v);
+                  }}
+                  className={cn(
+                    "text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2 break-words",
+                    descTruncated && "cursor-pointer",
+                  )}
+                >
+                  {/* Add a <wbr> break opportunity after each comma/semicolon/slash
+                                so a spaceless list ("tomato,cucumber,cheese") wraps whole
+                                words to the next line instead of splitting mid-word. */}
+                  {itemDesc.split(/(?<=[,;/])/).map((seg, i) => (
+                    <React.Fragment key={i}>
+                      {seg}
+                      <wbr />
+                    </React.Fragment>
+                  ))}
+                </p>
+              </TooltipTrigger>
+              {descTruncated && (
+                <TooltipContent className="max-w-[260px] whitespace-normal text-left text-xs font-medium leading-relaxed py-2">
+                  {itemDesc}
+                </TooltipContent>
+              )}
+            </Tooltip>
           )}
 
           {/* Dietary & Allergens — icons w/ hover/tap tooltip; preset tags
@@ -672,7 +730,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       {lightboxOpen && item.imageUrl && (
         <ImageLightbox
           src={getImageUrl(item.imageUrl)}
-          alt={item.name}
+          alt={itemName}
+          description={itemDesc}
           onClose={() => setLightboxOpen(false)}
         />
       )}

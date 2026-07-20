@@ -142,6 +142,18 @@ export const MenuTagBadges: React.FC<MenuTagBadgesProps> = ({
                 <button
                   type="button"
                   aria-label={entry.name}
+                  onPointerDown={(e) => {
+                    // Radix's Trigger opens on `focus`, which a touch tap
+                    // triggers via the browser's default mousedown-focus
+                    // action *before* `click` fires. That race lets the
+                    // focus-driven open and our click toggle land in the
+                    // same batch and cancel out — the tap requires a
+                    // second press to actually show anything. Blocking the
+                    // default here suppresses only the pointer-triggered
+                    // focus (keyboard Tab focus is unaffected), so the
+                    // click toggle below is the sole source of truth.
+                    e.preventDefault();
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpenId((cur) => (cur === entry.id ? null : entry.id));
