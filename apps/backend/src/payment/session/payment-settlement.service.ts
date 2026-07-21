@@ -204,17 +204,15 @@ export class PaymentSettlementService {
         'Cash payment request is no longer attached to an active session',
       );
     }
+    const tableSessionId = existing.tableSessionId;
 
     await this.session.abandonCheckoutOrThrowIfPending(
       existing.tableSession.token,
-      existing.tableSessionId,
+      tableSessionId,
     );
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await this.core.lockOpenSessionForSettlement(
-        tx,
-        existing.tableSessionId!,
-      );
+      await this.core.lockOpenSessionForSettlement(tx, tableSessionId);
       await this.core.lockPendingCashPaymentRequest(tx, requestId);
       const request = await tx.cashPaymentRequest.findUnique({
         where: { id: requestId },
@@ -233,9 +231,9 @@ export class PaymentSettlementService {
           'Cash payment request is no longer attached to an active session',
         );
       }
-      if (request.tableSessionId !== existing.tableSessionId) {
+      if (request.tableSessionId !== tableSessionId) {
         throw new ConflictException(
-          'Cash payment request changed sessions; please reload and retry',
+          'Cash payment request changed during confirmation. Please retry.',
         );
       }
 

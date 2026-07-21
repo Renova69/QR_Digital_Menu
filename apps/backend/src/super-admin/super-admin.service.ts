@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuImportService } from '../menu-import/menu-import.service';
@@ -900,6 +901,9 @@ export class SuperAdminService {
     sessionId: string,
     actorUserId: string,
   ) {
+    const existingOrderCount = await this.prisma.order.count({
+      where: { tableSessionId: sessionId },
+    });
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<
         Array<{
@@ -934,6 +938,17 @@ export class SuperAdminService {
         throw new BadRequestException({
           code: 'ALREADY_CLOSED',
           message: 'Session already closed',
+        });
+      }
+
+      const lockedOrderCount = await tx.order.count({
+        where: { tableSessionId: sessionId },
+      });
+      if (lockedOrderCount !== existingOrderCount) {
+        throw new ConflictException({
+          code: 'SESSION_ORDERS_CHANGED',
+          message:
+            'An order was added while the session was being closed. Review the session and retry.',
         });
       }
 

@@ -134,6 +134,14 @@ const ORDER_CREATE_RESTAURANT_FIELDS = {
   myposPublicCert: true,
 } satisfies Prisma.RestaurantSelect;
 
+type LockedOrderSession = {
+  id: string;
+  token: string;
+  tableId: string;
+  isServicePoint: boolean;
+  tableName: string | null;
+};
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -880,18 +888,11 @@ export class OrdersService {
             tableNameSnapshot = lockedTables[0].name;
             servicePointLabel = lockedTables[0].name;
 
-            const openSessions = await tx.$queryRaw<
-              Array<{ id: string; token: string }>
-            >(Prisma.sql`
-              SELECT "id", "token"
-              FROM "table_session"
-              WHERE "tableId" = ${posSubmission.tableId}
-                AND "restaurantId" = ${restaurantId}
-                AND "status" = 'OPEN'
-                AND "isServicePoint" = false
-              FOR UPDATE
-            `);
-            const openSession = openSessions[0] ?? null;
+            const openSession = await this.lockOpenPhysicalOrderSessionForTable(
+              tx,
+              restaurantId,
+              posSubmission.tableId,
+            );
 
             if (posSubmission.expectedTableSessionId === null) {
               if (openSession) {
@@ -929,25 +930,27 @@ export class OrdersService {
               sessionToken = openSession.token;
             }
           } else if (servicePoint) {
-            let lockedSession: { id: string; token: string } | null = null;
-            if (sessionToken) {
-              const sessions = await tx.$queryRaw<
-                Array<{ id: string; token: string }>
-              >(Prisma.sql`
-                SELECT "id", "token"
-                FROM "table_session"
-                WHERE "token" = ${sessionToken}
-                  AND "restaurantId" = ${restaurantId}
-                  AND "tableId" = ${servicePoint.id}
-                  AND "status" = 'OPEN'
-                  AND "isServicePoint" = true
-                FOR UPDATE
-              `);
-              lockedSession = sessions[0] ?? null;
+            let lockedSession: LockedOrderSession | null = null;
+            if (tableSessionId) {
+              lockedSession = await this.lockOpenOrderSession(
+                tx,
+                restaurantId,
+                tableSessionId,
+              );
+              if (
+                lockedSession.tableId !== servicePoint.id ||
+                !lockedSession.isServicePoint
+              ) {
+                throw new ConflictException({
+                  code: 'TABLE_SESSION_CHANGED',
+                  message:
+                    'The service-point session changed before the order could be placed. Please refresh and try again.',
+                });
+              }
             }
 
             if (!lockedSession) {
-              lockedSession = await tx.tableSession.create({
+              const createdSession = await tx.tableSession.create({
                 data: {
                   tableId: servicePoint.id,
                   restaurantId,
@@ -955,9 +958,12 @@ export class OrdersService {
                 },
                 select: { id: true, token: true },
               });
+              tableSessionId = createdSession.id;
+              sessionToken = createdSession.token;
+            } else {
+              tableSessionId = lockedSession.id;
+              sessionToken = lockedSession.token;
             }
-            tableSessionId = lockedSession.id;
-            sessionToken = lockedSession.token;
             resolvedTableCuid = servicePoint.id;
           } else {
             if (!resolvedTableCuid) {
@@ -983,52 +989,58 @@ export class OrdersService {
               );
             }
 
-            const openSessions = await tx.$queryRaw<
-              Array<{ id: string; token: string }>
-            >(Prisma.sql`
-              SELECT "id", "token"
-              FROM "table_session"
-              WHERE "tableId" = ${resolvedTableCuid}
-                AND "restaurantId" = ${restaurantId}
-                AND "status" = 'OPEN'
-                AND "isServicePoint" = false
-              FOR UPDATE
-            `);
-            const openSession =
-              openSessions[0] ??
-              (await tx.tableSession.create({
-                data: {
-                  tableId: resolvedTableCuid,
+            let openSession: { id: string; token: string };
+            if (tableSessionId) {
+              const lockedSession = await this.lockOpenOrderSession(
+                tx,
+                restaurantId,
+                tableSessionId,
+              );
+              if (
+                lockedSession.tableId !== resolvedTableCuid ||
+                lockedSession.isServicePoint
+              ) {
+                throw new ConflictException({
+                  code: 'TABLE_SESSION_CHANGED',
+                  message:
+                    'The table session changed before the order could be placed. Please refresh and try again.',
+                });
+              }
+              openSession = lockedSession;
+            } else {
+              openSession =
+                (await this.lockOpenPhysicalOrderSessionForTable(
+                  tx,
                   restaurantId,
-                  isServicePoint: false,
-                },
-                select: { id: true, token: true },
-              }));
+                  resolvedTableCuid,
+                )) ??
+                (await tx.tableSession.create({
+                  data: {
+                    tableId: resolvedTableCuid,
+                    restaurantId,
+                    isServicePoint: false,
+                  },
+                  select: { id: true, token: true },
+                }));
+            }
             tableSessionId = openSession.id;
             sessionToken = openSession.token;
             tableNameSnapshot = lockedTables[0].name;
             servicePointLabel = lockedTables[0].name;
           }
 
-          // Session selection and the in-flight payment check share one
-          // transaction and row lock, so close/payment/order races linearize
-          // before any order, item, or loyalty mutation is written.
-          const pendingPayment = await tx.payment.findFirst({
-            where: { tableSessionId, status: 'PENDING' },
-            select: { id: true },
-          });
-          if (pendingPayment) {
-            if (posSubmission) {
-              throw new ConflictException({
-                code: 'PAYMENT_IN_PROGRESS',
-                message:
-                  'A payment is in progress for this table. Sync will retry after it finishes.',
-              });
-            }
-            throw new ConflictException(
-              'A payment is in progress for this table. Complete or cancel it before ordering more.',
-            );
+          if (!tableSessionId) {
+            throw new ConflictException({
+              code: 'TABLE_SESSION_CHANGED',
+              message:
+                'The table session changed before the order could be placed. Please refresh and try again.',
+            });
           }
+          await this.assertNoPendingPaymentForOrder(
+            tx,
+            tableSessionId,
+            !!posSubmission,
+          );
 
           let finalTotal = Math.round(computedTotal * 100) / 100; // #3: cents-precise money, not raw float
           let pointsEarned = 0;
@@ -1483,6 +1495,87 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  private async lockOpenOrderSession(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+    sessionId: string,
+  ): Promise<LockedOrderSession> {
+    const rows = await tx.$queryRaw<LockedOrderSession[]>(
+      Prisma.sql`
+        SELECT
+          ts."id",
+          ts."token",
+          ts."tableId",
+          ts."isServicePoint",
+          rt."name" AS "tableName"
+        FROM "table_session" ts
+        LEFT JOIN "restaurant_table" rt ON rt."id" = ts."tableId"
+        WHERE ts."id" = ${sessionId}
+          AND ts."restaurantId" = ${restaurantId}
+          AND ts."status" = 'OPEN'::"TableSessionStatus"
+        FOR UPDATE OF ts
+      `,
+    );
+    const session = rows[0];
+    if (!session) {
+      throw new ConflictException({
+        code: 'TABLE_SESSION_CHANGED',
+        message:
+          'The table session changed before the order could be placed. Please refresh and try again.',
+      });
+    }
+    return session;
+  }
+
+  private async lockOpenPhysicalOrderSessionForTable(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+    tableId: string,
+  ): Promise<LockedOrderSession | null> {
+    const rows = await tx.$queryRaw<LockedOrderSession[]>(
+      Prisma.sql`
+        SELECT
+          ts."id",
+          ts."token",
+          ts."tableId",
+          ts."isServicePoint",
+          rt."name" AS "tableName"
+        FROM "table_session" ts
+        LEFT JOIN "restaurant_table" rt ON rt."id" = ts."tableId"
+        WHERE ts."tableId" = ${tableId}
+          AND ts."restaurantId" = ${restaurantId}
+          AND ts."status" = 'OPEN'::"TableSessionStatus"
+          AND ts."isServicePoint" = false
+        FOR UPDATE OF ts
+      `,
+    );
+    return rows[0] ?? null;
+  }
+
+  private async assertNoPendingPaymentForOrder(
+    tx: Prisma.TransactionClient,
+    tableSessionId: string,
+    posOrder: boolean,
+  ): Promise<void> {
+    const pendingPayment = await tx.payment.findFirst({
+      where: { tableSessionId, status: 'PENDING' },
+      select: { id: true },
+    });
+    if (!pendingPayment) return;
+
+    if (posOrder) {
+      throw new ConflictException({
+        code: 'PAYMENT_IN_PROGRESS',
+        message:
+          'A payment is in progress for this table. Sync will retry after it finishes.',
+      });
+    }
+
+    throw new ConflictException(
+      'A payment is in progress for this table. Complete or cancel it before ordering more.',
+    );
   }
 
   /**

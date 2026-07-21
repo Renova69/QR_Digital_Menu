@@ -174,6 +174,7 @@ describe('PaymentService', () => {
         // Individual tests override with explicit totals where relevant.
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       orderItem: {
@@ -2544,6 +2545,26 @@ describe('PaymentService', () => {
       expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
 
+    it('rejects close when an order is added before the session lock is acquired', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        token: 'tok1',
+        tableId: 'table1',
+        restaurantId: 'rest1',
+        status: 'OPEN',
+      });
+      mockPrisma.order.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+      await expect(
+        service.closeSession('tok1', 'rest1', 'owner1'),
+      ).rejects.toThrow(
+        'An order was added while the table was being closed. Review the table and retry.',
+      );
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
       await expect(
@@ -3942,6 +3963,11 @@ describe('PaymentService', () => {
 
       expect(result.status).toBe('PAID');
       expect(result.paymentId).toBe('pay-cash-1');
+      const rawSqlCalls = mockPrisma.$queryRaw.mock.calls.map(([query]) =>
+        String(query),
+      );
+      expect(rawSqlCalls[0]).toContain('"table_session"');
+      expect(rawSqlCalls[1]).toContain('"cash_payment_request"');
       expect(mockPrisma.payment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -3973,6 +3999,54 @@ describe('PaymentService', () => {
           customerName: 'Maria',
         }),
       );
+    });
+
+    it('rejects confirmation when the cash request moves to another session before the locked reread', async () => {
+      const existingRequest = {
+        id: 'cash-req-1',
+        restaurantId: 'rest1',
+        tableSessionId: 's1',
+        status: 'PENDING',
+        tableSession: { token: 'tok1' },
+      };
+      const movedRequest = {
+        ...existingRequest,
+        tableSessionId: 's2',
+        tableId: 'table1',
+        scope: 'FULL_TABLE',
+        scopeKey: 'FULL_TABLE',
+        orderIds: [],
+        requestedAmount: 30,
+        currency: 'EUR',
+        paymentId: null,
+        resolvedById: null,
+        resolvedAt: null,
+        createdAt: new Date('2026-06-21T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-21T07:00:00.000Z'),
+        table: { name: '6' },
+        tableSession: { ...openSession, id: 's2' },
+      };
+      mockPrisma.cashPaymentRequest.findUnique
+        .mockResolvedValueOnce(existingRequest)
+        .mockResolvedValueOnce(movedRequest);
+
+      await expect(
+        service.confirmCashPaymentRequest('cash-req-1', 'manager1'),
+      ).rejects.toThrow(
+        'Cash payment request changed during confirmation. Please retry.',
+      );
+
+      const rawSqlCalls = mockPrisma.$queryRaw.mock.calls.map(([query]) =>
+        String(query),
+      );
+      expect(rawSqlCalls[0]).toContain('"table_session"');
+      expect(rawSqlCalls[1]).toContain('"cash_payment_request"');
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith({
+        where: { token: 'tok1' },
+      });
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+      expect(mockPrisma.cashPaymentRequest.update).not.toHaveBeenCalled();
     });
   });
 
@@ -5145,6 +5219,52 @@ describe('PaymentService', () => {
       await expect(
         service.forceOpenSession('table-1', 'rest1', 'owner1'),
       ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects force-open when an order is added before the session lock is acquired', async () => {
+      mockPrisma.tableSession.findFirst
+        .mockResolvedValueOnce({
+          id: 'old-session',
+          token: 'old-token',
+          tableId: 'table-1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+        })
+        .mockResolvedValueOnce({
+          id: 'old-session',
+          token: 'old-token',
+          tableId: 'table-1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+        })
+        .mockResolvedValueOnce({
+          id: 'old-session',
+          token: 'old-token',
+          tableId: 'table-1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+        });
+      mockPrisma.order.count.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-1', type: 'TABLE' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'old-session',
+            token: 'old-token',
+            tableId: 'table-1',
+            restaurantId: 'rest1',
+            status: 'OPEN',
+          },
+        ]);
+
+      await expect(
+        service.forceOpenSession('table-1', 'rest1', 'owner1'),
+      ).rejects.toThrow(
+        'An order was added while the table was being reopened. Review the table and retry.',
+      );
 
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
       expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();

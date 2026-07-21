@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { SuperAdminService } from './super-admin.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuImportService } from '../menu-import/menu-import.service';
@@ -715,27 +715,44 @@ describe('SuperAdminService', () => {
   });
 
   describe('forceCloseSession', () => {
+    const runForceCloseTransaction = () => {
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+          fn(mockPrisma),
+      );
+    };
+
+    const mockLockedSession = (
+      session: {
+        id: string;
+        token: string;
+        restaurantId: string;
+        status: string;
+      } | null,
+    ) => {
+      runForceCloseTransaction();
+      mockPrisma.order.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValueOnce(session ? [session] : []);
+    };
+
     it('closes an OPEN session as CLOSED_NO_PAYMENT', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        {
-          id: 's1',
-          token: 'tok1',
-          restaurantId: 'r1',
-          status: 'OPEN',
-        },
-      ]);
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'OPEN',
+      });
       mockPrisma.tableSession.update.mockResolvedValueOnce({
         id: 's1',
         status: 'CLOSED_NO_PAYMENT',
       });
-      mockPrisma.adminAuditLog.create.mockResolvedValueOnce({});
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
 
       const result = await service.forceCloseSession('r1', 's1', ACTOR_ID);
 
       expect(result).toEqual({ id: 's1', status: 'CLOSED_NO_PAYMENT' });
+      expect(
+        (mockPrisma.$queryRaw.mock.calls[0][0] as { sql: string }).sql,
+      ).toContain('FOR UPDATE');
       expect(mockPrisma.tableSession.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 's1' },
@@ -744,23 +761,34 @@ describe('SuperAdminService', () => {
       );
     });
 
+    it('rejects force-close when an order is added before the session lock is acquired', async () => {
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'OPEN',
+      });
+      mockPrisma.order.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+      await expect(
+        service.forceCloseSession('r1', 's1', ACTOR_ID),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.adminAuditLog.create).not.toHaveBeenCalled();
+    });
+
     it('closes a PAID session as CLOSED_PAID (preserves payment record)', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        {
-          id: 's1',
-          token: 'tok1',
-          restaurantId: 'r1',
-          status: 'PAID',
-        },
-      ]);
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'PAID',
+      });
       mockPrisma.tableSession.update.mockResolvedValueOnce({
         id: 's1',
         status: 'CLOSED_PAID',
       });
-      mockPrisma.adminAuditLog.create.mockResolvedValueOnce({});
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
 
       const result = await service.forceCloseSession('r1', 's1', ACTOR_ID);
 
@@ -774,17 +802,12 @@ describe('SuperAdminService', () => {
     });
 
     it('rejects an already-closed CLOSED_PAID session', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        {
-          id: 's1',
-          token: 'tok1',
-          restaurantId: 'r1',
-          status: 'CLOSED_PAID',
-        },
-      ]);
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'CLOSED_PAID',
+      });
 
       await expect(
         service.forceCloseSession('r1', 's1', ACTOR_ID),
@@ -793,17 +816,12 @@ describe('SuperAdminService', () => {
     });
 
     it('rejects an already-closed CLOSED_NO_PAYMENT session', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        {
-          id: 's1',
-          token: 'tok1',
-          restaurantId: 'r1',
-          status: 'CLOSED_NO_PAYMENT',
-        },
-      ]);
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'CLOSED_NO_PAYMENT',
+      });
 
       await expect(
         service.forceCloseSession('r1', 's1', ACTOR_ID),
@@ -812,22 +830,16 @@ describe('SuperAdminService', () => {
     });
 
     it('writes an audit log entry inside the same transaction', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        {
-          id: 's1',
-          token: 'tok1',
-          restaurantId: 'r1',
-          status: 'OPEN',
-        },
-      ]);
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'OPEN',
+      });
       mockPrisma.tableSession.update.mockResolvedValueOnce({
         id: 's1',
         status: 'CLOSED_NO_PAYMENT',
       });
-      mockPrisma.adminAuditLog.create.mockResolvedValueOnce({});
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
 
       await service.forceCloseSession('r1', 's1', ACTOR_ID);
 
@@ -844,10 +856,7 @@ describe('SuperAdminService', () => {
     });
 
     it('throws NotFoundException if the session does not exist', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
+      mockLockedSession(null);
       await expect(
         service.forceCloseSession('r1', 's1', ACTOR_ID),
       ).rejects.toThrow();
@@ -855,17 +864,12 @@ describe('SuperAdminService', () => {
     });
 
     it('throws NotFoundException if the session belongs to a different restaurant', async () => {
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        {
-          id: 's1',
-          token: 'tok1',
-          restaurantId: 'other-r1',
-          status: 'OPEN',
-        },
-      ]);
-      mockPrisma.$transaction.mockImplementationOnce((fn: any) =>
-        fn(mockPrisma),
-      );
+      mockLockedSession({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'other-r1',
+        status: 'OPEN',
+      });
       await expect(
         service.forceCloseSession('r1', 's1', ACTOR_ID),
       ).rejects.toThrow();

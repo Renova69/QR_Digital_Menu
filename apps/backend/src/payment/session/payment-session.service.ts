@@ -544,6 +544,9 @@ export class PaymentSessionService {
       where: { token, restaurantId, status: 'OPEN' },
     });
     if (!session) throw new NotFoundException('Session not found');
+    const existingOrderCount = await this.prisma.order.count({
+      where: { tableSessionId: session.id },
+    });
 
     // Cancel any pending online payments before closing the session.
     // Without this, a customer who started a Stripe checkout while the waiter
@@ -553,6 +556,14 @@ export class PaymentSessionService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.core.lockOpenSessionForSettlement(tx, session.id);
+      const lockedOrderCount = await tx.order.count({
+        where: { tableSessionId: session.id },
+      });
+      if (lockedOrderCount !== existingOrderCount) {
+        throw new ConflictException(
+          'An order was added while the table was being closed. Review the table and retry.',
+        );
+      }
       const pendingPayment = await tx.payment.findFirst({
         where: { tableSessionId: session.id, status: 'PENDING' },
         select: { id: true },
@@ -736,6 +747,11 @@ export class PaymentSessionService {
     const existing = await this.prisma.tableSession.findFirst({
       where: { tableId, restaurantId, status: 'OPEN' },
     });
+    const existingOrderCount = existing
+      ? await this.prisma.order.count({
+          where: { tableSessionId: existing.id },
+        })
+      : 0;
     if (existing) {
       await this.abandonCheckoutOrThrowIfPending(existing.token, existing.id);
     }
@@ -743,20 +759,25 @@ export class PaymentSessionService {
     const { session, closedSession } = await this.prisma.$transaction(
       async (tx) => {
         const lockedTables = await tx.$queryRaw<
-          Array<{ id: string; type: string }>
+          Array<{ id: string }>
         >(Prisma.sql`
-          SELECT "id", "type"
+          SELECT "id"
           FROM "restaurant_table"
           WHERE "id" = ${tableId}
             AND "restaurantId" = ${restaurantId}
             AND "type" = 'TABLE'
+            AND "isActive" = true
           FOR UPDATE
         `);
         if (lockedTables.length === 0) {
-          throw new NotFoundException('Table not found for this restaurant');
+          throw new ConflictException(
+            'The table changed while it was being reopened. Please retry.',
+          );
         }
 
-        const existingRows = await tx.$queryRaw<any[]>(
+        const existingRows = await tx.$queryRaw<
+          Array<{ id: string; tableId: string }>
+        >(
           Prisma.sql`
             SELECT *
             FROM "table_session"
@@ -768,7 +789,20 @@ export class PaymentSessionService {
           `,
         );
         const existingInTx = existingRows[0] ?? null;
+        if ((existingInTx?.id ?? null) !== (existing?.id ?? null)) {
+          throw new ConflictException(
+            'The table session changed while it was being reopened. Please retry.',
+          );
+        }
         if (existingInTx) {
+          const lockedOrderCount = await tx.order.count({
+            where: { tableSessionId: existingInTx.id },
+          });
+          if (lockedOrderCount !== existingOrderCount) {
+            throw new ConflictException(
+              'An order was added while the table was being reopened. Review the table and retry.',
+            );
+          }
           const pendingPayment = await tx.payment.findFirst({
             where: { tableSessionId: existingInTx.id, status: 'PENDING' },
             select: { id: true },
