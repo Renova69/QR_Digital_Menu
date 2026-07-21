@@ -191,7 +191,7 @@ describeWithDatabase('Payment/session PostgreSQL concurrency invariants', () => 
     return { orders, session, settlement };
   }
 
-  it('never attaches a customer order to a session closed concurrently', async () => {
+  it('rejects a customer order when concurrent close wins the session lock', async () => {
     const fixture = await createFixture('customer-close');
     const services = buildServices();
     const gate = await holdLock((tx) => tx.$queryRaw`
@@ -224,18 +224,23 @@ describeWithDatabase('Payment/session PostgreSQL concurrency invariants', () => 
 
     await gate.done;
     await expect(close).resolves.toBeUndefined();
-    const order = await create;
-    expect(order.tableSessionId).not.toBe(fixture.session.id);
+    await expect(create).rejects.toBeInstanceOf(ConflictException);
     await expect(
       prisma.tableSession.findUniqueOrThrow({
         where: { id: fixture.session.id },
       }),
     ).resolves.toMatchObject({ status: 'CLOSED_NO_PAYMENT' });
     await expect(
-      prisma.tableSession.findUniqueOrThrow({
-        where: { id: order.tableSessionId! },
+      prisma.order.count({ where: { tableSessionId: fixture.session.id } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.tableSession.count({
+        where: {
+          tableId: fixture.table.id,
+          restaurantId: fixture.restaurant.id,
+        },
       }),
-    ).resolves.toMatchObject({ status: 'OPEN' });
+    ).resolves.toBe(1);
   });
 
   it('rejects queued POS work after a concurrent force-open changes the session', async () => {
