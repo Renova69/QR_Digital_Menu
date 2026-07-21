@@ -24,6 +24,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, fallbackOrOptions?: string | Record<string, unknown>) =>
       typeof fallbackOrOptions === "string" ? fallbackOrOptions : key,
+    i18n: { language: "en" },
   }),
 }));
 

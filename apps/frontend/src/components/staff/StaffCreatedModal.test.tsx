@@ -31,7 +31,7 @@ const mockT = vi.fn((key: string, opts?: any) => {
 });
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: mockT }),
+  useTranslation: () => ({ t: mockT, i18n: { language: "en" } }),
 }));
 
 vi.mock("@fortawesome/react-fontawesome", () => ({
