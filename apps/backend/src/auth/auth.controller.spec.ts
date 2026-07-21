@@ -4,12 +4,15 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LocalAuthGuard } from './local-auth.guard';
 import { Response } from 'express';
+import { Logger } from '@nestjs/common';
 
 const mockAuthService = {
   login: jest.fn(),
   register: jest.fn(),
   sendOtp: jest.fn(),
   verifyOtp: jest.fn(),
+  validateGoogleUser: jest.fn(),
+  exitImpersonation: jest.fn(),
 };
 
 const mockJwtAuthGuard = {
@@ -182,6 +185,49 @@ describe('AuthController', () => {
         expect.any(Object),
       );
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('cookie clearing and OAuth diagnostics', () => {
+    it('clears the token cookie with the same identity on impersonation exit', async () => {
+      mockAuthService.exitImpersonation.mockResolvedValue(undefined);
+      const req = { user: { id: 'staff-1' } } as any;
+      const res = { clearCookie: jest.fn() } as unknown as Response;
+
+      await controller.exitImpersonation(req, res);
+
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        'token',
+        expect.objectContaining({
+          httpOnly: true,
+          path: '/',
+        }),
+      );
+    });
+
+    it('logs malformed OAuth state instead of swallowing the parse failure', async () => {
+      const warning = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      mockAuthService.validateGoogleUser.mockResolvedValue({ id: 'user-1' });
+      mockAuthService.login.mockResolvedValue({
+        token: 'mock-token',
+        user: { id: 'user-1' },
+      });
+      const req = { user: {}, query: { state: 'not-json' } };
+      const res = {
+        cookie: jest.fn(),
+        redirect: jest.fn(),
+      } as unknown as Response;
+
+      await controller.googleAuthRedirect(req, res);
+
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringContaining('Unable to parse validated OAuth state'),
+      );
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3001/auth/callback',
+      );
     });
   });
 });

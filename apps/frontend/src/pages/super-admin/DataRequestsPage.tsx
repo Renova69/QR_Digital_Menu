@@ -49,7 +49,11 @@ export default function DataRequestsPage() {
       patch,
     }: {
       id: string;
-      patch: { status?: string; notes?: string };
+      patch: {
+        status?: string;
+        notes?: string;
+        confirmation?: "CONFIRM";
+      };
     }) => superAdminUpdateDataRequest(id, patch),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ["super-admin-data-requests"] }),
@@ -58,6 +62,30 @@ export default function DataRequestsPage() {
   const requests = data?.data ?? [];
   const total = data?.meta.total ?? 0;
   const totalPages = Math.ceil(total / 20);
+  const updateStatus = (
+    id: string,
+    status: string,
+    notes: string | undefined,
+  ) => {
+    const isTerminal = status === "COMPLETED" || status === "REJECTED";
+    if (
+      isTerminal &&
+      !window.confirm(
+        `Confirm marking this GDPR data request as ${status.toLowerCase()}? This action is recorded in the audit log.`,
+      )
+    ) {
+      return;
+    }
+
+    updateMutation.mutate({
+      id,
+      patch: {
+        status,
+        notes,
+        ...(isTerminal ? { confirmation: "CONFIRM" as const } : {}),
+      },
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -189,13 +217,11 @@ export default function DataRequestsPage() {
                       {NEXT_STATUS[req.status] && (
                         <button
                           onClick={() =>
-                            updateMutation.mutate({
-                              id: req.id,
-                              patch: {
-                                status: NEXT_STATUS[req.status],
-                                notes: notes || undefined,
-                              },
-                            })
+                            updateStatus(
+                              req.id,
+                              NEXT_STATUS[req.status],
+                              notes || undefined,
+                            )
                           }
                           disabled={updateMutation.isPending}
                           className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50 transition-colors"
@@ -208,13 +234,11 @@ export default function DataRequestsPage() {
                         req.status !== "COMPLETED" && (
                           <button
                             onClick={() =>
-                              updateMutation.mutate({
-                                id: req.id,
-                                patch: {
-                                  status: "REJECTED",
-                                  notes: notes || undefined,
-                                },
-                              })
+                              updateStatus(
+                                req.id,
+                                "REJECTED",
+                                notes || undefined,
+                              )
                             }
                             disabled={updateMutation.isPending}
                             className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"

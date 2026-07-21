@@ -1872,6 +1872,8 @@
     "ptsToTier": "{{count}} Punkte bis {{tier}}",
     "maxTier": "Höchste Stufe erreicht",
     "pastOrders": "Frühere Bestellungen",
+    "loadMoreOrders": "Weitere Bestellungen laden",
+    "loadingMoreOrders": "Weitere Bestellungen werden geladen...",
     "loading": "Verlauf wird geladen...",
     "historyLoadFailed": "Frühere Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
     "noOrders": "Noch keine Bestellungen",

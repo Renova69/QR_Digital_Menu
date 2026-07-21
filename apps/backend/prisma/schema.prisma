@@ -8,164 +8,166 @@ datasource db {
 }
 
 model User {
-  id                            String                  @id @default(cuid())
-  email                         String                  @unique
-  password                      String
-  name                          String?
-  phone                         String?
-  googleId                      String?                 @unique
-  pinHash                       String?
-  pinAttempts                   Int                     @default(0)
-  pinLockedUntil                DateTime?
-  isActive                      Boolean                 @default(true)
-  disabledAt                    DateTime?
-  disabledReason                String?
-  passwordChangedAt             DateTime?
-  role                          UserRole                @default(STAFF)
-  restaurantId                  String?
-  lastLoginDeviceTokenId        String?
-  onboardingComplete            Boolean                 @default(false)
-  onboardingStep                String?
-  createdAt                     DateTime                @default(now())
-  updatedAt                     DateTime                @updatedAt
-  orders                        Order[]
-  staffOrders                   Order[]                 @relation("StaffOrders")
-  createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
-  staffDeviceBindings           StaffDeviceBinding[]
-  lastLoginDeviceToken          DeviceEnrollmentToken?  @relation("LastStaffDeviceLogin", fields: [lastLoginDeviceTokenId], references: [id], onDelete: SetNull)
-  loyaltyAccounts               LoyaltyAccount[]
-  restaurants                   Restaurant[]            @relation("OwnedRestaurants")
-  staffRestaurant               Restaurant?             @relation("StaffRestaurant", fields: [restaurantId], references: [id])
-  adminAuditLogs                AdminAuditLog[]
-  cashPaymentRequestsResolved   CashPaymentRequest[]    @relation("CashPaymentRequestResolvedBy")
-  impersonationSessionsAsActor  ImpersonationSession[]  @relation("ImpersonationActor")
-  impersonationSessionsAsTarget ImpersonationSession[]  @relation("ImpersonationTarget")
-  dataRequests                  DataRequest[]           @relation("DataRequestUser")
-  processedDataRequests         DataRequest[]           @relation("DataRequestProcessor")
-  pushSubscriptions             PushSubscription[]
+  id                             String                       @id @default(cuid())
+  email                          String                       @unique
+  password                       String
+  name                           String?
+  phone                          String?
+  googleId                       String?                      @unique
+  pinHash                        String?
+  pinAttempts                    Int                          @default(0)
+  pinLockedUntil                 DateTime?
+  isActive                       Boolean                      @default(true)
+  disabledAt                     DateTime?
+  disabledReason                 String?
+  passwordChangedAt              DateTime?
+  role                           UserRole                     @default(STAFF)
+  restaurantId                   String?
+  lastLoginDeviceTokenId         String?
+  onboardingComplete             Boolean                      @default(false)
+  onboardingStep                 String?
+  createdAt                      DateTime                     @default(now())
+  updatedAt                      DateTime                     @updatedAt
+  orders                         Order[]
+  staffOrders                    Order[]                      @relation("StaffOrders")
+  createdDeviceEnrollmentTokens  DeviceEnrollmentToken[]
+  staffDeviceBindings            StaffDeviceBinding[]
+  lastLoginDeviceToken           DeviceEnrollmentToken?       @relation("LastStaffDeviceLogin", fields: [lastLoginDeviceTokenId], references: [id], onDelete: SetNull)
+  loyaltyAccounts                LoyaltyAccount[]
+  restaurants                    Restaurant[]                 @relation("OwnedRestaurants")
+  staffRestaurant                Restaurant?                  @relation("StaffRestaurant", fields: [restaurantId], references: [id])
+  adminAuditLogs                 AdminAuditLog[]
+  cashPaymentRequestsResolved    CashPaymentRequest[]         @relation("CashPaymentRequestResolvedBy")
+  impersonationSessionsAsActor   ImpersonationSession[]       @relation("ImpersonationActor")
+  impersonationSessionsAsTarget  ImpersonationSession[]       @relation("ImpersonationTarget")
+  dataRequests                   DataRequest[]                @relation("DataRequestUser")
+  processedDataRequests          DataRequest[]                @relation("DataRequestProcessor")
+  pushSubscriptions              PushSubscription[]
+  resolvedPaymentReconciliations PaymentReconciliationIssue[] @relation("PaymentReconciliationResolvedBy")
 
   @@index([restaurantId])
   @@map("app_user")
 }
 
 model Restaurant {
-  id                        String                    @id @default(cuid())
-  name                      String
-  country                   String                    @default("Bulgaria")
-  city                      String?
-  logoUrl                   String?
-  logoThumbnailUrl          String?
-  accentColor               String?                   @default("#4F46E5")
-  googleReviewUrl           String?
-  facebookUrl               String?
-  instagramUrl              String?
-  tiktokUrl                 String?
-  websiteUrl                String?
-  youtubeUrl                String?
-  address                   String?
-  contactInfo               String?
-  targetLanguages           String[]                  @default([])
-  dashboardLanguage         String?                   @default("en")
-  timezone                  String?                   @default("Europe/Sofia")
-  ownerId                   String
-  createdAt                 DateTime                  @default(now())
-  updatedAt                 DateTime                  @updatedAt
-  fontBody                  String?                   @default("Outfit")
-  fontHeading               String?                   @default("Playfair Display")
-  themeBgColor              String?
-  themeCardColor            String?
-  themeTextColor            String?
-  themeLightBgColor         String?
-  themeLightTextColor       String?
-  themeLightCardColor       String?
-  themeLightAccentColor     String?
-  themeDarkBgColor          String?
-  themeDarkTextColor        String?
-  themeDarkCardColor        String?
-  themeDarkAccentColor      String?
-  trendingMode              String                    @default("AUTO")
-  happyHourEnable           Boolean                   @default(false)
-  happyHourDays             Int[]                     @default([1, 2, 3, 4, 5, 6, 7])
-  happyHourEndTime          String?
-  happyHourMultiplier       Float                     @default(2.0)
-  happyHourStartTime        String?
-  isLoyaltyEnabled          Boolean                   @default(true)
-  loyaltyExchangeRate       Int                       @default(10)
-  loyaltySignupBonus        Int                       @default(50)
-  loyaltyRedeemRate         Int                       @default(150)
-  loyaltyExpiryReminderDays Int                       @default(15)
-  loyaltyGoldMultiplier     Float                     @default(1.5)
-  loyaltyGoldThreshold      Int                       @default(2000)
-  loyaltyPointExpiryDays    Int                       @default(90)
-  loyaltySilverMultiplier   Float                     @default(1.2)
-  loyaltySilverThreshold    Int                       @default(500)
-  defaultTheme              String?                   @default("light")
-  importApiKeyHash          String?                   @unique
-  stripeAccountId           String?
-  stripeOnboarded           Boolean                   @default(false)
-  paymentsEnabled           Boolean                   @default(false)
-  epayEnabled               Boolean                   @default(false)
-  epayMode                  String                    @default("DEMO")
-  epayClientId              String?
-  epayMerchantEmail         String?
-  epaySecretEncrypted       String?
-  epayPage                  String                    @default("credit_paydirect")
-  boricaEnabled             Boolean                   @default(false)
-  boricaMode                String                    @default("DEMO")
-  boricaTerminalId          String?
-  boricaMerchantId          String?
-  boricaMerchantName        String?
-  boricaPrivateKeyEncrypted String?
-  boricaPublicCert          String?
-  boricaCurrency            String                    @default("EUR")
-  myposEnabled              Boolean                   @default(false)
-  myposMode                 String                    @default("DEMO")
-  myposClientNumber         String?
-  myposStoreId              String?
-  myposKeyIndex             String?
-  myposPrivateKeyEncrypted  String?
-  myposPublicCert           String?
-  myposCurrency             String                    @default("EUR")
-  sharedDeviceModeEnabled   Boolean                   @default(false)
-  notifyAllStaffOnPayment   Boolean                   @default(true)
-  tipsEnabled               Boolean                   @default(false)
-  tipOptions                Int[]                     @default([2, 4, 5])
-  platformFeePercent        Float                     @default(0.5)
-  tier                      SubscriptionTier          @default(FREE)
-  stripeCustomerId          String?
-  stripeSubscriptionId      String?
-  stripePriceId             String?
-  tierUpdatedAt             DateTime?
-  pastDueGraceExpiry        DateTime?
-  forceTier                 SubscriptionTier?
-  forceTierExpiresAt        DateTime?
-  isActive                  Boolean                   @default(true)
-  deletedAt                 DateTime?
-  assistanceRequests        AssistanceRequest[]
-  cashPaymentRequests       CashPaymentRequest[]
-  deviceEnrollmentTokens    DeviceEnrollmentToken[]
-  staffDeviceBindings       StaffDeviceBinding[]
-  orders                    Order[]
-  feedbacks                 Feedback[]
-  loyaltyAccounts           LoyaltyAccount[]
-  menuCategories            MenuCategory[]
-  menuViews                 MenuView[]
-  owner                     User                      @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
-  staffMembers              User[]                    @relation("StaffRestaurant")
-  tables                    RestaurantTable[]
-  tableSessions             TableSession[]
-  tableZones                TableZone[]
-  payments                  Payment[]
-  paymentProviderEvents     PaymentProviderEvent[]
-  printStations             PrintStation[]
-  printAgentTokens          PrintAgentToken[]
-  printJobs                 PrintJob[]
-  dailyTargets              DailyTarget[]
-  reservations              Reservation[]
-  reservationSettings       ReservationSettings?
-  reservationServiceHours   ReservationServiceHours[]
-  reservationBlackouts      ReservationBlackout[]
-  patrons                   Patron[]
+  id                          String                       @id @default(cuid())
+  name                        String
+  country                     String                       @default("Bulgaria")
+  city                        String?
+  logoUrl                     String?
+  logoThumbnailUrl            String?
+  accentColor                 String?                      @default("#4F46E5")
+  googleReviewUrl             String?
+  facebookUrl                 String?
+  instagramUrl                String?
+  tiktokUrl                   String?
+  websiteUrl                  String?
+  youtubeUrl                  String?
+  address                     String?
+  contactInfo                 String?
+  targetLanguages             String[]                     @default([])
+  dashboardLanguage           String?                      @default("en")
+  timezone                    String?                      @default("Europe/Sofia")
+  ownerId                     String
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  fontBody                    String?                      @default("Outfit")
+  fontHeading                 String?                      @default("Playfair Display")
+  themeBgColor                String?
+  themeCardColor              String?
+  themeTextColor              String?
+  themeLightBgColor           String?
+  themeLightTextColor         String?
+  themeLightCardColor         String?
+  themeLightAccentColor       String?
+  themeDarkBgColor            String?
+  themeDarkTextColor          String?
+  themeDarkCardColor          String?
+  themeDarkAccentColor        String?
+  trendingMode                String                       @default("AUTO")
+  happyHourEnable             Boolean                      @default(false)
+  happyHourDays               Int[]                        @default([1, 2, 3, 4, 5, 6, 7])
+  happyHourEndTime            String?
+  happyHourMultiplier         Float                        @default(2.0)
+  happyHourStartTime          String?
+  isLoyaltyEnabled            Boolean                      @default(true)
+  loyaltyExchangeRate         Int                          @default(10)
+  loyaltySignupBonus          Int                          @default(50)
+  loyaltyRedeemRate           Int                          @default(150)
+  loyaltyExpiryReminderDays   Int                          @default(15)
+  loyaltyGoldMultiplier       Float                        @default(1.5)
+  loyaltyGoldThreshold        Int                          @default(2000)
+  loyaltyPointExpiryDays      Int                          @default(90)
+  loyaltySilverMultiplier     Float                        @default(1.2)
+  loyaltySilverThreshold      Int                          @default(500)
+  defaultTheme                String?                      @default("light")
+  importApiKeyHash            String?                      @unique
+  stripeAccountId             String?
+  stripeOnboarded             Boolean                      @default(false)
+  paymentsEnabled             Boolean                      @default(false)
+  epayEnabled                 Boolean                      @default(false)
+  epayMode                    String                       @default("DEMO")
+  epayClientId                String?
+  epayMerchantEmail           String?
+  epaySecretEncrypted         String?
+  epayPage                    String                       @default("credit_paydirect")
+  boricaEnabled               Boolean                      @default(false)
+  boricaMode                  String                       @default("DEMO")
+  boricaTerminalId            String?
+  boricaMerchantId            String?
+  boricaMerchantName          String?
+  boricaPrivateKeyEncrypted   String?
+  boricaPublicCert            String?
+  boricaCurrency              String                       @default("EUR")
+  myposEnabled                Boolean                      @default(false)
+  myposMode                   String                       @default("DEMO")
+  myposClientNumber           String?
+  myposStoreId                String?
+  myposKeyIndex               String?
+  myposPrivateKeyEncrypted    String?
+  myposPublicCert             String?
+  myposCurrency               String                       @default("EUR")
+  sharedDeviceModeEnabled     Boolean                      @default(false)
+  notifyAllStaffOnPayment     Boolean                      @default(true)
+  tipsEnabled                 Boolean                      @default(false)
+  tipOptions                  Int[]                        @default([2, 4, 5])
+  platformFeePercent          Float                        @default(0.5)
+  tier                        SubscriptionTier             @default(FREE)
+  stripeCustomerId            String?
+  stripeSubscriptionId        String?
+  stripePriceId               String?
+  tierUpdatedAt               DateTime?
+  pastDueGraceExpiry          DateTime?
+  forceTier                   SubscriptionTier?
+  forceTierExpiresAt          DateTime?
+  isActive                    Boolean                      @default(true)
+  deletedAt                   DateTime?
+  assistanceRequests          AssistanceRequest[]
+  cashPaymentRequests         CashPaymentRequest[]
+  deviceEnrollmentTokens      DeviceEnrollmentToken[]
+  staffDeviceBindings         StaffDeviceBinding[]
+  orders                      Order[]
+  feedbacks                   Feedback[]
+  loyaltyAccounts             LoyaltyAccount[]
+  menuCategories              MenuCategory[]
+  menuViews                   MenuView[]
+  owner                       User                         @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
+  staffMembers                User[]                       @relation("StaffRestaurant")
+  tables                      RestaurantTable[]
+  tableSessions               TableSession[]
+  tableZones                  TableZone[]
+  payments                    Payment[]
+  paymentProviderEvents       PaymentProviderEvent[]
+  paymentReconciliationIssues PaymentReconciliationIssue[]
+  printStations               PrintStation[]
+  printAgentTokens            PrintAgentToken[]
+  printJobs                   PrintJob[]
+  dailyTargets                DailyTarget[]
+  reservations                Reservation[]
+  reservationSettings         ReservationSettings?
+  reservationServiceHours     ReservationServiceHours[]
+  reservationBlackouts        ReservationBlackout[]
+  patrons                     Patron[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -395,11 +397,11 @@ model Order {
   staff                     User?                @relation("StaffOrders", fields: [staffUserId], references: [id], onDelete: SetNull)
   printJobs                 PrintJob[]
 
+  @@unique([restaurantId, clientOrderId])
   @@index([restaurantId, status, createdAt])
   @@index([customerId])
   @@index([staffUserId])
   @@index([tableSessionId])
-  @@unique([restaurantId, clientOrderId])
   @@map("customer_order")
 }
 
@@ -671,19 +673,20 @@ model VerificationToken {
 }
 
 model TableSession {
-  id                  String               @id @default(cuid())
-  token               String               @unique @default(cuid())
-  tableId             String
-  restaurantId        String
-  status              TableSessionStatus   @default(OPEN)
-  isServicePoint      Boolean              @default(false)
-  createdAt           DateTime             @default(now())
-  paidAt              DateTime?
-  orders              Order[]
-  payments            Payment[]
-  cashPaymentRequests CashPaymentRequest[]
-  restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table               RestaurantTable      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  id                          String                       @id @default(cuid())
+  token                       String                       @unique @default(cuid())
+  tableId                     String
+  restaurantId                String
+  status                      TableSessionStatus           @default(OPEN)
+  isServicePoint              Boolean                      @default(false)
+  createdAt                   DateTime                     @default(now())
+  paidAt                      DateTime?
+  orders                      Order[]
+  payments                    Payment[]
+  cashPaymentRequests         CashPaymentRequest[]
+  paymentReconciliationIssues PaymentReconciliationIssue[]
+  restaurant                  Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table                       RestaurantTable              @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([tableId, status])
@@ -696,31 +699,32 @@ model TableSession {
 }
 
 model Payment {
-  id                    String                 @id @default(cuid())
+  id                    String                      @id @default(cuid())
   // Nullable: SetNull below preserves the payment/financial audit trail when a
   // table is removed after its session is closed (was Cascade — deleting a
   // RestaurantTable used to silently wipe its Payment rows).
   tableSessionId        String?
   restaurantId          String
-  stripePaymentIntentId String?                @unique
-  providerReference     String?                @unique
+  stripePaymentIntentId String?                     @unique
+  providerReference     String?                     @unique
   providerStatus        String?
   providerPayload       Json?
   amount                Float
-  tipAmount             Float                  @default(0)
-  platformFeeAmount     Float                  @default(0)
-  currency              String                 @default("EUR")
-  status                PaymentStatus          @default(PENDING)
-  provider              PaymentProvider        @default(STRIPE)
+  tipAmount             Float                       @default(0)
+  platformFeeAmount     Float                       @default(0)
+  currency              String                      @default("EUR")
+  status                PaymentStatus               @default(PENDING)
+  provider              PaymentProvider             @default(STRIPE)
   // Marks how a partial/split payment was settled (ITEM/EVEN/CUSTOM). Null for a
   // full-bill payment. Reporting/audit only — the PAID gate is amount-based.
   splitMode             String?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  tableSession          TableSession?          @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
-  restaurant            Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  tableSession          TableSession?               @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  restaurant            Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   allocations           PaymentAllocation[]
   providerEvents        PaymentProviderEvent[]
+  reconciliationIssue   PaymentReconciliationIssue?
   refundAttempts        RefundAttempt[]
   cashPaymentRequest    CashPaymentRequest?
 
@@ -779,6 +783,34 @@ model PaymentProviderEvent {
   @@index([paymentId])
   @@index([restaurantId, createdAt])
   @@map("payment_provider_event")
+}
+
+model PaymentReconciliationIssue {
+  id                String                      @id @default(cuid())
+  paymentId         String                      @unique
+  restaurantId      String
+  tableSessionId    String?
+  resolvedById      String?
+  provider          PaymentProvider
+  reason            PaymentReconciliationReason
+  status            PaymentReconciliationStatus @default(OPEN)
+  amount            Float
+  currency          String
+  providerReference String?
+  providerStatus    String?
+  details           Json?
+  resolutionNote    String?
+  resolvedAt        DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  payment           Payment                     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  restaurant        Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession      TableSession?               @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  resolvedBy        User?                       @relation("PaymentReconciliationResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status, createdAt])
+  @@index([tableSessionId])
+  @@map("payment_reconciliation_issue")
 }
 
 model DailyTarget {
@@ -976,6 +1008,21 @@ enum RefundStatus {
   SUCCEEDED
   FAILED
   CANCELED
+}
+
+enum PaymentReconciliationReason {
+  SESSION_NOT_OPEN
+  SCOPE_AMOUNT_MISMATCH
+  SCOPE_CONFLICT
+  PROVIDER_CONFIRMATION_MISMATCH
+  PROVIDER_STATUS_UNKNOWN
+  HISTORICAL_CAPTURE
+}
+
+enum PaymentReconciliationStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
 }
 
 enum ReservationStatus {

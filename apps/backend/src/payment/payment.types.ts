@@ -1,6 +1,7 @@
 import {
   CashPaymentRequestScope,
   CashPaymentRequestStatus,
+  PaymentReconciliationReason,
 } from '@prisma/client';
 import { SplitMode } from './dto/settle-partial.dto';
 import { CheckoutScope } from './payment-scope.utils';
@@ -32,6 +33,17 @@ export type PaymentClaimResult = {
   // (double-pay). Recorded SUCCEEDED + flagged for refund; no allocation change,
   // no payment:confirmed. Surfaces a reconciliation signal instead.
   needsRefund?: boolean;
+  // The provider authenticated a captured payment, but applying it to the bill
+  // would be unsafe. The payment and a durable owner-facing issue are persisted
+  // together before the provider event is acknowledged.
+  needsReconciliation?: boolean;
+  reconciliationReason?: PaymentReconciliationReason;
+};
+
+export type PaymentClaimOptions = {
+  // Only a provider-specific, authenticated recovery flow may promote FAILED.
+  // Ordinary success callbacks remain restricted to PENDING/ABANDONED rows.
+  allowFailedRecovery?: boolean;
 };
 
 export type CashPaymentRequestDto = {

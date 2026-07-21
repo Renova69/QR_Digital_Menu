@@ -69,6 +69,18 @@ describe("PosContext", () => {
     expect(result.current.getTotal()).toBe(27);
   });
 
+  it("rounds displayed totals to currency precision", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    act(() => {
+      result.current.addItem(makeItem({ price: 0.1 }));
+      result.current.addItem(makeItem({ price: 0.2 }));
+    });
+
+    expect(result.current.getPendingTotal()).toBe(0.3);
+    expect(result.current.getTotal()).toBe(0.3);
+  });
+
   it("markAsSubmitted flips pending items to submitted", () => {
     const { result } = renderHook(() => usePos(), { wrapper });
 

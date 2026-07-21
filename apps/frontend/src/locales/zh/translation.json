@@ -1872,6 +1872,8 @@
     "ptsToTier": "距离{{tier}}还差{{count}}分",
     "maxTier": "已达到最高等级",
     "pastOrders": "历史订单",
+    "loadMoreOrders": "加载更多订单",
+    "loadingMoreOrders": "正在加载更多订单...",
     "loading": "正在加载历史记录...",
     "historyLoadFailed": "无法加载历史订单。请重试。",
     "noOrders": "尚无订单",

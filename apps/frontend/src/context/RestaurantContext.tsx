@@ -4,6 +4,8 @@ import React, {
   useEffect,
   useContext,
   useRef,
+  useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 import {
@@ -79,80 +81,83 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
 
   // Internal fetch — accepts prefetched data to skip network call on initial load
   // showLoading=false for background refreshes to avoid unmounting mounted views
-  const _fetchRestaurants = async (
-    prefetchedData?: any[] | null,
-    showLoading = true,
-  ) => {
-    const requestVersion = ++fetchVersionRef.current;
-    if (showLoading) setLoading(true);
-    try {
-      setError(null);
-      const role = user?.role?.toUpperCase();
-      const isAssignedStaff =
-        !!user?.restaurantId &&
-        ["MANAGER", "WAITER", "KITCHEN", "STAFF"].includes(role || "");
+  const _fetchRestaurants = useCallback(
+    async (prefetchedData?: any[] | null, showLoading = true) => {
+      const requestVersion = ++fetchVersionRef.current;
+      if (showLoading) setLoading(true);
+      try {
+        setError(null);
+        const role = user?.role?.toUpperCase();
+        const isAssignedStaff =
+          !!user?.restaurantId &&
+          ["MANAGER", "WAITER", "KITCHEN", "STAFF"].includes(role || "");
 
-      if (isAssignedStaff) {
-        const restaurant = await getRestaurantById(user.restaurantId!);
+        if (isAssignedStaff) {
+          const restaurant = await getRestaurantById(user.restaurantId!);
+          if (requestVersion !== fetchVersionRef.current) return;
+          setRestaurants([restaurant]);
+          setActiveRestaurant(restaurant);
+          saveOfflineRestaurant(restaurant, user.id);
+          if (showLoading) setLoading(false);
+          return;
+        }
+
+        // Use prefetched data when available (eliminates sequential waterfall on login)
+        const data: Restaurant[] = Array.isArray(prefetchedData)
+          ? prefetchedData
+          : await getRestaurants();
         if (requestVersion !== fetchVersionRef.current) return;
-        setRestaurants([restaurant]);
-        setActiveRestaurant(restaurant);
-        saveOfflineRestaurant(restaurant, user.id);
-        if (showLoading) setLoading(false);
-        return;
-      }
 
-      // Use prefetched data when available (eliminates sequential waterfall on login)
-      const data: Restaurant[] = Array.isArray(prefetchedData)
-        ? prefetchedData
-        : await getRestaurants();
-      if (requestVersion !== fetchVersionRef.current) return;
-
-      setRestaurants(data);
-      if (data.length > 0) {
-        setActiveRestaurant((current) => {
-          if (current) {
-            const updated = data.find((r: Restaurant) => r.id === current.id);
-            return updated || data[0];
+        setRestaurants(data);
+        if (data.length > 0) {
+          setActiveRestaurant((current) => {
+            if (current) {
+              const updated = data.find((r: Restaurant) => r.id === current.id);
+              return updated || data[0];
+            }
+            return data[0];
+          });
+        } else if (user?.restaurantId) {
+          // Staff user: fetch their assigned restaurant
+          try {
+            const r = await getRestaurantById(user.restaurantId);
+            if (requestVersion !== fetchVersionRef.current) return;
+            setRestaurants([r]);
+            setActiveRestaurant(r);
+          } catch {
+            if (requestVersion !== fetchVersionRef.current) return;
+            setActiveRestaurant(null);
           }
-          return data[0];
-        });
-      } else if (user?.restaurantId) {
-        // Staff user: fetch their assigned restaurant
-        try {
-          const r = await getRestaurantById(user.restaurantId);
-          if (requestVersion !== fetchVersionRef.current) return;
-          setRestaurants([r]);
-          setActiveRestaurant(r);
-        } catch {
-          if (requestVersion !== fetchVersionRef.current) return;
+        } else {
           setActiveRestaurant(null);
         }
-      } else {
-        setActiveRestaurant(null);
+      } catch (err) {
+        if (requestVersion !== fetchVersionRef.current) return;
+        const cachedRestaurant =
+          user && isPosTransportFailure(err)
+            ? loadOfflineRestaurant(user.id, user.restaurantId)
+            : null;
+        if (cachedRestaurant) {
+          setRestaurants([cachedRestaurant]);
+          setActiveRestaurant(cachedRestaurant);
+          setError(null);
+        } else {
+          setError(err as Error);
+        }
+      } finally {
+        if (requestVersion === fetchVersionRef.current) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      if (requestVersion !== fetchVersionRef.current) return;
-      const cachedRestaurant =
-        user && isPosTransportFailure(err)
-          ? loadOfflineRestaurant(user.id, user.restaurantId)
-          : null;
-      if (cachedRestaurant) {
-        setRestaurants([cachedRestaurant]);
-        setActiveRestaurant(cachedRestaurant);
-        setError(null);
-      } else {
-        setError(err as Error);
-      }
-    } finally {
-      if (requestVersion === fetchVersionRef.current) {
-        setLoading(false);
-      }
-    }
-  };
+    },
+    [user?.id, user?.restaurantId, user?.role],
+  );
 
   // Public API — always fetches fresh from network, no loading spinner (background refresh)
-  const fetchRestaurants = () => _fetchRestaurants(undefined, false);
+  const fetchRestaurants = useCallback(
+    () => _fetchRestaurants(undefined, false),
+    [_fetchRestaurants],
+  );
 
   useEffect(() => {
     if (!user) {
@@ -172,33 +177,56 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
     initializedUserKeyRef.current = userKey;
     void _fetchRestaurants(hasPrefetch ? prefetchedRestaurants : undefined);
     if (hasPrefetch && clearPrefetch) clearPrefetch();
-  }, [user?.id, user?.role, user?.restaurantId, prefetchedRestaurants]);
+  }, [
+    _fetchRestaurants,
+    prefetchedRestaurants,
+    user?.id,
+    user?.restaurantId,
+    user?.role,
+  ]);
 
-  const createRestaurant = async (restaurantData: {
-    name: string;
-    city?: string;
-    dashboardLanguage?: string;
-  }) => {
-    const newRestaurant = await createRestaurantApi(restaurantData);
-    setRestaurants((prev) => [...prev, newRestaurant]);
-    setActiveRestaurant(newRestaurant);
-    if (user) saveOfflineRestaurant(newRestaurant, user.id);
-  };
+  const createRestaurant = useCallback(
+    async (restaurantData: {
+      name: string;
+      city?: string;
+      dashboardLanguage?: string;
+    }) => {
+      const newRestaurant = await createRestaurantApi(restaurantData);
+      setRestaurants((prev) => [...prev, newRestaurant]);
+      setActiveRestaurant(newRestaurant);
+      if (user) saveOfflineRestaurant(newRestaurant, user.id);
+    },
+    [user?.id],
+  );
 
-  const selectRestaurant = (restaurant: Restaurant | null) => {
-    setActiveRestaurant(restaurant);
-    if (restaurant && user) saveOfflineRestaurant(restaurant, user.id);
-  };
+  const selectRestaurant = useCallback(
+    (restaurant: Restaurant | null) => {
+      setActiveRestaurant(restaurant);
+      if (restaurant && user) saveOfflineRestaurant(restaurant, user.id);
+    },
+    [user?.id],
+  );
 
-  const value = {
-    restaurants,
-    activeRestaurant,
-    loading,
-    error,
-    createRestaurant,
-    selectRestaurant,
-    fetchRestaurants,
-  };
+  const value = useMemo(
+    () => ({
+      restaurants,
+      activeRestaurant,
+      loading,
+      error,
+      createRestaurant,
+      selectRestaurant,
+      fetchRestaurants,
+    }),
+    [
+      activeRestaurant,
+      createRestaurant,
+      error,
+      fetchRestaurants,
+      loading,
+      restaurants,
+      selectRestaurant,
+    ],
+  );
 
   return (
     <RestaurantContext.Provider value={value}>

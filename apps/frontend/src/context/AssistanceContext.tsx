@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   useEffect,
+  useMemo,
   ReactNode,
 } from "react";
 import {
@@ -171,26 +172,32 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
   ]);
 
   // Function to mark request as resolved
-  const markAsResolved = async (requestId: string) => {
-    try {
-      await apiUpdateAssistanceRequest(requestId, { isResolved: true });
-      await refreshRequests();
-    } catch (error) {
-      console.error("Failed to mark request as resolved:", error);
-      throw error;
-    }
-  };
+  const markAsResolved = useCallback(
+    async (requestId: string) => {
+      try {
+        await apiUpdateAssistanceRequest(requestId, { isResolved: true });
+        await refreshRequests();
+      } catch (error) {
+        console.error("Failed to mark request as resolved:", error);
+        throw error;
+      }
+    },
+    [refreshRequests],
+  );
 
   // Function to mark request as unresolved (for re-opening)
-  const markAsUnresolved = async (requestId: string) => {
-    try {
-      await apiUpdateAssistanceRequest(requestId, { isResolved: false });
-      await refreshRequests();
-    } catch (error) {
-      console.error("Failed to mark request as unresolved:", error);
-      throw error;
-    }
-  };
+  const markAsUnresolved = useCallback(
+    async (requestId: string) => {
+      try {
+        await apiUpdateAssistanceRequest(requestId, { isResolved: false });
+        await refreshRequests();
+      } catch (error) {
+        console.error("Failed to mark request as unresolved:", error);
+        throw error;
+      }
+    },
+    [refreshRequests],
+  );
 
   // Initial load when a staff/owner session becomes available.
   useEffect(() => {
@@ -227,17 +234,31 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
     };
   }, [canAccessAssistance, socket, isConnected, refreshRequests]);
 
-  const value = {
-    requests,
-    refreshRequests,
-    markAsResolved,
-    markAsUnresolved,
-    loadMoreResolved,
-    hasMoreResolved: resolvedPage < resolvedTotalPages,
-    isLoading,
-    isLoadingMoreResolved,
-    error,
-  };
+  const value = useMemo(
+    () => ({
+      requests,
+      refreshRequests,
+      markAsResolved,
+      markAsUnresolved,
+      loadMoreResolved,
+      hasMoreResolved: resolvedPage < resolvedTotalPages,
+      isLoading,
+      isLoadingMoreResolved,
+      error,
+    }),
+    [
+      error,
+      isLoading,
+      isLoadingMoreResolved,
+      loadMoreResolved,
+      markAsResolved,
+      markAsUnresolved,
+      refreshRequests,
+      requests,
+      resolvedPage,
+      resolvedTotalPages,
+    ],
+  );
 
   return (
     <AssistanceContext.Provider value={value}>

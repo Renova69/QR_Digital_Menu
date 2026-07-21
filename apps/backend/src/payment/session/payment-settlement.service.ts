@@ -25,6 +25,7 @@ import {
   normalizeCheckoutScope,
 } from '../payment-scope.utils';
 import { CashPaymentRequestDto } from '../payment.types';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
 
 @Injectable()
 export class PaymentSettlementService {
@@ -210,6 +211,10 @@ export class PaymentSettlementService {
     );
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.core.lockOpenSessionForSettlement(
+        tx,
+        existing.tableSessionId!,
+      );
       await this.core.lockPendingCashPaymentRequest(tx, requestId);
       const request = await tx.cashPaymentRequest.findUnique({
         where: { id: requestId },
@@ -228,12 +233,18 @@ export class PaymentSettlementService {
           'Cash payment request is no longer attached to an active session',
         );
       }
+      if (request.tableSessionId !== existing.tableSessionId) {
+        throw new ConflictException(
+          'Cash payment request changed sessions; please reload and retry',
+        );
+      }
 
       const session = await tx.tableSession.findFirst({
         where: { id: request.tableSessionId, status: 'OPEN' },
       });
-      if (!session) throw new ConflictException('Session is no longer open');
-      await this.core.lockOpenSessionForSettlement(tx, session.id);
+      if (!session) {
+        throw new ConflictException('Session is no longer open');
+      }
 
       const pendingPayment = await tx.payment.findFirst({
         where: { tableSessionId: session.id, status: 'PENDING' },
@@ -315,7 +326,7 @@ export class PaymentSettlementService {
         session.id,
       );
       let sessionPaid = false;
-      if (balanceAfter.remaining <= 0.01) {
+      if (balanceAfter.remaining <= PAYMENT_AMOUNT_TOLERANCE) {
         const flip = await tx.tableSession.updateMany({
           where: { id: session.id, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },
@@ -575,7 +586,7 @@ export class PaymentSettlementService {
         balance.remaining - chargeSubtotal,
       );
       let sessionPaid = false;
-      if (newRemaining <= 0.01) {
+      if (newRemaining <= PAYMENT_AMOUNT_TOLERANCE) {
         const flip = await tx.tableSession.updateMany({
           where: { id: session.id, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },

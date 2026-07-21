@@ -8,9 +8,23 @@ import type { TFunction } from "i18next";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import RestaurantContext from "../../context/RestaurantContext";
 
-function elapsedMinutes(createdAt: string): number {
-  const diff = Date.now() - new Date(createdAt).getTime();
-  return Math.floor(diff / 60000);
+function elapsedMinutes(createdAt: string, now = Date.now()): number {
+  const diff = now - new Date(createdAt).getTime();
+  return Math.max(0, Math.floor(diff / 60000));
+}
+
+function KitchenClock() {
+  const [clock, setClock] = useState(() => new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    const interval = setInterval(
+      () => setClock(new Date().toLocaleTimeString()),
+      1000,
+    );
+    return () => clearInterval(interval);
+  }, []);
+
+  return <div className="text-sm text-gray-500">{clock}</div>;
 }
 
 const COLUMNS: {
@@ -135,30 +149,13 @@ export default function KitchenPage() {
     };
   }, [canKds, socket]);
 
-  const [clock, setClock] = useState(() => new Date().toLocaleTimeString());
-  const [elapsed, setElapsed] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    const t = setInterval(
-      () => setClock(new Date().toLocaleTimeString()),
-      1000,
-    );
-    return () => clearInterval(t);
-  }, []);
+  const [elapsedClock, setElapsedClock] = useState(() => Date.now());
 
   // Tick elapsed counters every 10s
   useEffect(() => {
-    const tick = () => {
-      const next: Record<string, number> = {};
-      for (const o of orders) {
-        next[o.id] = elapsedMinutes(o.createdAt);
-      }
-      setElapsed(next);
-    };
-    tick();
-    const interval = setInterval(tick, 10000);
+    const interval = setInterval(() => setElapsedClock(Date.now()), 10000);
     return () => clearInterval(interval);
-  }, [orders]);
+  }, []);
 
   const handleCycle = useCallback(
     async (orderId: string, current: OrderStatus) => {
@@ -205,10 +202,8 @@ export default function KitchenPage() {
     });
   }, [orders]);
 
-  const getElapsed = (id: string, createdAt: string) => {
-    if (elapsed[id] !== undefined) return elapsed[id];
-    return elapsedMinutes(createdAt);
-  };
+  const getElapsed = (_id: string, createdAt: string) =>
+    elapsedMinutes(createdAt, elapsedClock);
 
   // Active orders: exclude COMPLETED and CANCELED from kanban
   const activeOrders = orders.filter(
@@ -238,7 +233,7 @@ export default function KitchenPage() {
           <span className="text-blue-400">{t("auto.dISPLAY", "DISPLAY")}</span>
         </h1>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">{clock}</div>
+          <KitchenClock />
           <button
             onClick={() => setShowHistory((v) => !v)}
             className={`text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl border transition ${
@@ -297,9 +292,9 @@ export default function KitchenPage() {
                         </span>
                       </div>
                       <ul className="space-y-1 mb-1">
-                        {order.items.map((item, idx) => (
+                        {order.items.map((item) => (
                           <li
-                            key={idx}
+                            key={item.id}
                             className="text-xs text-gray-400 flex justify-between"
                           >
                             <span>
@@ -434,9 +429,9 @@ export default function KitchenPage() {
 
                       {/* Items */}
                       <ul className="space-y-1.5 mb-2">
-                        {order.items.map((item, idx) => (
+                        {order.items.map((item) => (
                           <li
-                            key={idx}
+                            key={item.id}
                             className="text-sm flex justify-between"
                           >
                             <span className="text-gray-200 font-medium">

@@ -40,29 +40,45 @@ export class TablesService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async autoClosePaidSessions() {
-    const cutoff = new Date(Date.now() - PAID_SESSION_AUTO_CLOSE_MS);
+    try {
+      const cutoff = new Date(Date.now() - PAID_SESSION_AUTO_CLOSE_MS);
 
-    const expired = await this.prisma.tableSession.findMany({
-      where: { status: 'PAID', paidAt: { lt: cutoff } },
-      select: { id: true, restaurantId: true, tableId: true },
-    });
+      const expired = await this.prisma.tableSession.findMany({
+        where: { status: 'PAID', paidAt: { lt: cutoff } },
+        select: { id: true, restaurantId: true, tableId: true },
+      });
 
-    if (expired.length === 0) return;
+      if (expired.length === 0) return;
 
-    await this.prisma.tableSession.updateMany({
-      where: { id: { in: expired.map((s) => s.id) } },
-      data: { status: 'CLOSED_PAID' },
-    });
+      await this.prisma.tableSession.updateMany({
+        where: { id: { in: expired.map((s) => s.id) } },
+        data: { status: 'CLOSED_PAID' },
+      });
 
-    // Emit per session so dashboard receives the full { tableId, sessionId }
-    // payload, consistent with every other caller of emitTableStatusChanged.
-    for (const s of expired) {
-      this.events.emitTableStatusChanged(s.restaurantId, s.tableId, s.id);
+      for (const session of expired) {
+        try {
+          this.events.emitTableStatusChanged(
+            session.restaurantId,
+            session.tableId,
+            session.id,
+          );
+        } catch (error) {
+          this.logger.error('Paid-session close event failed', {
+            sessionId: session.id,
+            restaurantId: session.restaurantId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      this.logger.log(
+        `Auto-closed ${expired.length} paid session(s) across ${new Set(expired.map((s) => s.restaurantId)).size} restaurant(s)`,
+      );
+    } catch (error) {
+      this.logger.error('Paid-session auto-close cron failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-
-    this.logger.log(
-      `Auto-closed ${expired.length} paid session(s) across ${new Set(expired.map((s) => s.restaurantId)).size} restaurant(s)`,
-    );
   }
 
   async create(
@@ -138,7 +154,7 @@ export class TablesService {
       },
     });
     this.events.emitToRestaurant(restaurantId, 'table:created', {
-      tableId: table.id,
+      tableIds: [table.id],
     });
     this.events.emitZoneChanged(restaurantId);
     return table;

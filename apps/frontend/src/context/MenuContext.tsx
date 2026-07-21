@@ -4,6 +4,8 @@ import React, {
   useContext,
   ReactNode,
   useEffect,
+  useCallback,
+  useMemo,
 } from "react";
 import { useMenu } from "../hooks/useMenu";
 import RestaurantContext from "./RestaurantContext";
@@ -29,6 +31,7 @@ interface MenuContextType {
     name: string;
     description: string;
     price: number;
+    weight?: string;
     currency: "EUR";
     allergens: string[];
     dietaryTags: string[];
@@ -46,6 +49,7 @@ interface MenuContextType {
       name?: string;
       description?: string;
       price?: number;
+      weight?: string;
       currency?: "EUR";
       allergens?: string[];
       dietaryTags?: string[];
@@ -115,105 +119,144 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, [categories]);
 
-  const handleCreateItem = async (itemData: {
-    name: string;
-    description: string;
-    price: number;
-    currency: "EUR";
-    allergens: string[];
-    dietaryTags: string[];
-    upsellContexts?: UpsellContext[];
-    isFeatured?: boolean;
-    costPrice?: number;
-    rewardPointsMode?: RewardPointsMode;
-    rewardPointsPrice?: number;
-    relatedItemIds?: string[];
-    imageFile?: File | null;
-  }) => {
-    if (!selectedCategory) return;
-    const { imageFile, ...rest } = itemData;
-    const newItem = (await createItem({
-      ...rest,
-      categoryId: selectedCategory.id,
-    })) as Item;
-
-    if (imageFile && newItem) {
-      try {
-        await uploadImage({ itemId: newItem.id, file: imageFile });
-      } catch (error) {
-        throw new Error(
-          "Item created but image upload failed. Please try uploading the image again in edit mode.",
-        );
-      }
-    }
-  };
-
-  const handleUpdateItem = async (
-    id: string,
-    itemData: {
-      name?: string;
-      description?: string;
-      price?: number;
-      currency?: "EUR";
-      allergens?: string[];
-      dietaryTags?: string[];
+  const handleCreateItem = useCallback(
+    async (itemData: {
+      name: string;
+      description: string;
+      price: number;
+      weight?: string;
+      currency: "EUR";
+      allergens: string[];
+      dietaryTags: string[];
       upsellContexts?: UpsellContext[];
       isFeatured?: boolean;
-      isOutOfStock?: boolean;
       costPrice?: number;
       rewardPointsMode?: RewardPointsMode;
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;
-      imageRemoved?: boolean;
+    }) => {
+      if (!selectedCategory) return;
+      const { imageFile, ...rest } = itemData;
+      const newItem = (await createItem({
+        ...rest,
+        categoryId: selectedCategory.id,
+      })) as Item;
+
+      if (imageFile && newItem) {
+        try {
+          await uploadImage({ itemId: newItem.id, file: imageFile });
+        } catch {
+          throw new Error(
+            "Item created but image upload failed. Please try uploading the image again in edit mode.",
+          );
+        }
+      }
     },
-  ) => {
-    if (!selectedCategory) return;
-    const { imageFile, imageRemoved, ...rest } = itemData;
+    [createItem, selectedCategory, uploadImage],
+  );
 
-    if (imageRemoved) {
-      (rest as any).imageUrl = null;
-      (rest as any).thumbnailUrl = null;
-    }
+  const handleUpdateItem = useCallback(
+    async (
+      id: string,
+      itemData: {
+        name?: string;
+        description?: string;
+        price?: number;
+        weight?: string;
+        currency?: "EUR";
+        allergens?: string[];
+        dietaryTags?: string[];
+        upsellContexts?: UpsellContext[];
+        isFeatured?: boolean;
+        isOutOfStock?: boolean;
+        costPrice?: number;
+        rewardPointsMode?: RewardPointsMode;
+        rewardPointsPrice?: number;
+        relatedItemIds?: string[];
+        imageFile?: File | null;
+        imageRemoved?: boolean;
+      },
+    ) => {
+      if (!selectedCategory) return;
+      const { imageFile, imageRemoved, ...rest } = itemData;
+      const data: Partial<Omit<Item, "id" | "categoryId">> = { ...rest };
 
-    await updateItem({
-      id,
-      categoryId: selectedCategory.id,
-      data: rest,
-    });
+      if (imageRemoved) {
+        data.imageUrl = null;
+        data.thumbnailUrl = null;
+      }
 
-    if (imageFile) {
-      await uploadImage({ itemId: id, file: imageFile });
-    }
-  };
+      await updateItem({
+        id,
+        categoryId: selectedCategory.id,
+        data,
+      });
 
-  const handleDeleteItem = async (id: string) => {
-    if (!selectedCategory) return;
-    await deleteItem({ id, categoryId: selectedCategory.id });
-  };
+      if (imageFile) {
+        await uploadImage({ itemId: id, file: imageFile });
+      }
+    },
+    [selectedCategory, updateItem, uploadImage],
+  );
 
-  const handleSetItems = (updater: (old: Item[] | undefined) => Item[]) => {
-    if (!selectedCategory) return;
-    setItems(selectedCategory.id, updater);
-  };
+  const handleDeleteItem = useCallback(
+    async (id: string) => {
+      if (!selectedCategory) return;
+      await deleteItem({ id, categoryId: selectedCategory.id });
+    },
+    [deleteItem, selectedCategory],
+  );
 
-  const value = {
-    categories,
-    items,
-    selectedCategory,
-    isLoadingCategories,
-    isLoadingItems,
-    createCategory,
-    updateCategory: (id: string, data: any) =>
-      updateCategory({ id, ...data }) as Promise<Category>,
-    deleteCategory,
-    createItem: handleCreateItem,
-    updateItem: handleUpdateItem,
-    deleteItem: handleDeleteItem,
-    selectCategory: setSelectedCategory,
-    setCategories,
-    setItems: handleSetItems,
-  };
+  const handleSetItems = useCallback(
+    (updater: (old: Item[] | undefined) => Item[]) => {
+      if (!selectedCategory) return;
+      setItems(selectedCategory.id, updater);
+    },
+    [selectedCategory, setItems],
+  );
+
+  const handleUpdateCategory = useCallback(
+    (
+      id: string,
+      data: Partial<Omit<Category, "id" | "restaurantId" | "items">>,
+    ) => updateCategory({ id, ...data }) as Promise<Category>,
+    [updateCategory],
+  );
+
+  const value = useMemo(
+    () => ({
+      categories,
+      items,
+      selectedCategory,
+      isLoadingCategories,
+      isLoadingItems,
+      createCategory,
+      updateCategory: handleUpdateCategory,
+      deleteCategory,
+      createItem: handleCreateItem,
+      updateItem: handleUpdateItem,
+      deleteItem: handleDeleteItem,
+      selectCategory: setSelectedCategory,
+      setCategories,
+      setItems: handleSetItems,
+    }),
+    [
+      categories,
+      createCategory,
+      deleteCategory,
+      handleCreateItem,
+      handleDeleteItem,
+      handleSetItems,
+      handleUpdateCategory,
+      handleUpdateItem,
+      isLoadingCategories,
+      isLoadingItems,
+      items,
+      selectedCategory,
+      setCategories,
+    ],
+  );
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;
 };

@@ -22,6 +22,8 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 const MAX_PRINT_ATTEMPTS = 3;
 const STALE_SENT_MS = 30_000;
+const MAX_UNDELIVERED_JOB_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_AGENT_TOKENS_PER_STATION = 5;
 const PRINTED_JOB_RETENTION_DAYS = 30;
 const FAILED_JOB_RETENTION_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -105,26 +107,45 @@ export class PrintStationService {
   // ─── Agent Tokens ─────────────────────────────────────────────────────────
 
   async generateToken(restaurantId: string, stationId: string, label?: string) {
-    await this.assertOwnership(restaurantId, stationId);
-    // C-1: cryptographically random token — not guessable
-    const token = randomBytes(32).toString('hex');
-    const record = await this.prisma.printAgentToken.create({
-      data: {
-        restaurantId,
-        printStationId: stationId,
-        label,
-        tokenHash: this.hashToken(token),
-      },
-      select: {
-        id: true,
-        restaurantId: true,
-        printStationId: true,
-        label: true,
-        lastSeenAt: true,
-        createdAt: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const stations = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id
+        FROM print_station
+        WHERE id = ${stationId} AND "restaurantId" = ${restaurantId}
+        FOR UPDATE
+      `;
+      if (stations.length === 0) {
+        throw new NotFoundException('Print station not found');
+      }
+
+      const tokenCount = await tx.printAgentToken.count({
+        where: { printStationId: stationId },
+      });
+      if (tokenCount >= MAX_AGENT_TOKENS_PER_STATION) {
+        throw new ConflictException(
+          `Station already has the maximum of ${MAX_AGENT_TOKENS_PER_STATION} agent tokens`,
+        );
+      }
+      // C-1: cryptographically random token — not guessable
+      const token = randomBytes(32).toString('hex');
+      const record = await tx.printAgentToken.create({
+        data: {
+          restaurantId,
+          printStationId: stationId,
+          label,
+          tokenHash: this.hashToken(token),
+        },
+        select: {
+          id: true,
+          restaurantId: true,
+          printStationId: true,
+          label: true,
+          lastSeenAt: true,
+          createdAt: true,
+        },
+      });
+      return { ...record, token };
     });
-    return { ...record, token };
   }
 
   async revokeToken(restaurantId: string, tokenId: string) {
@@ -351,31 +372,63 @@ export class PrintStationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async retryStuckPrintJobs(): Promise<void> {
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
+    const wallClockThreshold = new Date(
+      Date.now() - MAX_UNDELIVERED_JOB_AGE_MS,
+    );
 
-    await this.prisma.printJob.updateMany({
-      where: {
-        status: 'SENT',
-        attempts: { gte: MAX_PRINT_ATTEMPTS },
-        lastAttemptAt: { lt: staleThreshold },
-      },
-      data: {
-        status: 'FAILED',
-        errorMessage: 'Max retry attempts exhausted without ACK',
-      },
-    });
+    try {
+      await this.prisma.printJob.updateMany({
+        where: {
+          status: { in: ['PENDING', 'SENT'] },
+          createdAt: { lt: wallClockThreshold },
+        },
+        data: {
+          status: 'FAILED',
+          errorMessage: 'Print job expired after 24 hours without delivery',
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to expire old undelivered print jobs', error);
+    }
 
-    const stations = await this.prisma.printJob.findMany({
-      where: {
-        printStationId: { not: null },
-        attempts: { lt: MAX_PRINT_ATTEMPTS },
-        OR: [
-          { status: 'PENDING' },
-          { status: 'SENT', lastAttemptAt: { lt: staleThreshold } },
-        ],
-      },
-      select: { restaurantId: true, printStationId: true },
-      distinct: ['restaurantId', 'printStationId'],
-    });
+    try {
+      await this.prisma.printJob.updateMany({
+        where: {
+          status: 'SENT',
+          attempts: { gte: MAX_PRINT_ATTEMPTS },
+          lastAttemptAt: { lt: staleThreshold },
+        },
+        data: {
+          status: 'FAILED',
+          errorMessage: 'Max retry attempts exhausted without ACK',
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to finalize exhausted print jobs', error);
+    }
+
+    let stations: Array<{
+      restaurantId: string;
+      printStationId: string | null;
+    }>;
+    try {
+      stations = await this.prisma.printJob.findMany({
+        where: {
+          printStationId: { not: null },
+          attempts: { lt: MAX_PRINT_ATTEMPTS },
+          createdAt: { gte: wallClockThreshold },
+          OR: [
+            { status: 'PENDING' },
+            { status: 'SENT', lastAttemptAt: { lt: staleThreshold } },
+          ],
+        },
+        select: { restaurantId: true, printStationId: true },
+        distinct: ['restaurantId', 'printStationId'],
+      });
+    } catch (error) {
+      this.logger.error('Failed to load print stations needing retries', error);
+      return;
+    }
 
     const retries = stations
       .filter((station) => station.printStationId)

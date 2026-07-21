@@ -360,6 +360,58 @@ describe('MenuImportService', () => {
       );
     });
 
+    it('preserves tags, upsell contexts, and schema-native choice price modifiers', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Pizza',
+                price: 10,
+                tags: ['POPULAR'],
+                upsellContexts: ['EVENING'],
+                options: [
+                  {
+                    name: 'Size',
+                    choices: [
+                      { name: 'Large', priceModifier: 2, weight: '500g' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(tx.menuItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tags: ['POPULAR'],
+            upsellContexts: ['EVENING'],
+          }),
+        }),
+      );
+      expect(tx.menuOption.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            choices: [
+              {
+                name: 'Large',
+                priceModifier: 2,
+                weight: '500g',
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
     // Unsupported currencies must be rejected, not silently coerced to EUR.
     it('rejects an import item with an unsupported currency', async () => {
       const tx = makeTx();
@@ -372,7 +424,12 @@ describe('MenuImportService', () => {
               name: 'USD Menu',
               availabilityType: AvailabilityType.ALWAYS,
               items: [
-                { name: 'Item USD', price: 5, currency: 'USD', options: [] },
+                {
+                  name: 'Item USD',
+                  price: 5,
+                  currency: 'USD' as Currency,
+                  options: [],
+                },
               ],
             },
           ],
@@ -1109,6 +1166,8 @@ describe('MenuImportService', () => {
               weight: '400g',
               allergens: ['Gluten'],
               dietaryTags: ['Vegetarian'],
+              tags: ['POPULAR'],
+              upsellContexts: ['EVENING'],
               order: 0,
               imageUrl: 'https://img.example.com/pizza.webp',
               thumbnailUrl: 'https://img.example.com/pizza_thumb.webp',
@@ -1138,6 +1197,13 @@ describe('MenuImportService', () => {
       const item = cat.items[0];
       expect(item.description).toBe('Classic margherita');
       expect(item.allergens).toHaveLength(1);
+      expect((item as any).tags).toEqual(['POPULAR']);
+      expect((item as any).upsellContexts).toEqual(['EVENING']);
+      expect((item as any).options[0].choices[0]).toEqual({
+        name: 'Large',
+        priceModifier: 2,
+        weight: '500g',
+      });
       expect((item as any).rewardPointsMode).toBe('AUTO');
     });
 

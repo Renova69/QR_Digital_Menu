@@ -1872,6 +1872,8 @@
     "ptsToTier": "{{count}} punti per raggiungere il {{tier}}",
     "maxTier": "Livello massimo raggiunto",
     "pastOrders": "Ordini precedenti",
+    "loadMoreOrders": "Carica altri ordini",
+    "loadingMoreOrders": "Caricamento di altri ordini...",
     "loading": "Caricamento della cronologia...",
     "historyLoadFailed": "Impossibile caricare gli ordini precedenti. Riprova.",
     "noOrders": "Non ci sono ancora ordini",

@@ -306,6 +306,74 @@ describe("PaymentModal hosted provider choices", () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 
+  it("shows an actionable insufficient-funds message from Stripe", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(
+      billWithProviders(["STRIPE"]),
+    );
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: "STRIPE",
+      clientSecret: "secret",
+      total: 20,
+      tipAmount: 0,
+    });
+    stripeMocks.confirmPayment.mockResolvedValueOnce({
+      error: {
+        code: "card_declined",
+        decline_code: "insufficient_funds",
+      },
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("payment-continue-button"));
+    await screen.findByTestId("payment-element");
+    fireEvent.click(screen.getByRole("button", { name: /^Pay / }));
+
+    expect(
+      await screen.findByText(
+        "Insufficient funds. Please use another payment method.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows a recoverable connection message when Stripe confirmation rejects", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(
+      billWithProviders(["STRIPE"]),
+    );
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: "STRIPE",
+      clientSecret: "secret",
+      total: 20,
+      tipAmount: 0,
+    });
+    stripeMocks.confirmPayment.mockRejectedValueOnce(new Error("network"));
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("payment-continue-button"));
+    await screen.findByTestId("payment-element");
+    fireEvent.click(screen.getByRole("button", { name: /^Pay / }));
+
+    expect(
+      await screen.findByText(
+        "We could not confirm the payment. Check your connection and try again.",
+      ),
+    ).toBeTruthy();
+    expect(sessionStorage.getItem("hosted-checkout:tok1")).toBeNull();
+  });
+
   it("creates a formal cash payment request without starting online checkout", async () => {
     apiMocks.getSessionBill.mockResolvedValueOnce(
       billWithProviders(["STRIPE"]),

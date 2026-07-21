@@ -163,9 +163,18 @@ export class PushService implements OnModuleInit {
             this.logger.log(
               `Removing expired or invalid push subscription: ${sub.endpoint}`,
             );
-            await this.prisma.pushSubscription
-              .delete({ where: { id: sub.id } })
-              .catch(() => {});
+            try {
+              await this.prisma.pushSubscription.delete({
+                where: { id: sub.id },
+              });
+            } catch (cleanupError) {
+              this.logger.error(
+                `Failed to remove stale push subscription ${sub.id} (${sub.endpoint})`,
+                cleanupError instanceof Error
+                  ? cleanupError.stack
+                  : String(cleanupError),
+              );
+            }
           } else {
             this.logger.error(
               `Error sending push notification to endpoint ${sub.endpoint}:`,

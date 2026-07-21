@@ -77,6 +77,15 @@ describe('DashboardService', () => {
       expect(result).toHaveProperty('totalRevenue', 250);
       expect(result).toHaveProperty('openAssistanceRequests', 2);
       expect(result).toHaveProperty('recentOrders');
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: {
+              notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+            },
+          }),
+        }),
+      );
     });
 
     it('returns 0 totalRevenue when no orders', async () => {
@@ -155,7 +164,7 @@ describe('DashboardService', () => {
         })
         .mockResolvedValueOnce({ _sum: { totalPrice: 0 } });
       mockPrisma.$queryRaw.mockResolvedValueOnce([
-        { grossAmount: 110, salesAmount: 100 },
+        { provider: 'STRIPE', grossAmount: 110, salesAmount: 100 },
       ]);
       mockPrisma.order.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
 
@@ -165,6 +174,7 @@ describe('DashboardService', () => {
       expect(result.totalTips).toBe(10);
       expect(result.refundedAmount).toBe(110);
       expect(result.netRevenue).toBe(0);
+      expect(result.revenueByMethod).toEqual([{ method: 'STRIPE', amount: 0 }]);
       expect(result.discountPointsRedeemed).toBe(50);
       expect(mockPrisma.payment.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -221,6 +231,15 @@ describe('DashboardService', () => {
       expect(result).toHaveProperty('categoryBreakdown');
       expect(result).toHaveProperty('ordersByStatus');
       expect(result).toHaveProperty('comparison');
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: {
+              notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+            },
+          }),
+        }),
+      );
     });
 
     it('returns cached result on second call with same key', async () => {
@@ -354,12 +373,7 @@ describe('DashboardService', () => {
         end,
         'Europe/Sofia',
       );
-      await service['getCancelAnalytics'](
-        'rest-1',
-        start,
-        end,
-        'Europe/Sofia',
-      );
+      await service['getCancelAnalytics']('rest-1', start, end, 'Europe/Sofia');
 
       expect(sqlFromQueryRawCall(0)).toContain(
         `("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE`,
@@ -671,15 +685,19 @@ describe('DashboardService', () => {
         { provider: 'STRIPE', _sum: { amount: 110, tipAmount: 10 } },
       ]);
       mockPrisma.$queryRaw.mockResolvedValueOnce([
-        { grossAmount: 22, salesAmount: 20 },
+        { provider: 'STRIPE', grossAmount: 22, salesAmount: 20 },
+        { provider: 'EPAY', grossAmount: 5, salesAmount: 5 },
       ]);
 
       const result = await service['getPaymentTotals']('rest-1', start, end);
 
       expect(result).toEqual({
         collectedRevenue: 100,
-        refundedAmount: 20,
-        paymentsByMethod: [{ method: 'STRIPE', amount: 100 }],
+        refundedAmount: 25,
+        paymentsByMethod: [
+          { method: 'STRIPE', amount: 80 },
+          { method: 'EPAY', amount: -5 },
+        ],
       });
       expect(mockPrisma.payment.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -711,7 +729,9 @@ describe('DashboardService', () => {
       expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            status: { not: OrderStatus.CANCELED },
+            status: {
+              notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+            },
             createdAt: { gte: start, lte: end },
           }),
         }),

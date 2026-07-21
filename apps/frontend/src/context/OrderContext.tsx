@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   useEffect,
+  useMemo,
   ReactNode,
 } from "react";
 import {
@@ -258,111 +259,117 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   // Optimistic update — mutate local state immediately, revert on error.
   // The socket `orderStatusChanged` event triggers refreshOrders() as
   // authoritative sync, so no manual refetch is needed here.
-  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
-    mutationVersions.current.set(orderId, version);
-    const previousOrder = ordersRef.current.find(
-      (order) => order.id === orderId,
-    );
-    setOrdersPending([orderId], true);
-    updateOrders((current) =>
-      current.map((order) =>
-        order.id === orderId ? { ...order, status } : order,
-      ),
-    );
-    try {
-      await apiUpdateOrderStatus(orderId, status);
-      if (mutationVersions.current.get(orderId) === version) {
-        await refreshOrders();
-      }
-    } catch (error) {
-      // M-FE-2: revert only this order via a functional update, not the
-      // whole captured snapshot — a blind `setOrders(previous)` would erase
-      // any intervening socket updates to other orders.
-      if (mutationVersions.current.get(orderId) === version && previousOrder) {
-        updateOrders((current) =>
-          current.map((order) =>
-            order.id === orderId
-              ? { ...order, status: previousOrder.status }
-              : order,
-          ),
-        );
-        await refreshOrders();
-      }
-      console.error("Failed to update order status:", error);
-      throw error;
-    } finally {
-      if (mutationVersions.current.get(orderId) === version) {
-        mutationVersions.current.delete(orderId);
-        setOrdersPending([orderId], false);
-      }
-    }
-  };
-
-  const batchUpdateOrderStatus = async (
-    orderIds: string[],
-    status: OrderStatus,
-  ) => {
-    // M-FE-6: matches the guard `refreshOrders` already applies — UI-layer
-    // consistency only; the server remains the real authorization boundary.
-    if (!canAccessOrders) return;
-
-    const previous = ordersRef.current;
-    const idSet = new Set(orderIds);
-    const versions = new Map(
-      orderIds.map((orderId) => {
-        const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
-        mutationVersions.current.set(orderId, version);
-        return [orderId, version] as const;
-      }),
-    );
-    setOrdersPending(orderIds, true);
-    updateOrders((current) =>
-      current.map((order) =>
-        idSet.has(order.id) ? { ...order, status } : order,
-      ),
-    );
-
-    // Settle every call independently — a single failure must not roll back the
-    // orders that the server accepted (the old Promise.all reverted ALL of them
-    // even though some had already changed server-side).
-    const results = await Promise.allSettled(
-      orderIds.map((id) => apiUpdateOrderStatus(id, status)),
-    );
-    const failedIds = orderIds.filter(
-      (orderId, index) =>
-        results[index].status === "rejected" &&
-        mutationVersions.current.get(orderId) === versions.get(orderId),
-    );
-
-    if (failedIds.length > 0) {
-      // Revert only the orders that failed; keep the successful ones updated.
+  const updateOrderStatus = useCallback(
+    async (orderId: string, status: OrderStatus) => {
+      const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
+      mutationVersions.current.set(orderId, version);
+      const previousOrder = ordersRef.current.find(
+        (order) => order.id === orderId,
+      );
+      setOrdersPending([orderId], true);
       updateOrders((current) =>
-        revertFailedOrders(current, previous, failedIds),
+        current.map((order) =>
+          order.id === orderId ? { ...order, status } : order,
+        ),
       );
-    }
-
-    await refreshOrders();
-    const completedIds: string[] = [];
-    for (const orderId of orderIds) {
-      if (mutationVersions.current.get(orderId) === versions.get(orderId)) {
-        mutationVersions.current.delete(orderId);
-        completedIds.push(orderId);
+      try {
+        await apiUpdateOrderStatus(orderId, status);
+        if (mutationVersions.current.get(orderId) === version) {
+          await refreshOrders();
+        }
+      } catch (error) {
+        // M-FE-2: revert only this order via a functional update, not the
+        // whole captured snapshot — a blind `setOrders(previous)` would erase
+        // any intervening socket updates to other orders.
+        if (
+          mutationVersions.current.get(orderId) === version &&
+          previousOrder
+        ) {
+          updateOrders((current) =>
+            current.map((order) =>
+              order.id === orderId
+                ? { ...order, status: previousOrder.status }
+                : order,
+            ),
+          );
+          await refreshOrders();
+        }
+        console.error("Failed to update order status:", error);
+        throw error;
+      } finally {
+        if (mutationVersions.current.get(orderId) === version) {
+          mutationVersions.current.delete(orderId);
+          setOrdersPending([orderId], false);
+        }
       }
-    }
-    setOrdersPending(completedIds, false);
+    },
+    [refreshOrders, setOrdersPending, updateOrders],
+  );
 
-    if (failedIds.length > 0) {
-      const firstRejection = results.find(
-        (r): r is PromiseRejectedResult => r.status === "rejected",
+  const batchUpdateOrderStatus = useCallback(
+    async (orderIds: string[], status: OrderStatus) => {
+      // M-FE-6: matches the guard `refreshOrders` already applies — UI-layer
+      // consistency only; the server remains the real authorization boundary.
+      if (!canAccessOrders) return;
+
+      const previous = ordersRef.current;
+      const idSet = new Set(orderIds);
+      const versions = new Map(
+        orderIds.map((orderId) => {
+          const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
+          mutationVersions.current.set(orderId, version);
+          return [orderId, version] as const;
+        }),
       );
-      console.error(
-        "Failed to batch update order status:",
-        firstRejection?.reason,
+      setOrdersPending(orderIds, true);
+      updateOrders((current) =>
+        current.map((order) =>
+          idSet.has(order.id) ? { ...order, status } : order,
+        ),
       );
-      throw firstRejection?.reason ?? new Error("Batch order update failed");
-    }
-  };
+
+      // Settle every call independently — a single failure must not roll back the
+      // orders that the server accepted (the old Promise.all reverted ALL of them
+      // even though some had already changed server-side).
+      const results = await Promise.allSettled(
+        orderIds.map((id) => apiUpdateOrderStatus(id, status)),
+      );
+      const failedIds = orderIds.filter(
+        (orderId, index) =>
+          results[index].status === "rejected" &&
+          mutationVersions.current.get(orderId) === versions.get(orderId),
+      );
+
+      if (failedIds.length > 0) {
+        // Revert only the orders that failed; keep the successful ones updated.
+        updateOrders((current) =>
+          revertFailedOrders(current, previous, failedIds),
+        );
+      }
+
+      await refreshOrders();
+      const completedIds: string[] = [];
+      for (const orderId of orderIds) {
+        if (mutationVersions.current.get(orderId) === versions.get(orderId)) {
+          mutationVersions.current.delete(orderId);
+          completedIds.push(orderId);
+        }
+      }
+      setOrdersPending(completedIds, false);
+
+      if (failedIds.length > 0) {
+        const firstRejection = results.find(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
+        );
+        console.error(
+          "Failed to batch update order status:",
+          firstRejection?.reason,
+        );
+        throw firstRejection?.reason ?? new Error("Batch order update failed");
+      }
+    },
+    [canAccessOrders, refreshOrders, setOrdersPending, updateOrders],
+  );
 
   // Initial load when a staff/owner session becomes available.
   useEffect(() => {
@@ -416,18 +423,33 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     queryClient,
   ]);
 
-  const value = {
-    orders,
-    refreshOrders,
-    updateOrderStatus,
-    batchUpdateOrderStatus,
-    loadMoreHistory,
-    hasMoreHistory: historyPage < historyTotalPages,
-    isLoadingMoreHistory,
-    isOrderUpdating: (orderId: string) => pendingOrderIds.has(orderId),
-    isLoading,
-    error,
-  };
+  const value = useMemo(
+    () => ({
+      orders,
+      refreshOrders,
+      updateOrderStatus,
+      batchUpdateOrderStatus,
+      loadMoreHistory,
+      hasMoreHistory: historyPage < historyTotalPages,
+      isLoadingMoreHistory,
+      isOrderUpdating: (orderId: string) => pendingOrderIds.has(orderId),
+      isLoading,
+      error,
+    }),
+    [
+      batchUpdateOrderStatus,
+      error,
+      historyPage,
+      historyTotalPages,
+      isLoading,
+      isLoadingMoreHistory,
+      loadMoreHistory,
+      orders,
+      pendingOrderIds,
+      refreshOrders,
+      updateOrderStatus,
+    ],
+  );
 
   return (
     <OrderContext.Provider value={value}>{children}</OrderContext.Provider>

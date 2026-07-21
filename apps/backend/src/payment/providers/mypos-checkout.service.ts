@@ -20,6 +20,7 @@ import {
   paymentBillScopeEquals,
   paymentScopeMatches,
 } from '../payment-scope.utils';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
 
 @Injectable()
 export class MyposCheckoutService {
@@ -169,7 +170,7 @@ export class MyposCheckoutService {
     }
 
     const config = this.config.resolveMyposConfig(restaurant);
-    const currency = 'EUR';
+    const currency = config.currency;
     const tableName = session.table?.name ?? '';
     const description = `QR Menu bill ${tableName}`.trim() || 'QR Menu bill';
     const notifyUrl = `${backendBase}/api/v1/payments/mypos/notify`;
@@ -300,6 +301,7 @@ export class MyposCheckoutService {
       include: {
         restaurant: {
           select: {
+            id: true,
             myposMode: true,
             myposClientNumber: true,
             myposStoreId: true,
@@ -326,13 +328,14 @@ export class MyposCheckoutService {
       return 'ERR=invalid Signature';
     }
 
-    if (result.method && result.method !== 'IPCPurchaseNotify') {
+    if (result.method !== 'IPCPurchaseNotify') {
       return 'ERR=invalid IPCmethod';
     }
 
     const notificationAmount = parseFloat(result.amount || '0');
     const amountOk =
-      Math.abs(notificationAmount - (payment.amount ?? 0)) < 0.01;
+      Math.abs(notificationAmount - (payment.amount ?? 0)) <
+      PAYMENT_AMOUNT_TOLERANCE;
     const currencyOk =
       (result.currency || '').toUpperCase() ===
       (payment.currency ?? 'eur').toUpperCase();

@@ -81,7 +81,13 @@ describe("KitchenPage", () => {
         {
           id: "order-2",
           status: "IN_PROGRESS",
-          items: [{ quantity: 2, menuItem: { name: "Burger" } }],
+          items: [
+            {
+              id: "item-1",
+              quantity: 2,
+              menuItem: { name: "Burger" },
+            },
+          ],
           createdAt: new Date().toISOString(),
         },
       ],
@@ -188,7 +194,13 @@ describe("KitchenPage", () => {
           id: "pending-order",
           status: "PENDING_PAYMENT",
           tableName: "301",
-          items: [{ quantity: 1, menuItem: { name: "Pizza" } }],
+          items: [
+            {
+              id: "item-2",
+              quantity: 1,
+              menuItem: { name: "Pizza" },
+            },
+          ],
           createdAt: new Date().toISOString(),
         },
       ],

@@ -372,17 +372,18 @@ export function PosProvider({ children }: { children: ReactNode }) {
   );
 
   const getTotal = useCallback(() => {
-    return items.reduce((sum, item) => {
+    const total = items.reduce((sum, item) => {
       const optionsTotal = item.selectedOptions.reduce(
         (optSum, opt) => optSum + opt.priceModifier,
         0,
       );
       return sum + (item.price + optionsTotal) * item.quantity;
     }, 0);
+    return Math.round(total * 100) / 100;
   }, [items]);
 
   const getPendingTotal = useCallback(() => {
-    return items
+    const total = items
       .filter((i) => !i.submitted)
       .reduce((sum, item) => {
         const optionsTotal = item.selectedOptions.reduce(
@@ -391,6 +392,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
         );
         return sum + (item.price + optionsTotal) * item.quantity;
       }, 0);
+    return Math.round(total * 100) / 100;
   }, [items]);
 
   const buildSpecialRequests = useCallback(() => {

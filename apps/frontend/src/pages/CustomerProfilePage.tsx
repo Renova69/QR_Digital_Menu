@@ -15,6 +15,10 @@ export const CustomerProfilePage: React.FC = () => {
   const [loyaltyAccounts, setLoyaltyAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
+  const [historyNextCursor, setHistoryNextCursor] = useState<string | null>(
+    null,
+  );
+  const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -23,9 +27,14 @@ export const CustomerProfilePage: React.FC = () => {
       setHistoryLoadFailed(false);
 
       api
-        .get("/loyalty/orders/history")
+        .get("/loyalty/orders/history", { params: { limit: 25 } })
         .then((historyRes) => {
-          if (active) setHistory(historyRes.data || []);
+          if (!active) return;
+          const payload = historyRes.data;
+          setHistory(Array.isArray(payload) ? payload : (payload?.data ?? []));
+          setHistoryNextCursor(
+            Array.isArray(payload) ? null : (payload?.nextCursor ?? null),
+          );
         })
         .catch((err) => {
           console.error("Failed to load order history:", err);
@@ -56,6 +65,31 @@ export const CustomerProfilePage: React.FC = () => {
       setHistoryLoadFailed(false);
     }
   }, [user]);
+
+  const loadMoreHistory = async () => {
+    if (!historyNextCursor || isLoadingMoreHistory) return;
+
+    setIsLoadingMoreHistory(true);
+    setHistoryLoadFailed(false);
+    try {
+      const response = await api.get("/loyalty/orders/history", {
+        params: { limit: 25, cursor: historyNextCursor },
+      });
+      const payload = response.data;
+      const nextOrders = Array.isArray(payload)
+        ? payload
+        : (payload?.data ?? []);
+      setHistory((current) => [...current, ...nextOrders]);
+      setHistoryNextCursor(
+        Array.isArray(payload) ? null : (payload?.nextCursor ?? null),
+      );
+    } catch (err) {
+      console.error("Failed to load more order history:", err);
+      setHistoryLoadFailed(true);
+    } finally {
+      setIsLoadingMoreHistory(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -261,48 +295,64 @@ export const CustomerProfilePage: React.FC = () => {
             <p className="text-sm">{t("profile.noOrdersHint")}</p>
           </div>
         ) : (
-          <ul className="space-y-6">
-            {history.map((order) => (
-              <li
-                key={order.id}
-                className="p-6 bg-primary/5 border border-primary/10 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4"
-              >
-                <div>
-                  <h3 className="font-black text-lg">
-                    {order.restaurant.name}
-                  </h3>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
-                    {new Date(order.createdAt).toLocaleDateString()}{" "}
-                    {t("profile.at")}{" "}
-                    {new Date(order.createdAt).toLocaleTimeString()}
-                  </p>
-                  <p className="text-sm mt-3 font-medium">
-                    {order.items
-                      ?.map(
-                        (i: any) =>
-                          `${i.quantity}x ${i.menuItem?.name || t("profile.noItems")}`,
-                      )
-                      .join(", ") || t("profile.noItems")}
-                  </p>
-                </div>
-                <div className="text-left sm:text-right shrink-0">
-                  <p className="font-bold text-2xl">
-                    €{order.totalPrice.toFixed(2)}
-                  </p>
-                  <div className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
-                    <span>
-                      +{order.pointsEarned} {t("auto.pts", "Pts")}
-                    </span>
-                    {order.pointsRedeemed > 0 && (
-                      <span className="text-red-500 ml-1">
-                        (-{order.pointsRedeemed} {t("auto.pts", "Pts)")}
-                      </span>
-                    )}
+          <>
+            <ul className="space-y-6">
+              {history.map((order) => (
+                <li
+                  key={order.id}
+                  className="p-6 bg-primary/5 border border-primary/10 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4"
+                >
+                  <div>
+                    <h3 className="font-black text-lg">
+                      {order.restaurant.name}
+                    </h3>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
+                      {new Date(order.createdAt).toLocaleDateString()}{" "}
+                      {t("profile.at")}{" "}
+                      {new Date(order.createdAt).toLocaleTimeString()}
+                    </p>
+                    <p className="text-sm mt-3 font-medium">
+                      {order.items
+                        ?.map(
+                          (i: any) =>
+                            `${i.quantity}x ${i.menuItem?.name || t("profile.noItems")}`,
+                        )
+                        .join(", ") || t("profile.noItems")}
+                    </p>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <div className="text-left sm:text-right shrink-0">
+                    <p className="font-bold text-2xl">
+                      €{order.totalPrice.toFixed(2)}
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
+                      <span>
+                        +{order.pointsEarned} {t("auto.pts", "Pts")}
+                      </span>
+                      {order.pointsRedeemed > 0 && (
+                        <span className="text-red-500 ml-1">
+                          (-{order.pointsRedeemed} {t("auto.pts", "Pts)")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {historyNextCursor && (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={loadMoreHistory}
+                  disabled={isLoadingMoreHistory}
+                >
+                  {isLoadingMoreHistory
+                    ? t("profile.loadingMoreOrders", "Loading...")
+                    : t("profile.loadMoreOrders", "Load more orders")}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

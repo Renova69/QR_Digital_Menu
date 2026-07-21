@@ -440,6 +440,9 @@ describe('PaymentCoreService payment-gated order release', () => {
 
   it('atomically releases pending orders when a full payment succeeds', async () => {
     const tx = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'session-1', status: 'OPEN' }]),
       tableSession: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       order: {
@@ -491,6 +494,9 @@ describe('PaymentCoreService payment-gated order release', () => {
 
   it('does not release orders when a captured payment only partially pays the bill', async () => {
     const tx = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'session-1', status: 'OPEN' }]),
       payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       order: {
         findMany: jest.fn(),
@@ -536,13 +542,131 @@ describe('PaymentCoreService payment-gated order release', () => {
     expect(tx.order.updateMany).not.toHaveBeenCalled();
   });
 
+  it.each(['PAID', 'CLOSED_PAID', 'CLOSED_NO_PAYMENT'])(
+    'records a captured full payment for reconciliation when the session is %s',
+    async (sessionStatus) => {
+      const tx = {
+        $queryRaw: jest
+          .fn()
+          .mockResolvedValue([{ id: 'session-1', status: sessionStatus }]),
+        payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        paymentReconciliationIssue: {
+          upsert: jest.fn().mockResolvedValue({ id: 'issue-1' }),
+        },
+        order: {
+          findMany: jest.fn(),
+          updateMany: jest.fn(),
+        },
+      };
+
+      const claim = await service.claimSuccessfulPaymentForOpenSession(
+        tx,
+        {
+          id: 'payment-1',
+          tableSessionId: 'session-1',
+          restaurantId: 'restaurant-1',
+          amount: 25,
+          tipAmount: 0,
+          currency: 'EUR',
+          status: 'ABANDONED',
+          provider: 'EPAY',
+          providerReference: 'invoice-1',
+        },
+        { status: 'SUCCEEDED', providerStatus: 'PAID' },
+      );
+
+      expect(tx.payment.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'payment-1',
+          status: { in: ['PENDING', 'ABANDONED'] },
+        },
+        data: {
+          status: 'SUCCEEDED',
+          providerStatus: 'SESSION_NOT_OPEN_NEEDS_RECONCILIATION',
+        },
+      });
+      expect(tx.paymentReconciliationIssue.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { paymentId: 'payment-1' },
+          create: expect.objectContaining({
+            paymentId: 'payment-1',
+            restaurantId: 'restaurant-1',
+            tableSessionId: 'session-1',
+            reason: 'SESSION_NOT_OPEN',
+            status: 'OPEN',
+          }),
+        }),
+      );
+      expect(claim).toEqual({
+        claimed: true,
+        sessionPaid: false,
+        needsReconciliation: true,
+        reconciliationReason: 'SESSION_NOT_OPEN',
+      });
+      expect(tx.order.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('records a captured scoped payment for reconciliation when the session is closed', async () => {
+    const tx = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'session-1', status: 'CLOSED_PAID' }]),
+      payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      paymentReconciliationIssue: {
+        upsert: jest.fn().mockResolvedValue({ id: 'issue-1' }),
+      },
+      orderItem: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+
+    const claim = await service.claimSuccessfulScopedCheckoutPayment(
+      tx,
+      {
+        id: 'payment-1',
+        tableSessionId: 'session-1',
+        restaurantId: 'restaurant-1',
+        amount: 25,
+        tipAmount: 0,
+        currency: 'EUR',
+        status: 'PENDING',
+        provider: 'STRIPE',
+        stripePaymentIntentId: 'pi_1',
+      },
+      { status: 'SUCCEEDED' },
+      {
+        kind: 'ORDER_ITEMS',
+        orderIds: ['order-1'],
+        chargeSubtotal: 25,
+        allocations: [
+          {
+            orderItemId: 'item-1',
+            quantity: 1,
+            amount: 25,
+            snapshotPaid: 0,
+          },
+        ],
+      },
+    );
+
+    expect(claim).toEqual({
+      claimed: true,
+      sessionPaid: false,
+      needsReconciliation: true,
+      reconciliationReason: 'SESSION_NOT_OPEN',
+    });
+    expect(tx.orderItem.findMany).not.toHaveBeenCalled();
+    expect(tx.orderItem.updateMany).not.toHaveBeenCalled();
+  });
+
   it('releases pending orders when a scoped checkout pays the final balance', async () => {
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: 'session-1' }]),
-      tableSession: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'session-1' }),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'session-1', status: 'OPEN' }]),
+      tableSession: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       orderItem: {
         findMany: jest
           .fn()
@@ -608,11 +732,10 @@ describe('PaymentCoreService payment-gated order release', () => {
 
   it('releases the paid scoped order while unrelated session balance remains', async () => {
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: 'session-1' }]),
-      tableSession: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'session-1' }),
-        updateMany: jest.fn(),
-      },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'session-1', status: 'OPEN' }]),
+      tableSession: { updateMany: jest.fn() },
       orderItem: {
         findMany: jest
           .fn()
