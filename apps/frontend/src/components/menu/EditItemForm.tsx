@@ -34,6 +34,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
   const [description, setDescription] = useState(item.description || "");
   const [price, setPrice] = useState(item.price.toString());
   const [costPrice, setCostPrice] = useState(item.costPrice?.toString() || "");
+  const [weight, setWeight] = useState(item.weight || "");
   const [allergens, setAllergens] = useState<string[]>(item.allergens || []);
   const [dietaryTags, setDietaryTags] = useState<string[]>(
     item.dietaryTags || [],
@@ -64,6 +65,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
         name,
         description,
         price: parseFloat(price),
+        weight: weight.trim() || undefined,
         currency: "EUR",
         allergens,
         dietaryTags,
@@ -170,6 +172,19 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
                 "What this item costs you to make. Used for profit analytics.",
               )}
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("forms.weight", "Weight / serving size")}
+            </label>
+            <Input
+              type="text"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder={t("forms.weightPlaceholder", "e.g. 350 g")}
+              maxLength={100}
+            />
           </div>
 
           <div className="flex items-center space-x-2 pt-2 border-t mt-4 border-border/50">

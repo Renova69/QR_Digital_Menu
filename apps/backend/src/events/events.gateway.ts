@@ -663,13 +663,21 @@ export class EventsGateway
   }
 
   async dispatchPaidOrder(restaurantId: string, orderId: string) {
-    const payload = { id: orderId, status: 'NEW' };
-    this.emitOrderEventToRestaurant(
-      restaurantId,
-      'orderStatusChanged',
-      payload,
-    );
-    this.emitToOrder(orderId, 'orderStatusChanged', payload);
+    const payload = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (payload) {
+      this.emitOrderEventToRestaurant(
+        restaurantId,
+        'orderStatusChanged',
+        payload,
+      );
+      this.emitToOrder(orderId, 'orderStatusChanged', payload);
+    } else {
+      this.logger.warn(
+        `Paid order ${orderId} was not found while dispatching its status`,
+      );
+    }
     try {
       await this.printStationService.routeOrderToPrinters(orderId);
     } catch (error) {
@@ -807,13 +815,7 @@ export class EventsGateway
    * (e.g. Redis) is configured (Issue 39).
    */
   async evictUser(userId: string, reason = 'account_disabled'): Promise<void> {
-    const all = await this.server.fetchSockets();
-    for (const socket of all) {
-      if (String(socket.data.userId) === String(userId)) {
-        socket.emit('auth:evicted', reason);
-        socket.disconnect();
-      }
-    }
+    await this.evictMatchingSockets('userId', userId, reason);
   }
 
   /**
@@ -825,12 +827,65 @@ export class EventsGateway
     deviceTokenId: string,
     reason = 'device_revoked',
   ): Promise<void> {
-    const all = await this.server.fetchSockets();
+    await this.evictMatchingSockets('deviceTokenId', deviceTokenId, reason);
+  }
+
+  private async evictMatchingSockets(
+    claim: 'userId' | 'deviceTokenId',
+    targetId: string,
+    reason: string,
+  ): Promise<void> {
+    let all: Awaited<ReturnType<Server['fetchSockets']>>;
+    try {
+      all = await this.server.fetchSockets();
+    } catch (error) {
+      this.logger.error('Socket eviction lookup failed', {
+        claim,
+        targetId,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    let matched = 0;
+    let failures = 0;
     for (const socket of all) {
-      if (String(socket.data.deviceTokenId) === String(deviceTokenId)) {
-        socket.emit('auth:evicted', reason);
-        socket.disconnect();
+      if (String(socket.data[claim]) === String(targetId)) {
+        matched++;
+        try {
+          socket.emit('auth:evicted', reason);
+        } catch (error) {
+          failures++;
+          this.logger.error('Socket eviction notification failed', {
+            claim,
+            targetId,
+            socketId: socket.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        try {
+          socket.disconnect();
+        } catch (error) {
+          failures++;
+          this.logger.error('Socket eviction disconnect failed', {
+            claim,
+            targetId,
+            socketId: socket.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
+    }
+
+    if (matched > 0 || failures > 0) {
+      this.logger.log('Socket eviction completed', {
+        claim,
+        targetId,
+        matched,
+        failures,
+      });
     }
   }
 }

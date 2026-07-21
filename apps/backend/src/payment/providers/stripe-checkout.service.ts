@@ -260,12 +260,25 @@ export class StripeCheckoutService {
     } catch (err) {
       // Stripe failed after the PENDING record was created — mark it FAILED so
       // it doesn't linger forever and block future intents for this session.
-      await this.prisma.payment
-        .update({
+      try {
+        await this.prisma.payment.update({
           where: { id: payment.id },
           data: { status: 'FAILED', providerReference: null },
-        })
-        .catch(() => {});
+        });
+      } catch (persistenceError) {
+        this.logger.error(
+          'Failed to persist Stripe checkout failure; payment remains reconcilable',
+          {
+            paymentId: payment.id,
+            tableSessionId: session.id,
+            providerError: err instanceof Error ? err.message : String(err),
+            persistenceError:
+              persistenceError instanceof Error
+                ? persistenceError.message
+                : String(persistenceError),
+          },
+        );
+      }
       throw err;
     }
   }
@@ -505,9 +518,20 @@ export class StripeCheckoutService {
       tableSession: { include: { table: { select: { name: true } } } },
     };
 
-    const byRefundId = await this.prisma.refundAttempt
-      .findUnique({ where: { providerRefundId: refundId } })
-      .catch(() => null);
+    let byRefundId;
+    try {
+      byRefundId = await this.prisma.refundAttempt.findUnique({
+        where: { providerRefundId: refundId },
+      });
+    } catch (error) {
+      this.logger.error('Stripe refund webhook lookup failed', {
+        refundId,
+        paymentIntentId,
+        lookup: 'providerRefundId',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
     if (byRefundId) {
       const payment = await this.prisma.payment.findUnique({
         where: { id: byRefundId.paymentId },
@@ -521,9 +545,21 @@ export class StripeCheckoutService {
     // in Stripe refund metadata. This is exact; unlike PaymentIntent fallback,
     // it cannot select an unrelated manual/partial refund.
     if (refundAttemptId) {
-      const byAttemptId = await this.prisma.refundAttempt
-        .findUnique({ where: { id: refundAttemptId } })
-        .catch(() => null);
+      let byAttemptId;
+      try {
+        byAttemptId = await this.prisma.refundAttempt.findUnique({
+          where: { id: refundAttemptId },
+        });
+      } catch (error) {
+        this.logger.error('Stripe refund webhook lookup failed', {
+          refundId,
+          paymentIntentId,
+          refundAttemptId,
+          lookup: 'refundAttemptId',
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
       if (byAttemptId) {
         const payment = await this.prisma.payment.findUnique({
           where: { id: byAttemptId.paymentId },
@@ -679,12 +715,25 @@ export class StripeCheckoutService {
       if (this.isDefinitiveRefundFailure(err)) {
         // Stripe explicitly rejected the request — nothing was created, and the
         // payment/allocations were never touched. Mark the attempt failed.
-        await this.prisma.refundAttempt
-          .updateMany({
+        try {
+          await this.prisma.refundAttempt.updateMany({
             where: { id: attempt.id, status: 'PENDING' },
             data: { status: 'FAILED' },
-          })
-          .catch(() => {});
+          });
+        } catch (persistenceError) {
+          this.logger.error(
+            'Failed to persist definitive Stripe refund failure; attempt remains reconcilable',
+            {
+              paymentId,
+              refundAttemptId: attempt.id,
+              providerError: err instanceof Error ? err.message : String(err),
+              persistenceError:
+                persistenceError instanceof Error
+                  ? persistenceError.message
+                  : String(persistenceError),
+            },
+          );
+        }
         this.logger.error(
           `Stripe refund definitively failed for ${paymentId}`,
           err,

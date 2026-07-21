@@ -117,7 +117,10 @@ export class PaymentProviderConfigService {
         terminal: restaurant.boricaTerminalId!,
         merchant: restaurant.boricaMerchantId!,
         merchantName: restaurant.boricaMerchantName ?? restaurant.name ?? '',
-        privateKeyPem: decryptSecret(restaurant.boricaPrivateKeyEncrypted),
+        privateKeyPem: decryptSecret(restaurant.boricaPrivateKeyEncrypted, {
+          restaurantId: restaurant.id,
+          purpose: 'borica-private-key',
+        }),
         certPem: restaurant.boricaPublicCert!,
       };
     }
@@ -140,7 +143,10 @@ export class PaymentProviderConfigService {
         clientNumber: restaurant.myposClientNumber!,
         storeId: restaurant.myposStoreId!,
         keyIndex: restaurant.myposKeyIndex!,
-        privateKeyPem: decryptSecret(restaurant.myposPrivateKeyEncrypted),
+        privateKeyPem: decryptSecret(restaurant.myposPrivateKeyEncrypted, {
+          restaurantId: restaurant.id,
+          purpose: 'mypos-private-key',
+        }),
         publicCertPem: restaurant.myposPublicCert!,
         currency: (restaurant.myposCurrency || 'EUR').toUpperCase(),
       };
@@ -161,7 +167,10 @@ export class PaymentProviderConfigService {
         process.env.MYPOS_TEST_KEY_INDEX ||
         MYPOS_TEST_KEY_INDEX,
       privateKeyPem: restaurant.myposPrivateKeyEncrypted
-        ? decryptSecret(restaurant.myposPrivateKeyEncrypted)
+        ? decryptSecret(restaurant.myposPrivateKeyEncrypted, {
+            restaurantId: restaurant.id,
+            purpose: 'mypos-private-key',
+          })
         : process.env.MYPOS_TEST_PRIVATE_KEY || MYPOS_TEST_PRIVATE_KEY,
       publicCertPem:
         restaurant.myposPublicCert ||

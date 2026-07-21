@@ -91,6 +91,49 @@ const LOYALTY_CONFIG = {
   MAX_ORDER_DISCOUNT: 0.15, // max 15% of order total redeemable
 } as const;
 
+const ORDER_CREATE_RESTAURANT_FIELDS = {
+  id: true,
+  ownerId: true,
+  isActive: true,
+  tier: true,
+  forceTier: true,
+  timezone: true,
+  happyHourEnable: true,
+  happyHourDays: true,
+  happyHourStartTime: true,
+  happyHourEndTime: true,
+  happyHourMultiplier: true,
+  isLoyaltyEnabled: true,
+  loyaltyExchangeRate: true,
+  loyaltyRedeemRate: true,
+  loyaltySignupBonus: true,
+  loyaltyPointExpiryDays: true,
+  loyaltySilverThreshold: true,
+  loyaltyGoldThreshold: true,
+  loyaltySilverMultiplier: true,
+  loyaltyGoldMultiplier: true,
+  paymentsEnabled: true,
+  stripeOnboarded: true,
+  stripeAccountId: true,
+  epayEnabled: true,
+  epayClientId: true,
+  epayMerchantEmail: true,
+  epaySecretEncrypted: true,
+  boricaEnabled: true,
+  boricaMode: true,
+  boricaTerminalId: true,
+  boricaMerchantId: true,
+  boricaPrivateKeyEncrypted: true,
+  boricaPublicCert: true,
+  myposEnabled: true,
+  myposMode: true,
+  myposClientNumber: true,
+  myposStoreId: true,
+  myposKeyIndex: true,
+  myposPrivateKeyEncrypted: true,
+  myposPublicCert: true,
+} satisfies Prisma.RestaurantSelect;
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -136,6 +179,7 @@ export class OrdersService {
       posPayloadHash = this.hashPosOrderIntent(createOrderDto);
       posRestaurant = await this.prisma.restaurant.findUnique({
         where: { id: posSubmission.restaurantId },
+        select: ORDER_CREATE_RESTAURANT_FIELDS,
       });
       if (!posRestaurant) {
         throw new NotFoundException('Restaurant not found');
@@ -280,6 +324,7 @@ export class OrdersService {
       posRestaurant ??
       (await this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
+        select: ORDER_CREATE_RESTAURANT_FIELDS,
       }));
 
     if (!restaurant) {
@@ -480,18 +525,15 @@ export class OrdersService {
 
     if (!posSubmission && !tableSessionId && servicePoint) {
       resolvedTableCuid = servicePoint.id;
-
-      const newSession = await this.getOrCreateOpenSession(
-        servicePoint.id,
-        restaurantId,
-        true,
-      );
-      tableSessionId = newSession.id;
-      sessionToken = newSession.token;
     } else if (!posSubmission && !tableSessionId && createOrderDto.tableId) {
       // Frontend sends table name (e.g. "1"), not cuid — resolve to real id
       const table = await this.prisma.restaurantTable.findFirst({
-        where: { name: createOrderDto.tableId, restaurantId, type: 'TABLE' },
+        where: {
+          name: createOrderDto.tableId,
+          restaurantId,
+          type: 'TABLE',
+          isActive: true,
+        },
       });
       if (!table)
         throw new NotFoundException('Table not found for this restaurant');
@@ -501,36 +543,12 @@ export class OrdersService {
       tableNameSnapshot = table.name;
       servicePointType = 'TABLE';
       servicePointLabel = table.name;
-
-      const newSession = await this.getOrCreateOpenSession(
-        tableCuid,
-        restaurantId,
-      );
-      tableSessionId = newSession.id;
-      sessionToken = newSession.token;
     }
 
     if (!resolvedTableCuid) {
       throw new BadRequestException(
         'A table or service point is required to place an order.',
       );
-    }
-
-    // #2: refuse to grow a session's bill while a payment is in flight. If a
-    // PENDING payment exists, the customer is mid-checkout against a fixed total;
-    // letting them add a pricey item now and then pay the stale low intent would
-    // mark the larger session PAID for a fraction (underpay). They must complete
-    // or cancel checkout first (cancelling abandons + voids the intent).
-    if (tableSessionId) {
-      const pendingPayment = await this.prisma.payment.findFirst({
-        where: { tableSessionId, status: 'PENDING' },
-        select: { id: true },
-      });
-      if (pendingPayment) {
-        throw new ConflictException(
-          'A payment is in progress for this table. Complete or cancel it before ordering more.',
-        );
-      }
     }
 
     // 6. Happy hour — use restaurant's local timezone via luxon so the window
@@ -839,9 +857,11 @@ export class OrdersService {
       finalOrder = await this.prisma.$transaction(
         async (tx: Prisma.TransactionClient) => {
           if (posSubmission) {
-            const lockedTables = await tx.$queryRaw<Array<{ id: string }>>(
+            const lockedTables = await tx.$queryRaw<
+              Array<{ id: string; name: string }>
+            >(
               Prisma.sql`
-              SELECT "id"
+              SELECT "id", "name"
               FROM "restaurant_table"
               WHERE "id" = ${posSubmission.tableId}
                 AND "restaurantId" = ${restaurantId}
@@ -856,16 +876,22 @@ export class OrdersService {
                 message: 'The selected table is no longer available.',
               });
             }
+            resolvedTableCuid = lockedTables[0].id;
+            tableNameSnapshot = lockedTables[0].name;
+            servicePointLabel = lockedTables[0].name;
 
-            const openSession = await tx.tableSession.findFirst({
-              where: {
-                tableId: posSubmission.tableId,
-                restaurantId,
-                status: 'OPEN',
-                isServicePoint: false,
-              },
-              select: { id: true, token: true },
-            });
+            const openSessions = await tx.$queryRaw<
+              Array<{ id: string; token: string }>
+            >(Prisma.sql`
+              SELECT "id", "token"
+              FROM "table_session"
+              WHERE "tableId" = ${posSubmission.tableId}
+                AND "restaurantId" = ${restaurantId}
+                AND "status" = 'OPEN'
+                AND "isServicePoint" = false
+              FOR UPDATE
+            `);
+            const openSession = openSessions[0] ?? null;
 
             if (posSubmission.expectedTableSessionId === null) {
               if (openSession) {
@@ -902,18 +928,106 @@ export class OrdersService {
               tableSessionId = openSession.id;
               sessionToken = openSession.token;
             }
+          } else if (servicePoint) {
+            let lockedSession: { id: string; token: string } | null = null;
+            if (sessionToken) {
+              const sessions = await tx.$queryRaw<
+                Array<{ id: string; token: string }>
+              >(Prisma.sql`
+                SELECT "id", "token"
+                FROM "table_session"
+                WHERE "token" = ${sessionToken}
+                  AND "restaurantId" = ${restaurantId}
+                  AND "tableId" = ${servicePoint.id}
+                  AND "status" = 'OPEN'
+                  AND "isServicePoint" = true
+                FOR UPDATE
+              `);
+              lockedSession = sessions[0] ?? null;
+            }
 
-            const pendingPayment = await tx.payment.findFirst({
-              where: { tableSessionId, status: 'PENDING' },
-              select: { id: true },
-            });
-            if (pendingPayment) {
+            if (!lockedSession) {
+              lockedSession = await tx.tableSession.create({
+                data: {
+                  tableId: servicePoint.id,
+                  restaurantId,
+                  isServicePoint: true,
+                },
+                select: { id: true, token: true },
+              });
+            }
+            tableSessionId = lockedSession.id;
+            sessionToken = lockedSession.token;
+            resolvedTableCuid = servicePoint.id;
+          } else {
+            if (!resolvedTableCuid) {
+              throw new BadRequestException(
+                'A table is required to place an order.',
+              );
+            }
+
+            const lockedTables = await tx.$queryRaw<
+              Array<{ id: string; name: string }>
+            >(Prisma.sql`
+              SELECT "id", "name"
+              FROM "restaurant_table"
+              WHERE "id" = ${resolvedTableCuid}
+                AND "restaurantId" = ${restaurantId}
+                AND "type" = 'TABLE'
+                AND "isActive" = true
+              FOR UPDATE
+            `);
+            if (lockedTables.length === 0) {
+              throw new NotFoundException(
+                'Table not found for this restaurant',
+              );
+            }
+
+            const openSessions = await tx.$queryRaw<
+              Array<{ id: string; token: string }>
+            >(Prisma.sql`
+              SELECT "id", "token"
+              FROM "table_session"
+              WHERE "tableId" = ${resolvedTableCuid}
+                AND "restaurantId" = ${restaurantId}
+                AND "status" = 'OPEN'
+                AND "isServicePoint" = false
+              FOR UPDATE
+            `);
+            const openSession =
+              openSessions[0] ??
+              (await tx.tableSession.create({
+                data: {
+                  tableId: resolvedTableCuid,
+                  restaurantId,
+                  isServicePoint: false,
+                },
+                select: { id: true, token: true },
+              }));
+            tableSessionId = openSession.id;
+            sessionToken = openSession.token;
+            tableNameSnapshot = lockedTables[0].name;
+            servicePointLabel = lockedTables[0].name;
+          }
+
+          // Session selection and the in-flight payment check share one
+          // transaction and row lock, so close/payment/order races linearize
+          // before any order, item, or loyalty mutation is written.
+          const pendingPayment = await tx.payment.findFirst({
+            where: { tableSessionId, status: 'PENDING' },
+            select: { id: true },
+          });
+          if (pendingPayment) {
+            if (posSubmission) {
               throw new ConflictException({
                 code: 'PAYMENT_IN_PROGRESS',
                 message:
                   'A payment is in progress for this table. Sync will retry after it finishes.',
               });
             }
+            throw new ConflictException(
+              'A payment is in progress for this table. Complete or cancel it before ordering more.',
+            );
           }
 
           let finalTotal = Math.round(computedTotal * 100) / 100; // #3: cents-precise money, not raw float
@@ -1346,7 +1460,9 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        restaurant: true,
+        restaurant: {
+          select: { ownerId: true, loyaltyPointExpiryDays: true },
+        },
         items: { include: { menuItem: true } },
       },
     });

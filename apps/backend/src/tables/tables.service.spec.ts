@@ -53,6 +53,7 @@ describe('TablesService', () => {
       tableSession: {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       order: { findMany: jest.fn().mockResolvedValue([]) },
       tableZone: { findFirst: jest.fn().mockResolvedValue({ id: 'zone-1' }) },
@@ -101,7 +102,7 @@ describe('TablesService', () => {
       expect(events.emitToRestaurant).toHaveBeenCalledWith(
         'rest-1',
         'table:created',
-        expect.any(Object),
+        { tableIds: [mockTable.id] },
       );
       expect(result).toEqual(mockTable);
     });
@@ -846,6 +847,46 @@ describe('TablesService', () => {
             zoneId: 'zone-x',
           }),
         }),
+      );
+    });
+  });
+
+  describe('autoClosePaidSessions', () => {
+    it('isolates event failures after closing every eligible session', async () => {
+      prisma.tableSession.findMany.mockResolvedValue([
+        { id: 'session-1', restaurantId: 'rest-1', tableId: 'table-1' },
+        { id: 'session-2', restaurantId: 'rest-1', tableId: 'table-2' },
+      ]);
+      events.emitTableStatusChanged
+        .mockImplementationOnce(() => {
+          throw new Error('socket unavailable');
+        })
+        .mockImplementationOnce(() => undefined);
+      jest
+        .spyOn(service['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      await service.autoClosePaidSessions();
+
+      expect(prisma.tableSession.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['session-1', 'session-2'] } },
+        data: { status: 'CLOSED_PAID' },
+      });
+      expect(events.emitTableStatusChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it('logs a query failure without rejecting the scheduler', async () => {
+      prisma.tableSession.findMany.mockRejectedValue(new Error('db offline'));
+      const error = jest
+        .spyOn(service['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(service.autoClosePaidSessions()).resolves.toBeUndefined();
+      expect(error).toHaveBeenCalledWith(
+        'Paid-session auto-close cron failed',
+        {
+          error: 'db offline',
+        },
       );
     });
   });

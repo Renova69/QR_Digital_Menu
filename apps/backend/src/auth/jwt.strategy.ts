@@ -5,6 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { FeatureService } from '../subscription/feature.service';
+import { isBearerJwtAuthEnabled } from './auth-runtime-policy';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -13,18 +14,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly featureService: FeatureService,
   ) {
-    const allowBearerAuth =
-      process.env.NODE_ENV === 'test' ||
-      process.env.NODE_ENV === 'development' ||
-      process.env.ALLOW_BEARER_AUTH === 'true';
-    // Production and unset NODE_ENV: cookie-only. Bearer auth must be explicitly enabled.
-    const extractors =
-      allowBearerAuth && process.env.NODE_ENV !== 'production'
-        ? [
-            ExtractJwt.fromAuthHeaderAsBearerToken(),
-            (req: any) => req?.cookies?.token ?? null,
-          ]
-        : [(req: any) => req?.cookies?.token ?? null];
+    const extractors = isBearerJwtAuthEnabled()
+      ? [
+          ExtractJwt.fromAuthHeaderAsBearerToken(),
+          (req: any) => req?.cookies?.token ?? null,
+        ]
+      : [(req: any) => req?.cookies?.token ?? null];
     super({
       jwtFromRequest: ExtractJwt.fromExtractors(extractors),
       ignoreExpiration: false,

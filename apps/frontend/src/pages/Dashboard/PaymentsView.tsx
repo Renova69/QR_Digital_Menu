@@ -44,6 +44,7 @@ import {
   statusStyles,
 } from "./paymentsShared";
 import { PaymentDrawer } from "./PaymentDrawer";
+import { PaymentReconciliationQueue } from "./PaymentReconciliationQueue";
 
 type PaymentTab = "transactions" | "payouts" | "refunds" | "settings";
 
@@ -337,6 +338,8 @@ const PaymentsView = () => {
           </p>
         </div>
       </div>
+
+      <PaymentReconciliationQueue restaurantId={activeRestaurant?.id} />
 
       <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {/* Stripe */}

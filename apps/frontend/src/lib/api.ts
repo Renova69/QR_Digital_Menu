@@ -555,6 +555,76 @@ export const getPaymentHistory = (
     .get(`/payments/history/${restaurantId}`, { params })
     .then((res) => res.data);
 
+export type PaymentReconciliationProvider =
+  | "STRIPE"
+  | "EPAY"
+  | "BORICA"
+  | "MYPOS"
+  | "CASH";
+
+export type PaymentReconciliationReason =
+  | "SESSION_NOT_OPEN"
+  | "SCOPE_AMOUNT_MISMATCH"
+  | "SCOPE_CONFLICT"
+  | "PROVIDER_CONFIRMATION_MISMATCH"
+  | "PROVIDER_STATUS_UNKNOWN"
+  | "HISTORICAL_CAPTURE";
+
+export type PaymentReconciliationStatus = "OPEN" | "RESOLVED" | "DISMISSED";
+
+export interface PaymentReconciliationIssue {
+  id: string;
+  paymentId: string;
+  restaurantId: string;
+  tableSessionId: string | null;
+  provider: PaymentReconciliationProvider;
+  reason: PaymentReconciliationReason;
+  status: PaymentReconciliationStatus;
+  amount: number;
+  currency: string;
+  providerReference: string | null;
+  providerStatus: string | null;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  payment: {
+    id: string;
+    status: string;
+    provider: PaymentReconciliationProvider;
+    amount: number;
+    currency: string;
+    tipAmount: number;
+    providerReference: string | null;
+    stripePaymentIntentId: string | null;
+    createdAt: string;
+  };
+  tableSession: {
+    id: string;
+    status: "OPEN" | "PAID" | "CLOSED_PAID" | "CLOSED_NO_PAYMENT";
+    table: { name: string };
+  } | null;
+}
+
+export const getPaymentReconciliationIssues = (
+  restaurantId: string,
+  status: PaymentReconciliationStatus = "OPEN",
+) =>
+  api
+    .get(`/payments/reconciliation/${restaurantId}`, { params: { status } })
+    .then((res) => res.data as PaymentReconciliationIssue[]);
+
+export const resolvePaymentReconciliationIssue = (
+  issueId: string,
+  data: {
+    status: Exclude<PaymentReconciliationStatus, "OPEN">;
+    note?: string;
+  },
+) =>
+  api
+    .post(`/payments/reconciliation/issues/${issueId}/resolve`, data)
+    .then((res) => res.data as PaymentReconciliationIssue);
+
 export const getPaymentsExport = (
   restaurantId: string,
   params?: {
@@ -1680,13 +1750,25 @@ export const revokeAgentToken = (
 
 // ── Super-admin: tenant ops ───────────────────────────────────────────────────
 export const superAdminForceLogout = (id: string) =>
-  api.post(`/super-admin/tenants/${id}/force-logout`).then((r) => r.data);
+  api
+    .post(`/super-admin/tenants/${id}/force-logout`, {
+      confirmation: "CONFIRM",
+    })
+    .then((r) => r.data);
 
 export const superAdminRegenerateApiKey = (id: string) =>
-  api.post(`/super-admin/tenants/${id}/regenerate-api-key`).then((r) => r.data);
+  api
+    .post(`/super-admin/tenants/${id}/regenerate-api-key`, {
+      confirmation: "CONFIRM",
+    })
+    .then((r) => r.data);
 
 export const superAdminImpersonate = (id: string) =>
-  api.post(`/super-admin/tenants/${id}/impersonate`).then((r) => r.data);
+  api
+    .post(`/super-admin/tenants/${id}/impersonate`, {
+      confirmation: "CONFIRM",
+    })
+    .then((r) => r.data);
 
 // ── Super-admin: payment sessions ────────────────────────────────────────────
 export const superAdminGetSessions = (id: string, page = 1, limit = 20) =>
@@ -1699,7 +1781,9 @@ export const superAdminForceCloseSession = (
   sessionId: string,
 ) =>
   api
-    .delete(`/super-admin/tenants/${tenantId}/sessions/${sessionId}`)
+    .delete(`/super-admin/tenants/${tenantId}/sessions/${sessionId}`, {
+      data: { confirmation: "CONFIRM" },
+    })
     .then((r) => r.data);
 
 // ── Super-admin: loyalty ──────────────────────────────────────────────────────
@@ -1739,7 +1823,12 @@ export const superAdminGetDataRequests = (params?: {
 
 export const superAdminUpdateDataRequest = (
   id: string,
-  patch: { status?: string; notes?: string; downloadUrl?: string },
+  patch: {
+    status?: string;
+    notes?: string;
+    downloadUrl?: string;
+    confirmation?: "CONFIRM";
+  },
 ) => api.patch(`/super-admin/data-requests/${id}`, patch).then((r) => r.data);
 
 // ── Impersonation exchange (public — no auth required) ────────────────────────

@@ -60,6 +60,7 @@ export interface Item {
   description: string | null;
   originalDescription?: string | null;
   price: number;
+  weight?: string | null;
   currency: "EUR" | "BGN";
   categoryId: string;
   imageUrl?: string | null;

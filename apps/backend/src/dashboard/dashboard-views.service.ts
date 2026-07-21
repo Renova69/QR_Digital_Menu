@@ -27,7 +27,7 @@ export class DashboardViewsService implements OnModuleInit {
         COUNT(*)::int                    AS order_count,
         COALESCE(SUM(o."totalPrice"), 0) AS revenue
       FROM customer_order o
-      WHERE o.status != 'CANCELED'
+      WHERE o.status NOT IN ('CANCELED', 'PENDING_PAYMENT')
       GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt")`,
       index: `CREATE UNIQUE INDEX mv_daily_stats_uid ON mv_daily_stats ("restaurantId", day_utc)`,
     },
@@ -42,7 +42,7 @@ export class DashboardViewsService implements OnModuleInit {
         COUNT(*)::int                           AS order_count,
         COALESCE(SUM(o."totalPrice"), 0)        AS revenue
       FROM customer_order o
-      WHERE o.status != 'CANCELED'
+      WHERE o.status NOT IN ('CANCELED', 'PENDING_PAYMENT')
       GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt"), EXTRACT(HOUR FROM o."createdAt")`,
       index: `CREATE UNIQUE INDEX mv_peak_hours_uid ON mv_peak_hours ("restaurantId", day_utc, hour_utc)`,
     },
@@ -61,7 +61,7 @@ export class DashboardViewsService implements OnModuleInit {
       FROM order_item oi
       JOIN customer_order o  ON oi."orderId"    = o.id
       LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
-      WHERE o.status != 'CANCELED'
+      WHERE o.status NOT IN ('CANCELED', 'PENDING_PAYMENT')
       GROUP BY o."restaurantId", COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"),
                oi."menuItemId", COALESCE(mi.name, oi."itemName"), DATE_TRUNC('day', o."createdAt")`,
       index: `CREATE UNIQUE INDEX mv_item_stats_uid ON mv_item_stats ("restaurantId", "itemKey", day_utc)`,

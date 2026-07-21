@@ -67,11 +67,20 @@ const makeOrder = (overrides: Record<string, any> = {}) => ({
 
 // tx passed to the main $transaction in create()
 const makeTx = (orderOverride: Record<string, any> = {}) => ({
-  $queryRaw: jest.fn().mockResolvedValue([]),
+  $queryRaw: jest.fn().mockImplementation((query: any) => {
+    const sql = query?.strings?.join(' ') ?? '';
+    if (sql.includes('FROM "restaurant_table"')) {
+      return Promise.resolve([{ id: 'table-cuid-1', name: 'T1' }]);
+    }
+    return Promise.resolve([]);
+  }),
   $executeRaw: jest.fn().mockResolvedValue(0),
   tableSession: {
     findFirst: jest.fn().mockResolvedValue(null),
     create: jest.fn().mockResolvedValue({ id: 'sess-new', token: 'tok-new' }),
+  },
+  payment: {
+    findFirst: jest.fn().mockResolvedValue(null),
   },
   loyaltyAccount: {
     findUnique: jest.fn().mockResolvedValue(null),
@@ -778,7 +787,9 @@ describe('OrdersService', () => {
       (tx as any).payment = {
         findFirst: jest.fn().mockResolvedValue(null),
       };
-      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([]);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
@@ -884,7 +895,11 @@ describe('OrdersService', () => {
       (tx as any).payment = {
         findFirst: jest.fn().mockResolvedValue(null),
       };
-      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([
+          { id: 'unexpected-session', token: 'unexpected-token' },
+        ]);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
@@ -948,7 +963,9 @@ describe('OrdersService', () => {
       (tx as any).payment = {
         findFirst: jest.fn().mockResolvedValue(null),
       };
-      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([]);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ price: 11 })]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
@@ -1315,6 +1332,9 @@ describe('OrdersService', () => {
       });
 
       const tx = makeTx();
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([{ id: 'sess-exist', token: 'tok-exist' }]);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1412,7 +1432,7 @@ describe('OrdersService', () => {
       > as CreateOrderDto & UpdateOrderDto);
 
       expect(result.sessionToken).toBe('tok-new');
-      expect(prisma.tableSession.create).toHaveBeenCalledWith({
+      expect(tx.tableSession.create).toHaveBeenCalledWith({
         data: {
           tableId: 'room-cuid-304',
           restaurantId: 'rest-1',
@@ -1529,7 +1549,7 @@ describe('OrdersService', () => {
       await service.create(input);
       await service.create(input);
 
-      expect(prisma.tableSession.create).toHaveBeenCalledTimes(2);
+      expect(tx.tableSession.create).toHaveBeenCalledTimes(2);
     });
 
     it('rejects online preference when restaurant payments are disabled', async () => {
@@ -1654,6 +1674,9 @@ describe('OrdersService', () => {
         tableId: 'table-cuid-9',
       });
       const tx = makeTx();
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-9', name: 'T9' }])
+        .mockResolvedValueOnce([{ id: 'sess-exist', token: 'tok-exist' }]);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1745,7 +1768,7 @@ describe('OrdersService', () => {
       expect(tx.tableSession.create).toHaveBeenCalled();
     });
 
-    it('recovers from P2002 concurrent session creation race on table-id path (#F1)', async () => {
+    it('uses the OPEN session returned by the locked session read', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-cuid-1',
@@ -1757,13 +1780,14 @@ describe('OrdersService', () => {
 
       // First $transaction (getOrCreateOpenSession) loses the race → P2002.
       // Second $transaction (loyalty + order) succeeds normally.
-      prisma.$transaction
-        .mockRejectedValueOnce({ code: 'P2002' })
-        .mockImplementationOnce(async (fn: (tx: any) => any) => fn(tx));
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([racedSession]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       // Fallback re-reads the OPEN session created by the concurrent winner.
-      prisma.tableSession.findFirst.mockResolvedValueOnce(racedSession);
-
       const result = await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
@@ -1778,14 +1802,8 @@ describe('OrdersService', () => {
         'sess-raced',
       );
       // Fallback re-read scoped correctly (tenant-isolation assertion).
-      const fallbackCall =
-        prisma.tableSession.findFirst.mock.calls[
-          prisma.tableSession.findFirst.mock.calls.length - 1
-        ][0];
-      expect(fallbackCall.where).toMatchObject({
-        tableId: 'table-cuid-1',
-        status: 'OPEN',
-      });
+      expect(tx.tableSession.create).not.toHaveBeenCalled();
+      expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
     });
 
     it('reuses existing OPEN session within table session transaction', async () => {
@@ -1795,10 +1813,9 @@ describe('OrdersService', () => {
         name: 'T1',
       });
       const tx = makeTx();
-      tx.tableSession.findFirst.mockResolvedValue({
-        id: 'sess-open',
-        token: 'tok-open',
-      });
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([{ id: 'sess-open', token: 'tok-open' }]);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -2528,6 +2545,15 @@ describe('OrdersService', () => {
 
       const result = await service.findOne('order-1', 'user-1');
       expect(result).toBe(order);
+      expect(prisma.order.findUnique).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        include: {
+          restaurant: {
+            select: { ownerId: true, loyaltyPointExpiryDays: true },
+          },
+          items: { include: { menuItem: true } },
+        },
+      });
     });
 
     it('returns order for staff assigned to the restaurant', async () => {
@@ -2861,7 +2887,14 @@ describe('OrdersService', () => {
         tableId: 'table-cuid-1',
         status: 'OPEN',
       });
-      prisma.payment.findFirst.mockResolvedValue({ id: 'pay-pending' });
+      const tx = makeTx();
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([{ id: 'sess-open', token: 'tok-open' }]);
+      tx.payment.findFirst.mockResolvedValue({ id: 'pay-pending' });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await expect(
         service.create({
@@ -3042,8 +3075,8 @@ describe('OrdersService', () => {
 
   describe('create — loyalty FOR UPDATE lock (Issue 15)', () => {
     it('calls $queryRaw with FOR UPDATE inside transaction when loyalty is enabled', async () => {
-      const queryRawMock = jest.fn().mockResolvedValue([]);
-      const tx = { ...makeTx(), $queryRaw: queryRawMock };
+      const tx = makeTx();
+      const queryRawMock = tx.$queryRaw;
       prisma.$transaction.mockImplementation((fn: any) => fn(tx));
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ isLoyaltyEnabled: true }),
@@ -3068,8 +3101,15 @@ describe('OrdersService', () => {
       );
 
       expect(queryRawMock).toHaveBeenCalled();
-      const call = queryRawMock.mock.calls[0][0] as unknown[];
-      expect(String(call)).toContain('FOR UPDATE');
+      const sqlCalls = queryRawMock.mock.calls.map(
+        ([query]: any[]) => query?.strings?.join(' ') ?? String(query),
+      );
+      expect(
+        sqlCalls.some(
+          (sql) =>
+            sql.includes('loyalty_account') && sql.includes('FOR UPDATE'),
+        ),
+      ).toBe(true);
     });
   });
 

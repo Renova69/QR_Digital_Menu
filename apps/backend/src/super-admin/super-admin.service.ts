@@ -900,43 +900,53 @@ export class SuperAdminService {
     sessionId: string,
     actorUserId: string,
   ) {
-    const session = await this.prisma.tableSession.findUnique({
-      where: { id: sessionId },
-      select: { id: true, token: true, restaurantId: true, status: true },
-    });
-    if (!session)
-      throw new NotFoundException({
-        code: 'SESSION_NOT_FOUND',
-        message: 'Session not found',
-      });
-    if (session.restaurantId !== restaurantId)
-      throw new BadRequestException({
-        code: 'SESSION_MISMATCH',
-        message: 'Session does not belong to this restaurant',
-      });
-    if (
-      session.status === 'CLOSED_NO_PAYMENT' ||
-      session.status === 'CLOSED_PAID'
-    )
-      throw new BadRequestException({
-        code: 'ALREADY_CLOSED',
-        message: 'Session already closed',
-      });
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          token: string;
+          restaurantId: string;
+          status: 'OPEN' | 'PAID' | 'CLOSED_PAID' | 'CLOSED_NO_PAYMENT';
+        }>
+      >(Prisma.sql`
+        SELECT "id", "token", "restaurantId", "status"
+        FROM "table_session"
+        WHERE "id" = ${sessionId}
+        FOR UPDATE
+      `);
+      const session = rows[0];
+      if (!session) {
+        throw new NotFoundException({
+          code: 'SESSION_NOT_FOUND',
+          message: 'Session not found',
+        });
+      }
+      if (session.restaurantId !== restaurantId) {
+        throw new BadRequestException({
+          code: 'SESSION_MISMATCH',
+          message: 'Session does not belong to this restaurant',
+        });
+      }
+      if (
+        session.status === 'CLOSED_NO_PAYMENT' ||
+        session.status === 'CLOSED_PAID'
+      ) {
+        throw new BadRequestException({
+          code: 'ALREADY_CLOSED',
+          message: 'Session already closed',
+        });
+      }
 
-    // Force-close must not destroy payment history: a PAID session is settled,
-    // so it closes as CLOSED_PAID. Only an unpaid (OPEN) session becomes
-    // CLOSED_NO_PAYMENT. CLOSED_PAID mirrors the normal paid-close path in
-    // tables.service.ts.
-    const nextStatus =
-      session.status === 'PAID' ? 'CLOSED_PAID' : 'CLOSED_NO_PAYMENT';
-
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.tableSession.update({
+      // Derive the terminal state only after locking and re-reading the row so
+      // a concurrent successful settlement cannot be overwritten as unpaid.
+      const nextStatus =
+        session.status === 'PAID' ? 'CLOSED_PAID' : 'CLOSED_NO_PAYMENT';
+      const updated = await tx.tableSession.update({
         where: { id: sessionId },
         data: { status: nextStatus },
         select: { id: true, status: true },
-      }),
-      this.prisma.adminAuditLog.create({
+      });
+      await tx.adminAuditLog.create({
         data: {
           actorUserId,
           action: 'FORCE_CLOSE_SESSION',
@@ -949,9 +959,9 @@ export class SuperAdminService {
             status: nextStatus,
           },
         },
-      }),
-    ]);
-    return updated;
+      });
+      return updated;
+    });
   }
 
   async getLoyaltyAccounts(restaurantId: string) {
@@ -1187,26 +1197,71 @@ export class SuperAdminService {
 
   async updateDataRequest(
     id: string,
-    patch: { status?: string; notes?: string; downloadUrl?: string },
+    patch: {
+      status?: string;
+      notes?: string;
+      downloadUrl?: string;
+      confirmation?: string;
+    },
     actorUserId: string,
   ) {
-    const request = await this.prisma.dataRequest.findUnique({ where: { id } });
-    if (!request)
-      throw new NotFoundException({
-        code: 'REQUEST_NOT_FOUND',
-        message: 'Data request not found',
+    const { confirmation, ...requestPatch } = patch;
+
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.dataRequest.findUnique({ where: { id } });
+      if (!request) {
+        throw new NotFoundException({
+          code: 'REQUEST_NOT_FOUND',
+          message: 'Data request not found',
+        });
+      }
+
+      const statusChanged =
+        requestPatch.status !== undefined &&
+        requestPatch.status !== request.status;
+      const isTerminalTransition =
+        statusChanged &&
+        (requestPatch.status === 'COMPLETED' ||
+          requestPatch.status === 'REJECTED');
+      if (isTerminalTransition && confirmation !== 'CONFIRM') {
+        throw new BadRequestException({
+          code: 'CONFIRMATION_REQUIRED',
+          message: 'Terminal data request status changes require confirmation',
+        });
+      }
+
+      const processingPatch = statusChanged
+        ? isTerminalTransition
+          ? { processedAt: new Date(), processedByUserId: actorUserId }
+          : { processedAt: null, processedByUserId: null }
+        : {};
+      const updated = await tx.dataRequest.update({
+        where: { id },
+        data: {
+          ...requestPatch,
+          ...processingPatch,
+        },
       });
 
-    const isTerminal =
-      patch.status === 'COMPLETED' || patch.status === 'REJECTED';
-    return this.prisma.dataRequest.update({
-      where: { id },
-      data: {
-        ...patch,
-        ...(isTerminal
-          ? { processedAt: new Date(), processedByUserId: actorUserId }
-          : {}),
-      },
+      const changedFields = (
+        ['status', 'notes', 'downloadUrl'] as const
+      ).filter((field) => requestPatch[field] !== undefined);
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'DATA_REQUEST_UPDATE',
+          targetType: 'DATA_REQUEST',
+          targetId: id,
+          metadata: {
+            changedFields,
+            previousStatus: request.status,
+            nextStatus: updated.status,
+            terminalStatusConfirmed: isTerminalTransition,
+          },
+        },
+      });
+
+      return updated;
     });
   }
 

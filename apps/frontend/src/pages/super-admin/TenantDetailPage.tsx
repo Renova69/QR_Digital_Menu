@@ -847,7 +847,15 @@ export default function TenantDetailPage() {
               </p>
             </div>
             <button
-              onClick={() => forceLogoutMutation.mutate()}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Force logout the tenant owner from all active sessions?",
+                  )
+                ) {
+                  forceLogoutMutation.mutate();
+                }
+              }}
               disabled={forceLogoutMutation.isPending}
               className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 disabled:opacity-40 transition-colors"
             >
@@ -883,7 +891,15 @@ export default function TenantDetailPage() {
               )}
             </div>
             <button
-              onClick={() => regenApiKeyMutation.mutate()}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Regenerate the import API key? The current key will stop working immediately.",
+                  )
+                ) {
+                  regenApiKeyMutation.mutate();
+                }
+              }}
               disabled={regenApiKeyMutation.isPending}
               className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 text-xs font-semibold hover:bg-violet-500/20 disabled:opacity-40 transition-colors"
             >
@@ -922,7 +938,15 @@ export default function TenantDetailPage() {
               )}
             </div>
             <button
-              onClick={() => impersonateMutation.mutate()}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Create a privileged one-time owner impersonation session?",
+                  )
+                ) {
+                  impersonateMutation.mutate();
+                }
+              }}
               disabled={impersonateMutation.isPending}
               className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-semibold hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
             >
@@ -961,7 +985,15 @@ export default function TenantDetailPage() {
                   </div>
                   {s.status !== "CLOSED_NO_PAYMENT" && (
                     <button
-                      onClick={() => forceCloseSessionMutation.mutate(s.id)}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Force close this payment session? This cannot be undone.",
+                          )
+                        ) {
+                          forceCloseSessionMutation.mutate(s.id);
+                        }
+                      }}
                       disabled={forceCloseSessionMutation.isPending}
                       className="shrink-0 text-xs text-red-400 border border-red-500/20 rounded px-2 py-1 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
                     >

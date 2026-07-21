@@ -13,6 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersDataService } from './users-data.service';
+import { clearAuthTokenCookie } from '../auth/auth-cookie';
 
 @ApiTags('users-data')
 @Controller('users/me')
@@ -37,6 +38,6 @@ export class UsersDataController {
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.usersDataService.eraseSelf(req.user.id);
-    res.clearCookie('token');
+    clearAuthTokenCookie(res);
   }
 }

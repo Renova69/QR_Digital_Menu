@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
   ReactNode,
 } from "react";
 import { useSocket } from "./SocketContext";
@@ -136,19 +137,28 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const value = useMemo(
+    () => ({
+      notifications,
+      unreadCount,
+      showToast,
+      dismissToast,
+      markAllRead,
+      clearAll,
+      __providerMounted: true,
+    }),
+    [
+      clearAll,
+      dismissToast,
+      markAllRead,
+      notifications,
+      showToast,
+      unreadCount,
+    ],
+  );
 
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        showToast,
-        dismissToast,
-        markAllRead,
-        clearAll,
-        __providerMounted: true,
-      }}
-    >
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );

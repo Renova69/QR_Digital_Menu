@@ -7,11 +7,16 @@ import {
   ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BoricaCardholderInfo, BoricaProvider } from '../borica.provider';
 import { PaymentCoreService } from '../core/payment-core.service';
 import { PaymentProviderConfigService } from '../payment-provider-config.service';
-import { PaymentProvider, Prisma } from '@prisma/client';
+import {
+  PaymentProvider,
+  PaymentReconciliationReason,
+  Prisma,
+} from '@prisma/client';
 import { SplitMode } from '../dto/settle-partial.dto';
 import {
   CheckoutScopeInput,
@@ -22,6 +27,7 @@ import {
   paymentScopeMatches,
 } from '../payment-scope.utils';
 import { BoricaCardholderInput } from '../payment.types';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
 
 @Injectable()
 export class BoricaCheckoutService {
@@ -94,6 +100,282 @@ export class BoricaCheckoutService {
 
   isBoricaNonFinalStatus(result: { rc?: string | null }): boolean {
     return ['-17', '-25', '-31'].includes((result.rc ?? '').trim());
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES, {
+    name: 'boricaPaymentReconciliation',
+    waitForCompletion: true,
+  })
+  async reconcileBoricaPayments() {
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
+    const reviewCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        provider: PaymentProvider.BORICA,
+        updatedAt: { lt: staleBefore },
+        OR: [
+          { status: 'PENDING' },
+          { status: 'FAILED', providerStatus: 'EXPIRED' },
+        ],
+      },
+      include: {
+        restaurant: true,
+        tableSession: {
+          include: { table: { select: { name: true } } },
+        },
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: 100,
+    });
+
+    const summary = {
+      scanned: 0,
+      recovered: 0,
+      pending: 0,
+      declined: 0,
+      duplicates: 0,
+      manualReview: 0,
+      errors: 0,
+    };
+
+    for (const payment of payments) {
+      summary.scanned += 1;
+      try {
+        if (!payment.providerReference) {
+          await this.flagBoricaStatusForManualReview(
+            payment,
+            'BORICA payment has no provider reference',
+          );
+          summary.manualReview += 1;
+          continue;
+        }
+        if (payment.createdAt < reviewCutoff) {
+          await this.flagBoricaStatusForManualReview(
+            payment,
+            'BORICA status remained unknown beyond the reconciliation TTL',
+          );
+          summary.manualReview += 1;
+          continue;
+        }
+
+        const keypair = this.config.resolveBoricaKeypair(payment.restaurant);
+        const result = await this.borica.queryTransactionStatus(
+          {
+            terminal: keypair.terminal,
+            order: payment.providerReference,
+            privateKeyPem: keypair.privateKeyPem,
+            certPem: keypair.certPem,
+          },
+          payment.restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
+        );
+
+        if (!result?.verified || this.isBoricaNonFinalStatus(result)) {
+          await this.keepBoricaPaymentRecoverable(payment.id);
+          summary.pending += 1;
+          continue;
+        }
+
+        const eventKey = [
+          'status',
+          payment.providerReference,
+          result.rrn || result.intRef || `${result.rc}:${result.action}`,
+        ].join(':');
+        const providerPayload = this.core.mergeProviderPayload(
+          payment.providerPayload,
+          {
+            statusCheck: result,
+            statusCheckedAt: new Date().toISOString(),
+          },
+        );
+
+        if (result.rc === '00' && result.action === '0') {
+          const amountOk =
+            Math.abs(parseFloat(result.amount || '0') - (payment.amount ?? 0)) <
+            PAYMENT_AMOUNT_TOLERANCE;
+          const currencyOk =
+            (result.currency || '').toUpperCase() ===
+            (payment.currency || 'EUR').toUpperCase();
+          const terminalOk = result.terminal === keypair.terminal;
+          const orderOk = result.order === payment.providerReference;
+          const allowFailedRecovery =
+            payment.status === 'FAILED' && payment.providerStatus === 'EXPIRED';
+
+          const claim = await this.prisma.$transaction(async (tx) => {
+            const recorded = await this.core.recordProviderEvent(
+              tx,
+              PaymentProvider.BORICA,
+              eventKey,
+              {
+                paymentId: payment.id,
+                restaurantId: payment.restaurantId,
+                payload: {
+                  source: 'TRTYPE_90',
+                  order: result.order,
+                  rc: result.rc,
+                  action: result.action,
+                  rrn: result.rrn || null,
+                  intRef: result.intRef || null,
+                },
+              },
+            );
+            if (!recorded) return null;
+
+            if (!amountOk || !currencyOk || !terminalOk || !orderOk) {
+              return this.core.recordCapturedPaymentForReconciliation(
+                tx,
+                payment,
+                {
+                  status: 'SUCCEEDED',
+                  providerPayload: providerPayload as Prisma.InputJsonValue,
+                },
+                PaymentReconciliationReason.PROVIDER_CONFIRMATION_MISMATCH,
+                {
+                  amountOk,
+                  currencyOk,
+                  terminalOk,
+                  orderOk,
+                  statusResult: result,
+                },
+                { allowFailedRecovery },
+              );
+            }
+
+            return this.core.claimSuccessfulPayment(
+              tx,
+              payment,
+              {
+                status: 'SUCCEEDED',
+                providerStatus: 'RECOVERED_VIA_STATUS_CHECK',
+                providerPayload: providerPayload as Prisma.InputJsonValue,
+              },
+              { allowFailedRecovery },
+            );
+          });
+
+          if (!claim) {
+            summary.duplicates += 1;
+            continue;
+          }
+          await this.core.emitPaymentClaimEvents(payment, claim);
+          if (claim.claimed) summary.recovered += 1;
+          if (claim.needsReconciliation) summary.manualReview += 1;
+          continue;
+        }
+
+        const declined = await this.prisma.$transaction(async (tx) => {
+          const recorded = await this.core.recordProviderEvent(
+            tx,
+            PaymentProvider.BORICA,
+            eventKey,
+            {
+              paymentId: payment.id,
+              restaurantId: payment.restaurantId,
+              payload: {
+                source: 'TRTYPE_90',
+                order: result.order,
+                rc: result.rc,
+                action: result.action,
+              },
+            },
+          );
+          if (!recorded) return false;
+          await tx.payment.updateMany({
+            where: {
+              id: payment.id,
+              status: { in: ['PENDING', 'FAILED'] },
+            },
+            data: {
+              status: 'FAILED',
+              providerStatus: result.rc || 'DECLINED',
+              providerPayload: providerPayload as Prisma.InputJsonValue,
+            },
+          });
+          return true;
+        });
+        if (!declined) {
+          summary.duplicates += 1;
+          continue;
+        }
+        summary.declined += 1;
+        if (payment.tableSessionId) {
+          this.core.emitBillPaymentCleared(
+            payment.tableSessionId,
+            payment.id,
+            'ONLINE_PAYMENT',
+          );
+        }
+      } catch (error) {
+        summary.errors += 1;
+        this.logger.error(
+          `BORICA reconciliation failed for payment ${payment.id}`,
+          error,
+        );
+      }
+    }
+
+    this.logger.log('BORICA payment reconciliation completed', summary);
+    return summary;
+  }
+
+  private async keepBoricaPaymentRecoverable(paymentId: string) {
+    await this.prisma.payment.updateMany({
+      where: {
+        id: paymentId,
+        status: { in: ['PENDING', 'FAILED'] },
+      },
+      data: { status: 'PENDING', providerStatus: 'STATUS_UNKNOWN' },
+    });
+  }
+
+  private async flagBoricaStatusForManualReview(
+    payment: {
+      id: string;
+      restaurantId: string;
+      tableSessionId: string | null;
+      amount: number;
+      currency: string;
+      providerReference: string | null;
+      providerStatus: string | null;
+    },
+    message: string,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.updateMany({
+        where: {
+          id: payment.id,
+          status: { in: ['PENDING', 'FAILED'] },
+        },
+        data: {
+          status: 'FAILED',
+          providerStatus: 'STATUS_UNKNOWN_NEEDS_RECONCILIATION',
+        },
+      });
+      await tx.paymentReconciliationIssue.upsert({
+        where: { paymentId: payment.id },
+        create: {
+          paymentId: payment.id,
+          restaurantId: payment.restaurantId,
+          tableSessionId: payment.tableSessionId,
+          provider: PaymentProvider.BORICA,
+          reason: PaymentReconciliationReason.PROVIDER_STATUS_UNKNOWN,
+          status: 'OPEN',
+          amount: payment.amount,
+          currency: payment.currency,
+          providerReference: payment.providerReference,
+          providerStatus: 'STATUS_UNKNOWN_NEEDS_RECONCILIATION',
+          details: { message },
+        },
+        update: {
+          reason: PaymentReconciliationReason.PROVIDER_STATUS_UNKNOWN,
+          status: 'OPEN',
+          providerStatus: 'STATUS_UNKNOWN_NEEDS_RECONCILIATION',
+          details: { message },
+          resolvedById: null,
+          resolutionNote: null,
+          resolvedAt: null,
+        },
+      });
+    });
   }
 
   async createBoricaCheckout(
@@ -247,7 +529,7 @@ export class BoricaCheckoutService {
               Math.abs(
                 parseFloat(checkedStatus.amount || '0') -
                   (pendingBorica.amount ?? 0),
-              ) < 0.01 &&
+              ) < PAYMENT_AMOUNT_TOLERANCE &&
               (checkedStatus.currency || 'EUR').toUpperCase() === 'EUR';
             if (!reconcileOk) {
               await this.markBoricaStatusUnknown(
@@ -305,6 +587,31 @@ export class BoricaCheckoutService {
     }
 
     const keypair = this.config.resolveBoricaKeypair(restaurant);
+    if (isLiveBorica) {
+      const certificateValidity = this.borica.inspectCertificate(
+        keypair.certPem,
+      );
+      if (
+        certificateValidity.status === 'INVALID' ||
+        certificateValidity.status === 'EXPIRED'
+      ) {
+        this.logger.error('BORICA checkout certificate is not usable', {
+          restaurantId: restaurant.id,
+          certificateStatus: certificateValidity.status,
+          validTo: certificateValidity.validTo?.toISOString(),
+        });
+        throw new BadRequestException(
+          `BORICA is not configured correctly: callback certificate is ${certificateValidity.status.toLowerCase()}`,
+        );
+      }
+      if (certificateValidity.status === 'EXPIRING') {
+        this.logger.warn('BORICA checkout certificate expires soon', {
+          restaurantId: restaurant.id,
+          validTo: certificateValidity.validTo?.toISOString(),
+          daysRemaining: certificateValidity.daysRemaining,
+        });
+      }
+    }
     // #9 — Always charge in EUR; the app totals are EUR and no FX conversion is implemented.
     const currency = 'EUR';
     const tableName = session.table?.name ?? '';
@@ -476,6 +783,36 @@ export class BoricaCheckoutService {
         ? (payment.restaurant.boricaPublicCert ?? '')
         : (process.env.BORICA_TEST_CERT ?? '');
 
+    if (payment.restaurant?.boricaMode === 'LIVE') {
+      const certificateValidity = this.borica.inspectCertificate(certPem);
+      if (
+        certificateValidity.status === 'INVALID' ||
+        certificateValidity.status === 'EXPIRED'
+      ) {
+        this.logger.error('BORICA callback certificate is not usable', {
+          order,
+          paymentId: payment.id,
+          certificateStatus: certificateValidity.status,
+          validTo: certificateValidity.validTo?.toISOString(),
+        });
+        return this.config.buildPublicMenuReturnUrl(
+          {
+            restaurantId: payment.restaurantId,
+            table: payment.tableSession?.table,
+          },
+          'borica-cancel',
+        );
+      }
+      if (certificateValidity.status === 'EXPIRING') {
+        this.logger.warn('BORICA callback certificate expires soon', {
+          order,
+          paymentId: payment.id,
+          validTo: certificateValidity.validTo?.toISOString(),
+          daysRemaining: certificateValidity.daysRemaining,
+        });
+      }
+    }
+
     const result = this.borica.verifyResult(body, certPem);
 
     const cancelUrl = this.config.buildPublicMenuReturnUrl(
@@ -555,11 +892,30 @@ export class BoricaCheckoutService {
       payment.restaurant?.boricaMode === 'LIVE'
         ? (payment.restaurant.boricaTerminalId ?? '')
         : (process.env.BORICA_TEST_TID ?? 'V1800001');
-    const amountOk = Math.abs(callbackAmount - (payment.amount ?? 0)) < 0.01;
+    const amountOk =
+      Math.abs(callbackAmount - (payment.amount ?? 0)) <
+      PAYMENT_AMOUNT_TOLERANCE;
     const currencyOk =
       callbackCurrency === (payment.currency ?? 'eur').toUpperCase();
     const terminalOk = callbackTerminal === resolvedTerminal;
     const orderOk = callbackOrder === payment.providerReference;
+    const successData = {
+      status: 'SUCCEEDED',
+      providerStatus: 'PAID',
+      providerPayload: this.core.mergeProviderPayload(payment.providerPayload, {
+        callbackBody: body,
+        verifiedAt: new Date().toISOString(),
+        verified: true,
+        rc: result.rc,
+        action: result.action,
+        rrn: result.rrn,
+        intRef: result.intRef,
+        approval: result.approval,
+      }) as Prisma.InputJsonValue,
+    };
+    const allowFailedRecovery =
+      payment.status === 'FAILED' && payment.providerStatus === 'EXPIRED';
+
     if (!amountOk || !currencyOk || !terminalOk || !orderOk) {
       this.logger.warn('BORICA callback: reconciliation mismatch', {
         paymentId: payment.id,
@@ -576,7 +932,51 @@ export class BoricaCheckoutService {
         callbackOrder,
         storedOrder: payment.providerReference,
       });
-      return cancelUrl;
+      const mismatchClaim = await this.prisma.$transaction(async (tx) => {
+        const recorded = await this.core.recordProviderEvent(
+          tx,
+          PaymentProvider.BORICA,
+          boricaEventKey,
+          {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            payload: {
+              order,
+              rc: result.rc,
+              action: result.action,
+              reconciliationMismatch: true,
+            },
+          },
+        );
+        if (!recorded) return { claimed: false, sessionPaid: false };
+        return this.core.recordCapturedPaymentForReconciliation(
+          tx,
+          payment,
+          successData,
+          PaymentReconciliationReason.PROVIDER_CONFIRMATION_MISMATCH,
+          {
+            amountOk,
+            currencyOk,
+            terminalOk,
+            orderOk,
+            callbackAmount,
+            callbackCurrency,
+            callbackTerminal,
+            callbackOrder,
+          },
+          { allowFailedRecovery },
+        );
+      });
+      await this.core.emitPaymentClaimEvents(payment, mismatchClaim);
+      return this.config.buildPublicMenuReturnUrl(
+        {
+          restaurantId: payment.restaurantId,
+          table: payment.tableSession?.table,
+        },
+        mismatchClaim.claimed || payment.status === 'SUCCEEDED'
+          ? 'borica-ok'
+          : 'borica-cancel',
+      );
     }
 
     const claim = await this.prisma.$transaction(async (tx) => {
@@ -598,22 +998,8 @@ export class BoricaCheckoutService {
       );
       if (!recorded) return { claimed: false, sessionPaid: false };
 
-      return this.core.claimSuccessfulPayment(tx, payment, {
-        status: 'SUCCEEDED',
-        providerStatus: 'PAID',
-        providerPayload: this.core.mergeProviderPayload(
-          payment.providerPayload,
-          {
-            callbackBody: body,
-            verifiedAt: new Date().toISOString(),
-            verified: true,
-            rc: result.rc,
-            action: result.action,
-            rrn: result.rrn,
-            intRef: result.intRef,
-            approval: result.approval,
-          },
-        ) as any,
+      return this.core.claimSuccessfulPayment(tx, payment, successData, {
+        allowFailedRecovery,
       });
     });
 

@@ -80,7 +80,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       _sum: { totalPrice: true },
       where: {
         restaurantId,
-        status: { not: OrderStatus.CANCELED },
+        status: {
+          notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+        },
       },
     });
 
@@ -355,7 +357,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
              COUNT(*)::int AS orders
       FROM customer_order
       WHERE "restaurantId" = ${restaurantId}
-        AND status != 'CANCELED'
+        AND status NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND "createdAt" >= ${start}
         AND "createdAt" <= ${end}
       GROUP BY date
@@ -407,7 +409,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN customer_order o ON oi."orderId"    = o.id
       LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status         != 'CANCELED'
+        AND o.status         NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
       GROUP BY COALESCE(oi."menuItemId", oi."itemName"),
@@ -435,7 +437,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
              COALESCE(SUM("totalPrice"), 0)::float AS revenue
       FROM customer_order
       WHERE "restaurantId" = ${restaurantId}
-        AND status         != 'CANCELED'
+        AND status         NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND "createdAt"   >= ${start}
         AND "createdAt"   <= ${end}
       GROUP BY hour
@@ -473,7 +475,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       _avg: { totalPrice: true },
       where: {
         restaurantId,
-        status: { not: OrderStatus.CANCELED },
+        status: {
+          notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+        },
         createdAt: { gte: start, lte: end },
       },
     });
@@ -500,7 +504,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       where: {
         restaurantId,
         customerPhone: { not: '' },
-        status: { not: OrderStatus.CANCELED },
+        status: {
+          notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+        },
         createdAt: { gte: start, lte: end },
       },
     });
@@ -521,7 +527,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       where: {
         restaurantId,
         customerPhone: { not: '' },
-        status: { not: OrderStatus.CANCELED },
+        status: {
+          notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+        },
         createdAt: { gte: start, lte: end },
       },
     });
@@ -534,10 +542,15 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   // payment's creation window. The second branch preserves legacy refunds that
   // predate RefundAttempt without double-counting current records.
   private async getRefundTotals(restaurantId: string, start: Date, end: Date) {
-    type Row = { grossAmount: number; salesAmount: number };
+    type Row = {
+      provider: string;
+      grossAmount: number;
+      salesAmount: number;
+    };
     const rows = await this.prisma.$queryRaw<Row[]>`
       WITH successful_refunds AS (
-        SELECT ra.id AS "refundKey", ra.amount, p."tipAmount"
+        SELECT ra.id AS "refundKey", ra.provider::text AS provider,
+               ra.amount, p."tipAmount"
         FROM refund_attempt ra
         JOIN payment p ON p.id = ra."paymentId"
         WHERE ra."restaurantId" = ${restaurantId}
@@ -547,7 +560,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
         UNION ALL
 
-        SELECT p.id AS "refundKey", p.amount, p."tipAmount"
+        SELECT p.id AS "refundKey", p.provider::text AS provider,
+               p.amount, p."tipAmount"
         FROM payment p
         WHERE p."restaurantId" = ${restaurantId}
           AND p.status = 'REFUNDED'
@@ -559,15 +573,69 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
             WHERE ra."paymentId" = p.id AND ra.status = 'SUCCEEDED'
           )
       )
-      SELECT COALESCE(SUM(amount), 0)::float AS "grossAmount",
+      SELECT provider,
+             COALESCE(SUM(amount), 0)::float AS "grossAmount",
              COALESCE(SUM(GREATEST(amount - "tipAmount", 0)), 0)::float AS "salesAmount"
       FROM successful_refunds
+      GROUP BY provider
     `;
 
+    const refundRows = rows ?? [];
+    const byProvider = Object.fromEntries(
+      refundRows.map((row) => [
+        row.provider,
+        {
+          grossAmount: Math.round(Number(row.grossAmount ?? 0) * 100) / 100,
+          salesAmount: Math.round(Number(row.salesAmount ?? 0) * 100) / 100,
+        },
+      ]),
+    );
     return {
-      grossAmount: Math.round(Number(rows?.[0]?.grossAmount ?? 0) * 100) / 100,
-      salesAmount: Math.round(Number(rows?.[0]?.salesAmount ?? 0) * 100) / 100,
+      grossAmount:
+        Math.round(
+          refundRows.reduce(
+            (total, row) => total + Number(row.grossAmount ?? 0),
+            0,
+          ) * 100,
+        ) / 100,
+      salesAmount:
+        Math.round(
+          refundRows.reduce(
+            (total, row) => total + Number(row.salesAmount ?? 0),
+            0,
+          ) * 100,
+        ) / 100,
+      byProvider,
     };
+  }
+
+  private buildNetPaymentMethods(
+    collected: Array<{
+      provider: string;
+      _sum: { amount?: number | null; tipAmount?: number | null };
+    }>,
+    refunded: Record<string, { grossAmount: number; salesAmount: number }>,
+    basis: 'gross' | 'sales',
+    sort = false,
+  ) {
+    const amounts = new Map<string, number>();
+    for (const method of collected) {
+      const gross = method._sum.amount ?? 0;
+      const amount =
+        basis === 'sales' ? gross - (method._sum.tipAmount ?? 0) : gross;
+      amounts.set(method.provider, amount);
+    }
+    for (const [provider, refund] of Object.entries(refunded)) {
+      const refundAmount =
+        basis === 'sales' ? refund.salesAmount : refund.grossAmount;
+      amounts.set(provider, (amounts.get(provider) ?? 0) - refundAmount);
+    }
+
+    const result = Array.from(amounts, ([method, amount]) => ({
+      method,
+      amount: Math.round(amount * 100) / 100,
+    }));
+    return sort ? result.sort((a, b) => b.amount - a.amount) : result;
   }
 
   private async getPaymentTotals(restaurantId: string, start: Date, end: Date) {
@@ -596,14 +664,12 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     return {
       collectedRevenue: Math.round(collectedSales * 100) / 100,
       refundedAmount: refunded.salesAmount,
-      paymentsByMethod: byMethod
-        .map((m) => ({
-          method: m.provider,
-          amount:
-            Math.round(((m._sum.amount ?? 0) - (m._sum.tipAmount ?? 0)) * 100) /
-            100,
-        }))
-        .sort((a, b) => b.amount - a.amount),
+      paymentsByMethod: this.buildNetPaymentMethods(
+        byMethod,
+        refunded.byProvider,
+        'sales',
+        true,
+      ),
     };
   }
 
@@ -654,10 +720,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     return {
       totalCollected: Math.round((collected._sum.amount || 0) * 100) / 100,
       refundAmount: refunded.grossAmount,
-      byMethod: byMethod.map((m) => ({
-        method: m.provider,
-        amount: Math.round((m._sum.amount || 0) * 100) / 100,
-      })),
+      byMethod: this.buildNetPaymentMethods(
+        byMethod,
+        refunded.byProvider,
+        'gross',
+      ),
     };
   }
 
@@ -706,7 +773,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
        LEFT JOIN menu_item  mi ON oi."menuItemId" = mi.id
       LEFT JOIN menu_category mc ON mi."categoryId" = mc.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status         != 'CANCELED'
+        AND o.status         NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
       GROUP BY mc.id, mc.name, mc.translations
@@ -867,7 +934,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       FROM customer_order co
       LEFT JOIN restaurant_table rt ON co."tableId" = rt.id
       WHERE co."restaurantId" = ${restaurantId}
-        AND co.status         != 'CANCELED'
+        AND co.status         NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND co."createdAt"   >= ${start}
         AND co."createdAt"   <= ${end}
         AND co."tableId"     IS NOT NULL
@@ -912,7 +979,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       FROM customer_order o
       LEFT JOIN app_user u ON o."staffUserId" = u.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status != 'CANCELED'
+        AND o.status NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
         AND o."staffUserId" IS NOT NULL
@@ -960,7 +1027,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         WHERE "restaurantId" = ${restaurantId}
           AND "customerPhone" IS NOT NULL
           AND "customerPhone" <> ''
-          AND status != 'CANCELED'
+          AND status NOT IN ('CANCELED', 'PENDING_PAYMENT')
         GROUP BY "customerPhone"
       ), period AS (
         SELECT "customerPhone" AS phone,
@@ -971,7 +1038,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         WHERE "restaurantId" = ${restaurantId}
           AND "customerPhone" IS NOT NULL
           AND "customerPhone" <> ''
-          AND status != 'CANCELED'
+          AND status NOT IN ('CANCELED', 'PENDING_PAYMENT')
           AND "createdAt" >= ${start}
           AND "createdAt" <= ${end}
         GROUP BY "customerPhone"
@@ -1145,6 +1212,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN customer_order o ON oi."orderId" = o.id
       LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
+        AND o.status != 'PENDING_PAYMENT'
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
       GROUP BY COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"),
@@ -1166,6 +1234,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         COUNT(*) FILTER (WHERE status = 'CANCELED')::int AS "canceledOrders"
       FROM customer_order
       WHERE "restaurantId" = ${restaurantId}
+        AND status != 'PENDING_PAYMENT'
         AND "createdAt" >= ${start}
         AND "createdAt" <= ${end}
       GROUP BY hour
@@ -1308,7 +1377,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN customer_order o ON oi."orderId" = o.id
       LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status != 'CANCELED'
+        AND o.status NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
       GROUP BY COALESCE(oi."menuItemId", 'deleted:' || oi."itemName"),
@@ -1383,7 +1452,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         _sum: { totalPrice: true },
         where: {
           restaurantId,
-          status: { not: OrderStatus.CANCELED },
+          status: {
+            notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+          },
           createdAt: { gte: start, lte: end },
         },
       }),
@@ -1396,7 +1467,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         JOIN customer_order o ON oi."orderId" = o.id
         LEFT JOIN menu_item mi ON oi."menuItemId" = mi.id
         WHERE o."restaurantId" = ${restaurantId}
-          AND o.status != 'CANCELED'
+          AND o.status NOT IN ('CANCELED', 'PENDING_PAYMENT')
           AND o."createdAt" >= ${start}
           AND o."createdAt" <= ${end}
       `,
@@ -1445,7 +1516,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         _sum: { totalPrice: true },
         where: {
           restaurantId,
-          status: { not: OrderStatus.CANCELED },
+          status: {
+            notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+          },
           createdAt: { gte: date, lte: endOfDay },
         },
       }),
@@ -1525,7 +1598,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         },
         where: {
           restaurantId,
-          status: { not: OrderStatus.CANCELED },
+          status: {
+            notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+          },
           createdAt: { gte: start, lte: end },
         },
       }),
@@ -1541,7 +1616,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       this.prisma.order.count({
         where: {
           restaurantId,
-          status: { not: OrderStatus.CANCELED },
+          status: {
+            notIn: [OrderStatus.CANCELED, OrderStatus.PENDING_PAYMENT],
+          },
           createdAt: { gte: start, lte: end },
         },
       }),
@@ -1567,10 +1644,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     return {
       date: dateStr,
-      revenueByMethod: byMethod.map((m) => ({
-        method: m.provider,
-        amount: Math.round((m._sum.amount ?? 0) * 100) / 100,
-      })),
+      revenueByMethod: this.buildNetPaymentMethods(
+        byMethod,
+        refunds.byProvider,
+        'gross',
+      ),
       totalCollected: collectedRevenue,
       totalTips,
       orderedRevenue,

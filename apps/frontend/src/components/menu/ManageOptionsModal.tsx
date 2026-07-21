@@ -16,9 +16,17 @@ interface ManageOptionsModalProps {
 }
 
 interface ChoiceInput {
+  clientId: string;
   name: string;
   priceModifier: number;
 }
+
+const createChoiceInput = (
+  choice: Omit<ChoiceInput, "clientId"> = { name: "", priceModifier: 0 },
+): ChoiceInput => ({
+  clientId: crypto.randomUUID(),
+  ...choice,
+});
 
 const PRESETS = {
   SIZE: {
@@ -63,9 +71,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newOptionName, setNewOptionName] = useState("");
   const [newOptionType, setNewOptionType] = useState<OptionType>("VARIATION");
-  const [choices, setChoices] = useState<ChoiceInput[]>([
-    { name: "", priceModifier: 0 },
-  ]);
+  const [choices, setChoices] = useState<ChoiceInput[]>([createChoiceInput()]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -74,7 +80,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
     const preset = PRESETS[presetKey];
     setNewOptionName(preset.name);
     setNewOptionType(preset.type);
-    setChoices([...preset.choices]);
+    setChoices(preset.choices.map((choice) => createChoiceInput(choice)));
     setEditingId(null);
     setIsAdding(true);
     setErrorMsg(null);
@@ -83,6 +89,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
   const handleStartEdit = (option: MenuOption) => {
     const parsedChoices: ChoiceInput[] = (option.choices as any[]).map(
       (c: any) => ({
+        clientId: c.id ?? crypto.randomUUID(),
         name: c.name,
         priceModifier: c.priceModifier ?? 0,
       }),
@@ -90,9 +97,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
     setNewOptionName(option.name);
     setNewOptionType(option.type as OptionType);
     setChoices(
-      parsedChoices.length > 0
-        ? parsedChoices
-        : [{ name: "", priceModifier: 0 }],
+      parsedChoices.length > 0 ? parsedChoices : [createChoiceInput()],
     );
     setEditingId(option.id);
     setIsAdding(true);
@@ -100,7 +105,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
   };
 
   const handleAddChoiceRow = () => {
-    setChoices([...choices, { name: "", priceModifier: 0 }]);
+    setChoices([...choices, createChoiceInput()]);
   };
 
   const handleRemoveChoiceRow = (index: number) => {
@@ -123,7 +128,9 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
     if (!newOptionName.trim()) return;
 
     // Filter out empty choices
-    const validChoices = choices.filter((c) => c.name.trim() !== "");
+    const validChoices = choices
+      .filter((c) => c.name.trim() !== "")
+      .map(({ name, priceModifier }) => ({ name, priceModifier }));
     if (validChoices.length === 0) return;
 
     setIsSaving(true);
@@ -148,7 +155,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
       // Reset form
       setNewOptionName("");
       setNewOptionType("VARIATION");
-      setChoices([{ name: "", priceModifier: 0 }]);
+      setChoices([createChoiceInput()]);
       setEditingId(null);
       setIsAdding(false);
     } catch (error: any) {
@@ -365,7 +372,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
               </div>
 
               {choices.map((choice, index) => (
-                <div key={index} className="flex items-center gap-3">
+                <div key={choice.clientId} className="flex items-center gap-3">
                   <div className="flex-1">
                     <Input
                       placeholder={t(

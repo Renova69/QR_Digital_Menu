@@ -188,14 +188,22 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Force-logout all sessions for a tenant owner' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('tenants/:id/force-logout')
-  forceLogout(@Param('id') id: string, @Request() req: any) {
+  forceLogout(
+    @Param('id') id: string,
+    @Body() _confirmation: SuperAdminConfirmationDto,
+    @Request() req: any,
+  ) {
     return this.service.forceLogoutOwner(id, req.user.id);
   }
 
   @ApiOperation({ summary: 'Regenerate OCR import API key for a tenant' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('tenants/:id/regenerate-api-key')
-  regenerateApiKey(@Param('id') id: string, @Request() req: any) {
+  regenerateApiKey(
+    @Param('id') id: string,
+    @Body() _confirmation: SuperAdminConfirmationDto,
+    @Request() req: any,
+  ) {
     return this.service.regenerateImportApiKey(id, req.user.id);
   }
 
@@ -215,6 +223,7 @@ export class SuperAdminController {
   forceCloseSession(
     @Param('id') id: string,
     @Param('sessionId') sessionId: string,
+    @Body() _confirmation: SuperAdminConfirmationDto,
     @Request() req: any,
   ) {
     return this.service.forceCloseSession(id, sessionId, req.user.id);
@@ -289,7 +298,11 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Create impersonation session for a tenant owner' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('tenants/:id/impersonate')
-  impersonate(@Param('id') id: string, @Request() req: any) {
+  impersonate(
+    @Param('id') id: string,
+    @Body() _confirmation: SuperAdminConfirmationDto,
+    @Request() req: any,
+  ) {
     return this.service.createImpersonationSession(id, req.user.id);
   }
 }
