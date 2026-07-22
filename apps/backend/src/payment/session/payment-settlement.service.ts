@@ -187,7 +187,6 @@ export class PaymentSettlementService {
         restaurantId: true,
         tableSessionId: true,
         status: true,
-        tableSession: { select: { token: true } },
       },
     });
     if (!existing)
@@ -199,17 +198,12 @@ export class PaymentSettlementService {
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
     }
-    if (!existing.tableSessionId || !existing.tableSession) {
+    if (!existing.tableSessionId) {
       throw new ConflictException(
         'Cash payment request is no longer attached to an active session',
       );
     }
     const tableSessionId = existing.tableSessionId;
-
-    await this.session.abandonCheckoutOrThrowIfPending(
-      existing.tableSession.token,
-      tableSessionId,
-    );
 
     const result = await this.prisma.$transaction(async (tx) => {
       await this.core.lockOpenSessionForSettlement(tx, tableSessionId);
@@ -244,16 +238,6 @@ export class PaymentSettlementService {
         throw new ConflictException('Session is no longer open');
       }
 
-      const pendingPayment = await tx.payment.findFirst({
-        where: { tableSessionId: session.id, status: 'PENDING' },
-        select: { id: true },
-      });
-      if (pendingPayment) {
-        throw new ConflictException(
-          'A payment for this session is still being processed. Please wait or retry.',
-        );
-      }
-
       let chargeSubtotal: number;
       let checkoutScope: CheckoutScope | null = null;
       if (request.scope === CashPaymentRequestScope.ORDER_ITEMS) {
@@ -275,6 +259,12 @@ export class PaymentSettlementService {
         }
         chargeSubtotal = balance.remaining;
       }
+
+      const abandonedPaymentIds =
+        await this.session.abandonPendingCheckoutPaymentsForLockedSession(
+          tx,
+          session.id,
+        );
 
       const payment = await tx.payment.create({
         data: {
@@ -353,9 +343,14 @@ export class PaymentSettlementService {
         remaining: Math.max(0, balanceAfter.remaining),
         sessionPaid,
         splitMode: checkoutScope ? SplitMode.ITEM : null,
+        abandonedPaymentIds,
       };
     });
 
+    this.session.emitAbandonedCheckoutEvents(
+      result.sessionId,
+      result.abandonedPaymentIds,
+    );
     this.core.emitCashPaymentRequestEvent(
       'cashPaymentRequest:updated',
       result.request,
@@ -441,11 +436,6 @@ export class PaymentSettlementService {
     });
     if (!openSession) throw new NotFoundException('Session not found');
 
-    // Cancel any pending online payments before recording a POS settlement.
-    // Without this, a concurrent Stripe checkout could succeed after the waiter
-    // settles, collecting more than the bill total (#POS-C3).
-    await this.session.abandonCheckoutOrThrowIfPending(token, openSession.id);
-
     const tipPercent = this.core.normalizeTipPercent(dto.tipPercent);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -454,16 +444,6 @@ export class PaymentSettlementService {
       });
       if (!session) throw new NotFoundException('Session not found');
       await this.core.lockOpenSessionForSettlement(tx, session.id);
-
-      const pendingPayment = await tx.payment.findFirst({
-        where: { tableSessionId: session.id, status: 'PENDING' },
-        select: { id: true },
-      });
-      if (pendingPayment) {
-        throw new ConflictException(
-          'A payment for this session is still being processed. Please wait or retry.',
-        );
-      }
 
       const balance = await this.core.computeSessionBalance(tx, session.id);
       if (balance.remaining <= 0) {
@@ -540,6 +520,12 @@ export class PaymentSettlementService {
       );
       const total = this.core.roundMoney(chargeSubtotal + tipAmount);
 
+      const abandonedPaymentIds =
+        await this.session.abandonPendingCheckoutPaymentsForLockedSession(
+          tx,
+          session.id,
+        );
+
       const payment = await tx.payment.create({
         data: {
           tableSessionId: session.id,
@@ -601,9 +587,14 @@ export class PaymentSettlementService {
         paymentId: payment.id,
         tipAmount,
         splitMode: dto.mode,
+        abandonedPaymentIds,
       };
     });
 
+    this.session.emitAbandonedCheckoutEvents(
+      result.sessionId,
+      result.abandonedPaymentIds,
+    );
     // Emit after commit so rolled-back work never fires socket events (#H4).
     this.events.emitTableStatusChanged(
       restaurantId,

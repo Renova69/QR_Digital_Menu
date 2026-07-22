@@ -1,9 +1,10 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   CashPaymentRequestScope,
   CashPaymentRequestStatus,
 } from '@prisma/client';
 import { PaymentSettlementService } from './payment-settlement.service';
+import { SplitMode, SplitProvider } from '../dto/settle-partial.dto';
 
 describe('PaymentSettlementService', () => {
   const requestId = 'cash-request-1';
@@ -94,7 +95,13 @@ describe('PaymentSettlementService', () => {
         .mockImplementation((request) => request),
     };
     const session = {
-      abandonCheckoutOrThrowIfPending: jest.fn().mockResolvedValue(undefined),
+      abandonPendingCheckoutPaymentsForLockedSession: jest
+        .fn()
+        .mockImplementation(async () => {
+          lockOrder.push('abandon');
+          return ['online-payment-1'];
+        }),
+      emitAbandonedCheckoutEvents: jest.fn(),
     };
     const events = {
       emitTableStatusChanged: jest.fn(),
@@ -109,11 +116,11 @@ describe('PaymentSettlementService', () => {
       session as never,
     );
 
-    return { core, lockOrder, prisma, service, tx };
+    return { core, lockOrder, prisma, service, session, tx };
   }
 
   it('locks the session before the cash request during confirmation', async () => {
-    const { lockOrder, service, tx } = createHarness();
+    const { lockOrder, service, session, tx } = createHarness();
 
     await expect(
       service.confirmCashPaymentRequest(requestId, 'manager-1'),
@@ -123,13 +130,17 @@ describe('PaymentSettlementService', () => {
       paymentId: 'payment-1',
     });
 
-    expect(lockOrder).toEqual(['session', 'cash-request']);
+    expect(lockOrder).toEqual(['session', 'cash-request', 'abandon']);
     expect(tx.payment.create).toHaveBeenCalledTimes(1);
     expect(tx.cashPaymentRequest.update).toHaveBeenCalledTimes(1);
+    expect(session.emitAbandonedCheckoutEvents).toHaveBeenCalledWith(
+      sessionId,
+      ['online-payment-1'],
+    );
   });
 
   it('rejects a request moved to another session before writing payment state', async () => {
-    const { lockOrder, service, tx } = createHarness('session-2');
+    const { lockOrder, service, session, tx } = createHarness('session-2');
 
     await expect(
       service.confirmCashPaymentRequest(requestId, 'manager-1'),
@@ -143,5 +154,66 @@ describe('PaymentSettlementService', () => {
     expect(tx.tableSession.findFirst).not.toHaveBeenCalled();
     expect(tx.payment.create).not.toHaveBeenCalled();
     expect(tx.cashPaymentRequest.update).not.toHaveBeenCalled();
+    expect(
+      session.abandonPendingCheckoutPaymentsForLockedSession,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not abandon customer checkout when an item split is invalid', async () => {
+    const tx = {
+      tableSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: sessionId,
+          tableId: 'table-1',
+          status: 'OPEN',
+        }),
+      },
+      payment: { create: jest.fn() },
+    };
+    const prisma = {
+      tableSession: {
+        findFirst: jest.fn().mockResolvedValue({ id: sessionId }),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const core = {
+      verifyPosOperatorAccess: jest.fn().mockResolvedValue(undefined),
+      normalizeTipPercent: jest.fn().mockReturnValue(0),
+      lockOpenSessionForSettlement: jest.fn().mockResolvedValue(undefined),
+      computeSessionBalance: jest.fn().mockResolvedValue({
+        remaining: 30,
+        hasLoyaltyDiscount: false,
+        items: [],
+      }),
+    };
+    const session = {
+      abandonPendingCheckoutPaymentsForLockedSession: jest.fn(),
+      emitAbandonedCheckoutEvents: jest.fn(),
+    };
+    const service = new PaymentSettlementService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      core as never,
+      session as never,
+    );
+
+    await expect(
+      service.settlePartial('session-token', 'restaurant-1', 'manager-1', {
+        restaurantId: 'restaurant-1',
+        mode: SplitMode.ITEM,
+        provider: SplitProvider.CASH,
+      }),
+    ).rejects.toThrow(
+      new BadRequestException('Select at least one item to split'),
+    );
+
+    expect(
+      session.abandonPendingCheckoutPaymentsForLockedSession,
+    ).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
   });
 });

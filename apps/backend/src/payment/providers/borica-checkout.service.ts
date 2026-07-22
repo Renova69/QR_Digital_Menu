@@ -109,25 +109,6 @@ export class BoricaCheckoutService {
   async reconcileBoricaPayments() {
     const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
     const reviewCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const payments = await this.prisma.payment.findMany({
-      where: {
-        provider: PaymentProvider.BORICA,
-        updatedAt: { lt: staleBefore },
-        OR: [
-          { status: 'PENDING' },
-          { status: 'FAILED', providerStatus: 'EXPIRED' },
-        ],
-      },
-      include: {
-        restaurant: true,
-        tableSession: {
-          include: { table: { select: { name: true } } },
-        },
-      },
-      orderBy: { updatedAt: 'asc' },
-      take: 100,
-    });
-
     const summary = {
       scanned: 0,
       recovered: 0,
@@ -137,6 +118,39 @@ export class BoricaCheckoutService {
       manualReview: 0,
       errors: 0,
     };
+
+    const payments = await this.prisma.payment
+      .findMany({
+        where: {
+          provider: PaymentProvider.BORICA,
+          updatedAt: { lt: staleBefore },
+          OR: [
+            { status: 'PENDING' },
+            { status: 'FAILED', providerStatus: 'EXPIRED' },
+          ],
+        },
+        include: {
+          restaurant: true,
+          tableSession: {
+            include: { table: { select: { name: true } } },
+          },
+        },
+        orderBy: { updatedAt: 'asc' },
+        take: 100,
+      })
+      .catch((error: unknown) => {
+        summary.errors += 1;
+        this.logger.error(
+          'BORICA payment reconciliation failed before candidate processing',
+          { error: error instanceof Error ? error.message : String(error) },
+        );
+        return null;
+      });
+
+    if (!payments) {
+      this.logger.log('BORICA payment reconciliation completed', summary);
+      return summary;
+    }
 
     for (const payment of payments) {
       summary.scanned += 1;

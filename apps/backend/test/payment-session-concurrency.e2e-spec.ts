@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import {
   Currency,
   OrderStatus,
+  PaymentProvider,
   Prisma,
   PrismaClient,
   SubscriptionTier,
@@ -348,5 +349,42 @@ describeWithDatabase('Payment/session PostgreSQL concurrency invariants', () => 
         where: { id: request.id },
       }),
     ).resolves.toMatchObject({ status: 'PAID' });
+  });
+
+  it('rolls back checkout abandonment when the locked mutation fails', async () => {
+    const fixture = await createFixture('abandon-rollback');
+    const services = buildServices();
+    const payment = await prisma.payment.create({
+      data: {
+        tableSessionId: fixture.session.id,
+        restaurantId: fixture.restaurant.id,
+        amount: 10,
+        provider: PaymentProvider.EPAY,
+        status: 'PENDING',
+      },
+    });
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT id
+          FROM "table_session"
+          WHERE id = ${fixture.session.id}
+          FOR UPDATE
+        `;
+        await services.session.abandonPendingCheckoutPaymentsForLockedSession(
+          tx,
+          fixture.session.id,
+        );
+        throw new Error('forced mutation failure');
+      }),
+    ).rejects.toThrow('forced mutation failure');
+
+    await expect(
+      prisma.payment.findUniqueOrThrow({ where: { id: payment.id } }),
+    ).resolves.toMatchObject({
+      status: 'PENDING',
+      providerStatus: null,
+    });
   });
 });

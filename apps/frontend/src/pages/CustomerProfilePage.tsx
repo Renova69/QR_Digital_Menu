@@ -19,6 +19,7 @@ export const CustomerProfilePage: React.FC = () => {
     null,
   );
   const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+  const [historyAppendFailed, setHistoryAppendFailed] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -70,7 +71,7 @@ export const CustomerProfilePage: React.FC = () => {
     if (!historyNextCursor || isLoadingMoreHistory) return;
 
     setIsLoadingMoreHistory(true);
-    setHistoryLoadFailed(false);
+    setHistoryAppendFailed(false);
     try {
       const response = await api.get("/loyalty/orders/history", {
         params: { limit: 25, cursor: historyNextCursor },
@@ -85,7 +86,7 @@ export const CustomerProfilePage: React.FC = () => {
       );
     } catch (err) {
       console.error("Failed to load more order history:", err);
-      setHistoryLoadFailed(true);
+      setHistoryAppendFailed(true);
     } finally {
       setIsLoadingMoreHistory(false);
     }
@@ -345,7 +346,28 @@ export const CustomerProfilePage: React.FC = () => {
                 </li>
               ))}
             </ul>
-            {historyNextCursor && (
+            {historyAppendFailed && (
+              <div className="mt-6 text-center" role="alert">
+                <p className="text-sm text-destructive">
+                  {t(
+                    "profile.historyLoadMoreFailed",
+                    "Could not load older orders. Please try again.",
+                  )}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={loadMoreHistory}
+                  disabled={isLoadingMoreHistory}
+                >
+                  {isLoadingMoreHistory
+                    ? t("profile.loadingMoreOrders", "Loading...")
+                    : t("common.retry", "Retry")}
+                </Button>
+              </div>
+            )}
+            {historyNextCursor && !historyAppendFailed && (
               <div className="mt-6 flex justify-center">
                 <Button
                   type="button"

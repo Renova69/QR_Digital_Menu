@@ -65,7 +65,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
         name,
         description,
         price: parseFloat(price),
-        weight: weight.trim() || undefined,
+        weight: weight.trim() || null,
         currency: "EUR",
         allergens,
         dietaryTags,

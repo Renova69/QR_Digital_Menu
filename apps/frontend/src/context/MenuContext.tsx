@@ -49,7 +49,7 @@ interface MenuContextType {
       name?: string;
       description?: string;
       price?: number;
-      weight?: string;
+      weight?: string | null;
       currency?: "EUR";
       allergens?: string[];
       dietaryTags?: string[];
@@ -163,7 +163,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
         name?: string;
         description?: string;
         price?: number;
-        weight?: string;
+        weight?: string | null;
         currency?: "EUR";
         allergens?: string[];
         dietaryTags?: string[];

@@ -153,4 +153,70 @@ describe("CustomerProfilePage", () => {
       params: { limit: 25, cursor: "order-1" },
     });
   });
+
+  it("keeps loaded orders visible and allows retry when loading more fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let loadMoreAttempts = 0;
+    vi.mocked(api.get).mockImplementation(
+      (path: string, config?: { params?: { cursor?: string } }) => {
+        if (path === "/loyalty/accounts") {
+          return Promise.resolve({ data: [] });
+        }
+        if (config?.params?.cursor === "order-1") {
+          loadMoreAttempts += 1;
+          if (loadMoreAttempts === 1) {
+            return Promise.reject(new Error("Older history unavailable"));
+          }
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "order-0",
+                  restaurant: { name: "Recovered Cafe" },
+                  createdAt: "2026-07-15T12:00:00.000Z",
+                  items: [],
+                  totalPrice: 5,
+                  pointsEarned: 5,
+                  pointsRedeemed: 0,
+                },
+              ],
+              nextCursor: null,
+            },
+          });
+        }
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: "order-1",
+                restaurant: { name: "Newest Cafe" },
+                createdAt: "2026-07-16T12:00:00.000Z",
+                items: [],
+                totalPrice: 10,
+                pointsEarned: 10,
+                pointsRedeemed: 0,
+              },
+            ],
+            nextCursor: "order-1",
+          },
+        });
+      },
+    );
+
+    render(<CustomerProfilePage />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Load more orders" }),
+    );
+
+    expect(await screen.findByText("Newest Cafe")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Could not load older orders. Please try again."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Recovered Cafe")).toBeInTheDocument();
+    expect(screen.getByText("Newest Cafe")).toBeInTheDocument();
+  });
 });

@@ -221,6 +221,25 @@ describe('BoricaCheckoutService reconciliation', () => {
     });
   });
 
+  it('returns and logs a failed summary when the candidate query fails', async () => {
+    prisma.payment.findMany.mockRejectedValue(
+      new Error('database unavailable'),
+    );
+    const error = jest
+      .spyOn(service['logger'], 'error')
+      .mockImplementation(() => undefined);
+
+    await expect(service.reconcileBoricaPayments()).resolves.toMatchObject({
+      scanned: 0,
+      recovered: 0,
+      errors: 1,
+    });
+    expect(error).toHaveBeenCalledWith(
+      'BORICA payment reconciliation failed before candidate processing',
+      expect.objectContaining({ error: 'database unavailable' }),
+    );
+  });
+
   it('does not apply a duplicate status event twice', async () => {
     core.recordProviderEvent.mockResolvedValue(false);
 

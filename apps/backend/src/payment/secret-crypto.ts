@@ -119,7 +119,7 @@ export function validatePaymentSecretCryptoConfig(): PaymentSecretCryptoConfig {
     getLegacyEncryptionKey();
   }
 
-  const allowsLegacyPlaintext = shouldAllowLegacyPlaintext(writeVersion);
+  const allowsLegacyPlaintext = shouldAllowLegacyPlaintext();
   const warnings: string[] = [];
   if (writeVersion === LEGACY_PREFIX) {
     warnings.push(
@@ -135,16 +135,9 @@ export function validatePaymentSecretCryptoConfig(): PaymentSecretCryptoConfig {
   return { writeVersion, allowsLegacyPlaintext, warnings };
 }
 
-function shouldAllowLegacyPlaintext(
-  writeVersion = process.env.PAYMENT_SECRET_WRITE_VERSION || LEGACY_PREFIX,
-): boolean {
+function shouldAllowLegacyPlaintext(): boolean {
   if (process.env.NODE_ENV !== 'production') return true;
-  const configured = process.env.PAYMENT_SECRET_ALLOW_LEGACY_PLAINTEXT;
-  if (configured === 'true') return true;
-  if (configured === 'false') return false;
-  // Compatibility release: retain the historical plaintext read behavior while
-  // all instances still write v1. The v2 write switch disables it by default.
-  return writeVersion === LEGACY_PREFIX;
+  return process.env.PAYMENT_SECRET_ALLOW_LEGACY_PLAINTEXT === 'true';
 }
 
 function decodeEnvelopePart(

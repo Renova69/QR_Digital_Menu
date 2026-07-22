@@ -99,16 +99,16 @@ describe('secret-crypto', () => {
     ).toBe('plain-provider-secret');
   });
 
-  it('keeps plaintext readable during the v1 compatibility rollout unless explicitly disabled', () => {
+  it('requires an explicit plaintext opt-in during the v1 compatibility rollout', () => {
     process.env.NODE_ENV = 'production';
     process.env.PAYMENT_SECRET_WRITE_VERSION = 'v1';
 
-    expect(decryptSecret('historical-plaintext')).toBe('historical-plaintext');
-
-    process.env.PAYMENT_SECRET_ALLOW_LEGACY_PLAINTEXT = 'false';
     expect(() => decryptSecret('historical-plaintext')).toThrow(
       'Stored payment secret is not encrypted',
     );
+
+    process.env.PAYMENT_SECRET_ALLOW_LEGACY_PLAINTEXT = 'true';
+    expect(decryptSecret('historical-plaintext')).toBe('historical-plaintext');
   });
 
   it('rejects truncated v2 authentication tags and malformed IVs', () => {
