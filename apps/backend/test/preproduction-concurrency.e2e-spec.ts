@@ -13,10 +13,14 @@ import { MenuCrudService } from '../src/menu/menu-crud.service';
 import { OrdersService } from '../src/orders/orders.service';
 import { MenuTranslationService } from '../src/menu/menu-translation.service';
 import { ensureLoyaltyAccount } from '../src/loyalty/loyalty-ledger.utils';
+import { PaymentCoreService } from '../src/payment/core/payment-core.service';
+import { PaymentProviderConfigService } from '../src/payment/payment-provider-config.service';
+import { PaymentSessionService } from '../src/payment/session/payment-session.service';
 import { PatronService } from '../src/reservations/patron.service';
 import { ReservationAvailabilityService } from '../src/reservations/reservation-availability.service';
 import { ReservationsService } from '../src/reservations/reservations.service';
 import { FeatureService } from '../src/subscription/feature.service';
+import { SuperAdminService } from '../src/super-admin/super-admin.service';
 
 const concurrencyDatabaseUrl = process.env.CONCURRENCY_DATABASE_URL;
 const describeWithDatabase = concurrencyDatabaseUrl ? describe : describe.skip;
@@ -134,6 +138,95 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     return { service, events, notifications };
   }
 
+  function createDedicatedPrisma(label: string): PrismaClient {
+    const url = new URL(concurrencyDatabaseUrl!);
+    url.searchParams.set('connection_limit', '1');
+    url.searchParams.set('application_name', `${runPrefix}-${label}`);
+    return new PrismaClient({
+      datasources: { db: { url: url.toString() } },
+      transactionOptions: { maxWait: 5_000, timeout: 15_000 },
+    });
+  }
+
+  function buildOrderService(client: PrismaClient): OrdersService {
+    const featureService = new FeatureService();
+    return new OrdersService(
+      client as never,
+      {
+        emitOrderEventToRestaurant: jest.fn(),
+        emitTableStatusChanged: jest.fn(),
+        signOrderToken: jest.fn((orderId: string) => `track-${orderId}`),
+      } as never,
+      featureService,
+      { routeOrderToPrinters: jest.fn().mockResolvedValue(undefined) } as never,
+      new PaymentProviderConfigService(featureService),
+    );
+  }
+
+  function buildPaymentSessionService(
+    client: PrismaClient,
+  ): PaymentSessionService {
+    const featureService = new FeatureService();
+    const events = {
+      emitBillPaymentCleared: jest.fn(),
+      emitTableStatusChanged: jest.fn(),
+      emitToRestaurant: jest.fn(),
+      emitToTableSession: jest.fn(),
+    };
+    const core = new PaymentCoreService(
+      client as never,
+      events as never,
+      featureService,
+    );
+    return new PaymentSessionService(
+      client as never,
+      { cancelPaymentIntent: jest.fn().mockResolvedValue(undefined) } as never,
+      events as never,
+      core,
+      new PaymentProviderConfigService(featureService),
+      featureService,
+    );
+  }
+
+  async function createOrderSessionFixture(suffix: string) {
+    const { owner, restaurant: initialRestaurant } =
+      await createRestaurantFixture(suffix);
+    const restaurant = await prisma.restaurant.update({
+      where: { id: initialRestaurant.id },
+      data: { tier: SubscriptionTier.PROFESSIONAL },
+    });
+    const table = await prisma.restaurantTable.create({
+      data: {
+        name: `Race table ${suffix}`,
+        restaurantId: restaurant.id,
+        type: 'TABLE',
+      },
+    });
+    const category = await prisma.menuCategory.create({
+      data: {
+        name: `Race menu ${suffix}`,
+        restaurantId: restaurant.id,
+        order: 1,
+        daysOfWeek: [],
+      },
+    });
+    const menuItem = await prisma.menuItem.create({
+      data: {
+        name: `Race item ${suffix}`,
+        price: 12,
+        currency: Currency.EUR,
+        allergens: [],
+        dietaryTags: [],
+        categoryId: category.id,
+        order: 1,
+      },
+    });
+    const session = await prisma.tableSession.create({
+      data: { tableId: table.id, restaurantId: restaurant.id },
+    });
+    return { owner, restaurant, table, menuItem, session };
+  }
+
   async function waitFor(
     assertion: () => Promise<void>,
     timeoutMs = 5_000,
@@ -150,6 +243,114 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       }
     }
     throw lastError;
+  }
+
+  async function waitForDatabaseLock(pid: number): Promise<void> {
+    await waitFor(async () => {
+      const activity = await prisma.$queryRaw<
+        Array<{ waitEventType: string | null }>
+      >`
+        SELECT wait_event_type AS "waitEventType"
+        FROM pg_stat_activity
+        WHERE pid = ${pid}
+      `;
+      expect(activity[0]?.waitEventType).toBe('Lock');
+    });
+  }
+
+  async function runOrderBeforeSessionMutation(
+    label: string,
+    sessionId: string,
+    orderInput: Parameters<OrdersService['create']>[0],
+    authenticatedUserId: string | null,
+    mutate: (client: PrismaClient) => Promise<unknown>,
+    orderFirst = true,
+    lockKind: 'session' | 'table' = 'session',
+  ) {
+    const blocker = createDedicatedPrisma(`${label}-blocker`);
+    const orderClient = createDedicatedPrisma(`${label}-order`);
+    const mutationClient = createDedicatedPrisma(`${label}-mutation`);
+    await Promise.all([
+      blocker.$connect(),
+      orderClient.$connect(),
+      mutationClient.$connect(),
+    ]);
+
+    let releaseSessionLock!: () => void;
+    let sessionLocked!: () => void;
+    const releaseSession = new Promise<void>((resolve) => {
+      releaseSessionLock = resolve;
+    });
+    const sessionLockReady = new Promise<void>((resolve) => {
+      sessionLocked = resolve;
+    });
+    const blockerTransaction = blocker.$transaction(async (tx) => {
+      if (lockKind === 'session') {
+        await tx.$queryRaw`
+          SELECT id
+          FROM "table_session"
+          WHERE id = ${sessionId}
+          FOR UPDATE
+        `;
+      } else {
+        await tx.$queryRaw`
+          SELECT id
+          FROM "restaurant_table"
+          WHERE id = ${sessionId}
+          FOR UPDATE
+        `;
+      }
+      sessionLocked();
+      await releaseSession;
+    });
+
+    try {
+      await sessionLockReady;
+      const [orderPidRow] = await orderClient.$queryRaw<Array<{ pid: number }>>`
+        SELECT pg_backend_pid() AS pid
+      `;
+      const [mutationPidRow] = await mutationClient.$queryRaw<
+        Array<{ pid: number }>
+      >`
+        SELECT pg_backend_pid() AS pid
+      `;
+
+      let orderPromise: ReturnType<OrdersService['create']>;
+      let mutationPromise: Promise<unknown>;
+      if (orderFirst) {
+        orderPromise = buildOrderService(orderClient).create(
+          orderInput,
+          authenticatedUserId,
+        );
+        await waitForDatabaseLock(orderPidRow.pid);
+        mutationPromise = mutate(mutationClient);
+        await waitForDatabaseLock(mutationPidRow.pid);
+      } else {
+        mutationPromise = mutate(mutationClient);
+        await waitForDatabaseLock(mutationPidRow.pid);
+        orderPromise = buildOrderService(orderClient).create(
+          orderInput,
+          authenticatedUserId,
+        );
+        await waitForDatabaseLock(orderPidRow.pid);
+      }
+
+      releaseSessionLock();
+      const [orderResult, mutationResult] = await Promise.allSettled([
+        orderPromise,
+        mutationPromise,
+      ]);
+      await blockerTransaction;
+      return { orderResult, mutationResult };
+    } finally {
+      releaseSessionLock();
+      await blockerTransaction.catch(() => undefined);
+      await Promise.all([
+        blocker.$disconnect(),
+        orderClient.$disconnect(),
+        mutationClient.$disconnect(),
+      ]);
+    }
   }
 
   it('creates one loyalty account when first-order upserts race', async () => {
@@ -171,6 +372,292 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
           restaurantId: restaurant.id,
         },
       }),
+    ).resolves.toBe(1);
+  });
+
+  it('keeps an order on its open session when it wins a race with force-open', async () => {
+    const { owner, restaurant, table, menuItem, session } =
+      await createOrderSessionFixture('order-force-open');
+    const clientOrderId = `${runPrefix}-order-force-open`;
+    const { orderResult, mutationResult } = await runOrderBeforeSessionMutation(
+      'force-open',
+      session.id,
+      {
+        customerName: 'Race order',
+        source: 'POS',
+        items: [
+          {
+            menuItemId: menuItem.id,
+            quantity: 1,
+            expectedUnitPrice: menuItem.price,
+          },
+        ],
+        posSubmission: {
+          clientOrderId,
+          restaurantId: restaurant.id,
+          tableId: table.id,
+          expectedTableSessionId: session.id,
+        },
+      },
+      owner.id,
+      (client) =>
+        buildPaymentSessionService(client).forceOpenSession(
+          table.id,
+          restaurant.id,
+          owner.id,
+        ),
+    );
+
+    expect(orderResult.status).toBe('fulfilled');
+    expect(mutationResult.status).toBe('rejected');
+    if (mutationResult.status === 'rejected') {
+      if (!(mutationResult.reason instanceof ConflictException)) {
+        throw mutationResult.reason;
+      }
+    }
+
+    const persistedOrder = await prisma.order.findUniqueOrThrow({
+      where: {
+        restaurantId_clientOrderId: {
+          restaurantId: restaurant.id,
+          clientOrderId,
+        },
+      },
+    });
+    await expect(
+      prisma.tableSession.findUniqueOrThrow({
+        where: { id: persistedOrder.tableSessionId! },
+      }),
+    ).resolves.toMatchObject({ id: session.id, status: 'OPEN' });
+    await expect(
+      prisma.tableSession.count({
+        where: { tableId: table.id, restaurantId: restaurant.id },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('creates no order items when force-open wins the session race', async () => {
+    const { owner, restaurant, table, menuItem, session } =
+      await createOrderSessionFixture('force-open-wins');
+    const clientOrderId = `${runPrefix}-force-open-wins`;
+    const { orderResult, mutationResult } = await runOrderBeforeSessionMutation(
+      'force-open-wins',
+      session.id,
+      {
+        customerName: 'Losing race order',
+        source: 'POS',
+        items: [
+          {
+            menuItemId: menuItem.id,
+            quantity: 1,
+            expectedUnitPrice: menuItem.price,
+          },
+        ],
+        posSubmission: {
+          clientOrderId,
+          restaurantId: restaurant.id,
+          tableId: table.id,
+          expectedTableSessionId: session.id,
+        },
+      },
+      owner.id,
+      (client) =>
+        buildPaymentSessionService(client).forceOpenSession(
+          table.id,
+          restaurant.id,
+          owner.id,
+        ),
+      false,
+    );
+
+    expect(mutationResult.status).toBe('fulfilled');
+    expect(orderResult.status).toBe('rejected');
+    if (orderResult.status === 'rejected') {
+      expect(orderResult.reason).toBeInstanceOf(ConflictException);
+    }
+    await expect(
+      prisma.order.count({
+        where: { restaurantId: restaurant.id, clientOrderId },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.orderItem.count({
+        where: { order: { restaurantId: restaurant.id } },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.tableSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).resolves.toMatchObject({ status: 'CLOSED_NO_PAYMENT' });
+    await expect(
+      prisma.tableSession.count({
+        where: {
+          tableId: table.id,
+          restaurantId: restaurant.id,
+          status: 'OPEN',
+        },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('keeps an expected-empty POS order when it creates the session before force-open', async () => {
+    const { owner, restaurant, table, menuItem, session } =
+      await createOrderSessionFixture('expected-empty-order');
+    await prisma.tableSession.delete({ where: { id: session.id } });
+    const clientOrderId = `${runPrefix}-expected-empty-order`;
+    const { orderResult, mutationResult } = await runOrderBeforeSessionMutation(
+      'expected-empty-order',
+      table.id,
+      {
+        customerName: 'Expected empty race order',
+        source: 'POS',
+        items: [
+          {
+            menuItemId: menuItem.id,
+            quantity: 1,
+            expectedUnitPrice: menuItem.price,
+          },
+        ],
+        posSubmission: {
+          clientOrderId,
+          restaurantId: restaurant.id,
+          tableId: table.id,
+          expectedTableSessionId: null,
+        },
+      },
+      owner.id,
+      (client) =>
+        buildPaymentSessionService(client).forceOpenSession(
+          table.id,
+          restaurant.id,
+          owner.id,
+        ),
+      true,
+      'table',
+    );
+
+    expect(orderResult.status).toBe('fulfilled');
+    expect(mutationResult.status).toBe('rejected');
+    if (mutationResult.status === 'rejected') {
+      expect(mutationResult.reason).toBeInstanceOf(ConflictException);
+    }
+    const persistedOrder = await prisma.order.findUniqueOrThrow({
+      where: {
+        restaurantId_clientOrderId: {
+          restaurantId: restaurant.id,
+          clientOrderId,
+        },
+      },
+    });
+    expect(persistedOrder.tableSessionId).not.toBeNull();
+    await expect(
+      prisma.tableSession.findUniqueOrThrow({
+        where: { id: persistedOrder.tableSessionId! },
+      }),
+    ).resolves.toMatchObject({ status: 'OPEN' });
+    await expect(
+      prisma.tableSession.count({
+        where: { tableId: table.id, restaurantId: restaurant.id },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('keeps a customer order on its open session when it wins a race with close', async () => {
+    const { owner, restaurant, menuItem, session } =
+      await createOrderSessionFixture('order-close');
+    const { orderResult, mutationResult } = await runOrderBeforeSessionMutation(
+      'close-session',
+      session.id,
+      {
+        customerName: 'Customer race order',
+        sessionToken: session.token,
+        items: [{ menuItemId: menuItem.id, quantity: 1 }],
+      },
+      null,
+      (client) =>
+        buildPaymentSessionService(client).closeSession(
+          session.token,
+          restaurant.id,
+          owner.id,
+        ),
+    );
+
+    expect(orderResult.status).toBe('fulfilled');
+    expect(mutationResult.status).toBe('rejected');
+    if (mutationResult.status === 'rejected') {
+      expect(mutationResult.reason).toBeInstanceOf(ConflictException);
+    }
+    await expect(
+      prisma.tableSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).resolves.toMatchObject({ status: 'OPEN' });
+    await expect(
+      prisma.order.count({ where: { tableSessionId: session.id } }),
+    ).resolves.toBe(1);
+  });
+
+  it('settles a customer order that wins the session lock before cash close', async () => {
+    const { owner, restaurant, menuItem, session } =
+      await createOrderSessionFixture('order-cash-close');
+    const { orderResult, mutationResult } = await runOrderBeforeSessionMutation(
+      'cash-close-session',
+      session.id,
+      {
+        customerName: 'Cash close race order',
+        sessionToken: session.token,
+        items: [{ menuItemId: menuItem.id, quantity: 1 }],
+      },
+      null,
+      (client) =>
+        buildPaymentSessionService(client).closeSessionWithCash(
+          session.token,
+          restaurant.id,
+          owner.id,
+        ),
+    );
+
+    expect(orderResult.status).toBe('fulfilled');
+    expect(mutationResult.status).toBe('fulfilled');
+    await expect(
+      prisma.tableSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).resolves.toMatchObject({ status: 'PAID' });
+    await expect(
+      prisma.payment.findFirstOrThrow({
+        where: { tableSessionId: session.id, provider: 'CASH' },
+      }),
+    ).resolves.toMatchObject({ status: 'SUCCEEDED', amount: menuItem.price });
+  });
+
+  it('keeps a customer order on its open session when it wins a race with admin force-close', async () => {
+    const { owner, restaurant, menuItem, session } =
+      await createOrderSessionFixture('order-admin-close');
+    const { orderResult, mutationResult } = await runOrderBeforeSessionMutation(
+      'admin-close-session',
+      session.id,
+      {
+        customerName: 'Admin close race order',
+        sessionToken: session.token,
+        items: [{ menuItemId: menuItem.id, quantity: 1 }],
+      },
+      null,
+      (client) =>
+        new SuperAdminService(
+          client as never,
+          {} as never,
+          {} as never,
+        ).forceCloseSession(restaurant.id, session.id, owner.id),
+    );
+
+    expect(orderResult.status).toBe('fulfilled');
+    expect(mutationResult.status).toBe('rejected');
+    if (mutationResult.status === 'rejected') {
+      if (!(mutationResult.reason instanceof ConflictException)) {
+        throw mutationResult.reason;
+      }
+    }
+    await expect(
+      prisma.tableSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).resolves.toMatchObject({ status: 'OPEN' });
+    await expect(
+      prisma.order.count({ where: { tableSessionId: session.id } }),
     ).resolves.toBe(1);
   });
 

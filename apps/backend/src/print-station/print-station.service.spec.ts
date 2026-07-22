@@ -5,7 +5,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { FeatureService } from '../subscription/feature.service';
 
-const mockPrisma = {
+const mockPrisma: any = {
   printStation: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
@@ -15,6 +15,7 @@ const mockPrisma = {
   },
   printAgentToken: {
     create: jest.fn(),
+    count: jest.fn(),
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
@@ -31,6 +32,10 @@ const mockPrisma = {
   },
   order: { findUnique: jest.fn() },
   restaurant: { findUnique: jest.fn() },
+  $queryRaw: jest.fn(),
+  $transaction: jest.fn((callback: (tx: any) => unknown) =>
+    callback(mockPrisma),
+  ),
 };
 
 const mockEvents = {
@@ -61,6 +66,8 @@ describe('PrintStationService', () => {
       tier: 'ENTERPRISE',
       forceTier: null,
     });
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: 'station-1' }]);
+    mockPrisma.printAgentToken.count.mockResolvedValue(0);
   });
 
   describe('create', () => {
@@ -343,6 +350,7 @@ describe('PrintStationService', () => {
           where: expect.objectContaining({
             printStationId: { not: null },
             attempts: { lt: 3 },
+            createdAt: { gte: expect.any(Date) },
             OR: [
               { status: 'PENDING' },
               { status: 'SENT', lastAttemptAt: { lt: expect.any(Date) } },
@@ -354,6 +362,42 @@ describe('PrintStationService', () => {
       );
       expect(retrySpy).toHaveBeenCalledWith('r1', 'station-1');
       expect(retrySpy).toHaveBeenCalledWith('r2', 'station-2');
+    });
+
+    it('expires pending jobs by wall-clock age without consuming fake attempts', async () => {
+      mockPrisma.printJob.findMany.mockResolvedValue([]);
+
+      await service.retryStuckPrintJobs();
+
+      expect(mockPrisma.printJob.updateMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: {
+            status: { in: ['PENDING', 'SENT'] },
+            createdAt: { lt: expect.any(Date) },
+          },
+          data: {
+            status: 'FAILED',
+            errorMessage: 'Print job expired after 24 hours without delivery',
+          },
+        }),
+      );
+    });
+
+    it('logs and ends the cycle when the station retry query fails', async () => {
+      mockPrisma.printJob.findMany.mockRejectedValue(
+        new Error('database down'),
+      );
+      const loggerError = jest
+        .spyOn((service as any).logger, 'error')
+        .mockImplementation();
+
+      await expect(service.retryStuckPrintJobs()).resolves.toBeUndefined();
+
+      expect(loggerError).toHaveBeenCalledWith(
+        'Failed to load print stations needing retries',
+        expect.objectContaining({ message: 'database down' }),
+      );
     });
   });
 
@@ -388,10 +432,6 @@ describe('PrintStationService', () => {
 
   describe('generateToken', () => {
     it('generates a token and saves its hash', async () => {
-      mockPrisma.printStation.findUnique.mockResolvedValue({
-        id: 'station-1',
-        restaurantId: 'r1',
-      });
       mockPrisma.printAgentToken.create.mockResolvedValue({
         id: 'token-1',
         restaurantId: 'r1',
@@ -402,6 +442,10 @@ describe('PrintStationService', () => {
       const result = await service.generateToken('r1', 'station-1', 'My Token');
 
       expect(result).toHaveProperty('token');
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.printAgentToken.count).toHaveBeenCalledWith({
+        where: { printStationId: 'station-1' },
+      });
       expect(mockPrisma.printAgentToken.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           restaurantId: 'r1',
@@ -411,6 +455,24 @@ describe('PrintStationService', () => {
         }),
         select: expect.any(Object),
       });
+    });
+
+    it('rejects token creation when a station already has five tokens', async () => {
+      mockPrisma.printAgentToken.count.mockResolvedValue(5);
+
+      await expect(
+        service.generateToken('r1', 'station-1', 'Sixth token'),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.printAgentToken.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects token creation when the locked station is outside the tenant', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      await expect(
+        service.generateToken('r1', 'station-other'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.printAgentToken.count).not.toHaveBeenCalled();
     });
   });
 

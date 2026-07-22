@@ -659,6 +659,19 @@ describe('SubscriptionService', () => {
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
       expect(prisma.adminAuditLog.createMany).not.toHaveBeenCalled();
     });
+
+    it('logs a transaction failure without rejecting the scheduler', async () => {
+      prisma.$transaction.mockRejectedValueOnce(new Error('db offline'));
+      const error = jest
+        .spyOn(service['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(service.enforceGraceExpiry()).resolves.toBeUndefined();
+      expect(error).toHaveBeenCalledWith(
+        'Grace-expiry enforcement cron failed',
+        { error: 'db offline' },
+      );
+    });
   });
 
   describe('enforceForceTierExpiry', () => {
@@ -684,6 +697,19 @@ describe('SubscriptionService', () => {
             }),
           ],
         }),
+      );
+    });
+
+    it('logs a transaction failure without rejecting the scheduler', async () => {
+      prisma.$transaction.mockRejectedValueOnce(new Error('db offline'));
+      const error = jest
+        .spyOn(service['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(service.enforceForceTierExpiry()).resolves.toBeUndefined();
+      expect(error).toHaveBeenCalledWith(
+        'Force-tier expiry enforcement cron failed',
+        { error: 'db offline' },
       );
     });
   });

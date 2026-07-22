@@ -2,6 +2,24 @@ import { useState, useRef, useEffect } from "react";
 import { Bell, CreditCard } from "lucide-react";
 import { useNotifications } from "../context/NotificationContext";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+
+export const formatNotificationTimeAgo = (
+  t: TFunction,
+  timestamp: number,
+  now = Date.now(),
+) => {
+  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (seconds < 60) return t("auto.justNow", "just now");
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60)
+    return t("auto.minutesAgo", "{{count}}m ago", { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("auto.hoursAgo", "{{count}}h ago", { count: hours });
+  return t("auto.daysAgo", "{{count}}d ago", {
+    count: Math.floor(hours / 24),
+  });
+};
 
 const NotificationBell = () => {
   const { t } = useTranslation();
@@ -30,22 +48,15 @@ const NotificationBell = () => {
     markAllRead();
   };
 
-  const timeAgo = (ts: number) => {
-    const seconds = Math.floor((Date.now() - ts) / 1000);
-    if (seconds < 60) return "just now";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
-  };
-
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-3 rounded-2xl hover:bg-secondary/80 transition-colors"
-        aria-label="Payment notifications"
+        aria-label={t(
+          "auto.paymentNotificationsAriaLabel",
+          "Payment notifications",
+        )}
       >
         <Bell className="w-6 h-6 text-muted-foreground" />
         {unreadCount > 0 && (
@@ -100,7 +111,7 @@ const NotificationBell = () => {
                       </p>
                     </div>
                     <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap">
-                      {timeAgo(n.timestamp)}
+                      {formatNotificationTimeAgo(t, n.timestamp)}
                     </span>
                   </div>
                 </div>

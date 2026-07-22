@@ -603,6 +603,8 @@
     "itemImage": "Imaginea Articolului",
     "costPrice": "Costul articolului",
     "costPriceHint": "Cât vă costă să preparați acest articol. Folosit pentru analiza profitului.",
+    "weight": "Greutate / mărimea porției",
+    "weightPlaceholder": "de ex. 350 g",
     "loyaltyReward": "Disponibil ca recompensă de fidelitate",
     "loyaltyRewardHint": "Clienții pot schimba puncte de fidelitate pentru prețul de bază al articolului.",
     "rewardPricingMode": "Mod de stabilire a punctelor",
@@ -1547,6 +1549,8 @@
     "pastOrders": "Comenzi anterioare",
     "loading": "Se încarcă istoricul…",
     "historyLoadFailed": "Comenzile anterioare nu au putut fi încărcate. Încercați din nou.",
+    "loadMoreOrders": "Încarcă mai multe comenzi",
+    "loadingMoreOrders": "Se încarcă…",
     "noOrders": "Nicio comandă încă",
     "noOrdersHint": "Când comandați de la restaurante participante, vor apărea aici.",
     "at": "la",
@@ -1942,8 +1946,8 @@
           "answer": "Da. Enterprise include un Sistem de Afișare pentru Bucătărie (KDS) complet, POS pentru Ospătari, zone de mese, atribuirea personalului, note de plată detaliate, suport pentru locații multiple și funcții de asistență prioritară."
         },
         "q6": {
-          "question": "Cum funcționează programul de loialitate?",
-          "answer": "Clienții câștigă puncte la fiecare comandă utilizând un sistem contabil FIFO. Punctele pot fi preschimbate pentru reduceri în numerar sau articole gratuite. Sistemul suportă niveluri VIP (Bronz/Argint/Aur), multiplicatori pentru happy hour, bonusuri de înregistrare și memento-uri automate pentru expirare."
+          "question": "Când am nevoie de Enterprise?",
+          "answer": "Enterprise este pentru POS, ecran de bucătărie, imprimante termice, bonuri de casă personalizate, zone de mese, personal nelimitat și roluri avansate."
         },
         "q7": {
           "question": "Ce limbi sunt suportate pentru meniuri?",
@@ -2013,9 +2017,9 @@
           "b2": "POS și afișaj bucătărie (KDS)",
           "b3": "Zone și secțiuni de mese",
           "b4": "Atribuire personal și note detaliate",
-          "b5": "Suport locații multiple",
+          "b5": "Zone și secțiuni de mese",
           "b6": "Suport imprimantă termică",
-          "b7": "Roluri avansate (RBAC)",
+          "b7": "Bonuri de casă personalizate",
           "b8": "Panou operațiuni super-admin",
           "b9": "Suport prioritar",
           "b10": "Personal nelimitat",
@@ -2410,7 +2414,45 @@
     "refundedEvent": "Plată rambursată",
     "abandonedEvent": "Plată abandonată",
     "sessionOpened": "Sesiunea mesei a fost deschisă",
-    "sessionClosed": "Sesiunea mesei a fost închisă"
+    "sessionClosed": "Sesiunea mesei a fost închisă",
+    "reconciliation": {
+      "title": "Plăți care necesită verificare",
+      "description": "Plăți capturate care necesită decizia proprietarului.",
+      "count_one": "{{count}} problemă deschisă",
+      "count_other": "{{count}} probleme deschise",
+      "loading": "Se verifică plățile capturate...",
+      "loadError": "Problemele de plată nu au putut fi încărcate.",
+      "refreshError": "Cele mai recente date nu au putut fi încărcate. Se afișează ultimul rezultat disponibil.",
+      "retry": "Încearcă din nou",
+      "table": "Masă",
+      "session": "Sesiune",
+      "payment": "Plată",
+      "created": "Capturată",
+      "noTable": "Fără masă",
+      "noSession": "Fără sesiune",
+      "resolve": "Rezolvă",
+      "dismiss": "Respinge",
+      "note": "Notă de rezolvare (opțional)",
+      "notePlaceholder": "Ce a fost verificat sau corectat?",
+      "confirmResolve": "Confirmă rezolvarea",
+      "confirmDismiss": "Confirmă respingerea",
+      "cancel": "Anulează",
+      "mutationError": "Problema nu a putut fi actualizată. Este posibil ca alt proprietar să o fi procesat deja. Reîncărcați și încercați din nou.",
+      "reason": {
+        "SESSION_NOT_OPEN": "Sesiunea mesei nu mai era deschisă atunci când furnizorul a confirmat plata.",
+        "SCOPE_AMOUNT_MISMATCH": "Suma capturată nu corespunde selecției de plată.",
+        "SCOPE_CONFLICT": "Articolele selectate erau deja achitate când furnizorul a confirmat plata.",
+        "PROVIDER_CONFIRMATION_MISMATCH": "Confirmarea furnizorului nu corespunde plății înregistrate.",
+        "PROVIDER_STATUS_UNKNOWN": "Starea plății la furnizor a rămas necunoscută și necesită verificare.",
+        "HISTORICAL_CAPTURE": "O plată capturată anterior necesită verificare."
+      },
+      "sessionStatus": {
+        "OPEN": "Deschisă",
+        "PAID": "Plătită",
+        "CLOSED_PAID": "Închisă și plătită",
+        "CLOSED_NO_PAYMENT": "Închisă fără plată"
+      }
+    }
   },
   "subscription": {
     "currentPlan": "Plan curent",
@@ -2588,14 +2630,14 @@
         "b1": "Tot din Professional",
         "b2": "Punct de vânzare (POS)",
         "b3": "Afișaj bucătărie (KDS)",
-        "b4": "Mai multe locații",
+        "b4": "Zone și secțiuni de mese",
         "b5": "Imprimante termice",
-        "b6": "Șabloane meniu",
+        "b6": "Bonuri de casă personalizate",
         "b7": "RBAC avansat",
         "b8": "Personal nelimitat",
         "b9": "Suport prioritar",
         "b10": "Roluri de ospătar și bucătărie",
-        "fit": "Ideal pentru hoteluri, lanțuri și localuri cu bucătărie, POS, imprimante sau mai mult de o locație."
+        "fit": "Cel mai potrivit pentru hoteluri, locații mari și restaurante cu mai multe săli, cu bucătărie, POS și imprimante."
       }
     },
     "features": {
@@ -3260,11 +3302,16 @@
     "somethingWentWrong": "Something went wrong",
     "anUnexpectedErrorOccurredInThisPan": "An unexpected error occurred in this panel.",
     "tryAgain": "Try Again",
-    "paymentNotifications": "Payment Notifications",
-    "noPaymentsYet": "No payments yet",
-    "table": "Table",
-    "paymentReceived": "Payment Received",
-    "tip": "tip",
+    "paymentNotifications": "Notificări de plată",
+    "paymentNotificationsAriaLabel": "Notificări de plată",
+    "justNow": "chiar acum",
+    "minutesAgo": "acum {{count}} min",
+    "hoursAgo": "acum {{count}} h",
+    "daysAgo": "acum {{count}} z",
+    "noPaymentsYet": "Nicio plată încă",
+    "table": "Masa",
+    "paymentReceived": "Plată primită",
+    "tip": "bacșiș",
     "loadingRestaurants": "Loading restaurants...",
     "yourRestaurants": "Your Restaurants",
     "x": "x)",
@@ -3695,6 +3742,20 @@
   "tables.occupied": "Ocupată",
   "tables.paid": "Plătită",
   "tables.available": "Disponibilă",
+  "language": {
+    "en": "Engleză",
+    "bg": "Bulgară",
+    "de": "Germană",
+    "es": "Spaniolă",
+    "fr": "Franceză",
+    "it": "Italiană",
+    "ro": "Română",
+    "zh": "Chineză",
+    "el": "Greacă",
+    "ja": "Japoneză",
+    "ru": "Rusă",
+    "ar": "Arabă"
+  },
   "roles": {
     "owner": "Proprietar",
     "manager": "Manager",

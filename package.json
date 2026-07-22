@@ -6,7 +6,8 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "node scripts/dev-with-logs.js",
+    "dev:raw": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "guard:prisma-raw-void": "node scripts/check-prisma-raw-void.js",

@@ -64,7 +64,7 @@ const PLAN_CONFIG: Record<
   },
   ENTERPRISE: {
     monthly: 45,
-    highlight: ["kds", "staff:unlimited", "multilocation", "printers:thermal"],
+    highlight: ["kds", "staff:unlimited", "pos", "printers:thermal"],
   },
 };
 
@@ -77,7 +77,6 @@ const FEATURE_GROUPS: Array<{ key: string; features: FeatureFlag[] }> = [
       "menu:import",
       "qr:manage",
       "languages:multi",
-      "templates:menu",
     ],
   },
   {
@@ -112,14 +111,7 @@ const FEATURE_GROUPS: Array<{ key: string; features: FeatureFlag[] }> = [
   },
   {
     key: "operations",
-    features: [
-      "pos",
-      "kds",
-      "rbac",
-      "multilocation",
-      "printers:thermal",
-      "staff:unlimited",
-    ],
+    features: ["pos", "kds", "rbac", "printers:thermal", "staff:unlimited"],
   },
 ];
 

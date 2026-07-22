@@ -60,6 +60,56 @@ describe('ReservationReminderService.sweep', () => {
         notificationLocale: 'bg',
       }),
     );
+    expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      notify.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('continues with later reservations when one notification fails', async () => {
+    const { service, findMany, updateMany, notify } = build();
+    findMany.mockResolvedValue([
+      dueRow,
+      { ...dueRow, id: 'res2', referenceCode: 'DEF456' },
+    ]);
+    notify
+      .mockRejectedValueOnce(new Error('mail provider unavailable'))
+      .mockResolvedValueOnce(undefined);
+
+    const count = await service.sweep();
+
+    expect(count).toBe(1);
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(notify).toHaveBeenCalledTimes(2);
+    expect(notify).toHaveBeenLastCalledWith(
+      'REMINDER',
+      expect.objectContaining({ referenceCode: 'DEF456' }),
+    );
+    expect(updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { reminderSentAt: null },
+      }),
+    );
+  });
+
+  it('continues with later reservations when one claim fails', async () => {
+    const { service, findMany, updateMany, notify } = build();
+    findMany.mockResolvedValue([
+      dueRow,
+      { ...dueRow, id: 'res2', referenceCode: 'DEF456' },
+    ]);
+    updateMany
+      .mockRejectedValueOnce(new Error('database timeout'))
+      .mockResolvedValueOnce({ count: 1 });
+
+    const count = await service.sweep();
+
+    expect(count).toBe(1);
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(
+      'REMINDER',
+      expect.objectContaining({ referenceCode: 'DEF456' }),
+    );
   });
 
   it('does not dispatch when another worker already claimed the row', async () => {

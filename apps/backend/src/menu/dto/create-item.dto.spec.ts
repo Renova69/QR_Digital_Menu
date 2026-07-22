@@ -103,4 +103,26 @@ describe('CreateItemDto', () => {
       ),
     ).toBeDefined();
   });
+
+  it('accepts a bounded menu-item weight and rejects oversized values', async () => {
+    const valid = plainToInstance(CreateItemDto, {
+      name: 'Test Item',
+      price: 10,
+      currency: Currency.EUR,
+      weight: '350 g',
+    });
+    const invalid = plainToInstance(CreateItemDto, {
+      name: 'Test Item',
+      price: 10,
+      currency: Currency.EUR,
+      weight: 'g'.repeat(101),
+    });
+
+    expect(
+      (await validate(valid)).find((error) => error.property === 'weight'),
+    ).toBeUndefined();
+    expect(
+      (await validate(invalid)).find((error) => error.property === 'weight'),
+    ).toBeDefined();
+  });
 });

@@ -338,7 +338,10 @@ export class RestaurantsService {
       const rawSecret = data.epaySecret;
       delete data.epaySecret;
       if (typeof rawSecret === 'string' && rawSecret.trim()) {
-        data.epaySecretEncrypted = encryptSecret(rawSecret.trim());
+        data.epaySecretEncrypted = encryptSecret(rawSecret.trim(), {
+          restaurantId: id,
+          purpose: 'epay-secret',
+        });
       } else if (rawSecret === null) {
         data.epaySecretEncrypted = null;
       }
@@ -348,7 +351,10 @@ export class RestaurantsService {
       const rawKey = data.boricaPrivateKey;
       delete data.boricaPrivateKey;
       if (typeof rawKey === 'string' && rawKey.trim()) {
-        data.boricaPrivateKeyEncrypted = encryptSecret(rawKey.trim());
+        data.boricaPrivateKeyEncrypted = encryptSecret(rawKey.trim(), {
+          restaurantId: id,
+          purpose: 'borica-private-key',
+        });
       } else if (rawKey === null) {
         data.boricaPrivateKeyEncrypted = null;
       }
@@ -358,7 +364,10 @@ export class RestaurantsService {
       const rawKey = data.myposPrivateKey;
       delete data.myposPrivateKey;
       if (typeof rawKey === 'string' && rawKey.trim()) {
-        data.myposPrivateKeyEncrypted = encryptSecret(rawKey.trim());
+        data.myposPrivateKeyEncrypted = encryptSecret(rawKey.trim(), {
+          restaurantId: id,
+          purpose: 'mypos-private-key',
+        });
       } else if (rawKey === null) {
         data.myposPrivateKeyEncrypted = null;
       }

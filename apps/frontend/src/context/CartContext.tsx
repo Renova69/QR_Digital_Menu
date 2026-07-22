@@ -14,6 +14,7 @@ import type {
   ServicePointPaymentMethod,
   ServicePointType,
 } from "../lib/api";
+import { safeLocalStorage } from "../lib/browserStorage";
 
 export interface SelectedOption {
   optionId: string;
@@ -80,22 +81,22 @@ function isValidCartItem(value: unknown): value is CartItem {
 
 function loadCartFromStorage(): CartItem[] {
   try {
-    const savedItems = localStorage.getItem("cartItems");
+    const savedItems = safeLocalStorage.getItem("cartItems");
     if (!savedItems) return [];
     const parsed = JSON.parse(savedItems);
     if (!Array.isArray(parsed)) {
-      localStorage.removeItem("cartItems");
+      safeLocalStorage.removeItem("cartItems");
       return [];
     }
     const valid = parsed.filter(isValidCartItem);
     if (valid.length !== parsed.length) {
       // Persist the cleaned list so corrupt entries aren't re-validated (and
       // re-discarded) on every reload.
-      localStorage.setItem("cartItems", JSON.stringify(valid));
+      safeLocalStorage.setItem("cartItems", JSON.stringify(valid));
     }
     return valid;
   } catch {
-    localStorage.removeItem("cartItems");
+    safeLocalStorage.removeItem("cartItems");
     return [];
   }
 }
@@ -119,14 +120,14 @@ function isValidOrderLocation(value: unknown): value is OrderLocation {
 
 function loadOrderLocationFromStorage(): OrderLocation | null {
   try {
-    const saved = localStorage.getItem("orderLocation");
+    const saved = safeLocalStorage.getItem("orderLocation");
     if (!saved) return null;
     const parsed = JSON.parse(saved);
     if (isValidOrderLocation(parsed)) return parsed;
-    localStorage.removeItem("orderLocation");
+    safeLocalStorage.removeItem("orderLocation");
     return null;
   } catch {
-    localStorage.removeItem("orderLocation");
+    safeLocalStorage.removeItem("orderLocation");
     return null;
   }
 }
@@ -167,7 +168,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Initialize table number from localStorage
   const [tableNumber, setTableNumberState] = useState<string | null>(() => {
-    return localStorage.getItem("tableNumber") || null;
+    return safeLocalStorage.getItem("tableNumber") || null;
   });
   const [orderLocation, setOrderLocationState] = useState<OrderLocation | null>(
     loadOrderLocationFromStorage,
@@ -182,7 +183,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     pendingCartRef.current = serialized;
     if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
     cartSaveTimerRef.current = setTimeout(() => {
-      localStorage.setItem("cartItems", serialized);
+      safeLocalStorage.setItem("cartItems", serialized);
       pendingCartRef.current = null;
     }, 100);
   }, [items]);
@@ -198,7 +199,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartSaveTimerRef.current = null;
       }
       if (pendingCartRef.current !== null) {
-        localStorage.setItem("cartItems", pendingCartRef.current);
+        safeLocalStorage.setItem("cartItems", pendingCartRef.current);
         pendingCartRef.current = null;
       }
     };
@@ -217,17 +218,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Save table number to localStorage whenever it changes
   useEffect(() => {
     if (tableNumber) {
-      localStorage.setItem("tableNumber", tableNumber);
+      safeLocalStorage.setItem("tableNumber", tableNumber);
     } else {
-      localStorage.removeItem("tableNumber");
+      safeLocalStorage.removeItem("tableNumber");
     }
   }, [tableNumber]);
 
   useEffect(() => {
     if (orderLocation) {
-      localStorage.setItem("orderLocation", JSON.stringify(orderLocation));
+      safeLocalStorage.setItem("orderLocation", JSON.stringify(orderLocation));
     } else {
-      localStorage.removeItem("orderLocation");
+      safeLocalStorage.removeItem("orderLocation");
     }
   }, [orderLocation]);
 

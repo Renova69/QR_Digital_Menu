@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { safeLocalStorage } from "../lib/browserStorage";
 
 type Theme = "light" | "dark";
 
@@ -10,8 +11,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getStoredTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem("theme") as Theme | null;
+  const stored = safeLocalStorage.getItem("theme") as Theme | null;
   return stored === "dark" ? "dark" : "light";
 }
 
@@ -30,11 +30,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem("theme", next);
-      } catch {
-        /* ignore private-mode / storage-full errors */
-      }
+      safeLocalStorage.setItem("theme", next);
       return next;
     });
   };

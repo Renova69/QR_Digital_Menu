@@ -43,6 +43,7 @@ describe('EventsGateway — room authorization', () => {
       restaurant: { findUnique: jest.fn() },
       reservation: { findUnique: jest.fn() },
       tableSession: { findUnique: jest.fn() },
+      order: { findUnique: jest.fn() },
     };
     mockPrintStationService = {
       validateAgentToken: jest.fn(),
@@ -669,15 +670,19 @@ describe('EventsGateway — room authorization', () => {
       const emit = jest.fn();
       const to = jest.fn().mockReturnValue({ emit });
       gateway['server'] = { to } as unknown as import('socket.io').Server;
+      const order = {
+        id: 'order-1',
+        restaurantId: 'rest-1',
+        status: 'NEW',
+        totalPrice: 20,
+      };
+      mockPrisma.order.findUnique.mockResolvedValue(order);
 
       await gateway.dispatchPaidOrder('rest-1', 'order-1');
 
       expect(to).toHaveBeenCalledWith('restaurant_orders_rest-1');
       expect(to).toHaveBeenCalledWith('order_order-1');
-      expect(emit).toHaveBeenCalledWith('orderStatusChanged', {
-        id: 'order-1',
-        status: 'NEW',
-      });
+      expect(emit).toHaveBeenCalledWith('orderStatusChanged', order);
       expect(mockPrintStationService.routeOrderToPrinters).toHaveBeenCalledWith(
         'order-1',
       );
@@ -741,6 +746,61 @@ describe('EventsGateway — room authorization', () => {
       );
       expect(revokedSocket.disconnect).toHaveBeenCalled();
       expect(otherSocket.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('logs a cluster lookup failure without rejecting the caller', async () => {
+      gateway['server'] = {
+        fetchSockets: jest.fn().mockRejectedValue(new Error('redis offline')),
+      } as unknown as import('socket.io').Server;
+      const error = jest
+        .spyOn(gateway['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(
+        gateway.evictDeviceToken('device-token-1'),
+      ).resolves.toBeUndefined();
+      expect(error).toHaveBeenCalledWith(
+        'Socket eviction lookup failed',
+        expect.objectContaining({
+          claim: 'deviceTokenId',
+          targetId: 'device-token-1',
+          error: 'redis offline',
+        }),
+      );
+    });
+  });
+
+  describe('evictUser', () => {
+    it('still disconnects matching sockets when another socket emit fails', async () => {
+      const first = {
+        id: 'socket-1',
+        data: { userId: 'user-1' },
+        emit: jest.fn(() => {
+          throw new Error('emit failed');
+        }),
+        disconnect: jest.fn(),
+      };
+      const second = {
+        id: 'socket-2',
+        data: { userId: 'user-1' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      gateway['server'] = {
+        fetchSockets: jest.fn().mockResolvedValue([first, second]),
+      } as unknown as import('socket.io').Server;
+      jest
+        .spyOn(gateway['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      await gateway.evictUser('user-1');
+
+      expect(first.disconnect).toHaveBeenCalled();
+      expect(second.emit).toHaveBeenCalledWith(
+        'auth:evicted',
+        'account_disabled',
+      );
+      expect(second.disconnect).toHaveBeenCalled();
     });
   });
 });

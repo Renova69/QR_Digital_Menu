@@ -10,6 +10,7 @@ import {
   ValidationPipe,
   UseGuards,
   Request,
+  Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response, Request as ExpressRequest } from 'express';
@@ -21,25 +22,12 @@ import { GoogleAuthGuard } from './google-auth.guard';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
-
-const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
-  (process.env.COOKIE_SAMESITE as any) ||
-  (process.env.NODE_ENV === 'production' ? 'none' : 'lax');
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: COOKIE_SAMESITE,
-  path: '/',
-  maxAge: 24 * 60 * 60 * 1000, // 1 day
-};
-
-function setTokenCookie(res: Response, token: string) {
-  res.cookie('token', token, COOKIE_OPTIONS);
-}
+import { clearAuthTokenCookie, setAuthTokenCookie } from './auth-cookie';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
@@ -63,7 +51,7 @@ export class AuthController {
     const result = await this.authService.verifyRegistration(
       verifyRegistrationDto,
     );
-    setTokenCookie(res, result.token);
+    setAuthTokenCookie(res, result.token);
     return result;
   }
 
@@ -72,7 +60,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(req.user);
-    setTokenCookie(res, result.token);
+    setAuthTokenCookie(res, result.token);
     return result;
   }
 
@@ -119,7 +107,7 @@ export class AuthController {
   async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
     const user = await this.authService.validateGoogleUser(req.user);
     const { token } = await this.authService.login(user);
-    setTokenCookie(res, token);
+    setAuthTokenCookie(res, token);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 
     let returnTo = '';
@@ -129,7 +117,13 @@ export class AuthController {
         if (state.returnTo) {
           returnTo = `&returnTo=${encodeURIComponent(state.returnTo)}`;
         }
-      } catch (e) {}
+      } catch (error) {
+        this.logger.warn(
+          `Unable to parse validated OAuth state: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     // Token already set via httpOnly cookie above — do NOT leak in URL
@@ -165,18 +159,13 @@ export class AuthController {
       name,
       restaurantId,
     );
-    setTokenCookie(res, result.token);
+    setAuthTokenCookie(res, result.token);
     return result;
   }
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: COOKIE_SAMESITE,
-      path: '/',
-    });
+    clearAuthTokenCookie(res);
     return { success: true };
   }
 
@@ -192,7 +181,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.exchangeImpersonation(code);
-    setTokenCookie(res, result.token);
+    setAuthTokenCookie(res, result.token);
     return { user: result.user };
   }
 
@@ -204,7 +193,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.authService.exitImpersonation(req.user);
-    res.clearCookie('token');
+    clearAuthTokenCookie(res);
     return { success: true };
   }
 
@@ -224,7 +213,7 @@ export class AuthController {
         userAgent: req.get('user-agent'),
       },
     );
-    setTokenCookie(res, result.token);
+    setAuthTokenCookie(res, result.token);
     return { user: result.user };
   }
 }

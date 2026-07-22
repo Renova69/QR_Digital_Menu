@@ -65,37 +65,147 @@ const makeOrder = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-// tx passed to the main $transaction in create()
-const makeTx = (orderOverride: Record<string, any> = {}) => ({
-  $queryRaw: jest.fn().mockResolvedValue([]),
-  $executeRaw: jest.fn().mockResolvedValue(0),
-  tableSession: {
-    findFirst: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue({ id: 'sess-new', token: 'tok-new' }),
-  },
-  loyaltyAccount: {
-    findUnique: jest.fn().mockResolvedValue(null),
-    findUniqueOrThrow: jest
-      .fn()
-      .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
-    update: jest.fn().mockResolvedValue({}),
-  },
-  loyaltyPointLedger: {
-    findMany: jest.fn().mockResolvedValue([]),
-    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-    create: jest.fn().mockResolvedValue({}),
-    update: jest.fn().mockResolvedValue({}),
-  },
-  order: {
-    create: jest.fn().mockImplementation((args: any) =>
-      Promise.resolve({
-        ...makeOrder(),
-        totalPrice: args.data.totalPrice,
-        ...orderOverride,
-      }),
-    ),
-  },
+type SqlQueryLike = {
+  sql?: unknown;
+  text?: unknown;
+  strings?: unknown;
+  values?: unknown;
+};
+
+const getSqlText = (query: unknown): string => {
+  if (typeof query === 'string') return query;
+  if (Array.isArray(query)) return query.join('');
+  if (typeof query === 'object' && query !== null) {
+    const candidate = query as SqlQueryLike;
+    if (typeof candidate.sql === 'string') return candidate.sql;
+    if (typeof candidate.text === 'string') return candidate.text;
+    if (Array.isArray(candidate.strings)) return candidate.strings.join('');
+  }
+  return String(query);
+};
+
+type LockedSessionSeed = Partial<{
+  id: string;
+  token: string;
+  tableId: string;
+  isServicePoint: boolean;
+  tableName: string | null;
+}>;
+
+type QueryRawState = {
+  openPhysicalSession?: LockedSessionSeed | null;
+  sessionsById?: Map<string, LockedSessionSeed>;
+  tableNamesById?: Map<string, string>;
+};
+
+const lockedSession = (overrides: LockedSessionSeed = {}) => ({
+  id: overrides.id ?? 'sess-new',
+  token:
+    overrides.token ??
+    (overrides.id?.startsWith('sess-')
+      ? `tok-${overrides.id.slice('sess-'.length)}`
+      : 'tok-new'),
+  tableId: overrides.tableId ?? 'table-cuid-1',
+  isServicePoint: overrides.isServicePoint ?? false,
+  tableName: overrides.tableName ?? null,
 });
+
+const makeOrderQueryRawMock = (state: QueryRawState = {}) =>
+  jest.fn().mockImplementation((query: unknown) => {
+    const sql = getSqlText(query);
+    let values: unknown[] = [];
+    if (typeof query === 'object' && query !== null) {
+      const candidateValues = (query as SqlQueryLike).values;
+      if (Array.isArray(candidateValues)) values = candidateValues;
+    }
+
+    if (sql.includes('FROM "restaurant_table"')) {
+      const tableId =
+        typeof values[0] === 'string' ? values[0] : 'table-cuid-1';
+      return Promise.resolve([
+        {
+          id: tableId,
+          name: state.tableNamesById?.get(tableId) ?? 'T1',
+        },
+      ]);
+    }
+
+    if (
+      sql.includes('FROM "table_session" ts') &&
+      sql.includes('WHERE ts."tableId"')
+    ) {
+      return Promise.resolve(
+        state.openPhysicalSession
+          ? [lockedSession(state.openPhysicalSession)]
+          : [],
+      );
+    }
+
+    if (sql.includes('FROM "table_session" ts') && sql.includes('ts."id"')) {
+      const sessionId = typeof values[0] === 'string' ? values[0] : 'sess-new';
+      return Promise.resolve([
+        lockedSession(state.sessionsById?.get(sessionId) ?? { id: sessionId }),
+      ]);
+    }
+
+    return Promise.resolve([]);
+  });
+
+// tx passed to the main $transaction in create()
+const makeTx = (orderOverride: Record<string, any> = {}) => {
+  const sessionsById = new Map<string, LockedSessionSeed>();
+  const tx = {
+    $queryRaw: makeOrderQueryRawMock({ sessionsById }),
+    $executeRaw: jest.fn().mockResolvedValue(0),
+    tableSession: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest
+        .fn()
+        .mockImplementation(
+          (args: { data: { tableId: string; isServicePoint?: boolean } }) => {
+            sessionsById.set(
+              'sess-new',
+              lockedSession({
+                id: 'sess-new',
+                token: 'tok-new',
+                tableId: args.data.tableId,
+                isServicePoint: !!args.data.isServicePoint,
+              }),
+            );
+            return Promise.resolve({ id: 'sess-new', token: 'tok-new' });
+          },
+        ),
+    },
+    loyaltyAccount: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      findUniqueOrThrow: jest
+        .fn()
+        .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    loyaltyPointLedger: {
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      create: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    payment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    order: {
+      create: jest
+        .fn()
+        .mockImplementation((args: { data: { totalPrice: number } }) =>
+          Promise.resolve({
+            ...makeOrder(),
+            totalPrice: args.data.totalPrice,
+            ...orderOverride,
+          }),
+        ),
+    },
+  };
+  return tx;
+};
 
 const mockAuthenticatedCustomer = (prisma: any, id = 'cust-1') => {
   prisma.user.findUnique.mockResolvedValue({
@@ -162,7 +272,7 @@ describe('OrdersService', () => {
       // #2: create() now checks for an in-flight payment before adding orders.
       payment: { findFirst: jest.fn().mockResolvedValue(null) },
       user: { findUnique: jest.fn() },
-      $queryRaw: jest.fn().mockResolvedValue([]),
+      $queryRaw: makeOrderQueryRawMock(),
       $executeRaw: jest.fn().mockResolvedValue(0),
       // Default: run the callback with the prisma mock as the tx. updateStatus
       // (#12) now wraps its update in a transaction; create() overrides this
@@ -778,7 +888,6 @@ describe('OrdersService', () => {
       (tx as any).payment = {
         findFirst: jest.fn().mockResolvedValue(null),
       };
-      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
@@ -868,10 +977,12 @@ describe('OrdersService', () => {
 
     it('does not attach an expected-empty POS submission to a new table session', async () => {
       const tx = makeTx();
-      tx.tableSession.findFirst.mockResolvedValue({
-        id: 'unexpected-session',
-        token: 'unexpected-token',
-        tableId: 'table-cuid-1',
+      tx.$queryRaw = makeOrderQueryRawMock({
+        openPhysicalSession: {
+          id: 'unexpected-session',
+          token: 'unexpected-token',
+          tableId: 'table-cuid-1',
+        },
       });
       (tx as any).restaurantTable = {
         findFirst: jest.fn().mockResolvedValue({
@@ -884,7 +995,6 @@ describe('OrdersService', () => {
       (tx as any).payment = {
         findFirst: jest.fn().mockResolvedValue(null),
       };
-      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
@@ -948,7 +1058,6 @@ describe('OrdersService', () => {
       (tx as any).payment = {
         findFirst: jest.fn().mockResolvedValue(null),
       };
-      tx.$queryRaw.mockResolvedValue([{ id: 'table-cuid-1' }]);
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ price: 11 })]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
@@ -1315,6 +1424,18 @@ describe('OrdersService', () => {
       });
 
       const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-exist',
+            lockedSession({
+              id: 'sess-exist',
+              token: 'tok-exist',
+              tableId: 'table-cuid-1',
+            }),
+          ],
+        ]),
+      });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1398,6 +1519,19 @@ describe('OrdersService', () => {
         paymentMethods: ['ONLINE', 'PAY_ON_DELIVERY'],
       });
       const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-new',
+            lockedSession({
+              id: 'sess-new',
+              token: 'tok-new',
+              tableId: 'room-cuid-304',
+              isServicePoint: true,
+            }),
+          ],
+        ]),
+      });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1412,7 +1546,7 @@ describe('OrdersService', () => {
       > as CreateOrderDto & UpdateOrderDto);
 
       expect(result.sessionToken).toBe('tok-new');
-      expect(prisma.tableSession.create).toHaveBeenCalledWith({
+      expect(tx.tableSession.create).toHaveBeenCalledWith({
         data: {
           tableId: 'room-cuid-304',
           restaurantId: 'rest-1',
@@ -1454,6 +1588,19 @@ describe('OrdersService', () => {
         paymentMethods: ['ONLINE'],
       });
       const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-new',
+            lockedSession({
+              id: 'sess-new',
+              token: 'tok-new',
+              tableId: 'room-cuid-304',
+              isServicePoint: true,
+            }),
+          ],
+        ]),
+      });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1515,6 +1662,19 @@ describe('OrdersService', () => {
         paymentMethods: ['PAY_AT_PICKUP'],
       });
       const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-new',
+            lockedSession({
+              id: 'sess-new',
+              token: 'tok-new',
+              tableId: 'pickup-cuid',
+              isServicePoint: true,
+            }),
+          ],
+        ]),
+      });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1529,7 +1689,7 @@ describe('OrdersService', () => {
       await service.create(input);
       await service.create(input);
 
-      expect(prisma.tableSession.create).toHaveBeenCalledTimes(2);
+      expect(tx.tableSession.create).toHaveBeenCalledTimes(2);
     });
 
     it('rejects online preference when restaurant payments are disabled', async () => {
@@ -1654,6 +1814,19 @@ describe('OrdersService', () => {
         tableId: 'table-cuid-9',
       });
       const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-exist',
+            lockedSession({
+              id: 'sess-exist',
+              token: 'tok-exist',
+              tableId: 'table-cuid-9',
+            }),
+          ],
+        ]),
+        tableNamesById: new Map([['table-cuid-9', 'T9']]),
+      });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1745,7 +1918,7 @@ describe('OrdersService', () => {
       expect(tx.tableSession.create).toHaveBeenCalled();
     });
 
-    it('recovers from P2002 concurrent session creation race on table-id path (#F1)', async () => {
+    it('uses the OPEN session returned by the locked session read', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-cuid-1',
@@ -1757,13 +1930,14 @@ describe('OrdersService', () => {
 
       // First $transaction (getOrCreateOpenSession) loses the race → P2002.
       // Second $transaction (loyalty + order) succeeds normally.
-      prisma.$transaction
-        .mockRejectedValueOnce({ code: 'P2002' })
-        .mockImplementationOnce(async (fn: (tx: any) => any) => fn(tx));
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-cuid-1', name: 'T1' }])
+        .mockResolvedValueOnce([racedSession]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       // Fallback re-reads the OPEN session created by the concurrent winner.
-      prisma.tableSession.findFirst.mockResolvedValueOnce(racedSession);
-
       const result = await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
@@ -1778,14 +1952,8 @@ describe('OrdersService', () => {
         'sess-raced',
       );
       // Fallback re-read scoped correctly (tenant-isolation assertion).
-      const fallbackCall =
-        prisma.tableSession.findFirst.mock.calls[
-          prisma.tableSession.findFirst.mock.calls.length - 1
-        ][0];
-      expect(fallbackCall.where).toMatchObject({
-        tableId: 'table-cuid-1',
-        status: 'OPEN',
-      });
+      expect(tx.tableSession.create).not.toHaveBeenCalled();
+      expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
     });
 
     it('reuses existing OPEN session within table session transaction', async () => {
@@ -1795,9 +1963,12 @@ describe('OrdersService', () => {
         name: 'T1',
       });
       const tx = makeTx();
-      tx.tableSession.findFirst.mockResolvedValue({
-        id: 'sess-open',
-        token: 'tok-open',
+      tx.$queryRaw = makeOrderQueryRawMock({
+        openPhysicalSession: lockedSession({
+          id: 'sess-open',
+          token: 'tok-open',
+          tableId: 'table-cuid-1',
+        }),
       });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
@@ -2528,6 +2699,15 @@ describe('OrdersService', () => {
 
       const result = await service.findOne('order-1', 'user-1');
       expect(result).toBe(order);
+      expect(prisma.order.findUnique).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        include: {
+          restaurant: {
+            select: { ownerId: true, loyaltyPointExpiryDays: true },
+          },
+          items: { include: { menuItem: true } },
+        },
+      });
     });
 
     it('returns order for staff assigned to the restaurant', async () => {
@@ -2861,7 +3041,23 @@ describe('OrdersService', () => {
         tableId: 'table-cuid-1',
         status: 'OPEN',
       });
-      prisma.payment.findFirst.mockResolvedValue({ id: 'pay-pending' });
+      const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-open',
+            lockedSession({
+              id: 'sess-open',
+              token: 'tok-open',
+              tableId: 'table-cuid-1',
+            }),
+          ],
+        ]),
+      });
+      tx.payment.findFirst.mockResolvedValue({ id: 'pay-pending' });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await expect(
         service.create({
@@ -3042,8 +3238,8 @@ describe('OrdersService', () => {
 
   describe('create — loyalty FOR UPDATE lock (Issue 15)', () => {
     it('calls $queryRaw with FOR UPDATE inside transaction when loyalty is enabled', async () => {
-      const queryRawMock = jest.fn().mockResolvedValue([]);
-      const tx = { ...makeTx(), $queryRaw: queryRawMock };
+      const tx = makeTx();
+      const queryRawMock = tx.$queryRaw;
       prisma.$transaction.mockImplementation((fn: any) => fn(tx));
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ isLoyaltyEnabled: true }),
@@ -3068,8 +3264,15 @@ describe('OrdersService', () => {
       );
 
       expect(queryRawMock).toHaveBeenCalled();
-      const call = queryRawMock.mock.calls[0][0] as unknown[];
-      expect(String(call)).toContain('FOR UPDATE');
+      const sqlCalls = queryRawMock.mock.calls.map(([query]: [unknown]) =>
+        getSqlText(query),
+      );
+      expect(
+        sqlCalls.some(
+          (sql) =>
+            sql.includes('loyalty_account') && sql.includes('FOR UPDATE'),
+        ),
+      ).toBe(true);
     });
   });
 

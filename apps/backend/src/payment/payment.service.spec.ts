@@ -162,12 +162,19 @@ describe('PaymentService', () => {
       paymentProviderEvent: {
         create: jest.fn().mockResolvedValue({ id: 'provider-event-1' }),
       },
+      paymentReconciliationIssue: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({ id: 'reconciliation-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       order: {
         // Default empty so the #2 underpay guard in the claim path
         // (sums session order totals) sees subtotal 0 ≤ any paid amount.
         // Individual tests override with explicit totals where relevant.
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       orderItem: {
@@ -194,7 +201,18 @@ describe('PaymentService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
-      $queryRaw: jest.fn().mockResolvedValue([{ id: 's1' }]),
+      $queryRaw: jest.fn().mockImplementation((query: any) => {
+        const sql =
+          query?.strings?.join(' ') ??
+          (Array.isArray(query) ? query.join(' ') : '');
+        if (sql.includes('FROM "restaurant_table"')) {
+          return Promise.resolve([{ id: 'table1', type: 'TABLE' }]);
+        }
+        if (sql.includes('SELECT *')) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([{ id: 's1', status: 'OPEN' }]);
+      }),
       $transaction: jest.fn((arg: unknown[]) => {
         if (typeof arg === 'function') return (arg as Function)(mockPrisma);
         return Promise.all(arg);
@@ -816,6 +834,45 @@ describe('PaymentService', () => {
       });
     });
 
+    it('logs identifiers and preserves the provider error when FAILED persistence fails', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true,
+          stripeOnboarded: true,
+          stripeAccountId: 'acct_123',
+          platformFeePercent: 0.5,
+          tipsEnabled: true,
+          tipOptions: [],
+          tier: 'PROFESSIONAL',
+        },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-fail' });
+      mockStripeProvider.createPaymentIntent!.mockRejectedValue(
+        new Error('stripe down'),
+      );
+      mockPrisma.payment.update.mockRejectedValue(new Error('database down'));
+      const loggerError = jest
+        .spyOn((service as any).stripeCheckout.logger, 'error')
+        .mockImplementation();
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
+        'stripe down',
+      );
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.stringContaining('payment remains reconcilable'),
+        expect.objectContaining({
+          paymentId: 'pay-fail',
+          tableSessionId: 's1',
+          providerError: 'stripe down',
+          persistenceError: 'database down',
+        }),
+      );
+    });
+
     it('rejects when the session already has a SUCCEEDED payment (#H1)', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
@@ -1240,6 +1297,27 @@ describe('PaymentService', () => {
       );
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
     });
+
+    it('uses the currency resolved from the restaurant myPOS configuration', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: { name: '7' },
+        restaurant: { ...myposRestaurant, myposCurrency: 'BGN' },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-mypos' });
+
+      await service.createCheckout('tok1', 'MYPOS', 0);
+
+      expect(mockMyposProvider.createCheckoutForm).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'BGN' }),
+      );
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ currency: 'bgn' }),
+      });
+    });
   });
 
   describe('handleMyposNotification', () => {
@@ -1254,6 +1332,7 @@ describe('PaymentService', () => {
       providerReference: 'MP123',
       providerPayload: {},
       restaurant: {
+        id: 'rest1',
         myposMode: 'DEMO',
         myposClientNumber: null,
         myposStoreId: null,
@@ -1313,6 +1392,25 @@ describe('PaymentService', () => {
       expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
     });
 
+    it('requires the exact PurchaseNotify IPC method', async () => {
+      mockMyposProvider.verifyNotification!.mockReturnValueOnce({
+        verified: true,
+        method: '',
+        orderId: 'MP123',
+        amount: '20.00',
+        currency: 'EUR',
+        storeId: '000000000000010',
+        transactionRef: '813705',
+        requestStan: '000006',
+        requestDateTime: '2015-08-21 10:39:37',
+      });
+
+      await expect(service.handleMyposNotification(validBody)).resolves.toBe(
+        'ERR=invalid IPCmethod',
+      );
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
     it('marks a verified myPOS notification succeeded and replies OK', async () => {
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
@@ -1321,6 +1419,15 @@ describe('PaymentService', () => {
       const result = await service.handleMyposNotification(validBody);
 
       expect(result).toBe('OK');
+      expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            restaurant: expect.objectContaining({
+              select: expect.objectContaining({ id: true }),
+            }),
+          }),
+        }),
+      );
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
         where: { id: 'pay-mypos', status: { in: ['PENDING', 'ABANDONED'] } },
         data: expect.objectContaining({
@@ -1469,6 +1576,9 @@ describe('PaymentService', () => {
       };
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
       mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        { id: 'oi-soup', paidQuantity: 0 },
+      ]);
       mockPrisma.order.findMany
         .mockResolvedValueOnce([
           {
@@ -1600,9 +1710,18 @@ describe('PaymentService', () => {
         where: { id: 'pay-conflict', status: { in: ['PENDING', 'ABANDONED'] } },
         data: expect.objectContaining({
           status: 'SUCCEEDED',
-          providerStatus: 'SCOPE_CONFLICT_NEEDS_REFUND',
+          providerStatus: 'SCOPE_CONFLICT_NEEDS_RECONCILIATION',
         }),
       });
+      expect(mockPrisma.paymentReconciliationIssue.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { paymentId: 'pay-conflict' },
+          create: expect.objectContaining({
+            reason: 'SCOPE_CONFLICT',
+            status: 'OPEN',
+          }),
+        }),
+      );
       // No second settlement of the already-paid unit, no allocations, no
       // session flip, no payment:confirmed.
       expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
@@ -1832,6 +1951,41 @@ describe('PaymentService', () => {
         tableSessionId: 's1',
         tableSession: { table: { name: 'Table 3' } },
       };
+
+      it('propagates a provider-refund lookup database failure', async () => {
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+          id: 'evt_refund_lookup_error',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_lookup_error',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 2400,
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockRejectedValue(
+          new Error('database unavailable'),
+        );
+        const loggerError = jest
+          .spyOn((service as any).stripeCheckout.logger, 'error')
+          .mockImplementation();
+
+        await expect(
+          service.handleWebhookEvent(Buffer.from('{}'), 'sig'),
+        ).rejects.toThrow('database unavailable');
+        expect(loggerError).toHaveBeenCalledWith(
+          'Stripe refund webhook lookup failed',
+          expect.objectContaining({
+            refundId: 're_lookup_error',
+            paymentIntentId: 'pi_rp',
+            lookup: 'providerRefundId',
+            error: 'database unavailable',
+          }),
+        );
+        expect(mockPrisma.payment.findUnique).not.toHaveBeenCalled();
+      });
 
       it('finalizes the payment to REFUNDED and reverses allocations when the refund succeeded', async () => {
         mockStripeProvider.constructWebhookEvent!.mockReturnValue({
@@ -2360,11 +2514,16 @@ describe('PaymentService', () => {
         status: 'OPEN',
         restaurantId: 'rest1',
       });
-      mockPrisma.payment.findFirst.mockResolvedValue({
+      const pendingPayment = {
         id: 'pay-pending',
         provider: 'STRIPE',
         stripePaymentIntentId: 'pi_pending',
-      });
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
+      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(
+        new Error('Stripe unavailable'),
+      );
 
       await expect(
         service.closeSession('tok1', 'rest1', 'owner1'),
@@ -2379,13 +2538,38 @@ describe('PaymentService', () => {
         status: 'OPEN',
         restaurantId: 'rest1',
       });
-      mockPrisma.payment.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: 'pay-race' });
+      const pendingPayment = {
+        id: 'pay-race',
+        provider: 'EPAY',
+        stripePaymentIntentId: null,
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
 
       await expect(
         service.closeSession('tok1', 'rest1', 'owner1'),
       ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('rejects close when an order is added before the session lock is acquired', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        token: 'tok1',
+        tableId: 'table1',
+        restaurantId: 'rest1',
+        status: 'OPEN',
+      });
+      mockPrisma.order.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+      await expect(
+        service.closeSession('tok1', 'rest1', 'owner1'),
+      ).rejects.toThrow(
+        'An order was added while the table was being closed. Review the table and retry.',
+      );
 
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
       expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
@@ -2929,6 +3113,37 @@ describe('PaymentService', () => {
       expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
     });
 
+    it('logs identifiers and preserves the provider error when refund FAILED persistence fails', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
+      });
+      mockStripeProvider.createRefund!.mockRejectedValue(
+        Object.assign(new Error('stripe refund failed'), {
+          type: 'StripeInvalidRequestError',
+        }),
+      );
+      mockPrisma.refundAttempt.updateMany.mockRejectedValueOnce(
+        new Error('database unavailable'),
+      );
+      const loggerError = jest
+        .spyOn((service as any).stripeCheckout.logger, 'error')
+        .mockImplementation();
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
+        'stripe refund failed',
+      );
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.stringContaining('attempt remains reconcilable'),
+        expect.objectContaining({
+          paymentId: 'pay1',
+          refundAttemptId: 'ra1',
+          providerError: 'stripe refund failed',
+          persistenceError: 'database unavailable',
+        }),
+      );
+    });
+
     it('keeps the attempt PENDING when Stripe returns a synchronous pending status', async () => {
       mockPrisma.payment.findUnique
         .mockResolvedValueOnce(succeededPayload)
@@ -3436,11 +3651,17 @@ describe('PaymentService', () => {
         tableId: 'table1',
         restaurantId: 'rest1',
       });
-      mockPrisma.payment.findFirst.mockResolvedValue({
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 30 }]);
+      const pendingPayment = {
         id: 'pay-pending',
         provider: 'STRIPE',
         stripePaymentIntentId: 'pi_pending',
-      });
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
+      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(
+        new Error('Stripe unavailable'),
+      );
 
       await expect(
         service.closeSessionWithCard('tok1', 'rest1', 'owner1'),
@@ -3455,9 +3676,15 @@ describe('PaymentService', () => {
         tableId: 'table1',
         restaurantId: 'rest1',
       });
-      mockPrisma.payment.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: 'pay-race' });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 30 }]);
+      const pendingPayment = {
+        id: 'pay-race',
+        provider: 'EPAY',
+        stripePaymentIntentId: null,
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
 
       await expect(
         service.closeSessionWithCard('tok1', 'rest1', 'owner1'),
@@ -3758,6 +3985,11 @@ describe('PaymentService', () => {
 
       expect(result.status).toBe('PAID');
       expect(result.paymentId).toBe('pay-cash-1');
+      const rawSqlCalls = mockPrisma.$queryRaw.mock.calls.map(([query]) =>
+        String(query),
+      );
+      expect(rawSqlCalls[0]).toContain('"table_session"');
+      expect(rawSqlCalls[1]).toContain('"cash_payment_request"');
       expect(mockPrisma.payment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -3789,6 +4021,52 @@ describe('PaymentService', () => {
           customerName: 'Maria',
         }),
       );
+    });
+
+    it('rejects confirmation when the cash request moves to another session before the locked reread', async () => {
+      const existingRequest = {
+        id: 'cash-req-1',
+        restaurantId: 'rest1',
+        tableSessionId: 's1',
+        status: 'PENDING',
+        tableSession: { token: 'tok1' },
+      };
+      const movedRequest = {
+        ...existingRequest,
+        tableSessionId: 's2',
+        tableId: 'table1',
+        scope: 'FULL_TABLE',
+        scopeKey: 'FULL_TABLE',
+        orderIds: [],
+        requestedAmount: 30,
+        currency: 'EUR',
+        paymentId: null,
+        resolvedById: null,
+        resolvedAt: null,
+        createdAt: new Date('2026-06-21T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-21T07:00:00.000Z'),
+        table: { name: '6' },
+        tableSession: { ...openSession, id: 's2' },
+      };
+      mockPrisma.cashPaymentRequest.findUnique
+        .mockResolvedValueOnce(existingRequest)
+        .mockResolvedValueOnce(movedRequest);
+
+      await expect(
+        service.confirmCashPaymentRequest('cash-req-1', 'manager1'),
+      ).rejects.toThrow(
+        'Cash payment request changed during confirmation. Please retry.',
+      );
+
+      const rawSqlCalls = mockPrisma.$queryRaw.mock.calls.map(([query]) =>
+        String(query),
+      );
+      expect(rawSqlCalls[0]).toContain('"table_session"');
+      expect(rawSqlCalls[1]).toContain('"cash_payment_request"');
+      expect(mockPrisma.tableSession.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+      expect(mockPrisma.cashPaymentRequest.update).not.toHaveBeenCalled();
     });
   });
 
@@ -4423,58 +4701,107 @@ describe('PaymentService', () => {
       );
     });
 
-    it('does not complete an old BORICA callback after another provider paid the session', async () => {
-      mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
+    it('recovers a verified late capture after a BORICA checkout expired locally', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValueOnce({
+        ...boricaPayment,
+        status: 'FAILED',
+        providerStatus: 'EXPIRED',
+      });
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
 
       const url = await service.handleBoricaCallback(validBody);
 
-      expect(url).toContain('borica-cancel');
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+      expect(url).toContain('borica-ok');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: {
+            id: 'pay-borica',
+            status: { in: ['PENDING', 'ABANDONED', 'FAILED'] },
+          },
           data: expect.objectContaining({ status: 'SUCCEEDED' }),
         }),
       );
-      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
-      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
 
-    it('rejects callback with mismatched AMOUNT (#6)', async () => {
+    it('records an old BORICA capture for reconciliation after another provider paid the session', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([
+        { id: 's1', status: 'PAID' },
+      ]);
+
+      const url = await service.handleBoricaCallback(validBody);
+
+      expect(url).toContain('borica-ok');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'SUCCEEDED',
+            providerStatus: 'SESSION_NOT_OPEN_NEEDS_RECONCILIATION',
+          }),
+        }),
+      );
+      expect(mockPrisma.paymentReconciliationIssue.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ reason: 'SESSION_NOT_OPEN' }),
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:reconciliationRequired',
+        expect.objectContaining({ paymentId: 'pay-borica' }),
+      );
+    });
+
+    it('records a signed success with mismatched AMOUNT for reconciliation (#6)', async () => {
       const url = await service.handleBoricaCallback({
         ...validBody,
         AMOUNT: '99.99', // wrong amount
       });
 
-      expect(url).toContain('borica-cancel');
-      // Must NOT mark SUCCEEDED
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+      expect(url).toContain('borica-ok');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+          data: expect.objectContaining({
+            status: 'SUCCEEDED',
+            providerStatus:
+              'PROVIDER_CONFIRMATION_MISMATCH_NEEDS_RECONCILIATION',
+          }),
+        }),
+      );
+      expect(mockPrisma.paymentReconciliationIssue.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            reason: 'PROVIDER_CONFIRMATION_MISMATCH',
+          }),
         }),
       );
     });
 
-    it('rejects callback with mismatched TERMINAL (#6)', async () => {
+    it('records a signed success with mismatched TERMINAL for reconciliation (#6)', async () => {
       const url = await service.handleBoricaCallback({
         ...validBody,
         TERMINAL: 'WRONGTER',
       });
 
-      expect(url).toContain('borica-cancel');
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+      expect(url).toContain('borica-ok');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+          data: expect.objectContaining({
+            status: 'SUCCEEDED',
+            providerStatus:
+              'PROVIDER_CONFIRMATION_MISMATCH_NEEDS_RECONCILIATION',
+          }),
         }),
       );
     });
 
     it('rejects callback with mismatched ORDER (#6)', async () => {
+      // The provider reference lookup cannot attribute this order to a payment.
+      mockPrisma.payment.findFirst.mockResolvedValueOnce(null);
       const url = await service.handleBoricaCallback({
         ...validBody,
         ORDER: '999999', // different order ref
       });
-
-      // Lookup returns null since providerReference doesn't match
-      mockPrisma.payment.findFirst.mockResolvedValue(null);
 
       expect(url).toContain('borica-cancel');
     });
@@ -4737,11 +5064,16 @@ describe('PaymentService', () => {
     });
 
     it('blocks partial settlement when checkout payment remains pending after abandon', async () => {
-      mockPrisma.payment.findFirst.mockResolvedValue({
+      const pendingPayment = {
         id: 'pay-pending',
         provider: 'STRIPE',
         stripePaymentIntentId: 'pi_pending',
-      });
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
+      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(
+        new Error('Stripe unavailable'),
+      );
 
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
@@ -4842,6 +5174,9 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(existingSession);
       mockPrisma.tableSession.update.mockResolvedValue({});
       mockPrisma.tableSession.create.mockResolvedValue(newSession);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-1', type: 'TABLE' }])
+        .mockResolvedValueOnce([existingSession]);
 
       const result = await service.forceOpenSession(
         'table-1',
@@ -4868,11 +5203,16 @@ describe('PaymentService', () => {
         token: 'old-token',
         tableId: 'table-1',
       });
-      mockPrisma.payment.findFirst.mockResolvedValue({
+      const pendingPayment = {
         id: 'pay-pending',
         provider: 'STRIPE',
         stripePaymentIntentId: 'pi_pending',
-      });
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
+      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(
+        new Error('Stripe unavailable'),
+      );
 
       await expect(
         service.forceOpenSession('table-1', 'rest1', 'owner1'),
@@ -4893,13 +5233,73 @@ describe('PaymentService', () => {
         token: 'old-token',
         tableId: 'table-1',
       });
-      mockPrisma.payment.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: 'pay-race' });
+      const pendingPayment = {
+        id: 'pay-race',
+        provider: 'EPAY',
+        stripePaymentIntentId: null,
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-1', type: 'TABLE' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'old-session',
+            token: 'old-token',
+            tableId: 'table-1',
+          },
+        ]);
 
       await expect(
         service.forceOpenSession('table-1', 'rest1', 'owner1'),
       ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects force-open when an order is added before the session lock is acquired', async () => {
+      mockPrisma.tableSession.findFirst
+        .mockResolvedValueOnce({
+          id: 'old-session',
+          token: 'old-token',
+          tableId: 'table-1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+        })
+        .mockResolvedValueOnce({
+          id: 'old-session',
+          token: 'old-token',
+          tableId: 'table-1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+        })
+        .mockResolvedValueOnce({
+          id: 'old-session',
+          token: 'old-token',
+          tableId: 'table-1',
+          restaurantId: 'rest1',
+          status: 'OPEN',
+        });
+      mockPrisma.order.count.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-1', type: 'TABLE' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'old-session',
+            token: 'old-token',
+            tableId: 'table-1',
+            restaurantId: 'rest1',
+            status: 'OPEN',
+          },
+        ]);
+
+      await expect(
+        service.forceOpenSession('table-1', 'rest1', 'owner1'),
+      ).rejects.toThrow(
+        'An order was added while the table was being reopened. Review the table and retry.',
+      );
 
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
       expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
@@ -4918,6 +5318,9 @@ describe('PaymentService', () => {
         tableId: 'table-1',
       };
       mockPrisma.tableSession.create.mockResolvedValue(newSession);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'table-1', type: 'TABLE' }])
+        .mockResolvedValueOnce([]);
 
       const result = await service.forceOpenSession(
         'table-1',

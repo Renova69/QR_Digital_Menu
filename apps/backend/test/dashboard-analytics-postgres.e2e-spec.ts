@@ -1,4 +1,5 @@
 import {
+  Currency,
   OrderStatus,
   PrismaClient,
   SubscriptionTier,
@@ -64,6 +65,24 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
       },
     });
     restaurantId = restaurant.id;
+    const timezoneCategory = await prisma.menuCategory.create({
+      data: {
+        name: 'Timezone fixture',
+        restaurantId,
+        order: 1,
+        daysOfWeek: [],
+      },
+    });
+    const timezoneMenuItem = await prisma.menuItem.create({
+      data: {
+        name: 'Timezone item',
+        price: 15,
+        costPrice: 5,
+        currency: Currency.EUR,
+        categoryId: timezoneCategory.id,
+        order: 1,
+      },
+    });
     const localNine = DateTime.now()
       .setZone('Europe/Sofia')
       .minus({ days: 1 })
@@ -98,6 +117,7 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
         createdAt: localNine.toUTC().toJSDate(),
         items: {
           create: {
+            menuItemId: timezoneMenuItem.id,
             itemName: 'Timezone item',
             quantity: 1,
             unitPrice: 15,

@@ -1,0 +1,1 @@
+export const PAYMENT_AMOUNT_TOLERANCE = 0.01;

@@ -13,12 +13,16 @@ import {
   ArrayMinSize,
   MaxLength,
   IsIn,
+  IsEnum,
+  ArrayUnique,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { Currency } from '@prisma/client';
 import {
   REWARD_POINTS_MODES,
   RewardPointsModeValue,
 } from '../../loyalty/reward-pricing';
+import { UPSELL_CONTEXTS } from '../../menu/upsell/upsell-context';
 
 export class ImportChoiceDto {
   @IsString()
@@ -29,6 +33,11 @@ export class ImportChoiceDto {
   @Min(0)
   @IsOptional()
   price?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  priceModifier?: number;
 
   @IsString()
   @MaxLength(100)
@@ -78,9 +87,12 @@ export class ImportItemDto {
   @IsOptional()
   weight?: string;
 
-  @IsString()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
+  @IsEnum(Currency)
   @IsOptional()
-  currency?: string;
+  currency?: Currency;
 
   @IsArray()
   @ArrayMaxSize(50)
@@ -93,6 +105,20 @@ export class ImportItemDto {
   @IsString({ each: true })
   @IsOptional()
   dietaryTags?: string[];
+
+  @IsArray()
+  @ArrayMaxSize(15)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  @IsOptional()
+  tags?: string[];
+
+  @IsArray()
+  @ArrayMaxSize(UPSELL_CONTEXTS.length)
+  @ArrayUnique()
+  @IsIn(UPSELL_CONTEXTS, { each: true })
+  @IsOptional()
+  upsellContexts?: string[];
 
   @IsNumber()
   @IsOptional()

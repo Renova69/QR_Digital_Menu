@@ -23,6 +23,7 @@ beforeEach(() => {
   Object.defineProperty(window, "localStorage", {
     value: storageMock,
     writable: true,
+    configurable: true,
   });
   // Ensure matchMedia is defined but reports light-mode so we can confirm it is ignored
   Object.defineProperty(window, "matchMedia", {
@@ -83,6 +84,51 @@ describe("ThemeContext", () => {
       </ThemeProvider>,
     );
     expect(captured.theme).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
+  it("ignores an invalid stored theme", () => {
+    store["theme"] = "sepia";
+    let captured: ReturnType<typeof useTheme> | undefined;
+
+    render(
+      <ThemeProvider>
+        <ThemeConsumer
+          onRender={(value) => {
+            captured = value;
+          }}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(captured?.theme).toBe("light");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("falls back to light and remains usable when localStorage is blocked", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("Storage is blocked", "SecurityError");
+      },
+    });
+    let captured: ReturnType<typeof useTheme> | undefined;
+
+    expect(() =>
+      render(
+        <ThemeProvider>
+          <ThemeConsumer
+            onRender={(value) => {
+              captured = value;
+            }}
+          />
+        </ThemeProvider>,
+      ),
+    ).not.toThrow();
+
+    expect(captured?.theme).toBe("light");
+    act(() => captured?.toggleTheme());
+    expect(captured?.theme).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 

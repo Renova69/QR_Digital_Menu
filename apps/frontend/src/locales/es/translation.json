@@ -1871,6 +1871,8 @@
     "ptsToTier": "{{count}} puntos para alcanzar el {{tier}}",
     "maxTier": "Se ha alcanzado el nivel máximo",
     "pastOrders": "Pedidos anteriores",
+    "loadMoreOrders": "Cargar más pedidos",
+    "loadingMoreOrders": "Cargando más pedidos...",
     "loading": "Cargando el historial...",
     "historyLoadFailed": "No se pudieron cargar los pedidos anteriores. Inténtalo de nuevo.",
     "noOrders": "Aún no hay pedidos",
@@ -2208,9 +2210,9 @@
           "b2": "TPV en la mesa",
           "b3": "Expositor de cocina",
           "b4": "Puestos de camarero y de cocina",
-          "b5": "Varias ubicaciones",
+          "b5": "Zonas y secciones de mesas",
           "b6": "Impresoras térmicas",
-          "b7": "Plantillas de menú",
+          "b7": "Recibos personalizados",
           "b8": "Personal ilimitado",
           "b9": "Incorporación prioritaria",
           "b10": "Control de acceso avanzado",
@@ -2273,7 +2275,7 @@
         },
         "q6": {
           "question": "¿Cuándo necesito el plan Enterprise?",
-          "answer": "El plan Enterprise incluye TPV, pantalla de cocina, impresoras térmicas, plantillas de menú, más establecimientos, personal ilimitado y funciones avanzadas."
+          "answer": "Enterprise es para POS, pantalla de cocina, impresoras térmicas, recibos personalizados, zonas de mesas, personal ilimitado y roles avanzados."
         },
         "q7": {
           "question": "¿Puedo cambiar de plan más adelante?",
@@ -2822,14 +2824,14 @@
         "b1": "Todo en la versión Professional",
         "b2": "TPV en la mesa",
         "b3": "Expositor de cocina",
-        "b4": "Varias ubicaciones",
+        "b4": "Zonas y secciones de mesas",
         "b5": "Impresoras térmicas",
-        "b6": "Plantillas de menú",
+        "b6": "Recibos personalizados",
         "b7": "Funciones y permisos avanzados",
         "b8": "Personal ilimitado",
         "b9": "Incorporación prioritaria",
         "b10": "Puestos de camarero y de cocina",
-        "fit": "Ideal para hoteles, cadenas y locales con cocina, TPV, impresoras o más de un establecimiento."
+        "fit": "Ideal para hoteles, locales grandes y restaurantes con varias salas, con cocina, POS e impresoras."
       }
     },
     "features": {

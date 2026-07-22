@@ -41,6 +41,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Per-run dev server logs (scripts/dev-with-logs.js)
+/logs/dev/
+
 # Database backups (contain PII — never commit)
 **/backups/
 

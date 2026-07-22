@@ -11,7 +11,7 @@ import { StripeProvider } from '../stripe.provider';
 import { EventsGateway } from '../../events/events.gateway';
 import { PaymentCoreService } from '../core/payment-core.service';
 import { PaymentProviderConfigService } from '../payment-provider-config.service';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, Prisma } from '@prisma/client';
 import { CheckoutScopeInput } from '../payment-scope.utils';
 import {
   ABANDONED_PAYMENT_RETENTION_DAYS,
@@ -22,6 +22,7 @@ import {
 } from '../payment.types';
 import { FeatureService } from '../../subscription/feature.service';
 import { FeatureFlag } from '../../subscription/feature-flag.enum';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
 
 @Injectable()
 export class PaymentSessionService {
@@ -48,12 +49,25 @@ export class PaymentSessionService {
       Date.now() - STALE_OPEN_SESSION_HOURS * 60 * 60 * 1000,
     );
 
-    const abandoned = await this.prisma.payment.deleteMany({
-      where: {
-        status: PaymentStatus.ABANDONED,
-        updatedAt: { lt: abandonedCutoff },
-      },
-    });
+    let abandonedCount = 0;
+    try {
+      const abandoned = await this.prisma.payment.deleteMany({
+        where: {
+          status: PaymentStatus.ABANDONED,
+          updatedAt: { lt: abandonedCutoff },
+          // A provider event is evidence that the processor interacted with this
+          // payment. Preserve it for repair/manual review instead of letting
+          // retention erase a potentially captured transaction.
+          providerEvents: { none: {} },
+          reconciliationIssue: { is: null },
+        },
+      });
+      abandonedCount = abandoned.count;
+    } catch (error) {
+      this.logger.error('Abandoned-payment retention step failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     let closedNoPayment = 0;
     let markedPaid = 0;
@@ -69,74 +83,121 @@ export class PaymentSessionService {
     const seenPartialIds: string[] = [];
 
     for (let page = 0; page < MAX_CLEANUP_PAGES; page++) {
-      const staleSessions = await this.prisma.tableSession.findMany({
-        where: {
-          status: 'OPEN',
-          createdAt: { lt: staleSessionCutoff },
-          payments: { none: { status: PaymentStatus.PENDING } },
-          ...(seenPartialIds.length ? { id: { notIn: seenPartialIds } } : {}),
-        },
-        select: { id: true, restaurantId: true, tableId: true },
-        orderBy: { createdAt: 'asc' },
-        take: 100,
-      });
+      let staleSessions: Array<{
+        id: string;
+        restaurantId: string;
+        tableId: string;
+      }>;
+      try {
+        staleSessions = await this.prisma.tableSession.findMany({
+          where: {
+            status: 'OPEN',
+            createdAt: { lt: staleSessionCutoff },
+            payments: { none: { status: PaymentStatus.PENDING } },
+            ...(seenPartialIds.length ? { id: { notIn: seenPartialIds } } : {}),
+          },
+          select: { id: true, restaurantId: true, tableId: true },
+          orderBy: { createdAt: 'asc' },
+          take: 100,
+        });
+      } catch (error) {
+        this.logger.error('Stale-session retention query failed', {
+          page,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        break;
+      }
 
       if (staleSessions.length === 0) break;
 
-      // M-PAY-5: one batched balance query for the whole page instead of two
-      // queries per session inside the loop.
-      const balances = await this.core.computeSessionAmountBalances(
-        this.prisma,
-        staleSessions.map((s) => s.id),
-      );
-
       for (const session of staleSessions) {
-        const balance = balances.get(session.id) ?? {
-          billSubtotal: 0,
-          paidSubtotal: 0,
-          remaining: 0,
-        };
-        if (balance.paidSubtotal > 0 && balance.remaining > 0.01) {
-          partialLeftOpen++;
-          seenPartialIds.push(session.id);
-          continue;
+        try {
+          const outcome = await this.prisma.$transaction(async (tx) => {
+            await this.core.lockOpenSessionForSettlement(tx, session.id);
+            const pendingPayment = await tx.payment.findFirst({
+              where: {
+                tableSessionId: session.id,
+                status: PaymentStatus.PENDING,
+              },
+              select: { id: true },
+            });
+            if (pendingPayment) return 'SKIPPED' as const;
+
+            // Recompute only after owning the session lock. The paged candidate
+            // query is intentionally just a hint; orders or payments may have
+            // committed while cleanup was waiting.
+            const balance = await this.core.computeSessionBalance(
+              tx,
+              session.id,
+            );
+            if (
+              balance.paidSubtotal > 0 &&
+              balance.remaining > PAYMENT_AMOUNT_TOLERANCE
+            ) {
+              return 'PARTIAL' as const;
+            }
+            const status =
+              balance.billSubtotal > 0 &&
+              balance.remaining <= PAYMENT_AMOUNT_TOLERANCE
+                ? ('PAID' as const)
+                : ('CLOSED_NO_PAYMENT' as const);
+            await tx.tableSession.update({
+              where: { id: session.id },
+              data: {
+                status,
+                ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+              },
+            });
+            return status;
+          });
+
+          if (outcome === 'SKIPPED') continue;
+          if (outcome === 'PARTIAL') {
+            partialLeftOpen++;
+            seenPartialIds.push(session.id);
+            continue;
+          }
+          if (outcome === 'PAID') markedPaid++;
+          else closedNoPayment++;
+          try {
+            this.events.emitTableStatusChanged(
+              session.restaurantId,
+              session.tableId,
+              session.id,
+            );
+          } catch (error) {
+            this.logger.error('Stale-session close event failed', {
+              sessionId: session.id,
+              restaurantId: session.restaurantId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        } catch (error) {
+          if (
+            error instanceof ConflictException &&
+            error.message === 'Session is no longer open'
+          ) {
+            continue;
+          }
+          this.logger.error('Stale session cleanup failed for one session', {
+            sessionId: session.id,
+            restaurantId: session.restaurantId,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
-
-        const status =
-          balance.billSubtotal > 0 && balance.remaining <= 0.01
-            ? 'PAID'
-            : 'CLOSED_NO_PAYMENT';
-
-        const updated = await this.prisma.tableSession.updateMany({
-          where: { id: session.id, status: 'OPEN' },
-          data: {
-            status,
-            ...(status === 'PAID' ? { paidAt: new Date() } : {}),
-          },
-        });
-        if (updated.count === 0) continue;
-
-        if (status === 'PAID') markedPaid++;
-        else closedNoPayment++;
-
-        this.events.emitTableStatusChanged(
-          session.restaurantId,
-          session.tableId,
-          session.id,
-        );
       }
 
       if (staleSessions.length < 100) break;
     }
 
     if (
-      abandoned.count > 0 ||
+      abandonedCount > 0 ||
       closedNoPayment > 0 ||
       markedPaid > 0 ||
       partialLeftOpen > 0
     ) {
       this.logger.log(
-        `Payment retention cleanup: abandoned=${abandoned.count}, closedNoPayment=${closedNoPayment}, markedPaid=${markedPaid}, partialLeftOpen=${partialLeftOpen}`,
+        `Payment retention cleanup: abandoned=${abandonedCount}, closedNoPayment=${closedNoPayment}, markedPaid=${markedPaid}, partialLeftOpen=${partialLeftOpen}`,
       );
     }
   }
@@ -200,14 +261,33 @@ export class PaymentSessionService {
     let session: any;
     try {
       session = await this.prisma.$transaction(async (tx) => {
-        const existing = await tx.tableSession.findFirst({
-          where: {
-            tableId,
-            restaurantId,
-            status: 'OPEN',
-            isServicePoint: false,
-          },
-        });
+        const lockedTables = await tx.$queryRaw<Array<{ id: string }>>(
+          Prisma.sql`
+            SELECT "id"
+            FROM "restaurant_table"
+            WHERE "id" = ${tableId}
+              AND "restaurantId" = ${restaurantId}
+              AND "type" = 'TABLE'
+              AND "isActive" = true
+            FOR UPDATE
+          `,
+        );
+        if (lockedTables.length === 0) {
+          throw new NotFoundException('Table not found for this restaurant');
+        }
+
+        const existingRows = await tx.$queryRaw<any[]>(
+          Prisma.sql`
+            SELECT *
+            FROM "table_session"
+            WHERE "tableId" = ${tableId}
+              AND "restaurantId" = ${restaurantId}
+              AND "status" = 'OPEN'
+              AND "isServicePoint" = false
+            FOR UPDATE
+          `,
+        );
+        const existing = existingRows[0] ?? null;
         if (existing) return existing;
         return tx.tableSession.create({
           data: { tableId, restaurantId, isServicePoint: false },
@@ -360,14 +440,43 @@ export class PaymentSessionService {
   }
 
   async abandonCheckout(token: string): Promise<void> {
-    const session = await this.prisma.tableSession.findFirst({
-      where: { token },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const sessions = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "table_session"
+        WHERE "token" = ${token}
+        FOR UPDATE
+      `);
+      const session = sessions[0];
+      if (!session) return null;
+
+      const abandonedPaymentIds =
+        await this.abandonPendingCheckoutPaymentsForLockedSession(
+          tx,
+          session.id,
+          false,
+        );
+      return { sessionId: session.id, abandonedPaymentIds };
     });
-    if (!session) return;
-    const pendingPayments = await this.prisma.payment.findMany({
-      where: { tableSessionId: session.id, status: 'PENDING' },
+
+    if (result) {
+      this.emitAbandonedCheckoutEvents(
+        result.sessionId,
+        result.abandonedPaymentIds,
+      );
+    }
+  }
+
+  async abandonPendingCheckoutPaymentsForLockedSession(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+    throwIfPending = true,
+  ): Promise<string[]> {
+    const pendingPayments = await tx.payment.findMany({
+      where: { tableSessionId: sessionId, status: 'PENDING' },
+      select: { id: true, provider: true, stripePaymentIntentId: true },
     });
-    if (pendingPayments.length === 0) return;
+    if (pendingPayments.length === 0) return [];
 
     // Separate Stripe payments (need external API cancellation) from others.
     const stripePayments = pendingPayments.filter(
@@ -391,7 +500,7 @@ export class PaymentSessionService {
           abandonedIds.push(stripePayments[i].id);
         } else {
           this.logger.warn(
-            `Could not cancel abandoned PaymentIntent ${stripePayments[i].stripePaymentIntentId} for session ${session.id}`,
+            `Could not cancel abandoned PaymentIntent ${stripePayments[i].stripePaymentIntentId} for session ${sessionId}`,
           );
           // Payment stays PENDING — safe default; if Stripe can't cancel it,
           // the intent may still succeed and the system should acknowledge it.
@@ -402,38 +511,35 @@ export class PaymentSessionService {
     // Batch update all payments whose cancellation succeeded (or didn't need
     // an external API call) in a single query.
     if (abandonedIds.length > 0) {
-      await this.prisma.payment.updateMany({
+      await tx.payment.updateMany({
         where: { id: { in: abandonedIds }, status: 'PENDING' },
         data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
-      for (const paymentId of abandonedIds) {
-        this.core.emitBillPaymentCleared(
-          session.id,
-          paymentId,
-          'ONLINE_PAYMENT',
-        );
-      }
     }
-  }
 
-  async abandonCheckoutOrThrowIfPending(
-    token: string,
-    sessionId: string,
-  ): Promise<void> {
-    await this.abandonCheckout(token);
-
-    const pendingPayment = await this.prisma.payment.findFirst({
+    const pendingPayment = await tx.payment.findFirst({
       where: { tableSessionId: sessionId, status: 'PENDING' },
       select: { id: true, provider: true, stripePaymentIntentId: true },
     });
-    if (!pendingPayment) return;
+    if (pendingPayment && throwIfPending) {
+      this.logger.warn(
+        `Refusing POS mutation for session ${sessionId}: payment ${pendingPayment.id} is still pending`,
+      );
+      throw new ConflictException(
+        'A payment for this session is still being processed. Please wait or retry.',
+      );
+    }
 
-    this.logger.warn(
-      `Refusing POS mutation for session ${sessionId}: payment ${pendingPayment.id} is still pending`,
-    );
-    throw new ConflictException(
-      'A payment for this session is still being processed. Please wait or retry.',
-    );
+    return abandonedIds;
+  }
+
+  emitAbandonedCheckoutEvents(
+    sessionId: string,
+    abandonedPaymentIds: string[],
+  ): void {
+    for (const paymentId of abandonedPaymentIds) {
+      this.core.emitBillPaymentCleared(sessionId, paymentId, 'ONLINE_PAYMENT');
+    }
   }
 
   /**
@@ -464,31 +570,38 @@ export class PaymentSessionService {
       where: { token, restaurantId, status: 'OPEN' },
     });
     if (!session) throw new NotFoundException('Session not found');
+    const existingOrderCount = await this.prisma.order.count({
+      where: { tableSessionId: session.id },
+    });
 
     // Cancel any pending online payments before closing the session.
     // Without this, a customer who started a Stripe checkout while the waiter
     // force-closes would still be charged, but the system would never
     // acknowledge the payment — money stuck in limbo (#C1).
-    await this.abandonCheckoutOrThrowIfPending(token, session.id);
-
-    await this.prisma.$transaction(async (tx) => {
+    const abandonedPaymentIds = await this.prisma.$transaction(async (tx) => {
       await this.core.lockOpenSessionForSettlement(tx, session.id);
-      const pendingPayment = await tx.payment.findFirst({
-        where: { tableSessionId: session.id, status: 'PENDING' },
-        select: { id: true },
+      const lockedOrderCount = await tx.order.count({
+        where: { tableSessionId: session.id },
       });
-      if (pendingPayment) {
+      if (lockedOrderCount !== existingOrderCount) {
         throw new ConflictException(
-          'A payment for this session is still being processed. Please wait or retry.',
+          'An order was added while the table was being closed. Review the table and retry.',
         );
       }
+      const abandoned =
+        await this.abandonPendingCheckoutPaymentsForLockedSession(
+          tx,
+          session.id,
+        );
 
       await tx.tableSession.update({
         where: { id: session.id },
         data: { status: 'CLOSED_NO_PAYMENT' },
       });
+      return abandoned;
     });
 
+    this.emitAbandonedCheckoutEvents(session.id, abandonedPaymentIds);
     this.events.emitTableStatusChanged(
       restaurantId,
       session.tableId,
@@ -535,53 +648,50 @@ export class PaymentSessionService {
     // Without this, a concurrent Stripe checkout that succeeds after the waiter
     // closes would charge the customer twice — once via the terminal/cash and
     // once via the online payment (#POS-C2).
-    await this.abandonCheckoutOrThrowIfPending(token, session.id);
-
     // #2: compute the bill INSIDE the same transaction that flips the session to
     // PAID. Reading orders before the transaction let a QR order placed during
     // the close window slip through unbilled (TOCTOU on the total). Bill only the
     // REMAINING balance so a full close after a partial split collects what's
     // left, not the whole bill again.
-    const { amount, paymentId } = await this.prisma.$transaction(async (tx) => {
-      await this.core.lockOpenSessionForSettlement(tx, session.id);
-      const pendingPayment = await tx.payment.findFirst({
-        where: { tableSessionId: session.id, status: 'PENDING' },
-        select: { id: true },
+    const { amount, paymentId, abandonedPaymentIds } =
+      await this.prisma.$transaction(async (tx) => {
+        await this.core.lockOpenSessionForSettlement(tx, session.id);
+
+        const balance = await this.core.computeSessionBalance(tx, session.id);
+        const billed = balance.remaining;
+        if (billed <= 0)
+          throw new BadRequestException(
+            'Cannot close a session with no outstanding balance',
+          );
+
+        const abandonedPaymentIds =
+          await this.abandonPendingCheckoutPaymentsForLockedSession(
+            tx,
+            session.id,
+          );
+
+        const payment = await tx.payment.create({
+          data: {
+            tableSessionId: session.id,
+            restaurantId,
+            amount: billed,
+            tipAmount: 0,
+            platformFeeAmount: 0,
+            currency: 'eur',
+            status: 'SUCCEEDED',
+            provider,
+          },
+        });
+
+        const updated = await tx.tableSession.updateMany({
+          where: { id: session.id, status: 'OPEN' },
+          data: { status: 'PAID', paidAt: new Date() },
+        });
+        if (updated.count === 0) throw new Error('Session already closed');
+        return { amount: billed, paymentId: payment.id, abandonedPaymentIds };
       });
-      if (pendingPayment) {
-        throw new ConflictException(
-          'A payment for this session is still being processed. Please wait or retry.',
-        );
-      }
 
-      const balance = await this.core.computeSessionBalance(tx, session.id);
-      const billed = balance.remaining;
-      if (billed <= 0)
-        throw new BadRequestException(
-          'Cannot close a session with no outstanding balance',
-        );
-
-      const payment = await tx.payment.create({
-        data: {
-          tableSessionId: session.id,
-          restaurantId,
-          amount: billed,
-          tipAmount: 0,
-          platformFeeAmount: 0,
-          currency: 'eur',
-          status: 'SUCCEEDED',
-          provider,
-        },
-      });
-
-      const updated = await tx.tableSession.updateMany({
-        where: { id: session.id, status: 'OPEN' },
-        data: { status: 'PAID', paidAt: new Date() },
-      });
-      if (updated.count === 0) throw new Error('Session already closed');
-      return { amount: billed, paymentId: payment.id };
-    });
-
+    this.emitAbandonedCheckoutEvents(session.id, abandonedPaymentIds);
     this.events.emitTableStatusChanged(
       restaurantId,
       session.tableId,
@@ -656,26 +766,64 @@ export class PaymentSessionService {
     const existing = await this.prisma.tableSession.findFirst({
       where: { tableId, restaurantId, status: 'OPEN' },
     });
-    if (existing) {
-      await this.abandonCheckoutOrThrowIfPending(existing.token, existing.id);
-    }
+    const existingOrderCount = existing
+      ? await this.prisma.order.count({
+          where: { tableSessionId: existing.id },
+        })
+      : 0;
+    const { session, closedSession, abandonedPaymentIds } =
+      await this.prisma.$transaction(async (tx) => {
+        const lockedTables = await tx.$queryRaw<
+          Array<{ id: string }>
+        >(Prisma.sql`
+          SELECT "id"
+          FROM "restaurant_table"
+          WHERE "id" = ${tableId}
+            AND "restaurantId" = ${restaurantId}
+            AND "type" = 'TABLE'
+            AND "isActive" = true
+          FOR UPDATE
+        `);
+        if (lockedTables.length === 0) {
+          throw new ConflictException(
+            'The table changed while it was being reopened. Please retry.',
+          );
+        }
 
-    const { session, closedSession } = await this.prisma.$transaction(
-      async (tx) => {
-        const existingInTx = await tx.tableSession.findFirst({
-          where: { tableId, restaurantId, status: 'OPEN' },
-        });
+        const existingRows = await tx.$queryRaw<
+          Array<{ id: string; tableId: string }>
+        >(
+          Prisma.sql`
+            SELECT *
+            FROM "table_session"
+            WHERE "tableId" = ${tableId}
+              AND "restaurantId" = ${restaurantId}
+              AND "status" = 'OPEN'
+              AND "isServicePoint" = false
+            FOR UPDATE
+          `,
+        );
+        const existingInTx = existingRows[0] ?? null;
+        if ((existingInTx?.id ?? null) !== (existing?.id ?? null)) {
+          throw new ConflictException(
+            'The table session changed while it was being reopened. Please retry.',
+          );
+        }
+        let abandonedPaymentIds: string[] = [];
         if (existingInTx) {
-          await this.core.lockOpenSessionForSettlement(tx, existingInTx.id);
-          const pendingPayment = await tx.payment.findFirst({
-            where: { tableSessionId: existingInTx.id, status: 'PENDING' },
-            select: { id: true },
+          const lockedOrderCount = await tx.order.count({
+            where: { tableSessionId: existingInTx.id },
           });
-          if (pendingPayment) {
+          if (lockedOrderCount !== existingOrderCount) {
             throw new ConflictException(
-              'A payment for this session is still being processed. Please wait or retry.',
+              'An order was added while the table was being reopened. Review the table and retry.',
             );
           }
+          abandonedPaymentIds =
+            await this.abandonPendingCheckoutPaymentsForLockedSession(
+              tx,
+              existingInTx.id,
+            );
 
           await tx.tableSession.update({
             where: { id: existingInTx.id },
@@ -686,16 +834,20 @@ export class PaymentSessionService {
           data: {
             tableId,
             restaurantId,
-            isServicePoint: table.type !== 'TABLE',
+            isServicePoint: false,
           },
         });
-        return { session: created, closedSession: existingInTx };
-      },
-    );
+        return {
+          session: created,
+          closedSession: existingInTx,
+          abandonedPaymentIds,
+        };
+      });
 
     // Emit socket events only after the transaction commits — emitting inside a
     // transaction can fire for work that later rolls back (#H4).
     if (closedSession) {
+      this.emitAbandonedCheckoutEvents(closedSession.id, abandonedPaymentIds);
       this.events.emitTableStatusChanged(
         restaurantId,
         closedSession.tableId,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import KitchenPage from "./KitchenPage";
 import { MemoryRouter } from "react-router-dom";
 import RestaurantContext from "../../context/RestaurantContext";
@@ -81,7 +81,13 @@ describe("KitchenPage", () => {
         {
           id: "order-2",
           status: "IN_PROGRESS",
-          items: [{ quantity: 2, menuItem: { name: "Burger" } }],
+          items: [
+            {
+              id: "item-1",
+              quantity: 2,
+              menuItem: { name: "Burger" },
+            },
+          ],
           createdAt: new Date().toISOString(),
         },
       ],
@@ -146,6 +152,40 @@ describe("KitchenPage", () => {
     expect(updateSpy).toHaveBeenCalledWith("order-1", "IN_PROGRESS");
   });
 
+  it("keeps the current status visible and offers retry when an update fails", async () => {
+    const updateSpy = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockResolvedValueOnce(undefined);
+    (useOrders as Mock).mockReturnValue({
+      orders: [
+        {
+          id: "order-1",
+          status: "NEW",
+          items: [],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      updateOrderStatus: updateSpy,
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: /#order-1/ }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Status update failed");
+    expect(alert.textContent).toContain("kept its current status");
+    expect(screen.getByText("(1)")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /Retry/i }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(2);
+      expect(updateSpy).toHaveBeenLastCalledWith("order-1", "IN_PROGRESS");
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+
   it("shows pending-payment orders without allowing kitchen progression", () => {
     const updateSpy = vi.fn();
     (useOrders as Mock).mockReturnValue({
@@ -154,7 +194,13 @@ describe("KitchenPage", () => {
           id: "pending-order",
           status: "PENDING_PAYMENT",
           tableName: "301",
-          items: [{ quantity: 1, menuItem: { name: "Pizza" } }],
+          items: [
+            {
+              id: "item-2",
+              quantity: 1,
+              menuItem: { name: "Pizza" },
+            },
+          ],
           createdAt: new Date().toISOString(),
         },
       ],

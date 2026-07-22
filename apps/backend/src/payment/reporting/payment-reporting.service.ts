@@ -1,9 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentReconciliationStatus, PaymentStatus } from '@prisma/client';
 import { PaymentHistoryQueryDto } from '../dto/payment-history-query.dto';
 import { PaymentCoreService } from '../core/payment-core.service';
 import { buildRestaurantDateRange } from '../../common/restaurant-date-range';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
+
+const MAX_PAYMENT_EXPORT_ROWS = 5_000;
 
 @Injectable()
 export class PaymentReportingService {
@@ -152,6 +160,79 @@ export class PaymentReportingService {
     };
   }
 
+  async getPaymentReconciliationIssues(
+    restaurantId: string,
+    userId: string,
+    status: PaymentReconciliationStatus = PaymentReconciliationStatus.OPEN,
+  ) {
+    await this.core.verifyRestaurantAccess(restaurantId, userId);
+
+    return this.prisma.paymentReconciliationIssue.findMany({
+      where: { restaurantId, status },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            status: true,
+            provider: true,
+            amount: true,
+            currency: true,
+            tipAmount: true,
+            providerReference: true,
+            stripePaymentIntentId: true,
+            createdAt: true,
+          },
+        },
+        tableSession: {
+          select: {
+            id: true,
+            status: true,
+            table: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  async resolvePaymentReconciliationIssue(
+    issueId: string,
+    userId: string,
+    status: 'RESOLVED' | 'DISMISSED',
+    note?: string,
+  ) {
+    const issue = await this.prisma.paymentReconciliationIssue.findUnique({
+      where: { id: issueId },
+      select: { id: true, restaurantId: true, status: true },
+    });
+    if (!issue) throw new NotFoundException('Reconciliation issue not found');
+
+    await this.core.verifyRestaurantAccess(issue.restaurantId, userId);
+    if (issue.status !== PaymentReconciliationStatus.OPEN) {
+      throw new ConflictException('Reconciliation issue is already closed');
+    }
+
+    const updated = await this.prisma.paymentReconciliationIssue.updateMany({
+      where: { id: issueId, status: PaymentReconciliationStatus.OPEN },
+      data: {
+        status,
+        resolutionNote: note?.trim() || null,
+        resolvedById: userId,
+        resolvedAt: new Date(),
+      },
+    });
+    if (updated.count === 0) {
+      throw new ConflictException(
+        'Reconciliation issue was resolved by another user',
+      );
+    }
+
+    return this.prisma.paymentReconciliationIssue.findUnique({
+      where: { id: issueId },
+    });
+  }
+
   async exportPayments(
     restaurantId: string,
     userId: string,
@@ -192,7 +273,14 @@ export class PaymentReportingService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: MAX_PAYMENT_EXPORT_ROWS + 1,
     });
+
+    if (data.length > MAX_PAYMENT_EXPORT_ROWS) {
+      throw new PayloadTooLargeException(
+        `Payment export exceeds ${MAX_PAYMENT_EXPORT_ROWS} rows; narrow the date range or filters`,
+      );
+    }
 
     return data.map((payment) => this.core.mapPayment(payment));
   }
@@ -477,7 +565,7 @@ export class PaymentReportingService {
       payment.amount - payment.tipAmount,
     );
     const fullItemizationMatchesPayment =
-      Math.abs(fullSessionTotal - paymentSubtotal) < 0.01;
+      Math.abs(fullSessionTotal - paymentSubtotal) < PAYMENT_AMOUNT_TOLERANCE;
     const orders = payment.splitMode
       ? payment.splitMode === 'ITEM' && hasAllocatedItems
         ? [...allocatedOrders.values()]

@@ -1871,6 +1871,8 @@
     "ptsToTier": "{{count}} Punkte bis {{tier}}",
     "maxTier": "Höchste Stufe erreicht",
     "pastOrders": "Frühere Bestellungen",
+    "loadMoreOrders": "Weitere Bestellungen laden",
+    "loadingMoreOrders": "Weitere Bestellungen werden geladen...",
     "loading": "Verlauf wird geladen...",
     "historyLoadFailed": "Frühere Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
     "noOrders": "Noch keine Bestellungen",
@@ -2208,9 +2210,9 @@
           "b2": "Kassensystem am Tisch",
           "b3": "Küchenauslage",
           "b4": "Stellenangebote im Service und in der Küche",
-          "b5": "Mehrere Standorte",
+          "b5": "Tischzonen & Bereiche",
           "b6": "Thermodrucker",
-          "b7": "Menüvorlagen",
+          "b7": "Individuelle Kassenbons",
           "b8": "Unbegrenzte Mitarbeiterzahl",
           "b9": "Vorrangige Einarbeitung",
           "b10": "Erweiterte Zugriffskontrolle",
@@ -2273,7 +2275,7 @@
         },
         "q6": {
           "question": "Wann brauche ich Enterprise?",
-          "answer": "Die Enterprise-Version umfasst Kassensysteme, Küchenanzeigen, Thermodrucker, Menüvorlagen, weitere Standorte, eine unbegrenzte Anzahl an Mitarbeitern sowie erweiterte Benutzerrollen."
+          "answer": "Enterprise ist für POS, Küchenanzeige, Thermodrucker, individuelle Kassenbons, Tischzonen, unbegrenztes Personal und erweiterte Rollen."
         },
         "q7": {
           "question": "Kann ich den Tarif später ändern?",
@@ -2822,14 +2824,14 @@
         "b1": "Alle Funktionen der Professional-Version",
         "b2": "Kassensystem am Tisch",
         "b3": "Küchenauslage",
-        "b4": "Mehrere Standorte",
+        "b4": "Tischzonen & Bereiche",
         "b5": "Thermodrucker",
-        "b6": "Menüvorlagen",
+        "b6": "Individuelle Kassenbons",
         "b7": "Erweiterte Rollen und Berechtigungen",
         "b8": "Unbegrenzte Mitarbeiterzahl",
         "b9": "Vorrangige Einarbeitung",
         "b10": "Stellenangebote im Service und in der Küche",
-        "fit": "Ideal für Hotels, Hotelketten und Veranstaltungsorte mit Küche, Kassensystem, Druckern oder mehreren Standorten."
+        "fit": "Am besten für Hotels, große Standorte und Restaurants mit mehreren Räumen, mit Küche, POS und Druckern."
       }
     },
     "features": {

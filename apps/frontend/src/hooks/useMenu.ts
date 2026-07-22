@@ -11,6 +11,7 @@ import {
   uploadItemImage,
 } from "../services/menuService";
 import { Category, Item } from "../types";
+import { useCallback } from "react";
 
 export const useMenu = (restaurantId: string | undefined) => {
   const queryClient = useQueryClient();
@@ -22,11 +23,12 @@ export const useMenu = (restaurantId: string | undefined) => {
     staleTime: 60_000,
   });
 
-  const setCategories = (
-    updater: (old: Category[] | undefined) => Category[],
-  ) => {
-    queryClient.setQueryData(["categories", restaurantId], updater);
-  };
+  const setCategories = useCallback(
+    (updater: (old: Category[] | undefined) => Category[]) => {
+      queryClient.setQueryData(["categories", restaurantId], updater);
+    },
+    [queryClient, restaurantId],
+  );
 
   const createCategoryMutation = useMutation({
     mutationFn: (categoryData: { name: string; isDrinkCategory?: boolean }) =>
@@ -63,12 +65,12 @@ export const useMenu = (restaurantId: string | undefined) => {
       staleTime: 60_000,
     });
 
-  const setItems = (
-    categoryId: string,
-    updater: (old: Item[] | undefined) => Item[],
-  ) => {
-    queryClient.setQueryData(["items", categoryId], updater);
-  };
+  const setItems = useCallback(
+    (categoryId: string, updater: (old: Item[] | undefined) => Item[]) => {
+      queryClient.setQueryData(["items", categoryId], updater);
+    },
+    [queryClient],
+  );
 
   const createItemMutation = useMutation({
     mutationFn: (

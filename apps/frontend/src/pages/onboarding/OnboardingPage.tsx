@@ -85,6 +85,18 @@ export default function OnboardingPage() {
     useState(restaurantName);
 
   const [loading, setLoading] = useState(false);
+  const [checkoutConfirmationError, setCheckoutConfirmationError] = useState<
+    string | null
+  >(null);
+  const [confirmationAttempt, setConfirmationAttempt] = useState(0);
+  const missingConfirmationMessage = t(
+    "onboarding.confirmation.missingSession",
+    "The checkout return is missing its confirmation reference. Retry or choose a plan again.",
+  );
+  const failedConfirmationMessage = t(
+    "onboarding.confirmation.failed",
+    "We could not confirm your payment yet. Your checkout is not lost. Retry the confirmation before continuing.",
+  );
 
   // Auth guard
   useEffect(() => {
@@ -117,24 +129,54 @@ export default function OnboardingPage() {
     if (step !== "stripe-confirming") return;
 
     const sessionId = searchParams.get("session_id");
+    let cancelled = false;
 
     const confirm = async () => {
+      setCheckoutConfirmationError(null);
+      if (!sessionId) {
+        setCheckoutConfirmationError(missingConfirmationMessage);
+        return;
+      }
+
       let confirmedTier: Tier = selectedTier;
-      if (sessionId) {
-        try {
-          const { tier } = await confirmCheckoutSession(sessionId);
-          if (tier && tier !== "FREE") {
-            confirmedTier = tier as Tier;
-            setSelectedTier(confirmedTier);
-            sessionStorage.setItem("selectedPlan", tier);
-          }
-        } catch (_) {}
+      try {
+        const { tier } = await confirmCheckoutSession(sessionId);
+        if (cancelled) return;
+        if (tier && tier !== "FREE") {
+          confirmedTier = tier as Tier;
+          setSelectedTier(confirmedTier);
+          sessionStorage.setItem("selectedPlan", tier);
+        }
+      } catch {
+        if (cancelled) return;
+        setCheckoutConfirmationError(failedConfirmationMessage);
+        return;
       }
       setStep(PAYMENT_TIERS.includes(confirmedTier) ? "payment" : "done");
     };
 
-    confirm();
-  }, [step, searchParams]);
+    void confirm();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    step,
+    searchParams,
+    selectedTier,
+    confirmationAttempt,
+    missingConfirmationMessage,
+    failedConfirmationMessage,
+  ]);
+
+  const retryCheckoutConfirmation = () => {
+    setConfirmationAttempt((attempt) => attempt + 1);
+  };
+
+  const restartPlanSelection = () => {
+    setCheckoutConfirmationError(null);
+    setStep("plan");
+    navigate("/onboarding", { replace: true });
+  };
 
   const persistStep = async (s: Step) => {
     try {
@@ -297,14 +339,41 @@ export default function OnboardingPage() {
           }`}
         >
           {isRedirecting ? (
-            <div className="flex flex-col items-center gap-4 py-16 text-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="text-sm text-muted-foreground">
-                {step === "stripe-confirming"
-                  ? t("onboarding.redirecting.confirming")
-                  : t("onboarding.redirecting.stripe")}
-              </p>
-            </div>
+            step === "stripe-confirming" && checkoutConfirmationError ? (
+              <div className="flex flex-col items-center gap-5 py-16 text-center">
+                <p
+                  className="max-w-lg text-sm font-medium text-red-600"
+                  role="alert"
+                >
+                  {checkoutConfirmationError}
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    className="h-10 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                    onClick={retryCheckoutConfirmation}
+                  >
+                    {t("onboarding.confirmation.retry", "Retry confirmation")}
+                  </button>
+                  <button
+                    type="button"
+                    className="h-10 rounded-md border border-border px-4 text-sm font-semibold text-foreground"
+                    onClick={restartPlanSelection}
+                  >
+                    {t("onboarding.confirmation.choosePlan", "Choose plan")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 py-16 text-center">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <p className="text-sm text-muted-foreground">
+                  {step === "stripe-confirming"
+                    ? t("onboarding.redirecting.confirming")
+                    : t("onboarding.redirecting.stripe")}
+                </p>
+              </div>
+            )
           ) : step === "plan" ? (
             <PlanPickerStep
               selected={selectedTier}

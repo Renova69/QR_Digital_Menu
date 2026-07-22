@@ -268,8 +268,7 @@ export class SubscriptionService {
 
     const subscriptionId = session.subscription as string;
     const priceId = session.line_items?.data?.[0]?.price?.id as
-      | string
-      | undefined;
+      string | undefined;
     const tier = priceId
       ? getTierFromPrice(this.priceMap, priceId)
       : normalizeTier(
@@ -552,6 +551,16 @@ export class SubscriptionService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async enforceGraceExpiry(): Promise<void> {
+    try {
+      await this.applyGraceExpiry();
+    } catch (error) {
+      this.logger.error('Grace-expiry enforcement cron failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async applyGraceExpiry(): Promise<void> {
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<GraceExpiryRow[]>`
@@ -613,6 +622,16 @@ export class SubscriptionService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async enforceForceTierExpiry(): Promise<void> {
+    try {
+      await this.applyForceTierExpiry();
+    } catch (error) {
+      this.logger.error('Force-tier expiry enforcement cron failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async applyForceTierExpiry(): Promise<void> {
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<ForceTierExpiryRow[]>`

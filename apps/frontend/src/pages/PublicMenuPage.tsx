@@ -440,6 +440,8 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   }, [assistCooldownKey]);
 
   useEffect(() => {
+    const createdLinks: HTMLLinkElement[] = [];
+
     if (menuMeta?.restaurant) {
       const { fontHeading, fontBody } = menuMeta.restaurant;
       const fontsToLoad = new Set<string>();
@@ -457,9 +459,14 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
           link.rel = "stylesheet";
           link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, "+")}:wght@400;700;900&display=swap`;
           document.head.appendChild(link);
+          createdLinks.push(link);
         }
       });
     }
+
+    return () => {
+      createdLinks.forEach((link) => link.remove());
+    };
   }, [menuMeta?.restaurant]);
 
   const handleAssistanceRequest = async (

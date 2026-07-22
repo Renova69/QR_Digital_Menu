@@ -1871,6 +1871,8 @@
     "ptsToTier": "{{count}} points pour atteindre le {{tier}}",
     "maxTier": "Niveau maximal atteint",
     "pastOrders": "Commandes précédentes",
+    "loadMoreOrders": "Charger plus de commandes",
+    "loadingMoreOrders": "Chargement de commandes supplémentaires...",
     "loading": "Chargement de l'historique...",
     "historyLoadFailed": "Impossible de charger les commandes précédentes. Veuillez réessayer.",
     "noOrders": "Aucune commande pour l'instant",
@@ -2208,9 +2210,9 @@
           "b2": "Système de point de vente à table",
           "b3": "Présentoir de cuisine",
           "b4": "Postes de serveur et de cuisinier",
-          "b5": "Plusieurs sites",
+          "b5": "Zones et sections de tables",
           "b6": "Imprimantes thermiques",
-          "b7": "Modèles de menu",
+          "b7": "Reçus personnalisés",
           "b8": "Effectif illimité",
           "b9": "Intégration prioritaire",
           "b10": "Contrôle d'accès avancé",
@@ -2273,7 +2275,7 @@
         },
         "q6": {
           "question": "Dans quels cas ai-je besoin de la version Enterprise ?",
-          "answer": "La formule « Enterprise » comprend les terminaux de point de vente, les écrans de cuisine, les imprimantes thermiques, les modèles de menus, la possibilité d'ajouter davantage de sites, un nombre illimité d'employés et des rôles avancés."
+          "answer": "Enterprise est pour le POS, l'affichage cuisine, les imprimantes thermiques, les reçus personnalisés, les zones de tables, le personnel illimité et les rôles avancés."
         },
         "q7": {
           "question": "Puis-je changer de forfait plus tard ?",
@@ -2822,14 +2824,14 @@
         "b1": "Toutes les fonctionnalités de la version Professionnelle",
         "b2": "Système de point de vente à table",
         "b3": "Présentoir de cuisine",
-        "b4": "Plusieurs sites",
+        "b4": "Zones et sections de tables",
         "b5": "Imprimantes thermiques",
-        "b6": "Modèles de menu",
+        "b6": "Reçus personnalisés",
         "b7": "Rôles et autorisations avancés",
         "b8": "Effectif illimité",
         "b9": "Intégration prioritaire",
         "b10": "Postes de serveur et de cuisinier",
-        "fit": "Idéal pour les hôtels, les chaînes et les établissements disposant d'une cuisine, d'un terminal de point de vente, d'imprimantes ou de plusieurs sites."
+        "fit": "Idéal pour les hôtels, grands établissements et restaurants à plusieurs salles, avec cuisine, POS et imprimantes."
       }
     },
     "features": {
