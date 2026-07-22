@@ -1,16 +1,87 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, createLogger } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Collapse vite's benign proxy-error stack dumps into one throttled line.
+//
+// The `backend:dev` process runs `nest start --watch`, so every backend save
+// tears down port 3000 for a second while it recompiles. The wait-for-backend
+// gate only runs ONCE at `npm run dev` start — it does not re-fire on these
+// watch-restarts. Meanwhile the already-open browser keeps polling the API and
+// reconnecting the socket, so each restart produces a wall of proxy errors that
+// vite prints with a full node:net stack:
+//   - `ws proxy socket error` / ECONNABORTED  — WS torn down mid-write
+//   - `ws proxy error` + `http proxy error`   — new request hits the closed port
+//                                               (ECONNREFUSED) before Nest re-listens
+// All of it self-heals the moment the backend is back (axios + socket.io retry).
+// Vite attaches its own error listeners, so a proxy `configure` hook can't stop
+// the logging — a customLogger is the only reliable intercept.
+//
+// We swallow the multi-line stacks but still emit a single compact notice (at
+// most once per interval) so a REAL sustained outage — backend that never comes
+// back — stays visible instead of being silently hidden.
+const PROXY_ERROR_LABELS = [
+  "ws proxy socket error",
+  "ws proxy error",
+  "http proxy error",
+];
+const BENIGN_PROXY_CODES = [
+  "ECONNREFUSED",
+  "ECONNABORTED",
+  "ECONNRESET",
+  "EPIPE",
+  "ETIMEDOUT",
+];
+const BACKEND_DOWN_NOTICE_INTERVAL_MS = 3000;
+let lastBackendDownNotice = 0;
+
+const quietLogger = createLogger();
+const originalError = quietLogger.error.bind(quietLogger);
+quietLogger.error = (msg, options) => {
+  const text = typeof msg === "string" ? msg : "";
+  const isProxyLabel = PROXY_ERROR_LABELS.some((label) => text.includes(label));
+  // AggregateError (ECONNREFUSED via happy-eyeballs) doesn't always expose
+  // `.code`, so fall back to scanning the message/stack for the code token.
+  const isBenign =
+    isProxyLabel &&
+    (BENIGN_PROXY_CODES.includes(options?.error?.code) ||
+      BENIGN_PROXY_CODES.some((code) => text.includes(code)));
+
+  if (isBenign) {
+    const now = Date.now();
+    if (now - lastBackendDownNotice > BACKEND_DOWN_NOTICE_INTERVAL_MS) {
+      lastBackendDownNotice = now;
+      originalError(
+        "[dev] backend proxy target unavailable (restarting?) — requests will retry",
+        { timestamp: true },
+      );
+    }
+    return;
+  }
+  originalError(msg, options);
+};
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  // Read backend origin from VITE_API_URL (e.g. http://192.168.0.3:3000/api → http://192.168.0.3:3000)
-  const backendOrigin = (
-    env.VITE_API_URL || "http://localhost:3000/api"
-  ).replace(/\/api\/?$/, "");
+  // Derive the bare backend origin (scheme+host+port) that the dev proxy targets
+  // from VITE_API_URL. Use URL().origin so ANY path suffix is dropped, not just a
+  // trailing `/api` — a value like http://host:3000/api/v1 would otherwise slip
+  // past a `/\/api\/?$/` strip and make the proxy double-prefix the path
+  // (target /api/v1 + request /api/v1/... → /api/v1/api/v1/..., every call 404s).
+  const rawApiUrl = env.VITE_API_URL || "http://localhost:3000/api";
+  let backendOrigin;
+  try {
+    backendOrigin = new URL(rawApiUrl).origin;
+  } catch {
+    throw new Error(
+      `VITE_API_URL is not a valid absolute URL: "${rawApiUrl}". ` +
+        `Expected something like http://localhost:3000/api`,
+    );
+  }
 
   return {
+    customLogger: quietLogger,
     plugins: [
       react(),
       tsconfigPaths({ root: "." }),
@@ -32,39 +103,45 @@ export default defineConfig(({ mode }) => {
             {
               src: "favicon.ico",
               sizes: "64x64 32x32 24x24 16x16",
-              type: "image/x-icon"
+              type: "image/x-icon",
             },
             {
               src: "logo192.png",
               type: "image/png",
-              sizes: "192x192"
+              sizes: "192x192",
             },
             {
               src: "logo512.png",
               type: "image/png",
-              sizes: "512x512"
-            }
-          ]
+              sizes: "512x512",
+            },
+          ],
         },
         devOptions: {
           enabled: false,
-          type: "module"
-        }
-      })
+          type: "module",
+        },
+      }),
     ],
     server: {
       host: true,
       strictPort: true,
       port: 3001,
       proxy: {
+        // xfwd adds X-Forwarded-For/-Proto/-Host so the backend sees the real
+        // browser IP instead of 127.0.0.1. Without it, ThrottlerGuard buckets
+        // all dev traffic under one IP and any req.ip logic reads localhost —
+        // making local rate-limit / IP-based behavior untestable.
         "/api": {
           target: backendOrigin,
           changeOrigin: true,
+          xfwd: true,
         },
         "/socket.io": {
           target: backendOrigin,
           changeOrigin: true,
           ws: true,
+          xfwd: true,
         },
       },
     },
