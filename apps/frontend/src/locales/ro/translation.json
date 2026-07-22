@@ -3708,7 +3708,56 @@
     "subtitle": "Disponibil din planul {{tier}}. Actualizează pentru a debloca asta și altele.",
     "recommended": "Recomandat",
     "cta": "Actualizează la {{tier}}",
-    "maybeLater": "Poate mai târziu"
+    "maybeLater": "Poate mai târziu",
+    "features": {
+      "orders_receive": "Comenzi online",
+      "orders_call-waiter": "Cheamă ospătarul",
+      "payments_stripe": "Plăți cu Stripe",
+      "analytics_full": "Analize complete",
+      "analytics_basic": "Analize de bază",
+      "service-points": "Puncte de servire",
+      "languages_multi": "Meniu multilingv",
+      "branding_custom": "Branding personalizat",
+      "loyalty": "Program de fidelitate",
+      "customers_auth": "Conturi de clienți",
+      "upselling": "Vânzări suplimentare",
+      "dayparting": "Intervale orare / Happy Hour",
+      "reservations_enabled": "Rezervări",
+      "pos": "Punct de vânzare (POS)",
+      "kds": "Sistem de afișare bucătărie (KDS)",
+      "rbac": "Roluri și permisiuni avansate",
+      "printers_thermal": "Imprimante termice",
+      "staff_unlimited": "Personal nelimitat"
+    },
+    "tiers": {
+      "STARTER": {
+        "bullets": [
+          "Comenzi online",
+          "Puncte de servire pentru camere și ridicare",
+          "Analize de bază",
+          "Meniu multilingv",
+          "1 membru al personalului"
+        ]
+      },
+      "PROFESSIONAL": {
+        "bullets": [
+          "Plată la masă cu Stripe",
+          "Analize complete",
+          "Meniu multilingv",
+          "Program de fidelitate",
+          "Până la 5 angajați"
+        ]
+      },
+      "ENTERPRISE": {
+        "bullets": [
+          "Punct de vânzare (POS)",
+          "Sistem de afișare bucătărie (KDS)",
+          "Locații multiple",
+          "Personal nelimitat",
+          "Roluri și permisiuni avansate"
+        ]
+      }
+    }
   },
   "payments.recordCreated": "Înregistrarea plății a fost creată",
   "payments.failedEvent": "Plata a eșuat",

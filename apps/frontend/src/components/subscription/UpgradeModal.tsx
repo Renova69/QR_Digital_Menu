@@ -19,6 +19,7 @@ const FEATURE_MIN_TIER: Partial<Record<FeatureFlag, SubscriptionTier>> = {
   "customers:auth": "PROFESSIONAL",
   upselling: "PROFESSIONAL",
   dayparting: "PROFESSIONAL",
+  "reservations:enabled": "PROFESSIONAL",
   pos: "ENTERPRISE",
   kds: "ENTERPRISE",
   rbac: "ENTERPRISE",
@@ -39,6 +40,7 @@ const FEATURE_DISPLAY: Partial<Record<FeatureFlag, string>> = {
   "customers:auth": "Customer Accounts",
   upselling: "Upselling",
   dayparting: "Dayparting / Happy Hour",
+  "reservations:enabled": "Reservations",
   pos: "Point of Sale",
   kds: "Kitchen Display System",
   rbac: "Advanced RBAC",
@@ -109,7 +111,16 @@ export default function UpgradeModal({ feature, onClose }: Props) {
     ? (FEATURE_MIN_TIER[feature] ?? "ENTERPRISE")
     : "ENTERPRISE";
   const minTierIndex = TIER_ORDER.indexOf(minTier);
-  const featureLabel = feature ? (FEATURE_DISPLAY[feature] ?? feature) : "";
+  // Localize the feature name. Feature flags contain ':' (i18next's namespace
+  // separator), so swap it for '_' to build a nested key like
+  // `upgrade.features.reservations_enabled`. English display map is the
+  // defaultValue, so an un-translated flag still renders a real name (never the
+  // raw flag string) — that was the mobile-padlock "reservations:enabled" bug.
+  const featureLabel = feature
+    ? t(`upgrade.features.${feature.replace(/:/g, "_")}`, {
+        defaultValue: FEATURE_DISPLAY[feature] ?? feature,
+      })
+    : "";
 
   // Only show the required tier and the tiers above it — never upsell a plan
   // that doesn't unlock the feature. (e.g. a PRO-gated feature shows PRO + ENTERPRISE.)
@@ -205,6 +216,17 @@ export default function UpgradeModal({ feature, onClose }: Props) {
             const isRecommended = key === minTier;
             const isThisLoading = isPending && loadingTier === key;
 
+            // Localize the tier bullets. The English arrays in TIERS are the
+            // defaultValue, so an un-translated locale still renders real copy
+            // (never blank) — dashboard runs en/bg/ro, others fall back to en.
+            const translatedBullets = t(`upgrade.tiers.${key}.bullets`, {
+              returnObjects: true,
+              defaultValue: bullets,
+            });
+            const bulletList = Array.isArray(translatedBullets)
+              ? (translatedBullets as string[])
+              : bullets;
+
             return (
               <div
                 key={key}
@@ -238,7 +260,7 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                 </div>
 
                 <ul className="flex-1 space-y-1.5 mb-4">
-                  {bullets.map((b) => (
+                  {bulletList.map((b) => (
                     <li
                       key={b}
                       className="flex items-start gap-1.5 text-xs text-muted-foreground"

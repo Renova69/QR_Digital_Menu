@@ -3621,7 +3621,56 @@
     "subtitle": "Available from the {{tier}} plan. Upgrade to unlock this and more.",
     "recommended": "Recommended",
     "cta": "Upgrade to {{tier}}",
-    "maybeLater": "Maybe later"
+    "maybeLater": "Maybe later",
+    "features": {
+      "orders_receive": "Online Ordering",
+      "orders_call-waiter": "Call Waiter",
+      "payments_stripe": "Stripe Payments",
+      "analytics_full": "Full Analytics",
+      "analytics_basic": "Basic Analytics",
+      "service-points": "Service Points",
+      "languages_multi": "Multi-language Menu",
+      "branding_custom": "Custom Branding",
+      "loyalty": "Loyalty Program",
+      "customers_auth": "Customer Accounts",
+      "upselling": "Upselling",
+      "dayparting": "Dayparting / Happy Hour",
+      "reservations_enabled": "Reservations",
+      "pos": "Point of Sale",
+      "kds": "Kitchen Display System",
+      "rbac": "Advanced RBAC",
+      "printers_thermal": "Thermal Printers",
+      "staff_unlimited": "Unlimited Staff"
+    },
+    "tiers": {
+      "STARTER": {
+        "bullets": [
+          "Online ordering",
+          "Service points for rooms and pickup",
+          "Basic analytics",
+          "Multi-language menu",
+          "1 staff member"
+        ]
+      },
+      "PROFESSIONAL": {
+        "bullets": [
+          "Stripe pay-at-table",
+          "Full analytics",
+          "Multi-language menu",
+          "Loyalty program",
+          "Up to 5 staff"
+        ]
+      },
+      "ENTERPRISE": {
+        "bullets": [
+          "Point of Sale (POS)",
+          "Kitchen Display (KDS)",
+          "Multi-location",
+          "Unlimited staff",
+          "Advanced RBAC"
+        ]
+      }
+    }
   },
   "payments.recordCreated": "Payment record created",
   "payments.failedEvent": "Payment failed",
