@@ -369,21 +369,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
-    labelKey: "landing.comparisonTable.rows.multiLocation",
-    free: false,
-    starter: false,
-    professional: false,
-    enterprise: true,
-  },
-  {
     labelKey: "landing.comparisonTable.rows.thermalPrinters",
-    free: false,
-    starter: false,
-    professional: false,
-    enterprise: true,
-  },
-  {
-    labelKey: "landing.comparisonTable.rows.menuTemplates",
     free: false,
     starter: false,
     professional: false,

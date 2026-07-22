@@ -1889,9 +1889,9 @@
           "b2": "Tableside POS",
           "b3": "Kitchen display",
           "b4": "Waiter and kitchen roles",
-          "b5": "Multiple locations",
+          "b5": "Table zones & sections",
           "b6": "Thermal printers",
-          "b7": "Menu templates",
+          "b7": "Custom branded receipts",
           "b8": "Unlimited staff",
           "b9": "Priority onboarding",
           "b10": "Advanced access control",
@@ -1954,7 +1954,7 @@
         },
         "q6": {
           "question": "When do I need Enterprise?",
-          "answer": "Enterprise is for POS, kitchen display, thermal printers, menu templates, more locations, unlimited staff, and advanced roles."
+          "answer": "Enterprise is for POS, kitchen display, thermal printers, custom branded receipts, table zones, unlimited staff, and advanced roles."
         },
         "q7": {
           "question": "Can I change plan later?",
@@ -2503,14 +2503,14 @@
         "b1": "Everything in Professional",
         "b2": "Tableside POS",
         "b3": "Kitchen display",
-        "b4": "Multiple locations",
+        "b4": "Table zones & sections",
         "b5": "Thermal printers",
-        "b6": "Menu templates",
+        "b6": "Custom branded receipts",
         "b7": "Advanced roles and permissions",
         "b8": "Unlimited staff",
         "b9": "Priority onboarding",
         "b10": "Waiter and kitchen roles",
-        "fit": "Best for hotels, chains, and venues with kitchen, POS, printers, or more than one location."
+        "fit": "Best for hotels, large venues, and multi-room restaurants with kitchen, POS, and printer workflows."
       }
     },
     "features": {

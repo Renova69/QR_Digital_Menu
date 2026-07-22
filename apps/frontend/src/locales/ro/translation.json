@@ -1943,7 +1943,7 @@
         },
         "q6": {
           "question": "Cum funcționează programul de loialitate?",
-          "answer": "Clienții câștigă puncte la fiecare comandă utilizând un sistem contabil FIFO. Punctele pot fi preschimbate pentru reduceri în numerar sau articole gratuite. Sistemul suportă niveluri VIP (Bronz/Argint/Aur), multiplicatori pentru happy hour, bonusuri de înregistrare și memento-uri automate pentru expirare."
+          "answer": "Enterprise este pentru POS, ecran de bucătărie, imprimante termice, bonuri de casă personalizate, zone de mese, personal nelimitat și roluri avansate."
         },
         "q7": {
           "question": "Ce limbi sunt suportate pentru meniuri?",
@@ -2013,9 +2013,9 @@
           "b2": "POS și afișaj bucătărie (KDS)",
           "b3": "Zone și secțiuni de mese",
           "b4": "Atribuire personal și note detaliate",
-          "b5": "Suport locații multiple",
+          "b5": "Zone și secțiuni de mese",
           "b6": "Suport imprimantă termică",
-          "b7": "Roluri avansate (RBAC)",
+          "b7": "Bonuri de casă personalizate",
           "b8": "Panou operațiuni super-admin",
           "b9": "Suport prioritar",
           "b10": "Personal nelimitat",
@@ -2588,14 +2588,14 @@
         "b1": "Tot din Professional",
         "b2": "Punct de vânzare (POS)",
         "b3": "Afișaj bucătărie (KDS)",
-        "b4": "Mai multe locații",
+        "b4": "Zone și secțiuni de mese",
         "b5": "Imprimante termice",
-        "b6": "Șabloane meniu",
+        "b6": "Bonuri de casă personalizate",
         "b7": "RBAC avansat",
         "b8": "Personal nelimitat",
         "b9": "Suport prioritar",
         "b10": "Roluri de ospătar și bucătărie",
-        "fit": "Ideal pentru hoteluri, lanțuri și localuri cu bucătărie, POS, imprimante sau mai mult de o locație."
+        "fit": "Cel mai potrivit pentru hoteluri, locații mari și restaurante cu mai multe săli, cu bucătărie, POS și imprimante."
       }
     },
     "features": {

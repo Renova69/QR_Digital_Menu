@@ -22,9 +22,7 @@ const FEATURE_MIN_TIER: Partial<Record<FeatureFlag, SubscriptionTier>> = {
   pos: "ENTERPRISE",
   kds: "ENTERPRISE",
   rbac: "ENTERPRISE",
-  multilocation: "ENTERPRISE",
   "printers:thermal": "ENTERPRISE",
-  "templates:menu": "ENTERPRISE",
   "staff:unlimited": "ENTERPRISE",
 };
 
@@ -44,9 +42,7 @@ const FEATURE_DISPLAY: Partial<Record<FeatureFlag, string>> = {
   pos: "Point of Sale",
   kds: "Kitchen Display System",
   rbac: "Advanced RBAC",
-  multilocation: "Multi-location",
   "printers:thermal": "Thermal Printers",
-  "templates:menu": "Menu Templates",
   "staff:unlimited": "Unlimited Staff",
 };
 

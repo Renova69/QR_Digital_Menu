@@ -139,13 +139,6 @@ const FEATURE_ROWS: FeatureRowData[] = [
     enterprise: true,
   },
   {
-    labelKey: "pricing.features.menuTemplates",
-    free: false,
-    starter: false,
-    professional: false,
-    enterprise: true,
-  },
-  {
     sectionKey: "pricing.sections.orders",
     labelKey: "pricing.features.onlineOrdering",
     free: false,
@@ -244,13 +237,6 @@ const FEATURE_ROWS: FeatureRowData[] = [
   },
   {
     labelKey: "pricing.features.rbac",
-    free: false,
-    starter: false,
-    professional: false,
-    enterprise: true,
-  },
-  {
-    labelKey: "pricing.features.multiLocation",
     free: false,
     starter: false,
     professional: false,

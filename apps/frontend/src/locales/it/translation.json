@@ -2208,9 +2208,9 @@
           "b2": "POS al tavolo",
           "b3": "Esposizione in cucina",
           "b4": "Ruoli in sala e in cucina",
-          "b5": "Diverse sedi",
+          "b5": "Zone e sezioni dei tavoli",
           "b6": "Stampanti termiche",
-          "b7": "Modelli di menu",
+          "b7": "Ricevute personalizzate",
           "b8": "Personale illimitato",
           "b9": "Inserimento prioritario",
           "b10": "Controllo avanzato degli accessi",
@@ -2273,7 +2273,7 @@
         },
         "q6": {
           "question": "Quando mi serve Enterprise?",
-          "answer": "Il piano Enterprise include POS, display da cucina, stampanti termiche, modelli di menu, più sedi, personale illimitato e ruoli avanzati."
+          "answer": "Enterprise è per POS, display cucina, stampanti termiche, ricevute personalizzate, zone dei tavoli, personale illimitato e ruoli avanzati."
         },
         "q7": {
           "question": "Posso cambiare piano in un secondo momento?",
@@ -2822,14 +2822,14 @@
         "b1": "Tutto nella versione Professional",
         "b2": "POS al tavolo",
         "b3": "Esposizione in cucina",
-        "b4": "Diverse sedi",
+        "b4": "Zone e sezioni dei tavoli",
         "b5": "Stampanti termiche",
-        "b6": "Modelli di menu",
+        "b6": "Ricevute personalizzate",
         "b7": "Ruoli e autorizzazioni avanzati",
         "b8": "Personale illimitato",
         "b9": "Inserimento prioritario",
         "b10": "Ruoli in sala e in cucina",
-        "fit": "Ideale per hotel, catene alberghiere e strutture dotate di cucina, POS, stampanti o con più sedi."
+        "fit": "Ideale per hotel, locali di grandi dimensioni e ristoranti con più sale, con cucina, POS e stampanti."
       }
     },
     "features": {
