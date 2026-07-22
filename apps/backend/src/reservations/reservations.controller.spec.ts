@@ -21,39 +21,16 @@ function guardNames(metadataTarget: object | Function): string[] {
 }
 
 describe('ReservationsController entitlement coverage', () => {
-  it('requires authentication globally but reserves the paid feature gate for creation and configuration', () => {
+  it('gates the entire controller behind the paid reservations feature', () => {
     expect(guardNames(ReservationsController)).toEqual(
       expect.arrayContaining([JwtAuthGuard.name, FeatureGuard.name]),
     );
+    // A class-level RequireFeature gates every route — including list/action/
+    // updateInternal, which previously shipped ungated — and any future handler,
+    // since FeatureGuard resolves the flag via getAllAndOverride([handler, class]).
     expect(
       Reflect.getMetadata(REQUIRE_FEATURE_KEY, ReservationsController),
-    ).toBeUndefined();
-    for (const method of [
-      'getSettings',
-      'updateSettings',
-      'setServiceHours',
-      'deleteServiceHours',
-      'analytics',
-      'listBlackouts',
-      'addBlackout',
-      'removeBlackout',
-      'createManual',
-    ] as const) {
-      expect(
-        Reflect.getMetadata(
-          REQUIRE_FEATURE_KEY,
-          ReservationsController.prototype[method],
-        ),
-      ).toEqual([FeatureFlag.RESERVATIONS]);
-    }
-    for (const method of ['list', 'action', 'updateInternal'] as const) {
-      expect(
-        Reflect.getMetadata(
-          REQUIRE_FEATURE_KEY,
-          ReservationsController.prototype[method],
-        ),
-      ).toBeUndefined();
-    }
+    ).toEqual([FeatureFlag.RESERVATIONS]);
   });
 });
 
@@ -113,7 +90,17 @@ describe('ReservationsController HTTP entitlement boundary', () => {
     jest.clearAllMocks();
   });
 
-  it('lets a downgraded restaurant service existing bookings but blocks paid settings', async () => {
+  it('blocks reservation servicing below the required tier and allows it at/above', async () => {
+    // Full lockdown: a sub-PROFESSIONAL tier cannot even list existing bookings.
+    await request(app.getHttpServer()).get('/reservations/rest-1').expect(403);
+    expect(reservations.list).not.toHaveBeenCalled();
+
+    await request(app.getHttpServer())
+      .get('/reservations/rest-1/settings')
+      .expect(403);
+    expect(reservations.getSettings).not.toHaveBeenCalled();
+
+    tier = 'PROFESSIONAL';
     await request(app.getHttpServer())
       .get('/reservations/rest-1')
       .expect(200, []);
@@ -123,12 +110,6 @@ describe('ReservationsController HTTP entitlement boundary', () => {
       expect.any(Object),
     );
 
-    await request(app.getHttpServer())
-      .get('/reservations/rest-1/settings')
-      .expect(403);
-    expect(reservations.getSettings).not.toHaveBeenCalled();
-
-    tier = 'PROFESSIONAL';
     await request(app.getHttpServer())
       .get('/reservations/rest-1/settings')
       .expect(200, { settings: null });

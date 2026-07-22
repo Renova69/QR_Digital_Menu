@@ -204,6 +204,7 @@ const DashboardPage = () => {
       (activeTab === "orders" && !canOrders) ||
       (activeTab === "assistance" && !canAssistance) ||
       (activeTab === "payments" && (!canPayments || !paymentsEnabled)) ||
+      (activeTab === "reservations" && !canReservations) ||
       (activeTab === "analytics" && !canAnalytics);
     if (tabLocked) setActiveTab("summary");
   }, [
@@ -321,8 +322,8 @@ const DashboardPage = () => {
       id: "reservations" as TabId,
       Icon: CalendarCheck,
       label: t("dashboard.tabs.reservations", "Reservations"),
-      feature: null,
-      locked: false,
+      feature: "reservations:enabled",
+      locked: !canReservations,
     },
     {
       id: "analytics" as TabId,
@@ -897,10 +898,13 @@ const DashboardPage = () => {
                       ? "payments:stripe"
                       : id === "analytics"
                         ? "analytics:full"
-                        : null;
+                        : id === "reservations"
+                          ? "reservations:enabled"
+                          : null;
                   const isLocked =
                     (id === "payments" && !canPayments) ||
-                    (id === "analytics" && !canAnalytics);
+                    (id === "analytics" && !canAnalytics) ||
+                    (id === "reservations" && !canReservations);
                   const isActive = !isLocked && activeTab === id;
                   return (
                     <button
