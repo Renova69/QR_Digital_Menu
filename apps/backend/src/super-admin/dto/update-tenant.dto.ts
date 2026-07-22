@@ -9,6 +9,7 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  ValidateIf,
 } from 'class-validator';
 import { SubscriptionTier } from '@prisma/client';
 import { ImportMenuDto } from '../../menu-import/dto/import-menu.dto';
@@ -114,4 +115,12 @@ export class UpdateDataRequestDto {
   @IsOptional()
   @IsString()
   downloadUrl?: string;
+
+  @ValidateIf(
+    (dto: UpdateDataRequestDto) =>
+      dto.status === 'COMPLETED' || dto.status === 'REJECTED',
+  )
+  @IsString()
+  @Matches(/^CONFIRM$/, { message: 'confirmation must be exactly CONFIRM' })
+  confirmation?: string;
 }

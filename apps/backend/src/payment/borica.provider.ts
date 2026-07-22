@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import axios from 'axios';
 import { DateTime } from 'luxon';
@@ -52,8 +52,19 @@ export interface BoricaCallbackResult {
   eci: string;
 }
 
+export type BoricaCertificateStatus =
+  'VALID' | 'EXPIRING' | 'EXPIRED' | 'INVALID';
+
+export interface BoricaCertificateValidity {
+  status: BoricaCertificateStatus;
+  validTo?: Date;
+  daysRemaining?: number;
+}
+
 @Injectable()
 export class BoricaProvider {
+  private readonly logger = new Logger(BoricaProvider.name);
+
   getActionUrl(mode: BoricaMode): string {
     if (mode === 'DEMO') {
       return (
@@ -181,6 +192,23 @@ export class BoricaProvider {
     },
     mode: BoricaMode,
   ): Promise<BoricaCallbackResult | null> {
+    if (mode === 'LIVE') {
+      const validity = this.inspectCertificate(params.certPem);
+      if (validity.status === 'INVALID' || validity.status === 'EXPIRED') {
+        this.logger.error('BORICA status certificate is not usable', {
+          certificateStatus: validity.status,
+          validTo: validity.validTo?.toISOString(),
+        });
+        return null;
+      }
+      if (validity.status === 'EXPIRING') {
+        this.logger.warn('BORICA status certificate expires soon', {
+          validTo: validity.validTo?.toISOString(),
+          daysRemaining: validity.daysRemaining,
+        });
+      }
+    }
+
     const n = nonce();
 
     const psign = this.signStatusCheck(
@@ -220,6 +248,34 @@ export class BoricaProvider {
       return this.verifyResult(asRecord, params.certPem);
     } catch {
       return null;
+    }
+  }
+
+  inspectCertificate(
+    certPem: string,
+    now = new Date(),
+    warningDays = 30,
+  ): BoricaCertificateValidity {
+    try {
+      const certificate = new crypto.X509Certificate(certPem);
+      const validTo = new Date(certificate.validTo);
+      if (Number.isNaN(validTo.getTime())) {
+        return { status: 'INVALID' };
+      }
+
+      const millisecondsRemaining = validTo.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(
+        millisecondsRemaining / (24 * 60 * 60 * 1000),
+      );
+      if (millisecondsRemaining <= 0) {
+        return { status: 'EXPIRED', validTo, daysRemaining };
+      }
+      if (daysRemaining <= warningDays) {
+        return { status: 'EXPIRING', validTo, daysRemaining };
+      }
+      return { status: 'VALID', validTo, daysRemaining };
+    } catch {
+      return { status: 'INVALID' };
     }
   }
 

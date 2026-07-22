@@ -204,6 +204,32 @@ export class PaymentService {
     return this.reporting.getPaymentHistory(restaurantId, query, userId);
   }
 
+  getPaymentReconciliationIssues(
+    restaurantId: string,
+    userId: string,
+    status?: 'OPEN' | 'RESOLVED' | 'DISMISSED',
+  ) {
+    return this.reporting.getPaymentReconciliationIssues(
+      restaurantId,
+      userId,
+      status,
+    );
+  }
+
+  resolvePaymentReconciliationIssue(
+    issueId: string,
+    userId: string,
+    status: 'RESOLVED' | 'DISMISSED',
+    note?: string,
+  ) {
+    return this.reporting.resolvePaymentReconciliationIssue(
+      issueId,
+      userId,
+      status,
+      note,
+    );
+  }
+
   exportPayments(
     restaurantId: string,
     userId: string,

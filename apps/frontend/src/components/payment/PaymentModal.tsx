@@ -97,6 +97,62 @@ type StripePaymentState = {
   tipAmount: number;
 };
 
+type StripeConfirmationError = {
+  code?: string;
+  decline_code?: string;
+  type?: string;
+};
+
+function getStripeConfirmationErrorMessage(
+  error: StripeConfirmationError | null | undefined,
+  t: (key: string, fallback: string) => string,
+) {
+  const category = error?.decline_code || error?.code || error?.type;
+  switch (category) {
+    case "insufficient_funds":
+      return t(
+        "payment.stripeErrors.insufficientFunds",
+        "Insufficient funds. Please use another payment method.",
+      );
+    case "expired_card":
+      return t(
+        "payment.stripeErrors.expiredCard",
+        "This card has expired. Please use another card.",
+      );
+    case "incorrect_cvc":
+      return t(
+        "payment.stripeErrors.incorrectCvc",
+        "The security code is incorrect. Check it and try again.",
+      );
+    case "authentication_required":
+      return t(
+        "payment.stripeErrors.authenticationRequired",
+        "Card authentication is required. Please try the payment again.",
+      );
+    case "card_declined":
+      return t(
+        "payment.stripeErrors.cardDeclined",
+        "Your card was declined. Please contact your bank or use another card.",
+      );
+    case "validation_error":
+      return t(
+        "payment.stripeErrors.invalidDetails",
+        "Check your card details and try again.",
+      );
+    case "api_connection_error":
+    case "api_error":
+      return t(
+        "payment.stripeErrors.connection",
+        "We could not reach the payment service. Check your connection and try again.",
+      );
+    default:
+      return t(
+        "payment.stripeErrors.unavailable",
+        "We could not confirm the payment. Check your connection and try again.",
+      );
+  }
+}
+
 type HostedFormPaymentState = {
   paymentId: string;
   total: number;
@@ -211,40 +267,40 @@ function PaymentForm({
       );
     } catch {}
 
-    const result = await stripe
-      .confirmPayment({
+    try {
+      const result = await stripe.confirmPayment({
         elements,
         confirmParams: { return_url: stripUrlFragment(window.location.href) },
         redirect: "if_required",
-      })
-      .catch(() => null);
+      });
 
-    if (!result) {
-      try {
-        sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
-      } catch {}
-      setError(t("payment.paymentFailed", "Payment failed"));
-      setProcessing(false);
-      return;
-    }
-
-    if (result.error) {
+      if (result.error) {
+        try {
+          sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
+        } catch {}
+        setError(getStripeConfirmationErrorMessage(result.error, t));
+        setProcessing(false);
+      } else if (result.paymentIntent?.status === "succeeded") {
+        onSuccess();
+      } else {
+        // Fix H-5 — any other status (processing, requires_action, etc.) must not
+        // leave the form locked with no feedback.
+        setError(
+          t(
+            "payment.unexpectedStatus",
+            "Payment status unclear — please contact staff",
+          ),
+        );
+        setProcessing(false);
+      }
+    } catch (confirmationError) {
       try {
         sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
       } catch {}
       setError(
-        result.error.message || t("payment.paymentFailed", "Payment failed"),
-      );
-      setProcessing(false);
-    } else if (result.paymentIntent?.status === "succeeded") {
-      onSuccess();
-    } else {
-      // Fix H-5 — any other status (processing, requires_action, etc.) must not
-      // leave the form locked with no feedback.
-      setError(
-        t(
-          "payment.unexpectedStatus",
-          "Payment status unclear — please contact staff",
+        getStripeConfirmationErrorMessage(
+          confirmationError as StripeConfirmationError,
+          t,
         ),
       );
       setProcessing(false);
@@ -871,9 +927,9 @@ export function PaymentModal({
                         .filter(
                           (item) => getBillItemRemainingQuantity(item) > 0,
                         )
-                        .map((item, i) => (
+                        .map((item) => (
                           <div
-                            key={i}
+                            key={item.orderItemId}
                             className="flex justify-between text-xs py-0.5"
                           >
                             <span className="text-gray-700 min-w-0 mr-2">
@@ -896,9 +952,9 @@ export function PaymentModal({
                   {displayedOrders.flatMap((order) =>
                     order.items
                       .filter((item) => getBillItemRemainingQuantity(item) > 0)
-                      .map((item, i) => (
+                      .map((item) => (
                         <div
-                          key={`${order.id}-${i}`}
+                          key={item.orderItemId}
                           className="flex justify-between text-xs py-0.5"
                         >
                           <span className="text-gray-700 min-w-0 mr-2">

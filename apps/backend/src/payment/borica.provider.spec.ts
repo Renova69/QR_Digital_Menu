@@ -37,6 +37,41 @@ describe('BoricaProvider', () => {
     });
   });
 
+  describe('inspectCertificate', () => {
+    it('reports the bundled historical fixture as valid before expiry', () => {
+      const result = provider.inspectCertificate(
+        CERT_PEM,
+        new Date('2023-01-01T00:00:00.000Z'),
+      );
+
+      expect(result.status).toBe('VALID');
+      expect(result.validTo?.toISOString()).toBe('2023-09-10T08:47:59.000Z');
+    });
+
+    it('warns during the configured window before expiry', () => {
+      const result = provider.inspectCertificate(
+        CERT_PEM,
+        new Date('2023-09-01T00:00:00.000Z'),
+      );
+
+      expect(result.status).toBe('EXPIRING');
+      expect(result.daysRemaining).toBeGreaterThan(0);
+      expect(result.daysRemaining).toBeLessThanOrEqual(30);
+    });
+
+    it('distinguishes expired and malformed certificates', () => {
+      expect(
+        provider.inspectCertificate(
+          CERT_PEM,
+          new Date('2023-09-11T00:00:00.000Z'),
+        ).status,
+      ).toBe('EXPIRED');
+      expect(provider.inspectCertificate('not-a-certificate').status).toBe(
+        'INVALID',
+      );
+    });
+  });
+
   describe('signSale', () => {
     it('produces a non-empty uppercase-hex P_SIGN', () => {
       const psign = provider.signSale(
@@ -383,6 +418,16 @@ describe('BoricaProvider', () => {
 
     afterEach(() => {
       jest.clearAllMocks();
+    });
+
+    it('fails closed before a LIVE status request when the certificate is expired', async () => {
+      const result = await provider.queryTransactionStatus(
+        statusParams,
+        'LIVE',
+      );
+
+      expect(result).toBeNull();
+      expect(mockedAxios.post).not.toHaveBeenCalled();
     });
 
     it('returns null when axios throws (network error)', async () => {

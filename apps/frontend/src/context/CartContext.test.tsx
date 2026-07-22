@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { CartProvider, useCart } from "./CartContext";
 import type { ReactNode } from "react";
 
@@ -29,7 +29,74 @@ describe("CartContext", () => {
     Object.defineProperty(window, "localStorage", {
       value: storageMock,
       writable: true,
+      configurable: true,
     });
+  });
+
+  it("keeps an in-memory cart usable when localStorage is blocked", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("Storage is blocked", "SecurityError");
+      },
+    });
+
+    const { result, unmount } = renderHook(() => useCart(), { wrapper });
+
+    expect(result.current.items).toEqual([]);
+    expect(result.current.tableNumber).toBeNull();
+    expect(result.current.orderLocation).toBeNull();
+
+    act(() => {
+      result.current.addItem({
+        cartId: "memory-only",
+        id: "item-1",
+        name: "Soup",
+        price: 6,
+        quantity: 1,
+        selectedOptions: [],
+      });
+      result.current.setTableNumber("4");
+      result.current.setOrderLocation({
+        type: "OTHER",
+        label: "Bar",
+        fulfillmentModes: ["DINE_IN"],
+        paymentMethods: ["CASH"],
+      });
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.tableNumber).toBe("4");
+    expect(result.current.orderLocation?.label).toBe("Bar");
+    expect(() => unmount()).not.toThrow();
+  });
+
+  it("does not crash when corrupt storage cannot be cleaned up", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        ...storageMock,
+        getItem: (key: string) =>
+          key === "cartItems" ? "{not valid json" : null,
+        removeItem: () => {
+          throw new DOMException("Storage is read-only", "SecurityError");
+        },
+      },
+    });
+
+    const { result, unmount } = renderHook(() => useCart(), { wrapper });
+
+    expect(result.current.items).toEqual([]);
+    expect(() => unmount()).not.toThrow();
+  });
+
+  it("discards a corrupt stored order location", () => {
+    store["orderLocation"] = "{not valid json";
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    expect(result.current.orderLocation).toBeNull();
+    expect(localStorage.getItem("orderLocation")).toBeNull();
   });
 
   // M-FE-3: a malformed-but-valid-JSON cart must not reach getTotal() and

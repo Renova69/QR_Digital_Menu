@@ -15,11 +15,14 @@ import {
   CashPaymentRequestStatus,
   OrderStatus,
   PaymentProvider,
+  PaymentReconciliationReason,
   PaymentStatus,
   Prisma,
+  TableSessionStatus,
 } from '@prisma/client';
 import { SplitMode } from '../dto/settle-partial.dto';
 import { assertRestaurantActive } from '../../restaurants/assert-restaurant-active';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
 import {
   BillPaymentScope,
   CheckoutScope,
@@ -39,6 +42,7 @@ import {
   CashPaymentRequestDto,
   CheckoutCharge,
   CheckoutProvider,
+  PaymentClaimOptions,
   PaymentClaimResult,
   PendingBillPaymentDto,
 } from '../payment.types';
@@ -593,7 +597,10 @@ export class PaymentCoreService {
       (Number(data.amount) || 0) - (Number(data.tipAmount) || 0),
     );
     const balance = await this.computeSessionBalance(tx, sessionId);
-    if (balance.billSubtotal > 0 && net > balance.remaining + 0.01) {
+    if (
+      balance.billSubtotal > 0 &&
+      net > balance.remaining + PAYMENT_AMOUNT_TOLERANCE
+    ) {
       throw new ConflictException(
         'The bill changed while starting payment. Please refresh and try again.',
       );
@@ -839,7 +846,9 @@ export class PaymentCoreService {
         0,
       ),
     );
-    if (Math.abs(unpaidByItems - balance.remaining) > 0.01) {
+    if (
+      Math.abs(unpaidByItems - balance.remaining) > PAYMENT_AMOUNT_TOLERANCE
+    ) {
       throw new BadRequestException(
         'Pay my orders is unavailable after partial amount payments',
       );
@@ -909,7 +918,7 @@ export class PaymentCoreService {
     if (chargeSubtotal <= 0) {
       throw new ConflictException('Selected orders are already paid');
     }
-    if (chargeSubtotal > balance.remaining + 0.01) {
+    if (chargeSubtotal > balance.remaining + PAYMENT_AMOUNT_TOLERANCE) {
       throw new ConflictException(
         'Selected orders exceed the outstanding balance',
       );
@@ -933,11 +942,105 @@ export class PaymentCoreService {
     };
   }
 
-  isPaymentClaimable(payment: any): boolean {
+  private getClaimablePaymentStatuses(
+    options: PaymentClaimOptions = {},
+  ): PaymentStatus[] {
+    return options.allowFailedRecovery
+      ? [PaymentStatus.PENDING, PaymentStatus.ABANDONED, PaymentStatus.FAILED]
+      : [PaymentStatus.PENDING, PaymentStatus.ABANDONED];
+  }
+
+  isPaymentClaimable(payment: any, options: PaymentClaimOptions = {}): boolean {
     return (
       payment.status === undefined ||
-      ['PENDING', 'ABANDONED'].includes(payment.status)
+      this.getClaimablePaymentStatuses(options).includes(payment.status)
     );
+  }
+
+  private async lockSessionForPaymentClaim(
+    tx: Prisma.TransactionClient,
+    tableSessionId: string | null | undefined,
+  ): Promise<{ id: string; status: TableSessionStatus } | null> {
+    if (!tableSessionId) return null;
+    const rows = await tx.$queryRaw<
+      Array<{ id: string; status: TableSessionStatus }>
+    >`
+      SELECT id, status
+      FROM "table_session"
+      WHERE id = ${tableSessionId}
+      FOR UPDATE
+    `;
+    return rows[0] ?? null;
+  }
+
+  private reconciliationProviderStatus(reason: PaymentReconciliationReason) {
+    return `${reason}_NEEDS_RECONCILIATION`;
+  }
+
+  async recordCapturedPaymentForReconciliation(
+    tx: Prisma.TransactionClient,
+    payment: any,
+    data: Record<string, any>,
+    reason: PaymentReconciliationReason,
+    details: Record<string, unknown>,
+    options: PaymentClaimOptions = {},
+  ): Promise<PaymentClaimResult> {
+    const providerStatus = this.reconciliationProviderStatus(reason);
+    const captured = await tx.payment.updateMany({
+      where: {
+        id: payment.id,
+        status: { in: this.getClaimablePaymentStatuses(options) },
+      },
+      data: {
+        ...data,
+        status: PaymentStatus.SUCCEEDED,
+        providerStatus,
+      },
+    });
+    if (captured.count === 0) {
+      return { claimed: false, sessionPaid: false };
+    }
+
+    await tx.paymentReconciliationIssue.upsert({
+      where: { paymentId: payment.id },
+      create: {
+        paymentId: payment.id,
+        restaurantId: payment.restaurantId,
+        tableSessionId: payment.tableSessionId ?? null,
+        provider: payment.provider,
+        reason,
+        status: 'OPEN',
+        amount: payment.amount,
+        currency: payment.currency,
+        providerReference:
+          payment.providerReference ?? payment.stripePaymentIntentId ?? null,
+        providerStatus,
+        details: details as Prisma.InputJsonValue,
+      },
+      update: {
+        reason,
+        status: 'OPEN',
+        amount: payment.amount,
+        currency: payment.currency,
+        providerReference:
+          payment.providerReference ?? payment.stripePaymentIntentId ?? null,
+        providerStatus,
+        details: details as Prisma.InputJsonValue,
+        resolvedById: null,
+        resolutionNote: null,
+        resolvedAt: null,
+      },
+    });
+
+    return {
+      claimed: true,
+      sessionPaid: false,
+      needsReconciliation: true,
+      reconciliationReason: reason,
+      ...(reason === PaymentReconciliationReason.SCOPE_CONFLICT
+        ? { needsRefund: true }
+        : {}),
+    };
   }
 
   private async releasePendingPaymentOrders(
@@ -974,9 +1077,34 @@ export class PaymentCoreService {
     tx: any,
     payment: any,
     data: Record<string, any>,
+    options: PaymentClaimOptions = {},
   ): Promise<PaymentClaimResult> {
-    if (!this.isPaymentClaimable(payment)) {
+    if (!this.isPaymentClaimable(payment, options)) {
       return { claimed: false, sessionPaid: false };
+    }
+
+    const lockedSession = await this.lockSessionForPaymentClaim(
+      tx,
+      payment.tableSessionId,
+    );
+    if (lockedSession?.status !== TableSessionStatus.OPEN) {
+      this.logger.error(
+        'Captured payment cannot be applied because the session is not open',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          sessionStatus: lockedSession?.status ?? 'MISSING',
+          provider: payment.provider,
+        },
+      );
+      return this.recordCapturedPaymentForReconciliation(
+        tx,
+        payment,
+        data,
+        PaymentReconciliationReason.SESSION_NOT_OPEN,
+        { sessionStatus: lockedSession?.status ?? 'MISSING' },
+        options,
+      );
     }
 
     // Underpay handling (#2 / #H4): a payment may no longer cover the REMAINING
@@ -994,9 +1122,12 @@ export class PaymentCoreService {
     const paymentNet = this.roundMoney(
       (payment.amount ?? 0) - (payment.tipAmount ?? 0),
     );
-    if (paymentNet + 0.01 < balance.remaining) {
+    if (paymentNet + PAYMENT_AMOUNT_TOLERANCE < balance.remaining) {
       const partialClaim = await tx.payment.updateMany({
-        where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+        where: {
+          id: payment.id,
+          status: { in: this.getClaimablePaymentStatuses(options) },
+        },
         data,
       });
       if (partialClaim.count === 0) {
@@ -1033,26 +1164,26 @@ export class PaymentCoreService {
         payments: {
           some: {
             id: payment.id,
-            status: { in: ['PENDING', 'ABANDONED'] },
+            status: { in: this.getClaimablePaymentStatuses(options) },
           },
         },
       },
       data: { status: 'PAID', paidAt: new Date() },
     });
     if (sessionUpdate.count === 0) {
-      this.logger.warn(
-        'Ignoring successful payment callback because session is already closed',
-        {
-          paymentId: payment.id,
-          tableSessionId: payment.tableSessionId,
-          provider: payment.provider,
-        },
-      );
+      this.logger.warn('Payment success claim lost its session predicate', {
+        paymentId: payment.id,
+        tableSessionId: payment.tableSessionId,
+        provider: payment.provider,
+      });
       return { claimed: false, sessionPaid: false };
     }
 
     const paymentUpdate = await tx.payment.updateMany({
-      where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+      where: {
+        id: payment.id,
+        status: { in: this.getClaimablePaymentStatuses(options) },
+      },
       data,
     });
     if (paymentUpdate.count === 0) {
@@ -1071,6 +1202,7 @@ export class PaymentCoreService {
     tx: any,
     payment: any,
     data: Record<string, any>,
+    options: PaymentClaimOptions = {},
   ): Promise<PaymentClaimResult> {
     const checkoutScope = getCheckoutScopeFromPayload(payment.providerPayload);
     if (checkoutScope) {
@@ -1079,10 +1211,16 @@ export class PaymentCoreService {
         payment,
         data,
         checkoutScope,
+        options,
       );
     }
 
-    return this.claimSuccessfulPaymentForOpenSession(tx, payment, data);
+    return this.claimSuccessfulPaymentForOpenSession(
+      tx,
+      payment,
+      data,
+      options,
+    );
   }
 
   async claimSuccessfulScopedCheckoutPayment(
@@ -1090,41 +1228,61 @@ export class PaymentCoreService {
     payment: any,
     data: Record<string, any>,
     checkoutScope: CheckoutScope,
+    options: PaymentClaimOptions = {},
   ): Promise<PaymentClaimResult> {
-    if (!this.isPaymentClaimable(payment)) {
+    if (!this.isPaymentClaimable(payment, options)) {
       return { claimed: false, sessionPaid: false };
+    }
+
+    const lockedSession = await this.lockSessionForPaymentClaim(
+      tx,
+      payment.tableSessionId,
+    );
+    if (lockedSession?.status !== TableSessionStatus.OPEN) {
+      this.logger.error(
+        'Captured scoped payment cannot be applied because the session is not open',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          sessionStatus: lockedSession?.status ?? 'MISSING',
+          provider: payment.provider,
+        },
+      );
+      return this.recordCapturedPaymentForReconciliation(
+        tx,
+        payment,
+        data,
+        PaymentReconciliationReason.SESSION_NOT_OPEN,
+        { sessionStatus: lockedSession?.status ?? 'MISSING' },
+        options,
+      );
     }
 
     const paymentNet = this.roundMoney(
       (payment.amount ?? 0) - (payment.tipAmount ?? 0),
     );
-    if (Math.abs(paymentNet - checkoutScope.chargeSubtotal) > 0.01) {
-      this.logger.warn('Refusing scoped payment claim: scope amount mismatch', {
+    if (
+      Math.abs(paymentNet - checkoutScope.chargeSubtotal) >
+      PAYMENT_AMOUNT_TOLERANCE
+    ) {
+      this.logger.error('Captured scoped payment has an amount mismatch', {
         paymentId: payment.id,
         tableSessionId: payment.tableSessionId,
         paymentNet,
         scopeSubtotal: checkoutScope.chargeSubtotal,
       });
-      return { claimed: false, sessionPaid: false };
-    }
-
-    const openSession = await tx.tableSession.findFirst({
-      where: { id: payment.tableSessionId, status: 'OPEN' },
-      select: { id: true },
-    });
-    if (!openSession) {
-      this.logger.warn(
-        'Ignoring scoped payment callback because session is already closed',
+      return this.recordCapturedPaymentForReconciliation(
+        tx,
+        payment,
+        data,
+        PaymentReconciliationReason.SCOPE_AMOUNT_MISMATCH,
         {
-          paymentId: payment.id,
-          tableSessionId: payment.tableSessionId,
-          provider: payment.provider,
+          paymentNet,
+          scopeSubtotal: checkoutScope.chargeSubtotal,
         },
+        options,
       );
-      return { claimed: false, sessionPaid: false };
     }
-
-    await this.lockOpenSessionForSettlement(tx, payment.tableSessionId);
 
     // #M1: check ALL selected units are still unsettled BEFORE applying any.
     // The session FOR UPDATE lock above serializes this against POS settlement
@@ -1152,7 +1310,7 @@ export class PaymentCoreService {
     // which stays the authoritative guard.
     const hasScopeConflict = checkoutScope.allocations.some(
       (a) =>
-        paidById.has(a.orderItemId) &&
+        !paidById.has(a.orderItemId) ||
         paidById.get(a.orderItemId) !== a.snapshotPaid,
     );
     if (hasScopeConflict) {
@@ -1164,18 +1322,17 @@ export class PaymentCoreService {
           provider: payment.provider,
         },
       );
-      const flagged = await tx.payment.updateMany({
-        where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
-        data: {
-          ...data,
-          providerStatus: 'SCOPE_CONFLICT_NEEDS_REFUND',
+      return this.recordCapturedPaymentForReconciliation(
+        tx,
+        payment,
+        data,
+        PaymentReconciliationReason.SCOPE_CONFLICT,
+        {
+          expectedAllocations: checkoutScope.allocations,
+          observedItems: targetItems,
         },
-      });
-      return {
-        claimed: flagged.count > 0,
-        sessionPaid: false,
-        needsRefund: true,
-      };
+        options,
+      );
     }
 
     for (const allocation of checkoutScope.allocations) {
@@ -1201,7 +1358,10 @@ export class PaymentCoreService {
     }
 
     const paymentUpdate = await tx.payment.updateMany({
-      where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+      where: {
+        id: payment.id,
+        status: { in: this.getClaimablePaymentStatuses(options) },
+      },
       data: {
         ...data,
         splitMode: data.splitMode ?? SplitMode.ITEM,
@@ -1226,7 +1386,7 @@ export class PaymentCoreService {
     );
     let sessionPaid = false;
     let releasedOrderIds: string[] = [];
-    if (balance.remaining <= 0.01) {
+    if (balance.remaining <= PAYMENT_AMOUNT_TOLERANCE) {
       const flip = await tx.tableSession.updateMany({
         where: { id: payment.tableSessionId, status: 'OPEN' },
         data: { status: 'PAID', paidAt: new Date() },
@@ -1381,6 +1541,30 @@ export class PaymentCoreService {
 
   async emitPaymentClaimEvents(payment: any, claim: PaymentClaimResult) {
     if (!claim.claimed) return;
+
+    if (claim.needsReconciliation) {
+      const payload = {
+        paymentId: payment.id,
+        tableSessionId: payment.tableSessionId,
+        amount: payment.amount,
+        currency: payment.currency,
+        provider: payment.provider,
+        reason: claim.reconciliationReason,
+      };
+      this.events.emitToRestaurant(
+        payment.restaurantId,
+        'payment:reconciliationRequired',
+        payload,
+      );
+      if (claim.needsRefund) {
+        this.events.emitToRestaurant(
+          payment.restaurantId,
+          'payment:refundRequired',
+          payload,
+        );
+      }
+      return;
+    }
 
     // #M1: a payment captured for already-settled units is recorded but is an
     // overpayment awaiting refund — never emit payment:confirmed. Signal the

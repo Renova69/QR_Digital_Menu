@@ -5,11 +5,28 @@ import { useSocket } from "../../context/SocketContext";
 import { useFeature } from "../../hooks/useFeature";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import RestaurantContext from "../../context/RestaurantContext";
 
-function elapsedMinutes(createdAt: string): number {
-  const diff = Date.now() - new Date(createdAt).getTime();
-  return Math.floor(diff / 60000);
+function elapsedMinutes(createdAt: string, now = Date.now()): number {
+  const diff = now - new Date(createdAt).getTime();
+  return Math.max(0, Math.floor(diff / 60000));
+}
+
+function KitchenClock() {
+  const [clock, setClock] = useState(() =>
+    new Date().toLocaleTimeString([], { hour12: false }),
+  );
+
+  useEffect(() => {
+    const interval = setInterval(
+      () => setClock(new Date().toLocaleTimeString([], { hour12: false })),
+      1000,
+    );
+    return () => clearInterval(interval);
+  }, []);
+
+  return <div className="text-sm text-gray-500">{clock}</div>;
 }
 
 const COLUMNS: {
@@ -51,6 +68,10 @@ interface KdsOrderLocation {
   tableName?: string | null;
   servicePointType?: string | null;
   servicePointLabel?: string | null;
+}
+
+interface FailedStatusUpdate {
+  fromStatus: OrderStatus;
 }
 
 function withLocationPrefix(raw: string, prefix: string, english: string) {
@@ -106,6 +127,9 @@ export default function KitchenPage() {
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [failedUpdates, setFailedUpdates] = useState<
+    Record<string, FailedStatusUpdate>
+  >({});
 
   useEffect(() => {
     if (activeRestaurant && !canKds) {
@@ -127,32 +151,13 @@ export default function KitchenPage() {
     };
   }, [canKds, socket]);
 
-  const [clock, setClock] = useState(() =>
-    new Date().toLocaleTimeString([], { hour12: false }),
-  );
-  const [elapsed, setElapsed] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    const t = setInterval(
-      () => setClock(new Date().toLocaleTimeString([], { hour12: false })),
-      1000,
-    );
-    return () => clearInterval(t);
-  }, []);
+  const [elapsedClock, setElapsedClock] = useState(() => Date.now());
 
   // Tick elapsed counters every 10s
   useEffect(() => {
-    const tick = () => {
-      const next: Record<string, number> = {};
-      for (const o of orders) {
-        next[o.id] = elapsedMinutes(o.createdAt);
-      }
-      setElapsed(next);
-    };
-    tick();
-    const interval = setInterval(tick, 10000);
+    const interval = setInterval(() => setElapsedClock(Date.now()), 10000);
     return () => clearInterval(interval);
-  }, [orders]);
+  }, []);
 
   const handleCycle = useCallback(
     async (orderId: string, current: OrderStatus) => {
@@ -167,17 +172,40 @@ export default function KitchenPage() {
         CANCELED: "NEW",
         COMPLETED: "NEW",
       };
+      setFailedUpdates((previous) => {
+        if (!(orderId in previous)) return previous;
+        const nextFailures = { ...previous };
+        delete nextFailures[orderId];
+        return nextFailures;
+      });
       try {
         await updateOrderStatus(orderId, next[current]);
-      } catch {}
+      } catch {
+        setFailedUpdates((previous) => ({
+          ...previous,
+          [orderId]: { fromStatus: current },
+        }));
+      }
     },
     [updateOrderStatus],
   );
 
-  const getElapsed = (id: string, createdAt: string) => {
-    if (elapsed[id] !== undefined) return elapsed[id];
-    return elapsedMinutes(createdAt);
-  };
+  useEffect(() => {
+    setFailedUpdates((previous) => {
+      let nextFailures = previous;
+      for (const [orderId, failure] of Object.entries(previous)) {
+        const currentOrder = orders.find((order) => order.id === orderId);
+        if (!currentOrder || currentOrder.status !== failure.fromStatus) {
+          if (nextFailures === previous) nextFailures = { ...previous };
+          delete nextFailures[orderId];
+        }
+      }
+      return nextFailures;
+    });
+  }, [orders]);
+
+  const getElapsed = (_id: string, createdAt: string) =>
+    elapsedMinutes(createdAt, elapsedClock);
 
   // Active orders: exclude COMPLETED and CANCELED from kanban
   const activeOrders = orders.filter(
@@ -207,7 +235,7 @@ export default function KitchenPage() {
           <span className="text-blue-400">{t("auto.dISPLAY", "DISPLAY")}</span>
         </h1>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">{clock}</div>
+          <KitchenClock />
           <button
             onClick={() => setShowHistory((v) => !v)}
             className={`text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl border transition ${
@@ -268,9 +296,9 @@ export default function KitchenPage() {
                         </span>
                       </div>
                       <ul className="space-y-1 mb-1">
-                        {order.items.map((item, idx) => (
+                        {order.items.map((item) => (
                           <li
-                            key={idx}
+                            key={item.id}
                             className="text-xs text-gray-400 flex justify-between"
                           >
                             <span>
@@ -290,6 +318,47 @@ export default function KitchenPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {Object.keys(failedUpdates).length > 0 && (
+        <div className="mb-4 space-y-2" aria-live="assertive">
+          {Object.keys(failedUpdates).map((orderId) => {
+            const order = orders.find((candidate) => candidate.id === orderId);
+            if (!order) return null;
+            return (
+              <div
+                key={orderId}
+                role="alert"
+                className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-950/60 px-4 py-3 text-red-100"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <AlertTriangle
+                    className="h-5 w-5 shrink-0 text-red-400"
+                    aria-hidden="true"
+                  />
+                  <p className="text-sm">
+                    <span className="font-bold">
+                      {t("kitchen.statusUpdateFailed", "Status update failed.")}
+                    </span>{" "}
+                    {t(
+                      "kitchen.statusUnchanged",
+                      "The order kept its current status.",
+                    )}{" "}
+                    <span className="text-red-300">#{order.id.slice(-8)}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleCycle(order.id, order.status)}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-red-400/50 px-3 py-2 text-sm font-bold text-red-100 hover:bg-red-900/70 focus:outline-none focus:ring-2 focus:ring-red-300"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  {t("common.retry", "Retry")}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -330,7 +399,7 @@ export default function KitchenPage() {
                     <button
                       key={order.id}
                       disabled={order.status === "PENDING_PAYMENT"}
-                      onClick={() => handleCycle(order.id, order.status)}
+                      onClick={() => void handleCycle(order.id, order.status)}
                       className={`w-full text-left bg-gray-800 rounded-xl p-4 border transition-all ${
                         order.status === "PENDING_PAYMENT"
                           ? "cursor-default opacity-80"
@@ -364,9 +433,9 @@ export default function KitchenPage() {
 
                       {/* Items */}
                       <ul className="space-y-1.5 mb-2">
-                        {order.items.map((item, idx) => (
+                        {order.items.map((item) => (
                           <li
-                            key={idx}
+                            key={item.id}
                             className="text-sm flex justify-between"
                           >
                             <span className="text-gray-200 font-medium">

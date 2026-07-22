@@ -14,12 +14,14 @@ describe('FeatureGuard', () => {
   let prismaMock: {
     user: { findUnique: jest.Mock };
     restaurant: { findUnique: jest.Mock; findFirst: jest.Mock };
+    paymentReconciliationIssue: { findUnique: jest.Mock };
   };
 
   beforeEach(async () => {
     prismaMock = {
       user: { findUnique: jest.fn() },
       restaurant: { findUnique: jest.fn(), findFirst: jest.fn() },
+      paymentReconciliationIssue: { findUnique: jest.fn() },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -189,6 +191,39 @@ describe('FeatureGuard', () => {
     });
     const ctx = makeCtxWithReq({ body: { restaurantId: 'rest-3' } });
     expect(await guard.canActivate(ctx)).toBe(true);
+  });
+
+  it('resolves an owner reconciliation action from params.issueId', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.PAYMENTS_STRIPE,
+    ]);
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
+    prismaMock.paymentReconciliationIssue.findUnique.mockResolvedValue({
+      restaurantId: 'rest-owner',
+    });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'u1',
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+      isActive: true,
+    });
+
+    const ctx = makeCtxWithReq({ params: { issueId: 'issue-1' } });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(
+      prismaMock.paymentReconciliationIssue.findUnique,
+    ).toHaveBeenCalledWith({
+      where: { id: 'issue-1' },
+      select: { restaurantId: true },
+    });
+    expect(prismaMock.restaurant.findUnique).toHaveBeenCalledWith({
+      where: { id: 'rest-owner' },
+      select: expect.anything(),
+    });
   });
 
   it('honors forceTier on the target restaurant', async () => {

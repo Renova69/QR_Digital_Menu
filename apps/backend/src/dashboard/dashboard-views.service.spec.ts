@@ -36,6 +36,13 @@ describe('DashboardViewsService', () => {
       expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledTimes(3);
       // 3 views × (DROP + CREATE + INDEX + COMMENT)
       expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledTimes(12);
+      const createStatements = mockPrisma.$executeRawUnsafe.mock.calls
+        .map(([sql]: [string]) => sql)
+        .filter((sql: string) => sql.includes('CREATE MATERIALIZED VIEW'));
+      expect(createStatements).toHaveLength(3);
+      for (const sql of createStatements) {
+        expect(sql).toContain("status NOT IN ('CANCELED', 'PENDING_PAYMENT')");
+      }
     });
 
     it('uses $executeRaw for void-returning advisory locks', async () => {

@@ -29,6 +29,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import CookieConsentBanner from "./components/legal/CookieConsentBanner";
 import AnnouncementBanner from "./components/AnnouncementBanner";
 import { TooltipProvider } from "./components/ui/tooltip";
+import RouteGroupErrorBoundary from "./components/RouteGroupErrorBoundary";
 
 // Lazy-loaded pages — not on the critical render path
 const OnboardingPage = lazy(() => import("./pages/onboarding/OnboardingPage"));
@@ -170,7 +171,9 @@ function App() {
                         <RestaurantProvider>
                           <OrderProvider>
                             <NotificationProvider>
-                              <PosLayout />
+                              <RouteGroupErrorBoundary>
+                                <PosLayout />
+                              </RouteGroupErrorBoundary>
                             </NotificationProvider>
                           </OrderProvider>
                         </RestaurantProvider>
@@ -251,15 +254,17 @@ function App() {
 
                   {/* Customer-facing routes — no header, full viewport */}
                   <Route element={<PublicLayout />}>
-                    <Route
-                      path="/menu/public/:restaurantId"
-                      element={<PublicMenuPage />}
-                    />
-                    <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route
-                      path="/order-confirmation"
-                      element={<OrderConfirmationPage />}
-                    />
+                    <Route element={<RouteGroupErrorBoundary />}>
+                      <Route
+                        path="/menu/public/:restaurantId"
+                        element={<PublicMenuPage />}
+                      />
+                      <Route path="/checkout" element={<CheckoutPage />} />
+                      <Route
+                        path="/order-confirmation"
+                        element={<OrderConfirmationPage />}
+                      />
+                    </Route>
                     <Route
                       path="/feedback/:restaurantId"
                       element={<FeedbackPage />}

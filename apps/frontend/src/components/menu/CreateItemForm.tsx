@@ -24,6 +24,7 @@ export const CreateItemForm: React.FC = () => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
+  const [weight, setWeight] = useState("");
   const [allergens, setAllergens] = useState<string[]>([]);
   const [dietaryTags, setDietaryTags] = useState<string[]>([]);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -42,6 +43,7 @@ export const CreateItemForm: React.FC = () => {
     setDescription("");
     setPrice("");
     setCostPrice("");
+    setWeight("");
     setAllergens([]);
     setDietaryTags([]);
     setIsFeatured(false);
@@ -62,6 +64,7 @@ export const CreateItemForm: React.FC = () => {
         name,
         description,
         price: parseFloat(price),
+        weight: weight.trim() || undefined,
         currency: "EUR",
         allergens,
         dietaryTags,
@@ -166,6 +169,19 @@ export const CreateItemForm: React.FC = () => {
                 "What this item costs you to make. Used for profit analytics.",
               )}
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("forms.weight", "Weight / serving size")}
+            </label>
+            <Input
+              type="text"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder={t("forms.weightPlaceholder", "e.g. 350 g")}
+              maxLength={100}
+            />
           </div>
 
           <TagPicker

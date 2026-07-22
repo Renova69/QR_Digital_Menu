@@ -20,6 +20,7 @@ import {
 } from './loyalty-tiers.utils';
 import { FeatureService } from '../subscription/feature.service';
 import { isLoyaltyAvailable } from './loyalty-availability.util';
+import { LoyaltyHistoryQueryDto } from './dto/loyalty-history-query.dto';
 
 const EXPIRY_BATCH_SIZE = 50;
 
@@ -298,16 +299,52 @@ export class LoyaltyService {
     return enriched;
   }
 
-  async getHistory(userId: string) {
-    return this.prisma.order.findMany({
+  async getHistory(userId: string, query: LoyaltyHistoryQueryDto) {
+    const limit = query.limit ?? 25;
+    const orders = await this.prisma.order.findMany({
       where: { customerId: userId },
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       include: {
         restaurant: { select: { name: true, logoUrl: true } },
         items: {
           include: { menuItem: { select: { name: true } } },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+
+    const hasMore = orders.length > limit;
+    const data = hasMore ? orders.slice(0, limit) : orders;
+    return {
+      data,
+      nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null,
+    };
+  }
+
+  private findExpiryReminderAccounts(
+    restaurantId: string,
+    reminderDays: number,
+  ) {
+    const now = new Date();
+    return this.prisma.loyaltyAccount.findMany({
+      take: EXPIRY_BATCH_SIZE,
+      orderBy: { id: 'asc' },
+      where: {
+        restaurantId,
+        points: { gt: 0 },
+        pointLedger: {
+          some: {
+            type: 'EARN',
+            remainingPoints: { gt: 0 },
+            reminderSentAt: null,
+            expiresAt: { gt: now, lte: addDays(now, reminderDays) },
+          },
+        },
+      },
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+      },
     });
   }
 
@@ -331,14 +368,11 @@ export class LoyaltyService {
 
     const restaurantName = restaurant.name;
 
-    const accounts = await this.prisma.loyaltyAccount.findMany({
-      where: { restaurantId, points: { gt: 0 } },
-      include: {
-        user: { select: { id: true, email: true, name: true } },
-      },
-    });
-
     const reminderDays = restaurant.loyaltyExpiryReminderDays || 15;
+    const accounts = await this.findExpiryReminderAccounts(
+      restaurantId,
+      reminderDays,
+    );
     const redeemRate = restaurant.loyaltyRedeemRate || 150;
     const resendKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
@@ -434,15 +468,12 @@ export class LoyaltyService {
 
     if (!restaurant) throw new ForbiddenException('Forbidden');
 
-    const accounts = await this.prisma.loyaltyAccount.findMany({
-      where: { restaurantId, points: { gt: 0 } },
-      include: {
-        user: { select: { id: true, email: true, name: true } },
-      },
-    });
-
     const candidates: any[] = [];
     const reminderDays = restaurant.loyaltyExpiryReminderDays || 15;
+    const accounts = await this.findExpiryReminderAccounts(
+      restaurantId,
+      reminderDays,
+    );
     const redeemRate = restaurant.loyaltyRedeemRate || 150;
 
     for (const account of accounts) {

@@ -138,7 +138,10 @@ export class EpayCheckoutService {
       }
     }
 
-    const secret = decryptSecret(restaurant.epaySecretEncrypted!);
+    const secret = decryptSecret(restaurant.epaySecretEncrypted!, {
+      restaurantId: session.restaurantId,
+      purpose: 'epay-secret',
+    });
     const expiresAt = this.config.getEpayExpirationDate();
     const invoice = this.config.createEpayInvoice();
 
@@ -264,7 +267,10 @@ export class EpayCheckoutService {
     const encryptedSecret = knownPayment.restaurant?.epaySecretEncrypted;
     if (!encryptedSecret) return 'ERR=missing ePay secret';
 
-    const secret = decryptSecret(encryptedSecret);
+    const secret = decryptSecret(encryptedSecret, {
+      restaurantId: knownPayment.restaurantId,
+      purpose: 'epay-secret',
+    });
     if (!this.epay.verifyChecksum(encoded, checksum, secret)) {
       return 'ERR=invalid CHECKSUM';
     }

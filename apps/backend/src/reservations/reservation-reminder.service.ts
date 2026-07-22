@@ -71,34 +71,41 @@ export class ReservationReminderService {
 
     let dispatched = 0;
     for (const r of due) {
-      // Claim the row first (CAS on reminderSentAt still null) so a concurrent
-      // run or a redelivery can't double-send. Only the winner dispatches.
-      const { count } = await this.prisma.reservation.updateMany({
-        where: { id: r.id, reminderSentAt: null },
-        data: { reminderSentAt: now },
-      });
-      if (count === 0) continue;
+      try {
+        // Claim the row first (CAS on reminderSentAt still null) so a concurrent
+        // run or a redelivery can't double-send. Only the winner dispatches.
+        const { count } = await this.prisma.reservation.updateMany({
+          where: { id: r.id, reminderSentAt: null },
+          data: { reminderSentAt: now },
+        });
+        if (count === 0) continue;
 
-      dispatched += 1;
-      await this.notifications.notify('REMINDER', {
-        restaurantId: r.restaurantId,
-        guestEmail: r.guestEmail,
-        guestPhone: r.guestPhone,
-        guestName: r.guestName,
-        startsAt: r.startsAt,
-        referenceCode: r.referenceCode,
-        notifyByEmail: r.notifyByEmail,
-        notifyBySms: r.notifyBySms,
-        notificationLocale: r.notificationLocale,
-        manageToken: r.manageToken,
-        adultsCount: r.adultsCount,
-        childrenCount: r.childrenCount,
-        occasion: r.occasion,
-        customerNotes: r.customerNotes,
-        customerPreferences: r.customerPreferences,
-        preferredZone: r.preferredZone,
-        allergyNotes: r.allergyNotes,
-      });
+        await this.notifications.notify('REMINDER', {
+          restaurantId: r.restaurantId,
+          guestEmail: r.guestEmail,
+          guestPhone: r.guestPhone,
+          guestName: r.guestName,
+          startsAt: r.startsAt,
+          referenceCode: r.referenceCode,
+          notifyByEmail: r.notifyByEmail,
+          notifyBySms: r.notifyBySms,
+          notificationLocale: r.notificationLocale,
+          manageToken: r.manageToken,
+          adultsCount: r.adultsCount,
+          childrenCount: r.childrenCount,
+          occasion: r.occasion,
+          customerNotes: r.customerNotes,
+          customerPreferences: r.customerPreferences,
+          preferredZone: r.preferredZone,
+          allergyNotes: r.allergyNotes,
+        });
+        dispatched += 1;
+      } catch (error) {
+        this.logger.error(
+          `Reservation reminder failed for ${r.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
     }
 
     if (dispatched > 0) {

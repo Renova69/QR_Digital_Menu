@@ -1871,6 +1871,8 @@
     "ptsToTier": "{{count}} puntos para alcanzar el {{tier}}",
     "maxTier": "Se ha alcanzado el nivel máximo",
     "pastOrders": "Pedidos anteriores",
+    "loadMoreOrders": "Cargar más pedidos",
+    "loadingMoreOrders": "Cargando más pedidos...",
     "loading": "Cargando el historial...",
     "historyLoadFailed": "No se pudieron cargar los pedidos anteriores. Inténtalo de nuevo.",
     "noOrders": "Aún no hay pedidos",

@@ -111,6 +111,47 @@ describe('LoyaltyService', () => {
 
   // ─── Issue 13: per-account short transactions ─────────────────────────────
 
+  describe('getHistory pagination', () => {
+    it('returns a bounded page with a stable next cursor', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([
+        { id: 'order-3' },
+        { id: 'order-2' },
+        { id: 'order-1' },
+      ]);
+
+      const result = await service.getHistory('user-1', { limit: 2 });
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { customerId: 'user-1' },
+          take: 3,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        }),
+      );
+      expect(result).toEqual({
+        data: [{ id: 'order-3' }, { id: 'order-2' }],
+        nextCursor: 'order-2',
+      });
+    });
+
+    it('continues after the supplied order cursor', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([{ id: 'order-1' }]);
+
+      await service.getHistory('user-1', {
+        cursor: 'order-2',
+        limit: 25,
+      });
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursor: { id: 'order-2' },
+          skip: 1,
+          take: 26,
+        }),
+      );
+    });
+  });
+
   describe('getExpiryReminderCandidates (Issue 13)', () => {
     it('opens one $transaction per account, not one wrapping all accounts', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue({
@@ -136,6 +177,22 @@ describe('LoyaltyService', () => {
 
       await service.getExpiryReminderCandidates('r1', 'owner1');
 
+      expect(mockPrisma.loyaltyAccount.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 50,
+          orderBy: { id: 'asc' },
+          where: expect.objectContaining({
+            restaurantId: 'r1',
+            pointLedger: {
+              some: expect.objectContaining({
+                type: 'EARN',
+                remainingPoints: { gt: 0 },
+                reminderSentAt: null,
+              }),
+            },
+          }),
+        }),
+      );
       // Exactly 2 per-account transactions (one per account)
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
     });

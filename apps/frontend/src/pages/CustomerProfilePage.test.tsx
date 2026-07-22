@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 import CustomerProfilePage from "./CustomerProfilePage";
@@ -24,6 +24,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, fallbackOrOptions?: string | Record<string, unknown>) =>
       typeof fallbackOrOptions === "string" ? fallbackOrOptions : key,
+    i18n: { language: "en" },
   }),
 }));
 
@@ -95,5 +96,127 @@ describe("CustomerProfilePage", () => {
       await screen.findByText("Could not load past orders. Please try again."),
     ).toBeInTheDocument();
     expect(screen.queryByText("profile.noOrders")).not.toBeInTheDocument();
+  });
+
+  it("loads older orders through the server cursor without replacing the first page", async () => {
+    vi.mocked(api.get).mockImplementation(
+      (path: string, config?: { params?: { cursor?: string } }) => {
+        if (path === "/loyalty/accounts") {
+          return Promise.resolve({ data: [] });
+        }
+        if (config?.params?.cursor === "order-1") {
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "order-0",
+                  restaurant: { name: "Older Cafe" },
+                  createdAt: "2026-07-15T12:00:00.000Z",
+                  items: [],
+                  totalPrice: 5,
+                  pointsEarned: 5,
+                  pointsRedeemed: 0,
+                },
+              ],
+              nextCursor: null,
+            },
+          });
+        }
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: "order-1",
+                restaurant: { name: "Newest Cafe" },
+                createdAt: "2026-07-16T12:00:00.000Z",
+                items: [],
+                totalPrice: 10,
+                pointsEarned: 10,
+                pointsRedeemed: 0,
+              },
+            ],
+            nextCursor: "order-1",
+          },
+        });
+      },
+    );
+
+    render(<CustomerProfilePage />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Load more orders" }),
+    );
+
+    expect(await screen.findByText("Older Cafe")).toBeInTheDocument();
+    expect(screen.getByText("Newest Cafe")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/loyalty/orders/history", {
+      params: { limit: 25, cursor: "order-1" },
+    });
+  });
+
+  it("keeps loaded orders visible and allows retry when loading more fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let loadMoreAttempts = 0;
+    vi.mocked(api.get).mockImplementation(
+      (path: string, config?: { params?: { cursor?: string } }) => {
+        if (path === "/loyalty/accounts") {
+          return Promise.resolve({ data: [] });
+        }
+        if (config?.params?.cursor === "order-1") {
+          loadMoreAttempts += 1;
+          if (loadMoreAttempts === 1) {
+            return Promise.reject(new Error("Older history unavailable"));
+          }
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "order-0",
+                  restaurant: { name: "Recovered Cafe" },
+                  createdAt: "2026-07-15T12:00:00.000Z",
+                  items: [],
+                  totalPrice: 5,
+                  pointsEarned: 5,
+                  pointsRedeemed: 0,
+                },
+              ],
+              nextCursor: null,
+            },
+          });
+        }
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: "order-1",
+                restaurant: { name: "Newest Cafe" },
+                createdAt: "2026-07-16T12:00:00.000Z",
+                items: [],
+                totalPrice: 10,
+                pointsEarned: 10,
+                pointsRedeemed: 0,
+              },
+            ],
+            nextCursor: "order-1",
+          },
+        });
+      },
+    );
+
+    render(<CustomerProfilePage />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Load more orders" }),
+    );
+
+    expect(await screen.findByText("Newest Cafe")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Could not load older orders. Please try again."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Recovered Cafe")).toBeInTheDocument();
+    expect(screen.getByText("Newest Cafe")).toBeInTheDocument();
   });
 });

@@ -281,6 +281,8 @@ export class MenuImportService {
             currency: Currency.EUR,
             allergens: item.allergens ?? [],
             dietaryTags: item.dietaryTags ?? [],
+            tags: item.tags ?? [],
+            upsellContexts: item.upsellContexts ?? [],
             ...(item.translations ? { translations: item.translations } : {}),
             ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
             ...(item.thumbnailUrl !== undefined
@@ -358,8 +360,10 @@ export class MenuImportService {
             const choices = opt.choices.map((c: any) => ({
               name: c.name,
               priceModifier: isImportedBgn
-                ? Math.round(((c.price ?? 0) / BGN_TO_EUR_RATE) * 100) / 100
-                : (c.price ?? 0),
+                ? Math.round(
+                    ((c.priceModifier ?? c.price ?? 0) / BGN_TO_EUR_RATE) * 100,
+                  ) / 100
+                : (c.priceModifier ?? c.price ?? 0),
               ...(c.weight ? { weight: c.weight } : {}),
             }));
             const optType =
@@ -528,6 +532,10 @@ export class MenuImportService {
           ...(item.dietaryTags?.length
             ? { dietaryTags: item.dietaryTags }
             : {}),
+          ...(item.tags?.length ? { tags: item.tags } : {}),
+          ...(item.upsellContexts?.length
+            ? { upsellContexts: item.upsellContexts }
+            : {}),
           order: item.order,
           ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
           ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
@@ -547,7 +555,7 @@ export class MenuImportService {
                   type: opt.type,
                   choices: ((opt.choices as any[]) ?? []).map((c: any) => ({
                     name: c.name,
-                    price: c.priceModifier ?? 0,
+                    priceModifier: c.priceModifier ?? 0,
                     ...(c.weight ? { weight: c.weight } : {}),
                   })),
                 })),

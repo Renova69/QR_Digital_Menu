@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { LoyaltyHistoryQueryDto } from './dto/loyalty-history-query.dto';
 
 @Controller('loyalty')
 export class LoyaltyController {
@@ -24,8 +26,8 @@ export class LoyaltyController {
 
   @UseGuards(JwtAuthGuard)
   @Get('orders/history')
-  getHistory(@Request() req: any) {
-    return this.loyaltyService.getHistory(req.user.id);
+  getHistory(@Request() req: any, @Query() query: LoyaltyHistoryQueryDto) {
+    return this.loyaltyService.getHistory(req.user.id, query);
   }
 
   @RequireFeature(FeatureFlag.LOYALTY)

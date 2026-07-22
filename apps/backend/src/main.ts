@@ -18,6 +18,8 @@ import { AppLogger } from './common/logging/app-logger';
 import { requestLogger } from './common/logging/request-logger';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { isCsrfExemptPath } from './common/security/csrf-exempt';
+import { validatePaymentSecretCryptoConfig } from './payment/secret-crypto';
+import { validateRuntimeEnvironment } from './auth/auth-runtime-policy';
 
 function validateFrontendUrl(logger: Logger) {
   const rawFrontendUrl = process.env.FRONTEND_URL?.trim();
@@ -51,6 +53,7 @@ async function bootstrap() {
   const appLogger = new AppLogger();
   const logger = new Logger('Bootstrap');
   try {
+    validateRuntimeEnvironment();
     const requiresProductionNodeEnv =
       process.env.REQUIRE_PRODUCTION_NODE_ENV === 'true' ||
       !!process.env.K_SERVICE ||
@@ -84,6 +87,11 @@ async function bootstrap() {
       !process.env.STRIPE_SECRET_KEY
     ) {
       throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
+    }
+
+    const paymentSecretConfig = validatePaymentSecretCryptoConfig();
+    for (const warning of paymentSecretConfig.warnings) {
+      logger.warn(warning);
     }
 
     validateFrontendUrl(logger);

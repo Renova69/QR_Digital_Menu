@@ -53,6 +53,74 @@ describe('ImportMenuDto validation', () => {
     expect(constraintKeys(payload)).toContain('min');
   });
 
+  it('normalizes supported currency casing and rejects unsupported currencies', () => {
+    expect(
+      constraintKeys(
+        menu([
+          {
+            name: 'Mains',
+            items: [{ name: 'Soup', price: 5, currency: 'bgn' }],
+          },
+        ]),
+      ),
+    ).toHaveLength(0);
+    expect(
+      constraintKeys(
+        menu([
+          {
+            name: 'Mains',
+            items: [{ name: 'Soup', price: 5, currency: 'USD' }],
+          },
+        ]),
+      ),
+    ).toContain('isEnum');
+  });
+
+  it('validates imported tags, upsell contexts, and priceModifier', () => {
+    const valid = menu([
+      {
+        name: 'Mains',
+        items: [
+          {
+            name: 'Pizza',
+            price: 10,
+            tags: ['POPULAR'],
+            upsellContexts: ['EVENING'],
+            options: [
+              {
+                name: 'Size',
+                choices: [{ name: 'L', priceModifier: 2 }],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const invalid = menu([
+      {
+        name: 'Mains',
+        items: [
+          {
+            name: 'Pizza',
+            price: 10,
+            upsellContexts: ['NOT_A_CONTEXT'],
+            options: [
+              {
+                name: 'Size',
+                choices: [{ name: 'L', priceModifier: -2 }],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    expect(constraintKeys(valid)).toHaveLength(0);
+    expect(constraintKeys(invalid)).toEqual(
+      expect.arrayContaining(['isIn', 'min']),
+    );
+  });
+
   it('rejects too many categories', () => {
     const categories = Array.from({ length: 201 }, (_, i) => ({
       name: `c${i}`,

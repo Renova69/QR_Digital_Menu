@@ -20,6 +20,8 @@ import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { SettlePartialDto } from './dto/settle-partial.dto';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { CreateCashRequestDto } from './dto/create-cash-request.dto';
+import { PaymentReconciliationQueryDto } from './dto/payment-reconciliation-query.dto';
+import { ResolvePaymentReconciliationDto } from './dto/resolve-payment-reconciliation.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -90,10 +92,7 @@ export class PaymentController {
     @Body() body: CreateCheckoutDto,
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
-      | 'STRIPE'
-      | 'EPAY'
-      | 'BORICA'
-      | 'MYPOS';
+      'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
     return this.paymentService.createCheckout(
       token,
       provider,
@@ -259,6 +258,38 @@ export class PaymentController {
       restaurantId,
       query,
       req.user.id,
+    );
+  }
+
+  @Get('reconciliation/:restaurantId')
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  getPaymentReconciliationIssues(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+    @Query() query: PaymentReconciliationQueryDto,
+  ) {
+    return this.paymentService.getPaymentReconciliationIssues(
+      restaurantId,
+      req.user.id,
+      query.status,
+    );
+  }
+
+  @Post('reconciliation/issues/:issueId/resolve')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  resolvePaymentReconciliationIssue(
+    @Req() req: any,
+    @Param('issueId') issueId: string,
+    @Body() body: ResolvePaymentReconciliationDto,
+  ) {
+    return this.paymentService.resolvePaymentReconciliationIssue(
+      issueId,
+      req.user.id,
+      body.status,
+      body.note,
     );
   }
 
