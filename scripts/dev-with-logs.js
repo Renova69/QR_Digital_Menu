@@ -39,7 +39,11 @@ const child = spawn("npx", ["turbo", "dev"], {
   cwd: root,
   shell: true,
   stdio: ["inherit", "pipe", "pipe"],
-  env: { ...process.env, FORCE_COLOR: "1" },
+  env: {
+    ...process.env,
+    FORCE_COLOR: "1",
+    NODE_ENV: process.env.NODE_ENV || "development",
+  },
 });
 
 child.stdout.on("data", (chunk) => {
