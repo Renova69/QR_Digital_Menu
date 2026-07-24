@@ -50,6 +50,16 @@ function validateFrontendUrl(logger: Logger) {
 }
 
 async function bootstrap() {
+  // Raw console.log, zero dependencies, emitted before anything else runs —
+  // a boot-visibility watchdog. If this line never appears in a future dev
+  // session, the process stalled at module load (e.g. slow disk require())
+  // before bootstrap() ran at all; if it appears but nothing after it does,
+  // the stall is inside the try block below (env validation, Prisma/Redis
+  // connect, or Nest module init). Without this, a boot stall is
+  // indistinguishable from a boot crash until the frontend's 180s timeout.
+  console.log(
+    `[boot] ${new Date().toISOString()} bootstrap() invoked — process alive, starting init`,
+  );
   const appLogger = new AppLogger();
   const logger = new Logger('Bootstrap');
   try {
