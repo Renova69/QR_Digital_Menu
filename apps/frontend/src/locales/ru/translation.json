@@ -596,7 +596,7 @@
     "notifySms": "SMS",
     "seatingZone": "Предпочитаемая зона",
     "zoneAny": "Без предпочтений",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "Управление бронированием"
   },
   "reservations": {
     "tabList": "Бронирования",
@@ -725,7 +725,8 @@
     "cancelling": "Cancelling…",
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
-    "cancel": "Cancel reservation"
+    "cancel": "Cancel reservation",
+    "currentTime": "текущее"
   },
   "menuTags": {
     "dairy": "Dairy",

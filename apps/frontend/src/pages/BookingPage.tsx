@@ -52,6 +52,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "../lib/dateLocales";
 import { getApiError } from "../lib/apiError";
+import { resolveTag } from "../lib/menuTags";
 
 function parseDateString(dateStr: string): Date {
   if (!dateStr) return new Date();
@@ -815,14 +816,22 @@ const BookingPage = () => {
               {[
                 ...config.allergens.allergens,
                 ...config.allergens.dietaryTags,
-              ].map((a) => (
-                <span
-                  key={a}
-                  className="text-xs rounded-full px-2.5 py-1 bk-card"
-                >
-                  {t(`menuTags.${a.toLowerCase()}`, a)}
-                </span>
-              ))}
+              ].map((a) => {
+                const preset = resolveTag(a);
+                const Icon = preset?.Icon;
+                const label = preset
+                  ? t(preset.labelKey, a)
+                  : t(`menuTags.${a.toLowerCase()}`, a);
+                return (
+                  <span
+                    key={a}
+                    className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-1 bk-card"
+                  >
+                    {Icon && <Icon className="w-3 h-3" />}
+                    {label}
+                  </span>
+                );
+              })}
             </div>
             <a
               href={`/menu/public/${restaurantId}`}

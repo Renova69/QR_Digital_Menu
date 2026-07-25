@@ -259,7 +259,7 @@ const BookingManagePage = () => {
       {
         // Show the restaurant's local time, not the guest's browser tz.
         timeZone: config?.restaurant?.timezone ?? undefined,
-        weekday: "short",
+        weekday: "long",
         day: "2-digit",
         month: "short",
         hour: "2-digit",
@@ -452,28 +452,49 @@ const BookingManagePage = () => {
                     </p>
                   ) : (
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {slots.map((s) => (
-                        <button
-                          key={s.startsAt}
-                          type="button"
-                          onClick={() => setSelectedSlot(s.startsAt)}
-                          className="text-sm rounded-full px-3 py-1.5 transition"
-                          style={
-                            selectedSlot === s.startsAt
-                              ? {
-                                  background: palette.accent,
-                                  color: "#fff",
-                                }
-                              : {
-                                  background: "transparent",
-                                  border: "1px solid var(--border)",
-                                  color: "var(--text)",
-                                }
-                          }
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                      {slots.map((s) => {
+                        const isSelected = selectedSlot === s.startsAt;
+                        const isCurrent =
+                          new Date(s.startsAt).getTime() ===
+                          new Date(reservation.startsAt).getTime();
+                        return (
+                          <button
+                            key={s.startsAt}
+                            type="button"
+                            disabled={isCurrent}
+                            onClick={() => setSelectedSlot(s.startsAt)}
+                            className="text-sm rounded-full px-3 py-1.5 transition"
+                            style={
+                              isSelected
+                                ? {
+                                    background: palette.accent,
+                                    color: "#fff",
+                                  }
+                                : isCurrent
+                                  ? {
+                                      background: hexToRgba(
+                                        palette.text,
+                                        isDark ? 0.32 : 0.16,
+                                      ),
+                                      border: "1px solid var(--border)",
+                                      color: "var(--text)",
+                                      fontWeight: 600,
+                                      cursor: "not-allowed",
+                                    }
+                                  : {
+                                      background: "transparent",
+                                      border: "1px solid var(--border)",
+                                      color: "var(--text)",
+                                    }
+                            }
+                          >
+                            {s.label}
+                            {isCurrent
+                              ? ` (${t("manage.currentTime", "current")})`
+                              : ""}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

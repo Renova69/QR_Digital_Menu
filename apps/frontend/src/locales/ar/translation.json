@@ -596,7 +596,7 @@
     "notifySms": "رسالة نصية",
     "seatingZone": "المنطقة المفضلة",
     "zoneAny": "بدون تفضيل",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "إدارة الحجز"
   },
   "reservations": {
     "tabList": "الحجوزات",
@@ -710,7 +710,8 @@
     "cancelling": "Cancelling…",
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
-    "cancel": "Cancel reservation"
+    "cancel": "Cancel reservation",
+    "currentTime": "الحالي"
   },
   "menuTags": {
     "dairy": "Dairy",

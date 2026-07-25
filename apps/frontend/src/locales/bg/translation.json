@@ -84,7 +84,7 @@
     "notifySms": "SMS",
     "seatingZone": "Предпочитана зона",
     "zoneAny": "Нямам предпочитания",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "Управление на резервацията"
   },
   "nav": {
     "dashboard": "Табло",
@@ -3901,7 +3901,8 @@
     "cancelling": "Отказване...",
     "confirmCancel": "Да, откажи я",
     "keep": "Запази я",
-    "cancel": "Отказ на резервацията"
+    "cancel": "Отказ на резервацията",
+    "currentTime": "текущ"
   },
   "menuTags": {
     "dairy": "Млечни",

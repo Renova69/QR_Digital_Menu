@@ -49,7 +49,7 @@ const STATUS_META: Record<
 };
 
 const BookingConfirmationPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const params = new URLSearchParams(useLocation().search);
   const referenceCode = params.get("ref") ?? "";
   const restaurantId = params.get("r") ?? "";
@@ -206,10 +206,10 @@ const BookingConfirmationPage = () => {
             </div>
             {startsAt && (
               <p className="text-sm" style={{ color: "var(--muted)" }}>
-                {new Date(startsAt).toLocaleString(undefined, {
+                {new Date(startsAt).toLocaleString(i18n.language || undefined, {
                   // Show the restaurant's local time, not the guest's browser tz.
                   timeZone: config?.restaurant?.timezone ?? undefined,
-                  weekday: "short",
+                  weekday: "long",
                   day: "2-digit",
                   month: "short",
                   hour: "2-digit",

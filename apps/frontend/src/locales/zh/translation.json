@@ -3530,7 +3530,7 @@
     "notifySms": "短信",
     "seatingZone": "座位偏好",
     "zoneAny": "无偏好",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "管理预订"
   },
   "reservations": {
     "tabList": "预订列表",
@@ -3644,7 +3644,8 @@
     "cancelling": "Cancelling…",
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
-    "cancel": "Cancel reservation"
+    "cancel": "Cancel reservation",
+    "currentTime": "当前"
   },
   "menuTags": {
     "dairy": "Dairy",

@@ -84,7 +84,7 @@
     "notifySms": "SMS",
     "seatingZone": "Zona preferată",
     "zoneAny": "Fără preferință",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "Gestionare rezervare"
   },
   "nav": {
     "dashboard": "Panou",
@@ -3976,7 +3976,8 @@
     "cancelling": "Se anulează...",
     "confirmCancel": "Da, anulează",
     "keep": "Păstrează",
-    "cancel": "Anulează rezervarea"
+    "cancel": "Anulează rezervarea",
+    "currentTime": "actual"
   },
   "menuTags": {
     "dairy": "Lactate",

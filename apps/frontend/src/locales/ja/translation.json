@@ -596,7 +596,7 @@
     "notifySms": "SMS",
     "seatingZone": "希望エリア",
     "zoneAny": "希望なし",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "予約を管理"
   },
   "reservations": {
     "tabList": "予約一覧",
@@ -710,7 +710,8 @@
     "cancelling": "Cancelling…",
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
-    "cancel": "Cancel reservation"
+    "cancel": "Cancel reservation",
+    "currentTime": "現在"
   },
   "menuTags": {
     "dairy": "Dairy",

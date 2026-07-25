@@ -3531,7 +3531,7 @@
     "notifySms": "SMS",
     "seatingZone": "Προτίμηση χώρου",
     "zoneAny": "Χωρίς προτίμηση",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "Διαχείριση κράτησης"
   },
   "reservations": {
     "tabList": "Κρατήσεις",
@@ -3655,7 +3655,8 @@
     "cancelling": "Cancelling…",
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
-    "cancel": "Cancel reservation"
+    "cancel": "Cancel reservation",
+    "currentTime": "τρέχον"
   },
   "menuTags": {
     "dairy": "Dairy",

@@ -3530,7 +3530,7 @@
     "notifySms": "SMS",
     "seatingZone": "Zone préférée",
     "zoneAny": "Pas de préférence",
-    "manageReservation": "Manage reservation"
+    "manageReservation": "Gérer la réservation"
   },
   "reservations": {
     "tabList": "Réservations",
@@ -3644,7 +3644,8 @@
     "cancelling": "Cancelling…",
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
-    "cancel": "Cancel reservation"
+    "cancel": "Cancel reservation",
+    "currentTime": "actuel"
   },
   "menuTags": {
     "dairy": "Dairy",
