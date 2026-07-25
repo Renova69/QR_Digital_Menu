@@ -305,7 +305,13 @@ export class LoyaltyService {
       where: { customerId: userId },
       take: limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-      include: {
+      select: {
+        id: true,
+        status: true,
+        totalPrice: true,
+        pointsEarned: true,
+        pointsRedeemed: true,
+        createdAt: true,
         restaurant: { select: { name: true, logoUrl: true } },
         items: {
           include: { menuItem: { select: { name: true } } },

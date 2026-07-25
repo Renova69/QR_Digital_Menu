@@ -4,6 +4,7 @@ import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { useTranslation } from "react-i18next";
+import { formatEuro, formatBgn } from "../lib/currency";
 import DataPrivacyTab from "./profile/DataPrivacyTab";
 
 export const CustomerProfilePage: React.FC = () => {
@@ -149,8 +150,14 @@ export const CustomerProfilePage: React.FC = () => {
                 tierLower === "gold"
                   ? "text-yellow-500"
                   : tierLower === "silver"
-                    ? "text-slate-300"
+                    ? "text-slate-400"
                     : "text-orange-600";
+              const barColor =
+                tierLower === "gold"
+                  ? "bg-yellow-500"
+                  : tierLower === "silver"
+                    ? "bg-slate-400"
+                    : "bg-orange-600";
               const rewardValue: number =
                 typeof acc.rewardValue === "number"
                   ? acc.rewardValue
@@ -189,8 +196,7 @@ export const CustomerProfilePage: React.FC = () => {
                         {acc.points} {t("auto.pts", "pts")}
                       </p>
                       <p className="text-sm font-bold text-muted-foreground mt-1">
-                        {t("auto.valueEUR", "Value: EUR")}
-                        {rewardValue.toFixed(2)}
+                        {t("auto.valueEUR", "Value:")} {formatEuro(rewardValue)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -204,27 +210,35 @@ export const CustomerProfilePage: React.FC = () => {
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-white/10">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                      <span>{t("profile.firstReward")}</span>
-                      {pointsToFirstReward > 0 ? (
-                        <span>
-                          {t("profile.ptsToGo", {
-                            count: pointsToFirstReward,
-                          })}
-                        </span>
-                      ) : (
-                        <span>{t("profile.readyToRedeem")}</span>
-                      )}
-                    </div>
-                    <div className="w-full bg-black/40 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${textColor.replace("text-", "bg-")}`}
-                        style={{ width: `${rewardProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {t("profile.rewardProgress", { pct: rewardProgress })}
-                    </p>
+                    {pointsToFirstReward > 0 ? (
+                      <>
+                        <div className="flex justify-between text-xs text-muted-foreground mb-2">
+                          <span>{t("profile.firstReward")}</span>
+                          <span>
+                            {t("profile.ptsToGo", {
+                              count: pointsToFirstReward,
+                            })}
+                          </span>
+                        </div>
+                        <div className="w-full bg-black/40 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${barColor}`}
+                            style={{ width: `${rewardProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {t("profile.rewardProgress", { pct: rewardProgress })}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm font-bold text-muted-foreground">
+                        {t("profile.rewardAvailable", {
+                          defaultValue:
+                            "Можеш да използваш {{amount}} в награди",
+                          amount: formatEuro(rewardValue),
+                        })}
+                      </p>
+                    )}
                   </div>
 
                   {expiringSoonPoints > 0 && (
@@ -267,7 +281,7 @@ export const CustomerProfilePage: React.FC = () => {
                     </div>
                     <div className="w-full bg-black/40 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${textColor.replace("text-", "bg-")}`}
+                        className={`h-2 rounded-full ${barColor}`}
                         style={{ width: progressStr }}
                       />
                     </div>
@@ -330,8 +344,18 @@ export const CustomerProfilePage: React.FC = () => {
                   </div>
                   <div className="text-left sm:text-right shrink-0">
                     <p className="font-bold text-2xl">
-                      €{order.totalPrice.toFixed(2)}
+                      {formatEuro(order.totalPrice)}
                     </p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {formatBgn(order.totalPrice)}
+                    </p>
+                    {order.status && (
+                      <span className="mt-2 inline-block rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary">
+                        {t(`orders.tabs.${order.status.toLowerCase()}`, {
+                          defaultValue: order.status,
+                        })}
+                      </span>
+                    )}
                     <div className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
                       <span>
                         +{order.pointsEarned} {t("auto.pts", "Pts")}

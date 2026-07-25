@@ -39,7 +39,7 @@ export function getTierInfo(
       multiplier: silverMultiplier,
       nextTierName: 'Gold',
       pointsToNext: goldThreshold - lifetimePoints,
-      progressPercent: Math.floor(
+      progressPercent: Math.round(
         ((lifetimePoints - silverThreshold) / range) * 100,
       ),
     };
@@ -50,7 +50,7 @@ export function getTierInfo(
     multiplier: 1.0,
     nextTierName: 'Silver',
     pointsToNext: silverThreshold - lifetimePoints,
-    progressPercent: Math.floor((lifetimePoints / silverThreshold) * 100),
+    progressPercent: Math.round((lifetimePoints / silverThreshold) * 100),
   };
 }
 
