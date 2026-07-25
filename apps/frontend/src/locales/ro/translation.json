@@ -2382,7 +2382,7 @@
     "payoutEstimate": "Net estimat din tranzacții reușite după comisioanele platformei.",
     "noSettledTotals": "Nicio totalizare pe metode decontată încă.",
     "schedule": "Program",
-    "payoutScheduleNote": "Programul plăților Stripe este gestionat în Stripe Connect.",
+    "payoutScheduleNote": "Programul plăților și datele bancare sunt gestionate de furnizorul de plăți selectat.",
     "payoutScheduleDetail": "Utilizați tabloul de bord Stripe pentru a actualiza datele bancare, frecvența plăților și verificarea contului.",
     "feesLabel": "comisioane",
     "txLabel": "tr",

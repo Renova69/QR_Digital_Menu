@@ -855,7 +855,6 @@ const PaymentsView = () => {
         <PayoutsPanel
           methodTotals={payouts?.methodTotals ?? methodTotals}
           total={payouts?.estimatedBalance ?? metrics.netCollected}
-          note={payouts?.note}
         />
       ) : (
         <SettingsPanel
@@ -1067,7 +1066,6 @@ function PaymentTable({
 function PayoutsPanel({
   methodTotals,
   total,
-  note,
 }: {
   methodTotals: Array<{
     method: string;
@@ -1076,7 +1074,6 @@ function PayoutsPanel({
     count?: number;
   }>;
   total: number;
-  note?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -1126,7 +1123,7 @@ function PayoutsPanel({
           {t("payments.schedule")}
         </p>
         <div className="mt-4 space-y-3 text-sm font-medium text-muted-foreground">
-          <p>{note ?? t("payments.payoutScheduleNote")}</p>
+          <p>{t("payments.payoutScheduleNote")}</p>
           <p>{t("payments.payoutScheduleDetail")}</p>
         </div>
       </div>

@@ -734,7 +734,6 @@ export const getPaymentPayouts = (restaurantId: string) =>
         }>;
         stripeAccountId: string | null;
         stripeOnboarded: boolean;
-        note: string;
       },
   );
 

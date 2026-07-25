@@ -621,7 +621,6 @@ export class PaymentReportingService {
       methodTotals: overview.methodTotals,
       stripeAccountId: overview.account.stripeAccountId,
       stripeOnboarded: overview.account.stripeOnboarded,
-      note: 'Live payout timing and bank account details are managed by the selected payment provider.',
     };
   }
 

@@ -2303,7 +2303,7 @@
     "payoutEstimate": "Estimated net from successful transactions after platform fees.",
     "noSettledTotals": "No settled method totals yet.",
     "schedule": "Schedule",
-    "payoutScheduleNote": "Stripe payout timing is managed in Stripe Connect.",
+    "payoutScheduleNote": "Live payout timing and bank account details are managed by the selected payment provider.",
     "payoutScheduleDetail": "Use the Stripe dashboard to update bank details, payout cadence, and account verification.",
     "feesLabel": "fees",
     "txLabel": "tx",
