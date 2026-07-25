@@ -3965,7 +3965,7 @@
   },
   "manage": {
     "title": "Gestionează rezervarea",
-    "party": "Masă pentru {{n}}",
+    "party": "Grup de {{n}}",
     "locked": "Această rezervare nu mai poate fi modificată online. Vă rugăm să contactați restaurantul.",
     "saveError": "Nu s-a putut actualiza. Vă rugăm să alegeți altă oră.",
     "saved": "Rezervarea dvs. a fost actualizată.",
