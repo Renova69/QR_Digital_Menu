@@ -15,6 +15,11 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from './branding-fields';
 import { encryptSecret } from '../payment/secret-crypto';
 import { DeviceEnrollmentService } from './device-enrollment.service';
+import { EventsGateway } from '../events/events.gateway';
+import { isPresetTagKey } from '../menu/menu-tags';
+import { MenuTranslationEnqueueService } from '../menu/menu-translation-enqueue.service';
+import { MenuTranslationWorkerService } from '../menu/menu-translation-worker.service';
+import { TranslationQuotaService } from '../translation/translation-quota.service';
 import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
@@ -143,6 +148,10 @@ export class RestaurantsService {
     private readonly stripeProvider: StripeProvider,
     private readonly featureService: FeatureService,
     private readonly deviceEnrollmentService: DeviceEnrollmentService,
+    private readonly eventsGateway: EventsGateway,
+    private readonly translationEnqueue: MenuTranslationEnqueueService,
+    private readonly translationWorker: MenuTranslationWorkerService,
+    private readonly translationQuota: TranslationQuotaService,
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
@@ -441,7 +450,17 @@ export class RestaurantsService {
     });
   }
 
-  async translateAll(id: string, userId: string) {
+  /**
+   * Enqueue-only replacement for the old synchronous translateAll. Returns
+   * (202-equivalent) as soon as MenuTranslationState rows are written — the
+   * actual translation happens on MenuTranslationWorkerService's next tick
+   * (kicked immediately below, non-blocking). This is what makes a
+   * large-menu "Translate All" survive: the old version was a single HTTP
+   * request that ran DeepL calls for every entity × language synchronously,
+   * with no resumability and a real risk of exceeding a reverse-proxy
+   * timeout on any menu of real size.
+   */
+  async enqueueTranslateAll(id: string, userId: string) {
     const restaurant = await this.findOneForManagement(id, userId);
 
     if (
@@ -455,13 +474,6 @@ export class RestaurantsService {
       );
     }
 
-    if (!process.env.DEEPL_API_KEY) {
-      return {
-        success: false,
-        message: 'Translation service not configured on this server.',
-      };
-    }
-
     if (
       !restaurant.targetLanguages ||
       restaurant.targetLanguages.length === 0
@@ -473,281 +485,136 @@ export class RestaurantsService {
     }
 
     const targets = restaurant.targetLanguages;
+    const sourceLang = restaurant.dashboardLanguage ?? 'bg';
 
-    // Skip items that already have translations for ALL target languages so
-    // repeated "Translate All" clicks don't burn the DeepL character quota.
-    // Must check for actual content (name), not just a language key — a prior
-    // failed/pending translation may have left an empty lang entry like { fr: {} }.
-    const needsTranslation = (existing: any): boolean => {
-      if (!existing || typeof existing !== 'object') return true;
-      return targets.some((lang: string) => !existing[lang]?.name);
-    };
+    const [items, categories, options] = await Promise.all([
+      this.prisma.menuItem.findMany({
+        where: { category: { restaurantId: id } },
+      }),
+      this.prisma.menuCategory.findMany({ where: { restaurantId: id } }),
+      this.prisma.menuOption.findMany({
+        where: { menuItem: { category: { restaurantId: id } } },
+      }),
+    ]);
 
-    const missingTargets = (existing: any): string[] => {
-      if (!existing || typeof existing !== 'object') return targets;
-      return targets.filter((lang: string) => !existing[lang]?.name);
-    };
+    // Rough pre-flight estimate — a real quota gate runs again per-batch
+    // inside the worker itself; this is only to give the owner an honest
+    // answer up front instead of a silent no-op once queued.
+    const estimatedChars =
+      (items.reduce(
+        (s, i) => s + i.name.length + (i.description?.length ?? 0),
+        0,
+      ) +
+        categories.reduce((s, c) => s + c.name.length, 0) +
+        options.reduce((s, o) => s + o.name.length, 0)) *
+      targets.length;
 
-    // DeepL Free aggressively rate-limits concurrent bursts. Keep this low so the
-    // per-request retry/backoff in TranslationService rarely has to engage.
-    const TRANSLATE_CONCURRENCY = 2;
-
-    let catOk = 0;
-    let catFail = 0;
-    let catSkip = 0;
-    let itemOk = 0;
-    let itemFail = 0;
-    let itemSkip = 0;
-    let optOk = 0;
-    let optFail = 0;
-    let optSkip = 0;
-    let firstError = '';
-
-    // Process Items FIRST — they are the bulk of the menu and the content guests
-    // actually read. Giving items the DeepL budget before categories/options means
-    // a rate-limit or quota hiccup can never leave items untranslated while only
-    // the (cheap, few) category headers get through.
-    const items = await this.prisma.menuItem.findMany({
-      where: { category: { restaurantId: id } },
-    });
-
-    const itemsToTranslate = items.filter((it) =>
-      needsTranslation(it.translations),
+    const quotaCheck = await this.translationQuota.assertCanSpend(
+      restaurant,
+      estimatedChars,
     );
-    itemSkip = items.length - itemsToTranslate.length;
-
-    const itemRes = await this.processTranslateBatch(
-      itemsToTranslate,
-      TRANSLATE_CONCURRENCY,
-      async (item) => {
-        const parsedTranslations: any =
-          item.translations && typeof item.translations === 'object'
-            ? item.translations
-            : {};
-
-        // Build translation map: name, description, + each allergen and tag
-        const textToTranslate: Record<string, string> = { name: item.name };
-        if (item.description) textToTranslate.description = item.description;
-
-        const allergens = item.allergens || [];
-        allergens.forEach((a: string) => {
-          textToTranslate[`allergen_${a}`] = a;
-        });
-
-        const dietaryTags = item.dietaryTags || [];
-        dietaryTags.forEach((t: string) => {
-          textToTranslate[`tag_${t}`] = t;
-        });
-
-        const newTranslations = await this.translationService.translateObject(
-          textToTranslate,
-          missingTargets(item.translations),
-        );
-
-        // Keep original values as stable keys so later lazy translation passes
-        // can diff newly-added allergens/tags without retranslating everything.
-        for (const lang of Object.keys(newTranslations)) {
-          const langData = newTranslations[lang];
-          const translatedAllergens: Record<string, string> = {};
-          const translatedTags: Record<string, string> = {};
-
-          for (const key of Object.keys(langData)) {
-            if (key.startsWith('allergen_')) {
-              translatedAllergens[key.replace('allergen_', '')] = langData[key];
-              delete langData[key];
-            } else if (key.startsWith('tag_')) {
-              translatedTags[key.replace('tag_', '')] = langData[key];
-              delete langData[key];
-            }
-          }
-
-          if (Object.keys(translatedAllergens).length > 0)
-            langData.allergens = translatedAllergens as any;
-          if (Object.keys(translatedTags).length > 0)
-            langData.dietaryTags = translatedTags as any;
-        }
-
-        await this.prisma.menuItem.update({
-          where: { id: item.id },
-          data: {
-            translations: { ...parsedTranslations, ...newTranslations },
-          },
-        });
-      },
-    );
-    itemOk = itemRes.ok;
-    itemFail = itemRes.failed;
-    if (itemRes.failed > 0 && !firstError)
-      firstError = `items: ${itemRes.failed} of ${itemsToTranslate.length} failed — ${itemRes.firstError}`;
-
-    // Process Categories
-    const categories = await this.prisma.menuCategory.findMany({
-      where: { restaurantId: id },
-    });
-
-    const catsToTranslate = categories.filter((c) =>
-      needsTranslation(c.translations),
-    );
-    catSkip = categories.length - catsToTranslate.length;
-
-    const catRes = await this.processTranslateBatch(
-      catsToTranslate,
-      TRANSLATE_CONCURRENCY,
-      async (cat) => {
-        const parsedTranslations: any =
-          cat.translations && typeof cat.translations === 'object'
-            ? cat.translations
-            : {};
-        const newTranslations = await this.translationService.translateObject(
-          { name: cat.name },
-          missingTargets(cat.translations),
-        );
-        await this.prisma.menuCategory.update({
-          where: { id: cat.id },
-          data: {
-            translations: { ...parsedTranslations, ...newTranslations },
-          },
-        });
-      },
-    );
-    catOk = catRes.ok;
-    catFail = catRes.failed;
-    if (catRes.failed > 0 && !firstError)
-      firstError = `categories: ${catRes.failed} of ${catsToTranslate.length} failed — ${catRes.firstError}`;
-
-    // Process Options
-    const options = await this.prisma.menuOption.findMany({
-      where: { menuItem: { category: { restaurantId: id } } },
-    });
-
-    const optsToTranslate = options.filter((o) =>
-      needsTranslation((o as any).translations),
-    );
-    optSkip = options.length - optsToTranslate.length;
-
-    const optRes = await this.processTranslateBatch(
-      optsToTranslate,
-      TRANSLATE_CONCURRENCY,
-      async (option) => {
-        const parsedTranslations: any =
-          (option as any).translations &&
-          typeof (option as any).translations === 'object'
-            ? (option as any).translations
-            : {};
-
-        const textToTranslate: Record<string, string> = { name: option.name };
-        const choices = (option.choices as any[]) || [];
-        choices.forEach((c: any) => {
-          if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-        });
-
-        const newTranslations = await this.translationService.translateObject(
-          textToTranslate,
-          missingTargets((option as any).translations),
-        );
-
-        for (const lang of Object.keys(newTranslations)) {
-          if (!parsedTranslations[lang])
-            parsedTranslations[lang] = { choices: {} };
-          if (!parsedTranslations[lang].choices)
-            parsedTranslations[lang].choices = {};
-
-          if (newTranslations[lang].name) {
-            parsedTranslations[lang].name = newTranslations[lang].name;
-          }
-
-          for (const key of Object.keys(newTranslations[lang])) {
-            if (key.startsWith('choice_')) {
-              const originalChoiceName = key.replace('choice_', '');
-              parsedTranslations[lang].choices[originalChoiceName] =
-                newTranslations[lang][key];
-            }
-          }
-        }
-
-        await this.prisma.menuOption.update({
-          where: { id: option.id },
-          data: {
-            translations:
-              Object.keys(parsedTranslations).length > 0
-                ? parsedTranslations
-                : undefined,
-          } as any,
-        });
-      },
-    );
-    optOk = optRes.ok;
-    optFail = optRes.failed;
-    if (optRes.failed > 0 && !firstError)
-      firstError = `options: ${optRes.failed} of ${optsToTranslate.length} failed — ${optRes.firstError}`;
-
-    if (firstError) {
-      this.logger.error(
-        `translateAll restaurant=${id}: ${firstError}. ` +
-          `OK — cats ${catOk}, items ${itemOk}, opts ${optOk}. ` +
-          `Fail — cats ${catFail}, items ${itemFail}, opts ${optFail}. ` +
-          `Skipped — cats ${catSkip}, items ${itemSkip}, opts ${optSkip}.`,
-      );
+    if (!quotaCheck.allowed) {
       return {
         success: false,
-        message: `Translation partially failed: ${firstError}. Translated: ${catOk + itemOk + optOk}, skipped (already done): ${catSkip + itemSkip + optSkip}. Check server logs for details.`,
+        message: `Translation quota exceeded (${quotaCheck.reason === 'platform_quota_exceeded' ? 'platform-wide limit' : "this restaurant's monthly limit"}). ${quotaCheck.remaining} characters remaining this period.`,
       };
     }
 
-    const total = categories.length + items.length + options.length;
-    const skipped = catSkip + itemSkip + optSkip;
-    const translated = catOk + itemOk + optOk;
+    const run = await this.prisma.translationRun.create({
+      data: {
+        restaurantId: id,
+        requestedById: userId,
+        status: 'QUEUED',
+        locales: targets,
+      },
+    });
+
+    // Bounded concurrency (not Promise.all across every entity) — a large
+    // multi-language menu is hundreds of categories/items/options, each
+    // issuing its own DB upsert(s); unbounded fan-out exhausts PgBouncer's
+    // connection pool and silently drops most of the enqueue (2026-07-25
+    // production finding).
+    await this.translationEnqueue.enqueueBatch([
+      ...categories.map(
+        (c) => () =>
+          this.translationEnqueue.enqueueCategory(id, c, targets, sourceLang),
+      ),
+      ...items.map(
+        (i) => () =>
+          this.translationEnqueue.enqueueItem(id, i, targets, sourceLang),
+      ),
+      ...options.map(
+        (o) => () =>
+          this.translationEnqueue.enqueueOption(
+            id,
+            { id: o.id, name: o.name, choices: o.choices as any },
+            targets,
+            sourceLang,
+          ),
+      ),
+    ]);
+
+    const totalUnits =
+      (categories.length + items.length + options.length) * targets.length;
+    await this.prisma.translationRun.update({
+      where: { id: run.id },
+      data: { totalUnits, status: 'RUNNING', startedAt: new Date() },
+    });
+
+    this.eventsGateway.emitToRestaurant(id, 'translate:progress', {
+      phase: 'queued',
+      done: 0,
+      total: totalUnits,
+      runId: run.id,
+      status: 'QUEUED',
+    });
+
+    this.translationWorker.kick();
+
     return {
       success: true,
-      message:
-        skipped > 0
-          ? `Translated ${translated} entities, skipped ${skipped} (already translated).`
-          : `Translated ${categories.length} categories, ${items.length} items, and ${options.length} options.`,
+      message: `Queued ${categories.length} categories, ${items.length} items, and ${options.length} options for translation into ${targets.length} language(s).`,
+      runId: run.id,
     };
   }
 
   /**
-   * Process items in concurrent batches to respect DeepL rate limits while
-   * avoiding the 48+ second wall-clock penalty of a purely sequential loop
-   * with 300ms delays (#N+1-C1). Each batch runs {@link concurrency} items
-   * in parallel; the next batch waits for all items in the current batch.
-   *
-   * Returns counts of successfully- and unsuccessfully-processed items plus the
-   * first error message. It never throws on individual-item failure: one bad item
-   * does not abort siblings, and — crucially — the success count is preserved so
-   * the caller can report what actually got translated instead of reporting 0
-   * the moment a single item fails.
+   * Aggregate translation-queue status for the dashboard's poll fallback and
+   * outdated/failed badge. Deliberately restaurant-wide rather than scoped
+   * to a single TranslationRun — MenuTranslationState has no runId column
+   * (a unit can be re-enqueued by a later edit and outlive the run that
+   * first queued it), so "how much work is outstanding right now" is a
+   * simpler and more honest signal than trying to track one run's progress.
    */
-  private async processTranslateBatch<T>(
-    items: T[],
-    concurrency: number,
-    fn: (item: T) => Promise<void>,
-  ): Promise<{ ok: number; failed: number; firstError: string }> {
-    if (items.length === 0) return { ok: 0, failed: 0, firstError: '' };
-    let ok = 0;
-    let failed = 0;
-    let firstError = '';
-    for (let i = 0; i < items.length; i += concurrency) {
-      const batch = items.slice(i, i + concurrency);
-      const results = await Promise.allSettled(batch.map((item) => fn(item)));
-      for (const r of results) {
-        if (r.status === 'fulfilled') {
-          ok++;
-        } else {
-          failed++;
-          if (!firstError) {
-            firstError =
-              r.reason instanceof Error ? r.reason.message : String(r.reason);
-          }
-        }
-      }
-    }
-    if (failed > 0) {
-      this.logger.warn(
-        `processTranslateBatch: ${failed} of ${items.length} entities failed translation`,
-      );
-    }
-    return { ok, failed, firstError };
+  async getTranslationStatus(id: string, userId: string) {
+    await this.findOneForManagement(id, userId);
+
+    const counts = await this.prisma.menuTranslationState.groupBy({
+      by: ['status'],
+      where: { restaurantId: id },
+      _count: { _all: true },
+    });
+    const byStatus: Record<string, number> = {};
+    for (const row of counts) byStatus[row.status] = row._count._all;
+
+    const pending = (byStatus.STALE ?? 0) + (byStatus.PENDING ?? 0);
+    const failed = byStatus.FAILED ?? 0;
+    const current = byStatus.CURRENT ?? 0;
+
+    const latestRun = await this.prisma.translationRun.findFirst({
+      where: { restaurantId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true, createdAt: true },
+    });
+
+    return {
+      pending,
+      failed,
+      current,
+      active: pending > 0,
+      latestRunId: latestRun?.id ?? null,
+      latestRunStatus: latestRun?.status ?? null,
+    };
   }
 
   async generateConnectLink(

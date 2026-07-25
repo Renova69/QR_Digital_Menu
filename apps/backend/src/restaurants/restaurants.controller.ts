@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  HttpCode,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -167,12 +168,24 @@ export class RestaurantsController {
   }
 
   // Throttle (Issue 52): DeepL cost protection — 2 full-menu translations per minute.
+  // Enqueue-only — returns as soon as work is queued (202-shaped response);
+  // MenuTranslationWorkerService does the actual translation asynchronously.
   @Throttle({ default: { limit: 2, ttl: 60000 } })
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':restaurantId/translate-all')
+  @HttpCode(202)
   translateAll(@Param('restaurantId') id: string, @Request() req: any) {
-    return this.restaurantsService.translateAll(id, req.user.id);
+    return this.restaurantsService.enqueueTranslateAll(id, req.user.id);
+  }
+
+  // Poll fallback for the dashboard progress bar (socket-only had no
+  // timeout/reconnect story) and the outdated/failed count badge.
+  @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @Get(':restaurantId/translation-status')
+  getTranslationStatus(@Param('restaurantId') id: string, @Request() req: any) {
+    return this.restaurantsService.getTranslationStatus(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)

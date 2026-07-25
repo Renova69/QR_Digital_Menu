@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import {
   NotFoundException,
   ForbiddenException,
@@ -7,8 +7,9 @@ import {
 import { DateTime } from 'luxon';
 import { MenuCrudService } from './menu-crud.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { TranslationService } from '../translation/translation.service';
-import { MenuTranslationService } from './menu-translation.service';
+import { MenuTranslationReadService } from './menu-translation-read.service';
+import { MenuTranslationEnqueueService } from './menu-translation-enqueue.service';
+import { MenuTranslationWorkerService } from './menu-translation-worker.service';
 import { FeatureService } from '../subscription/feature.service';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -17,7 +18,7 @@ import { WeatherUpsellService } from './upsell/weather-upsell.service';
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
   // Non-owner ownership checks now look up the user to allow assigned MANAGERs
-  // (#15). Default null → not a manager → ForbiddenException as before.
+  // (#15). Default null в†’ not a manager в†’ ForbiddenException as before.
   user: { findUnique: jest.fn().mockResolvedValue(null) },
   printStation: { findUnique: jest.fn() },
   menuCategory: {
@@ -49,14 +50,23 @@ const mockPrisma = {
   $transaction: jest.fn(),
 };
 
-const mockTranslation = { translateObject: jest.fn() };
-const mockMenuTranslation = { applyLazyTranslations: jest.fn() };
+const mockMenuTranslationRead = { applyStoredTranslations: jest.fn() };
+const mockTranslationEnqueue = {
+  enqueueCategory: jest.fn().mockResolvedValue(undefined),
+  enqueueItem: jest.fn().mockResolvedValue(undefined),
+  enqueueOption: jest.fn().mockResolvedValue(undefined),
+};
+const mockTranslationWorker = { kick: jest.fn() };
 const mockStorage = {
   delete: jest.fn().mockResolvedValue(undefined),
   deleteExact: jest.fn().mockResolvedValue(undefined),
 };
 const mockEvents = { emitPublicMenuItemAvailability: jest.fn() };
 const mockWeatherUpsell = { getContexts: jest.fn() };
+
+// Pre-warm enqueue calls are fire-and-forget (`void enqueueX(...).then(...)`)
+// — flush the microtask queue so the assertion runs after they settle.
+const flushMicrotasks = () => new Promise((r) => setImmediate(r));
 
 const BASE_RESTAURANT = {
   id: 'rest-1',
@@ -125,8 +135,18 @@ describe('MenuCrudService', () => {
       providers: [
         MenuCrudService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: TranslationService, useValue: mockTranslation },
-        { provide: MenuTranslationService, useValue: mockMenuTranslation },
+        {
+          provide: MenuTranslationReadService,
+          useValue: mockMenuTranslationRead,
+        },
+        {
+          provide: MenuTranslationEnqueueService,
+          useValue: mockTranslationEnqueue,
+        },
+        {
+          provide: MenuTranslationWorkerService,
+          useValue: mockTranslationWorker,
+        },
         { provide: StorageService, useValue: mockStorage },
         { provide: EventsGateway, useValue: mockEvents },
         { provide: WeatherUpsellService, useValue: mockWeatherUpsell },
@@ -136,18 +156,20 @@ describe('MenuCrudService', () => {
 
     service = module.get<MenuCrudService>(MenuCrudService);
     jest.clearAllMocks();
-    // clearAllMocks wipes call data but NOT implementations — re-assert the
+    // clearAllMocks wipes call data but NOT implementations вЂ” re-assert the
     // non-manager default so a manager override in one test can't leak forward.
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockMenuTranslation.applyLazyTranslations.mockResolvedValue(undefined);
-    mockTranslation.translateObject.mockResolvedValue({});
+    mockMenuTranslationRead.applyStoredTranslations.mockReturnValue(undefined);
+    mockTranslationEnqueue.enqueueCategory.mockResolvedValue(undefined);
+    mockTranslationEnqueue.enqueueItem.mockResolvedValue(undefined);
+    mockTranslationEnqueue.enqueueOption.mockResolvedValue(undefined);
     mockStorage.delete.mockResolvedValue(undefined);
     mockStorage.deleteExact.mockResolvedValue(undefined);
     mockWeatherUpsell.getContexts.mockResolvedValue(new Set());
     mockPrisma.$transaction.mockResolvedValue([]);
   });
 
-  // ── getPublicMenu ─────────────────────────────────────────────────────────
+  // в”Ђв”Ђ getPublicMenu в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('getPublicMenu', () => {
     it('throws NotFoundException when restaurant not found', async () => {
@@ -218,7 +240,7 @@ describe('MenuCrudService', () => {
     });
 
     it('filters out SCHEDULED category when current day not in daysOfWeek', async () => {
-      // Pin to 2026-01-14T10:00Z = Wednesday in Sofia (UTC+2) → weekday 3
+      // Pin to 2026-01-14T10:00Z = Wednesday in Sofia (UTC+2) в†’ weekday 3
       const spy = jest
         .spyOn(DateTime, 'now')
         .mockReturnValue(
@@ -249,7 +271,7 @@ describe('MenuCrudService', () => {
     });
 
     it('filters out SCHEDULED category when current time outside range', async () => {
-      // Pin to 2026-01-14T18:00Z = 20:00 Sofia — outside 09:00-17:00
+      // Pin to 2026-01-14T18:00Z = 20:00 Sofia вЂ” outside 09:00-17:00
       const spy = jest
         .spyOn(DateTime, 'now')
         .mockReturnValue(
@@ -279,9 +301,7 @@ describe('MenuCrudService', () => {
       expect(result.categories[0]?.id).toBe('cat-1');
     });
 
-    it('calls applyLazyTranslations when lang in targetLanguages and DEEPL_API_KEY set', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
+    it('calls applyLazyTranslations when lang in targetLanguages and translation provider enabled', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -290,17 +310,12 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenu('rest-1', 'bg');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'bg',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
     it('translates the full menu into the dashboard language without requiring multi-language targets', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         dashboardLanguage: 'en',
@@ -311,12 +326,9 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenu('rest-1', 'en');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'en',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
 
     it('does not call applyLazyTranslations when lang not in targetLanguages', async () => {
@@ -328,11 +340,13 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenu('rest-1', 'ro');
 
-      expect(mockMenuTranslation.applyLazyTranslations).not.toHaveBeenCalled();
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).not.toHaveBeenCalled();
     });
   });
 
-  // ── getPublicMenuMeta ─────────────────────────────────────────────────────
+  // в”Ђв”Ђ getPublicMenuMeta в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('getPublicMenuMeta', () => {
     it('throws NotFoundException when restaurant not found', async () => {
@@ -367,7 +381,7 @@ describe('MenuCrudService', () => {
     });
 
     it('strips branding fields when effective tier lacks BRANDING_CUSTOM', async () => {
-      // BASE_RESTAURANT is FREE — branding must not render on the public menu
+      // BASE_RESTAURANT is FREE вЂ” branding must not render on the public menu
       // even if stale columns persist from a prior paid tier (downgrade).
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.findMany.mockResolvedValue([]);
@@ -410,9 +424,7 @@ describe('MenuCrudService', () => {
       expect(restaurant).toMatchObject({ accentColor: '#FF0000' });
     });
 
-    it('translates category names when lang is a target language and DEEPL_API_KEY is set', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
+    it('translates category names when lang is a target language and translation provider is enabled', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -421,17 +433,12 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenuMeta('rest-1', 'bg');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'bg',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
     it('uses the dashboard language by default without requiring multi-language targets', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         dashboardLanguage: 'en',
@@ -442,17 +449,12 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenuMeta('rest-1');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'en',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
 
     it('uses the dashboard language when lang is not a target language', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -461,17 +463,12 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenuMeta('rest-1', 'zz');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'bg',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
     it('matches a requested target language case-insensitively', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -480,16 +477,13 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenuMeta('rest-1', 'BG');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'bg',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
   });
 
-  // ── getCategoryItems ──────────────────────────────────────────────────────
+  // в”Ђв”Ђ getCategoryItems в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('getCategoryItems', () => {
     it('throws NotFoundException when category not found', async () => {
@@ -513,8 +507,6 @@ describe('MenuCrudService', () => {
     });
 
     it('translates items into the dashboard language without requiring multi-language targets', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         dashboardLanguage: 'en',
@@ -526,17 +518,14 @@ describe('MenuCrudService', () => {
 
       await service.getCategoryItems('rest-1', 'cat-1', 'en');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'en',
-      );
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.objectContaining({ dashboardLanguage: true }),
         }),
       );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
     });
 
     it('throws ForbiddenException for a hidden category', async () => {
@@ -584,7 +573,7 @@ describe('MenuCrudService', () => {
     });
   });
 
-  // ── getTrendingItems ──────────────────────────────────────────────────────
+  // в”Ђв”Ђ getTrendingItems в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('getPublicMenuItems', () => {
     it('throws NotFoundException when restaurant not found', async () => {
@@ -681,8 +670,6 @@ describe('MenuCrudService', () => {
     });
 
     it('calls applyLazyTranslations once for the whole menu when lang valid and DEEPL key set', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.findMany.mockResolvedValue([
         makeCategory({ items: [makeItem()] }),
@@ -690,15 +677,12 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenuItems('rest-1', 'bg');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledTimes(
-        1,
-      );
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'bg',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
   });
 
@@ -1135,9 +1119,7 @@ describe('MenuCrudService', () => {
       expect(result).toHaveLength(1);
     });
 
-    it('translates trending item names when lang is a target language and DEEPL_API_KEY is set', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
+    it('translates trending item names when lang is a target language and translation provider is enabled', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         trendingMode: 'MANUAL',
         id: 'rest-1',
@@ -1149,17 +1131,12 @@ describe('MenuCrudService', () => {
 
       await service.getTrendingItems('rest-1', 'bg');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'bg',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
     it('translates trending items into the dashboard language when it is not a target language', async () => {
-      const prevKey = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         trendingMode: 'MANUAL',
         id: 'rest-1',
@@ -1172,12 +1149,9 @@ describe('MenuCrudService', () => {
 
       await service.getTrendingItems('rest-1', 'ro');
 
-      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        expect.any(Array),
-        'ro',
-      );
-      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
-      else process.env.DEEPL_API_KEY = prevKey;
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'ro');
     });
 
     it('does not translate trending items when lang is not a target language', async () => {
@@ -1192,11 +1166,13 @@ describe('MenuCrudService', () => {
 
       await service.getTrendingItems('rest-1', 'zz');
 
-      expect(mockMenuTranslation.applyLazyTranslations).not.toHaveBeenCalled();
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).not.toHaveBeenCalled();
     });
   });
 
-  // ── Category CRUD ─────────────────────────────────────────────────────────
+  // в”Ђв”Ђ Category CRUD в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('createCategory', () => {
     it('throws NotFoundException when restaurant not found', async () => {
@@ -1339,6 +1315,39 @@ describe('MenuCrudService', () => {
       });
       expect(mockPrisma.printStation.findUnique).not.toHaveBeenCalled();
     });
+
+    it('enqueues translation work and kicks the worker when the tier has multi-language + target languages configured', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+      const created = makeCategory({ order: 0 });
+      mockPrisma.menuCategory.create.mockResolvedValue(created);
+
+      await service.createCategory('rest-1', { name: 'Starters' }, 'user-1');
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueCategory).toHaveBeenCalledWith(
+        'rest-1',
+        created,
+        ['en', 'bg'],
+        'bg',
+      );
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not enqueue translation work when the tier lacks multi-language (FREE)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT); // FREE
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+      mockPrisma.menuCategory.create.mockResolvedValue(makeCategory());
+
+      await service.createCategory('rest-1', { name: 'Starters' }, 'user-1');
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAllCategories', () => {
@@ -1424,6 +1433,53 @@ describe('MenuCrudService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('enqueues translation work when the name actually changed', async () => {
+      mockPrisma.menuCategory.findUnique.mockResolvedValue(
+        makeCategory({ name: 'Starters' }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      const updated = makeCategory({ name: 'Updated' });
+      mockPrisma.menuCategory.update.mockResolvedValue(updated);
+
+      await service.updateCategory('cat-1', { name: 'Updated' }, 'user-1');
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueCategory).toHaveBeenCalledWith(
+        'rest-1',
+        updated,
+        ['en', 'bg'],
+        'bg',
+      );
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not enqueue translation work when the name is unchanged', async () => {
+      mockPrisma.menuCategory.findUnique.mockResolvedValue(
+        makeCategory({ name: 'Starters' }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.update.mockResolvedValue(
+        makeCategory({ name: 'Starters' }),
+      );
+
+      await service.updateCategory(
+        'cat-1',
+        { name: 'Starters', order: 5 } as Parameters<
+          typeof service.updateCategory
+        >[1],
+        'user-1',
+      );
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateCategoryOrder', () => {
@@ -1504,7 +1560,7 @@ describe('MenuCrudService', () => {
     });
   });
 
-  // ── Item CRUD ─────────────────────────────────────────────────────────────
+  // в”Ђв”Ђ Item CRUD в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('createItem', () => {
     it('throws NotFoundException when category not found', async () => {
@@ -1606,6 +1662,34 @@ describe('MenuCrudService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('enqueues translation work and kicks the worker when the tier has multi-language configured', async () => {
+      mockPrisma.menuCategory.findUnique.mockResolvedValue({
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuItem.count.mockResolvedValue(0);
+      const created = makeItem();
+      mockPrisma.menuItem.create.mockResolvedValue(created);
+
+      await service.createItem(
+        'cat-1',
+        { name: 'Soup', price: 5 } as Parameters<typeof service.createItem>[1],
+        'user-1',
+      );
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueItem).toHaveBeenCalledWith(
+        'rest-1',
+        created,
+        ['en', 'bg'],
+        'bg',
+      );
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('findAllItemsInCategory', () => {
@@ -1690,6 +1774,47 @@ describe('MenuCrudService', () => {
       await service.updateItem('item-1', { isOutOfStock: false }, 'user-1');
 
       expect(mockEvents.emitPublicMenuItemAvailability).not.toHaveBeenCalled();
+    });
+
+    it('enqueues translation work when the name changed', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue(
+        makeItem({ name: 'Soup' }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      const updated = makeItem({ name: 'Updated Soup' });
+      mockPrisma.menuItem.update.mockResolvedValue(updated);
+
+      await service.updateItem('item-1', { name: 'Updated Soup' }, 'user-1');
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueItem).toHaveBeenCalledWith(
+        'rest-1',
+        updated,
+        ['en', 'bg'],
+        'bg',
+      );
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not enqueue translation work when neither name nor description changed', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue(
+        makeItem({ name: 'Soup', description: 'Hot soup' }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuItem.update.mockResolvedValue(
+        makeItem({ name: 'Soup', description: 'Hot soup' }),
+      );
+
+      await service.updateItem('item-1', { isOutOfStock: true }, 'user-1');
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueItem).not.toHaveBeenCalled();
     });
   });
 
@@ -1791,7 +1916,7 @@ describe('MenuCrudService', () => {
     });
   });
 
-  // ── Option CRUD ───────────────────────────────────────────────────────────
+  // в”Ђв”Ђ Option CRUD в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   describe('createMenuOption', () => {
     it('throws NotFoundException when item not found', async () => {
@@ -1861,6 +1986,43 @@ describe('MenuCrudService', () => {
       expect(mockPrisma.menuOption.create).toHaveBeenCalled();
       expect(result.name).toBe('Size');
     });
+
+    it('enqueues translation work with the parsed choices when the tier has multi-language configured', async () => {
+      const option = {
+        id: 'opt-1',
+        name: 'Size',
+        choices: [{ name: 'Small', priceModifier: 0 }],
+        menuItemId: 'item-1',
+      };
+      mockPrisma.menuItem.findUnique.mockResolvedValue(makeItem());
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuOption.create.mockResolvedValue(option);
+
+      await service.createMenuOption(
+        'item-1',
+        {
+          name: 'Size',
+          choices: '[{"name":"Small","priceModifier":0}]',
+        } as Parameters<typeof service.createMenuOption>[1],
+        'user-1',
+      );
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
+        'rest-1',
+        {
+          id: 'opt-1',
+          name: 'Size',
+          choices: [{ name: 'Small', priceModifier: 0 }],
+        },
+        ['en', 'bg'],
+        'bg',
+      );
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('updateMenuOption', () => {
@@ -1913,6 +2075,38 @@ describe('MenuCrudService', () => {
 
       expect(result.name).toBe('Updated');
     });
+
+    it('enqueues translation work unconditionally (hash-based dedup handles no-op updates)', async () => {
+      mockPrisma.menuOption.findUnique.mockResolvedValue({
+        translations: {},
+        menuItem: { category: { restaurantId: 'rest-1' } },
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      const updated = {
+        id: 'opt-1',
+        name: 'Updated',
+        choices: [{ name: 'Large', priceModifier: 1 }],
+      };
+      mockPrisma.menuOption.update.mockResolvedValue(updated);
+
+      await service.updateMenuOption('opt-1', { name: 'Updated' }, 'user-1');
+      await flushMicrotasks();
+
+      expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
+        'rest-1',
+        {
+          id: 'opt-1',
+          name: 'Updated',
+          choices: [{ name: 'Large', priceModifier: 1 }],
+        },
+        ['en', 'bg'],
+        'bg',
+      );
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('removeMenuOption', () => {
@@ -1939,7 +2133,7 @@ describe('MenuCrudService', () => {
     });
   });
 
-  // ── Image cleanup — shared-URL reference guard ────────────────────────────
+  // в”Ђв”Ђ Image cleanup вЂ” shared-URL reference guard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
   describe('shared image URL guard on delete', () => {
     const SHARED = 'https://cdn.example.com/shared.webp';
     const SHARED_THUMB = 'https://cdn.example.com/shared_thumb.webp';

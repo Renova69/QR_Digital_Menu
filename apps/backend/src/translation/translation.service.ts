@@ -1,32 +1,32 @@
-import { Injectable, Logger } from '@nestjs/common';
-import axios, { AxiosInstance } from 'axios';
-import * as https from 'https';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  ITranslationProvider,
+  TRANSLATION_PROVIDER,
+  TranslateOptions,
+} from './translation-provider.interface';
+import { GlossaryService } from './glossary.service';
+import { isGarbageTranslation } from './translation-validator';
 
 @Injectable()
 export class TranslationService {
   private readonly logger = new Logger(TranslationService.name);
 
-  // Shared instance with keep-alive agent — prevents TLS socket listener accumulation
-  private readonly http: AxiosInstance = axios.create({
-    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 4 }),
-    timeout: 8_000,
-  });
+  constructor(
+    @Inject(TRANSLATION_PROVIDER)
+    private readonly provider: ITranslationProvider,
+    private readonly glossary: GlossaryService,
+  ) {}
 
-  // Conservative: DeepL free = 5 req/s, paid = higher but stay safe
+  // Conservative: DeepL free = 5 req/s, paid = higher but stay safe. Kept
+  // for self-hosted providers too — a shared delay between per-language
+  // calls is a harmless default even when the provider has no rate limit.
   private static readonly LANG_DELAY_MS = 250;
 
-  // Retry tuning for transient DeepL errors (429 Too Many Requests / 5xx).
-  // DeepL Free aggressively rate-limits concurrent bursts, so without backoff a
-  // large "Translate All" loses ~half its requests. Quota errors (456) and other
-  // 4xx are NOT retried — retrying a quota wall just wastes time.
-  private static readonly MAX_RETRIES = 5;
-  private static readonly RETRY_BASE_MS = 500;
-
-  // Circuit breaker: during a sustained DeepL outage, retrying every request
-  // (5 × exponential backoff each) blocks every public-menu render. After this
-  // many consecutive failures the breaker opens and translateTexts fast-fails
-  // for a cooldown window — callers fall back to original text without blocking,
-  // and nothing untranslated gets cached.
+  // Circuit breaker: during a sustained provider outage, retrying every
+  // request blocks every public-menu render. After this many consecutive
+  // failures the breaker opens and translateTexts fast-fails for a cooldown
+  // window — callers fall back to original text without blocking, and
+  // nothing untranslated gets cached.
   private static readonly CIRCUIT_THRESHOLD = 5;
   private static readonly CIRCUIT_COOLDOWN_MS = 60_000;
   private consecutiveFailures = 0;
@@ -49,39 +49,92 @@ export class TranslationService {
     }
   }
 
-  private get apiKey(): string | undefined {
-    return process.env.DEEPL_API_KEY;
-  }
-
-  private get baseUrl(): string {
-    return this.apiKey?.endsWith(':fx')
-      ? 'https://api-free.deepl.com'
-      : 'https://api.deepl.com';
-  }
-
   private sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));
   }
 
-  /** Transient errors worth retrying: rate limit (429), DeepL overload (529), 5xx. */
-  private isRetryable(status?: number): boolean {
-    return (
-      status === 429 ||
-      status === 529 ||
-      (typeof status === 'number' && status >= 500)
-    );
+  /** Whether the active provider is configured to actually run (vs a no-op fallback). */
+  isEnabled(): boolean {
+    return this.provider.isConfigured();
+  }
+
+  /** Active provider's batch cap — callers chunk large text lists to this size. */
+  get maxBatchSize(): number {
+    return this.provider.maxBatchSize;
+  }
+
+  private normalizeForGlossary(text: string): string {
+    return text.trim().toLowerCase();
   }
 
   async translateTexts(
     texts: string[],
     targetLanguage: string,
+    sourceLanguage?: string,
+    opts?: TranslateOptions,
   ): Promise<string[]> {
     if (!texts || texts.length === 0) return texts;
 
-    const key = this.apiKey;
-    if (!key) {
-      this.logger.warn('DEEPL_API_KEY not set — returning original texts');
-      return texts;
+    // Dedupe identical source strings so the provider is only asked to
+    // translate each distinct string once per request (saves characters +
+    // requests). Results are mapped back onto the original positions.
+    const unique = [...new Set(texts)];
+
+    // Glossary check runs first and unconditionally (given a known source
+    // language) — known terms resolve for free regardless of whether a
+    // provider is configured or healthy. This is what fixes short/rare-word
+    // menu vocabulary (e.g. "Мезета") that NMT/LLM providers translate
+    // unreliably: known terms never reach the model at all.
+    let glossaryHits = new Map<string, string>();
+    if (sourceLanguage) {
+      try {
+        glossaryHits = await this.glossary.lookupBatch(
+          sourceLanguage,
+          unique,
+          targetLanguage,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Glossary lookup failed, falling back to provider for all texts: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const bySource = new Map<string, string>();
+    for (const t of unique) {
+      const hit = glossaryHits.get(this.normalizeForGlossary(t));
+      if (hit !== undefined) bySource.set(t, hit);
+    }
+    const toTranslate = unique.filter((t) => !bySource.has(t));
+
+    if (glossaryHits.size > 0) {
+      this.logger.log(
+        `Glossary matched ${bySource.size}/${unique.length} texts for ${targetLanguage} — ${toTranslate.length} left for the provider`,
+      );
+    }
+
+    if (toTranslate.length === 0) {
+      // Fully served by the glossary — provider never touched.
+      return texts.map((t) => bySource.get(t) ?? t);
+    }
+
+    // NOTE: this used to have a "glossary-only mode" branch here that
+    // returned source text for anything not in the glossary whenever
+    // sourceLanguage was known — which was every real call, since every
+    // caller passes restaurant.dashboardLanguage. That made the provider
+    // below permanently unreachable and is the root cause the 2026-07-25
+    // translation rework fixed (see "Dynamic Menu Translation
+    // Architecture.md"). Do not reintroduce it — if a provider's model
+    // proves unreliable on short input again, fix that in
+    // isGarbageTranslation (translation-validator.ts) or the glossary, not
+    // by skipping the provider entirely.
+
+    if (!this.provider.isConfigured()) {
+      this.logger.warn(
+        'Translation provider not configured — returning original texts for non-glossary entries',
+      );
+      for (const t of toTranslate) bySource.set(t, t);
+      return texts.map((t) => bySource.get(t) ?? t);
     }
 
     // Fast-fail while the breaker is open instead of blocking on 5× backoff per
@@ -89,103 +142,80 @@ export class TranslationService {
     // failure (skip DB writes, render original text).
     if (this.isCircuitOpen()) {
       this.logger.warn(
-        'DeepL circuit open — skipping translation until cooldown elapses',
+        'Translation circuit open — skipping translation until cooldown elapses',
       );
-      throw new Error('DeepL circuit open (degraded mode)');
+      throw new Error('Translation circuit open (degraded mode)');
     }
 
-    // Dedupe identical source strings so DeepL is only asked to translate each
-    // distinct string once per request (saves characters + requests). Results
-    // are mapped back onto the original positions.
-    const unique = [...new Set(texts)];
-    let translatedUnique: string[];
+    const startedAt = Date.now();
+    this.logger.log(
+      `Calling translation provider: ${toTranslate.length} texts -> ${targetLanguage}${sourceLanguage ? ` (source=${sourceLanguage})` : ''}`,
+    );
+    let translatedToTranslate: string[];
     try {
-      translatedUnique = await this.postTranslate(unique, targetLanguage);
+      translatedToTranslate = await this.provider.translateBatch(
+        toTranslate,
+        targetLanguage,
+        sourceLanguage,
+        opts,
+      );
       this.recordSuccess();
+      this.logger.log(
+        `Provider call done: ${toTranslate.length} texts -> ${targetLanguage} in ${Date.now() - startedAt}ms`,
+      );
     } catch (err) {
       this.recordFailure();
       throw err;
     }
-    const bySource = new Map<string, string>();
-    for (let i = 0; i < unique.length; i++) {
-      bySource.set(unique[i], translatedUnique[i] ?? unique[i]);
+    // Garbage detection used to fall back to `translated = source` — which
+    // is exactly the same poisoning shape as the removed glossary-only
+    // gate: an unrecognized/failed translation silently stored as if it
+    // were a real one, which then makes needsTranslation()-style presence
+    // checks skip the entity forever. A chunk with any detected garbage
+    // throws instead, so Phase 2's catch in
+    // MenuTranslationService.applyLazyTranslations skips the DB write for
+    // this chunk entirely — the affected units stay STALE and are retried
+    // (with backoff) rather than getting a wrong-but-"successful" value
+    // cached. This does discard the other, legitimate translations in the
+    // same chunk; that's an acceptable trade for never writing garbage,
+    // and chunks are capped at the provider's maxBatchSize (50 for DeepL).
+    const garbageDetections: string[] = [];
+    for (let i = 0; i < toTranslate.length; i++) {
+      const source = toTranslate[i];
+      const translated = translatedToTranslate[i];
+
+      if (
+        translated &&
+        isGarbageTranslation(source, translated, targetLanguage)
+      ) {
+        garbageDetections.push(`"${source}" -> "${translated}"`);
+        continue;
+      }
+
+      bySource.set(source, translated ?? source);
+    }
+
+    if (garbageDetections.length > 0) {
+      const message = `Garbage translation detected for ${targetLanguage}: ${garbageDetections.slice(0, 5).join('; ')}${garbageDetections.length > 5 ? `; +${garbageDetections.length - 5} more` : ''}`;
+      this.logger.warn(message);
+      throw new Error(message);
     }
     return texts.map((t) => bySource.get(t) ?? t);
   }
 
-  /** Single DeepL POST with exponential backoff + jitter on transient errors. */
-  private async postTranslate(
-    texts: string[],
+  async translateText(
+    text: string,
     targetLanguage: string,
-  ): Promise<string[]> {
-    const key = this.apiKey as string;
-    let lastError: unknown;
-
-    for (
-      let attempt = 0;
-      attempt <= TranslationService.MAX_RETRIES;
-      attempt++
-    ) {
-      try {
-        const response = await this.http.post(
-          `${this.baseUrl}/v2/translate`,
-          {
-            text: texts,
-            target_lang: targetLanguage.toUpperCase(),
-          },
-          {
-            headers: {
-              Authorization: `DeepL-Auth-Key ${key}`,
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        return response.data?.translations?.map((t: any) => t.text) || texts;
-      } catch (error: unknown) {
-        lastError = error;
-        const axiosErr = error as any;
-        const status = axiosErr?.response?.status;
-
-        if (
-          !this.isRetryable(status) ||
-          attempt === TranslationService.MAX_RETRIES
-        ) {
-          const deepLMsg = axiosErr?.response?.data?.message;
-          const detail = deepLMsg
-            ? `DeepL ${status}: ${deepLMsg}`
-            : error instanceof Error
-              ? error.message
-              : String(error);
-          this.logger.error(
-            `Failed to translate texts to ${targetLanguage}: ${detail}`,
-          );
-          // Re-throw so callers can choose not to write untranslated content to DB.
-          throw error;
-        }
-
-        // Honor Retry-After when present, otherwise exponential backoff + jitter.
-        const retryAfter = Number(axiosErr?.response?.headers?.['retry-after']);
-        const backoff =
-          TranslationService.RETRY_BASE_MS * 2 ** attempt +
-          Math.floor(Math.random() * 250);
-        const waitMs =
-          Number.isFinite(retryAfter) && retryAfter > 0
-            ? retryAfter * 1000
-            : backoff;
-        this.logger.warn(
-          `DeepL ${status} for ${targetLanguage} — retry ${attempt + 1}/${TranslationService.MAX_RETRIES} in ${waitMs}ms`,
-        );
-        await this.sleep(waitMs);
-      }
-    }
-
-    throw lastError;
-  }
-
-  async translateText(text: string, targetLanguage: string): Promise<string> {
+    sourceLanguage?: string,
+    opts?: TranslateOptions,
+  ): Promise<string> {
     try {
-      const results = await this.translateTexts([text], targetLanguage);
+      const results = await this.translateTexts(
+        [text],
+        targetLanguage,
+        sourceLanguage,
+        opts,
+      );
       return results[0] || text;
     } catch {
       return text;
@@ -195,6 +225,8 @@ export class TranslationService {
   async translateObject(
     obj: Record<string, string | null | undefined>,
     targetLanguages: string[],
+    sourceLanguage?: string,
+    opts?: TranslateOptions,
   ): Promise<Record<string, Record<string, string>>> {
     const translations: Record<string, Record<string, string>> = {};
 
@@ -202,8 +234,10 @@ export class TranslationService {
       return translations;
     }
 
-    if (!this.apiKey) {
-      this.logger.warn('DEEPL_API_KEY not set — skipping translateObject');
+    if (!this.provider.isConfigured()) {
+      this.logger.warn(
+        'Translation provider not configured — skipping translateObject',
+      );
       return translations;
     }
 
@@ -222,7 +256,12 @@ export class TranslationService {
       const lang = targetLanguages[i];
 
       try {
-        const translatedTexts = await this.translateTexts(texts, lang);
+        const translatedTexts = await this.translateTexts(
+          texts,
+          lang,
+          sourceLanguage,
+          opts,
+        );
         translations[lang] = {};
         for (let j = 0; j < keys.length; j++) {
           translations[lang][keys[j]] = translatedTexts[j] || texts[j];
@@ -235,7 +274,7 @@ export class TranslationService {
         lastError = error;
       }
 
-      // Delay between language calls to respect DeepL rate limit
+      // Delay between language calls to respect provider rate limits.
       if (i < targetLanguages.length - 1) {
         await this.sleep(TranslationService.LANG_DELAY_MS);
       }

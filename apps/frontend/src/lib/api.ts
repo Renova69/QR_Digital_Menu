@@ -235,6 +235,24 @@ export const triggerTranslation = async (restaurantId: string) => {
   return response.data;
 };
 
+export interface TranslationStatus {
+  pending: number;
+  failed: number;
+  current: number;
+  active: boolean;
+  latestRunId: string | null;
+  latestRunStatus: string | null;
+}
+
+export const getTranslationStatus = async (
+  restaurantId: string,
+): Promise<TranslationStatus> => {
+  const response = await api.get(
+    `/restaurants/${restaurantId}/translation-status`,
+  );
+  return response.data;
+};
+
 // Tables
 export type ServicePointType = "TABLE" | "ROOM" | "PICKUP" | "OTHER";
 export type FulfillmentMode = "DINE_IN" | "ROOM_DELIVERY" | "PICKUP";

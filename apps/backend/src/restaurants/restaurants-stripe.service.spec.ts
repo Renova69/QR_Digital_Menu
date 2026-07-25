@@ -3,6 +3,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { FeatureService } from '../subscription/feature.service';
 import { DeviceEnrollmentService } from './device-enrollment.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { EventsGateway } from '../events/events.gateway';
 
 describe('RestaurantsService — Stripe Connect', () => {
   let service: RestaurantsService;
@@ -51,6 +52,10 @@ describe('RestaurantsService — Stripe Connect', () => {
       {
         revokeRestaurantDevices: jest.fn(),
       } as unknown as DeviceEnrollmentService,
+      { emitToRestaurant: jest.fn() } as unknown as EventsGateway,
+      {} as any, // MenuTranslationEnqueueService — unused by this describe block
+      {} as any, // MenuTranslationWorkerService — unused by this describe block
+      {} as any, // TranslationQuotaService — unused by this describe block
     );
   });
 

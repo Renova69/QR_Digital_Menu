@@ -12,6 +12,8 @@ import {
 import { MenuCrudService } from '../src/menu/menu-crud.service';
 import { OrdersService } from '../src/orders/orders.service';
 import { MenuTranslationService } from '../src/menu/menu-translation.service';
+import { MenuTranslationReadService } from '../src/menu/menu-translation-read.service';
+import { MenuTranslationEnqueueService } from '../src/menu/menu-translation-enqueue.service';
 import { ensureLoyaltyAccount } from '../src/loyalty/loyalty-ledger.utils';
 import { PaymentCoreService } from '../src/payment/core/payment-core.service';
 import { PaymentProviderConfigService } from '../src/payment/payment-provider-config.service';
@@ -986,152 +988,158 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     });
   });
 
-  it('preserves concurrent lazy writes across every category/item/option pre-warm path', async () => {
-    const previousDeepLKey = process.env.DEEPL_API_KEY;
-    process.env.DEEPL_API_KEY = 'concurrency-test';
+  // Post translation-rework (2026-07-25): owner edits no longer trigger a
+  // synchronous provider call at all — MenuCrudService's pre-warm sites now
+  // only enqueue a MenuTranslationState row (via MenuTranslationEnqueueService)
+  // and kick MenuTranslationWorkerService, which is the only thing that ever
+  // calls MenuTranslationService.applyLazyTranslations (and thus the only
+  // thing that writes menu_{category,item,option}.translations). So the
+  // race this test now exercises is: enqueue (a menu_translation_state
+  // upsert) running concurrently with a direct applyLazyTranslations write
+  // to the SAME entity for a DIFFERENT locale — verifying enqueuing never
+  // corrupts a concurrent translations-column write, and that the edit
+  // correctly queues STALE work for the restaurant's configured languages.
+  it('enqueues translation work without corrupting a concurrent lazy-translation write, across every category/item/option edit path', async () => {
+    const { owner, restaurant } = await createRestaurantFixture(
+      'translation-prewarm',
+    );
+    const category = await prisma.menuCategory.create({
+      data: {
+        name: 'Starters',
+        restaurantId: restaurant.id,
+        order: 1,
+        daysOfWeek: [],
+      },
+    });
+    const item = await prisma.menuItem.create({
+      data: {
+        name: 'Soup',
+        description: 'Hot soup',
+        price: 5,
+        currency: Currency.EUR,
+        allergens: ['milk'],
+        dietaryTags: ['vegetarian'],
+        categoryId: category.id,
+        order: 1,
+      },
+    });
+    const option = await prisma.menuOption.create({
+      data: {
+        name: 'Size',
+        type: OptionType.ADDON,
+        choices: [{ name: 'Large', price: 2 }],
+        menuItemId: item.id,
+      },
+    });
 
-    try {
-      const { owner, restaurant } = await createRestaurantFixture(
-        'translation-prewarm',
-      );
-      const category = await prisma.menuCategory.create({
-        data: {
-          name: 'Starters',
-          restaurantId: restaurant.id,
-          order: 1,
-          daysOfWeek: [],
-        },
+    const lazyTranslator = {
+      translateTexts: jest.fn(async (texts: string[], lang: string) =>
+        texts.map((text) => `${text}-${lang}`),
+      ),
+    };
+    const lazyService = new MenuTranslationService(
+      prisma as never,
+      lazyTranslator as never,
+    );
+    const translationEnqueue = new MenuTranslationEnqueueService(
+      prisma as never,
+    );
+    const stubWorker = { kick: jest.fn() };
+    const crud = new MenuCrudService(
+      prisma as never,
+      new MenuTranslationReadService(),
+      translationEnqueue,
+      stubWorker as never,
+      {
+        getEffectiveTier: () => 'FREE',
+        hasFeature: () => false,
+        restaurantHasFeature: () => true,
+      } as never,
+      { delete: jest.fn() } as never,
+      { emitPublicMenuItemAvailability: jest.fn() } as never,
+      { getContexts: jest.fn().mockResolvedValue(new Set()) } as never,
+    );
+
+    const loadMenuSnapshot = () =>
+      prisma.menuCategory.findMany({
+        where: { id: category.id },
+        include: { items: { include: { options: true } } },
       });
-      const item = await prisma.menuItem.create({
-        data: {
-          name: 'Soup',
-          description: 'Hot soup',
-          price: 5,
-          currency: Currency.EUR,
-          allergens: ['milk'],
-          dietaryTags: ['vegetarian'],
-          categoryId: category.id,
-          order: 1,
-        },
-      });
-      const option = await prisma.menuOption.create({
-        data: {
-          name: 'Size',
-          type: OptionType.ADDON,
-          choices: [{ name: 'Large', price: 2 }],
-          menuItemId: item.id,
-        },
-      });
 
-      const lazyTranslator = {
-        translateTexts: jest.fn(async (texts: string[], lang: string) =>
-          texts.map((text) => `${text}-${lang}`),
-        ),
-      };
-      const lazyService = new MenuTranslationService(
-        prisma as never,
-        lazyTranslator as never,
-      );
-      const prewarmTranslator = {
-        translateObject: jest.fn(),
-      };
-      const crud = new MenuCrudService(
-        prisma as never,
-        prewarmTranslator as never,
-        lazyService,
-        {
-          getEffectiveTier: () => 'FREE',
-          hasFeature: () => false,
-          restaurantHasFeature: () => true,
-        } as never,
-        { delete: jest.fn() } as never,
-        { emitPublicMenuItemAvailability: jest.fn() } as never,
-        { getContexts: jest.fn().mockResolvedValue(new Set()) } as never,
-      );
-
-      const loadMenuSnapshot = () =>
-        prisma.menuCategory.findMany({
-          where: { id: category.id },
-          include: { items: { include: { options: true } } },
-        });
-
-      const racePrewarmWithLazy = async (
-        startPrewarm: () => Promise<unknown>,
-        prewarmResult: Record<string, unknown>,
-        lazyLanguage: string,
-        readTranslations: () => Promise<unknown>,
-      ) => {
-        let releasePrewarm!: (value: Record<string, unknown>) => void;
-        const prewarmBlocked = new Promise<Record<string, unknown>>(
-          (resolve) => {
-            releasePrewarm = resolve;
-          },
-        );
-        prewarmTranslator.translateObject.mockReturnValueOnce(prewarmBlocked);
-
-        await startPrewarm();
-        expect(prewarmTranslator.translateObject).toHaveBeenCalled();
-        await lazyService.applyLazyTranslations(
+    const raceEnqueueWithLazy = async (
+      startEnqueue: () => Promise<unknown>,
+      entityType: 'CATEGORY' | 'ITEM' | 'OPTION',
+      entityId: string,
+      lazyLanguage: string,
+      readTranslations: () => Promise<unknown>,
+    ) => {
+      await Promise.all([
+        startEnqueue(),
+        lazyService.applyLazyTranslations(
           await loadMenuSnapshot(),
           lazyLanguage,
-        );
-        releasePrewarm(prewarmResult);
+        ),
+      ]);
 
-        await waitFor(async () => {
-          expect(await readTranslations()).toMatchObject({
-            de: expect.any(Object),
-            [lazyLanguage]: expect.any(Object),
-          });
-        });
-      };
+      // The lazy (direct applyLazyTranslations) write for its own locale
+      // must have landed untouched by the concurrent enqueue.
+      expect(await readTranslations()).toMatchObject({
+        [lazyLanguage]: expect.any(Object),
+      });
 
-      await racePrewarmWithLazy(
-        () =>
-          crud.updateCategory(
-            category.id,
-            { name: 'Updated starters' },
-            owner.id,
-          ),
-        { de: { name: 'Vorspeisen' } },
-        'fr',
-        async () =>
-          (
-            await prisma.menuCategory.findUniqueOrThrow({
-              where: { id: category.id },
-            })
-          ).translations,
-      );
+      // The edit must have queued STALE work for the restaurant's
+      // configured target languages (de, fr — see createRestaurantFixture).
+      const queuedRows = await prisma.menuTranslationState.findMany({
+        where: { entityType, entityId, field: 'NAME' },
+      });
+      expect(queuedRows.map((r) => r.locale).sort()).toEqual(['de', 'fr']);
+      expect(queuedRows.every((r) => r.status === 'STALE')).toBe(true);
+      expect(stubWorker.kick).toHaveBeenCalled();
+    };
 
-      await racePrewarmWithLazy(
-        () => crud.updateItem(item.id, { name: 'Updated soup' }, owner.id),
-        { de: { name: 'Suppe' } },
-        'es',
-        async () =>
-          (
-            await prisma.menuItem.findUniqueOrThrow({
-              where: { id: item.id },
-            })
-          ).translations,
-      );
+    await raceEnqueueWithLazy(
+      () =>
+        crud.updateCategory(
+          category.id,
+          { name: 'Updated starters' },
+          owner.id,
+        ),
+      'CATEGORY',
+      category.id,
+      'es',
+      async () =>
+        (
+          await prisma.menuCategory.findUniqueOrThrow({
+            where: { id: category.id },
+          })
+        ).translations,
+    );
 
-      await racePrewarmWithLazy(
-        () =>
-          crud.updateMenuOption(option.id, { name: 'Updated size' }, owner.id),
-        { de: { name: 'Größe' } },
-        'it',
-        async () =>
-          (
-            await prisma.menuOption.findUniqueOrThrow({
-              where: { id: option.id },
-            })
-          ).translations,
-      );
-    } finally {
-      if (previousDeepLKey === undefined) {
-        delete process.env.DEEPL_API_KEY;
-      } else {
-        process.env.DEEPL_API_KEY = previousDeepLKey;
-      }
-    }
+    await raceEnqueueWithLazy(
+      () => crud.updateItem(item.id, { name: 'Updated soup' }, owner.id),
+      'ITEM',
+      item.id,
+      'it',
+      async () =>
+        (
+          await prisma.menuItem.findUniqueOrThrow({
+            where: { id: item.id },
+          })
+        ).translations,
+    );
+
+    await raceEnqueueWithLazy(
+      () =>
+        crud.updateMenuOption(option.id, { name: 'Updated size' }, owner.id),
+      'OPTION',
+      option.id,
+      'ro',
+      async () =>
+        (
+          await prisma.menuOption.findUniqueOrThrow({
+            where: { id: option.id },
+          })
+        ).translations,
+    );
   });
 });

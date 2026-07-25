@@ -74,6 +74,10 @@ describe('RestaurantsService', () => {
   let mockStripe: Record<string, jest.Mock>;
   let mockFeature: Record<string, jest.Mock>;
   let mockDeviceEnrollment: Record<string, jest.Mock>;
+  let mockEvents: Record<string, jest.Mock>;
+  let mockTranslationEnqueue: Record<string, jest.Mock>;
+  let mockTranslationWorker: Record<string, jest.Mock>;
+  let mockTranslationQuota: Record<string, jest.Mock>;
 
   beforeEach(() => {
     mockPrisma = {
@@ -100,10 +104,40 @@ describe('RestaurantsService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
       },
+      translationRun: {
+        create: jest.fn().mockResolvedValue({ id: 'run-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'run-1' }),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      menuTranslationState: {
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
     };
 
     mockTranslation = {
       translateObject: jest.fn().mockResolvedValue({}),
+      isEnabled: jest.fn().mockReturnValue(true),
+    };
+
+    mockTranslationEnqueue = {
+      enqueueCategory: jest.fn().mockResolvedValue(undefined),
+      enqueueItem: jest.fn().mockResolvedValue(undefined),
+      enqueueOption: jest.fn().mockResolvedValue(undefined),
+      enqueueBatch: jest
+        .fn()
+        .mockImplementation(async (thunks: Array<() => Promise<void>>) => {
+          for (const thunk of thunks) await thunk();
+        }),
+    };
+
+    mockTranslationWorker = {
+      kick: jest.fn(),
+    };
+
+    mockTranslationQuota = {
+      assertCanSpend: jest
+        .fn()
+        .mockResolvedValue({ allowed: true, remaining: 1000 }),
     };
 
     mockStripe = {
@@ -140,6 +174,10 @@ describe('RestaurantsService', () => {
         .mockResolvedValue({ success: true, count: 0 }),
     };
 
+    mockEvents = {
+      emitToRestaurant: jest.fn(),
+    };
+
     service = new RestaurantsService(
       mockPrisma as unknown as ConstructorParameters<
         typeof RestaurantsService
@@ -156,6 +194,18 @@ describe('RestaurantsService', () => {
       mockDeviceEnrollment as unknown as ConstructorParameters<
         typeof RestaurantsService
       >[4],
+      mockEvents as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[5],
+      mockTranslationEnqueue as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[6],
+      mockTranslationWorker as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[7],
+      mockTranslationQuota as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[8],
     );
   });
 
@@ -602,7 +652,7 @@ describe('RestaurantsService', () => {
 
   // ─── translateAll ────────────────────────────────────────────────────────────
 
-  describe('translateAll', () => {
+  describe('enqueueTranslateAll', () => {
     const restaurant = makeRestaurant({ targetLanguages: ['en', 'ro'] });
 
     beforeEach(() => {
@@ -611,53 +661,39 @@ describe('RestaurantsService', () => {
         restaurantId: null,
         role: 'OWNER',
       });
-      // Prevent real 300ms delays in loops
-      jest
-        .spyOn(global, 'setTimeout')
-        .mockImplementation((fn: (...args: unknown[]) => void) => {
-          if (typeof fn === 'function') fn();
-          return 0 as unknown as NodeJS.Timeout;
-        });
-    });
-
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
-
-    it('returns error when DEEPL_API_KEY is not set', async () => {
-      const prev = process.env.DEEPL_API_KEY;
-      delete process.env.DEEPL_API_KEY;
-
-      const result = await service.translateAll('rest1', 'user1');
-
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('not configured');
-
-      if (prev !== undefined) process.env.DEEPL_API_KEY = prev;
     });
 
     it('returns error when targetLanguages is empty', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ targetLanguages: [] }),
       );
-      const prev = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
 
-      const result = await service.translateAll('rest1', 'user1');
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('No target languages');
-
-      process.env.DEEPL_API_KEY = prev ?? '';
-      if (prev === undefined) delete process.env.DEEPL_API_KEY;
     });
 
-    it('translates categories, items, and options and returns success', async () => {
-      const prev = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
+    it('returns error and enqueues nothing when the quota check denies the request', async () => {
+      mockTranslationQuota.assertCanSpend.mockResolvedValue({
+        allowed: false,
+        reason: 'platform_quota_exceeded',
+        remaining: 0,
+      });
 
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('quota');
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+      expect(mockTranslationEnqueue.enqueueItem).not.toHaveBeenCalled();
+      expect(mockTranslationEnqueue.enqueueOption).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
+    });
+
+    it('enqueues every category, item, and option, creates a run, and kicks the worker', async () => {
       mockPrisma.menuCategory.findMany.mockResolvedValue([
-        { id: 'cat1', name: 'Starters', translations: {} },
+        { id: 'cat1', name: 'Starters' },
       ]);
       mockPrisma.menuItem.findMany.mockResolvedValue([
         {
@@ -666,7 +702,6 @@ describe('RestaurantsService', () => {
           description: 'Hot soup',
           allergens: [],
           dietaryTags: [],
-          translations: {},
         },
       ]);
       mockPrisma.menuOption.findMany.mockResolvedValue([
@@ -674,102 +709,56 @@ describe('RestaurantsService', () => {
           id: 'opt1',
           name: 'Size',
           choices: [{ name: 'Large', priceModifier: 1 }],
-          translations: {},
         },
       ]);
 
-      mockTranslation.translateObject.mockResolvedValue({
-        en: { name: 'Starters' },
-      });
-
-      const result = await service.translateAll('rest1', 'user1');
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('1 categories');
       expect(result.message).toContain('1 items');
       expect(result.message).toContain('1 options');
-      expect(mockPrisma.menuCategory.update).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.menuItem.update).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.menuOption.update).toHaveBeenCalledTimes(1);
-
-      process.env.DEEPL_API_KEY = prev ?? '';
-      if (prev === undefined) delete process.env.DEEPL_API_KEY;
-    });
-
-    it('includes allergens and dietaryTags in item translation payload', async () => {
-      const prev = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
-
-      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
-      mockPrisma.menuOption.findMany.mockResolvedValue([]);
-      mockPrisma.menuItem.findMany.mockResolvedValue([
-        {
-          id: 'item1',
-          name: 'Salad',
-          description: null,
-          allergens: ['Nuts'],
-          dietaryTags: ['Vegan'],
-          translations: {},
-        },
-      ]);
-
-      let capturedPayload: Record<string, string> = {};
-      mockTranslation.translateObject.mockImplementation(
-        (payload: Record<string, string>) => {
-          capturedPayload = payload;
-          return Promise.resolve({});
-        },
+      expect(mockTranslationEnqueue.enqueueCategory).toHaveBeenCalledWith(
+        'rest1',
+        { id: 'cat1', name: 'Starters' },
+        ['en', 'ro'],
+        expect.any(String),
       );
-
-      await service.translateAll('rest1', 'user1');
-
-      expect(capturedPayload['allergen_Nuts']).toBe('Nuts');
-      expect(capturedPayload['tag_Vegan']).toBe('Vegan');
-
-      process.env.DEEPL_API_KEY = prev ?? '';
-      if (prev === undefined) delete process.env.DEEPL_API_KEY;
+      expect(mockTranslationEnqueue.enqueueItem).toHaveBeenCalledWith(
+        'rest1',
+        expect.objectContaining({ id: 'item1', name: 'Soup' }),
+        ['en', 'ro'],
+        expect.any(String),
+      );
+      expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
+        'rest1',
+        expect.objectContaining({ id: 'opt1', name: 'Size' }),
+        ['en', 'ro'],
+        expect.any(String),
+      );
+      expect(mockPrisma.translationRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            restaurantId: 'rest1',
+            requestedById: 'user1',
+            status: 'QUEUED',
+            locales: ['en', 'ro'],
+          }),
+        }),
+      );
+      expect(mockPrisma.translationRun.update).toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+      expect(result.runId).toBe('run-1');
     });
 
-    it('stores translated allergens and dietary tags as original-keyed maps', async () => {
-      const prev = process.env.DEEPL_API_KEY;
-      process.env.DEEPL_API_KEY = 'test-key';
-      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
-      mockPrisma.menuOption.findMany.mockResolvedValue([]);
-      mockPrisma.menuItem.findMany.mockResolvedValue([
-        {
-          id: 'item1',
-          name: 'Salad',
-          description: null,
-          allergens: ['Nuts'],
-          dietaryTags: ['Vegan'],
-          translations: {},
-        },
-      ]);
-      mockTranslation.translateObject.mockResolvedValue({
-        fr: {
-          name: 'Salade',
-          allergen_Nuts: 'Fruits à coque',
-          tag_Vegan: 'Végétalien',
-        },
-      });
+    it('emits a queued translate:progress event with the run id', async () => {
+      await service.enqueueTranslateAll('rest1', 'user1');
 
-      await service.translateAll('rest1', 'user1');
-
-      expect(mockPrisma.menuItem.update).toHaveBeenCalledWith({
-        where: { id: 'item1' },
-        data: {
-          translations: {
-            fr: {
-              name: 'Salade',
-              allergens: { Nuts: 'Fruits à coque' },
-              dietaryTags: { Vegan: 'Végétalien' },
-            },
-          },
-        },
-      });
-
-      process.env.DEEPL_API_KEY = prev ?? '';
-      if (prev === undefined) delete process.env.DEEPL_API_KEY;
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'translate:progress',
+        expect.objectContaining({ status: 'QUEUED', runId: 'run-1' }),
+      );
     });
 
     it('throws ForbiddenException when not owner or manager', async () => {
@@ -781,9 +770,75 @@ describe('RestaurantsService', () => {
         role: 'WAITER',
       });
 
-      await expect(service.translateAll('rest1', 'waiter1')).rejects.toThrow(
-        ForbiddenException,
+      await expect(
+        service.enqueueTranslateAll('rest1', 'waiter1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getTranslationStatus', () => {
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant());
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+    });
+
+    it('aggregates STALE+PENDING into "pending" and reports active=true when work is outstanding', async () => {
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'STALE', _count: { _all: 3 } },
+        { status: 'PENDING', _count: { _all: 2 } },
+        { status: 'FAILED', _count: { _all: 1 } },
+        { status: 'CURRENT', _count: { _all: 40 } },
+      ]);
+      mockPrisma.translationRun.findFirst.mockResolvedValue({
+        id: 'run-1',
+        status: 'RUNNING',
+        createdAt: new Date(),
+      });
+
+      const result = await service.getTranslationStatus('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        pending: 5,
+        failed: 1,
+        current: 40,
+        active: true,
+        latestRunId: 'run-1',
+        latestRunStatus: 'RUNNING',
+      });
+    });
+
+    it('reports active=false and null run info when there is no outstanding work or run history', async () => {
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 10 } },
+      ]);
+      mockPrisma.translationRun.findFirst.mockResolvedValue(null);
+
+      const result = await service.getTranslationStatus('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        pending: 0,
+        failed: 0,
+        active: false,
+        latestRunId: null,
+        latestRunStatus: null,
+      });
+    });
+
+    it('throws ForbiddenException when not owner or manager', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'other' }),
       );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'WAITER',
+      });
+
+      await expect(
+        service.getTranslationStatus('rest1', 'waiter1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

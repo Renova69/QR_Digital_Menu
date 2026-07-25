@@ -268,7 +268,10 @@
   }
 
   .dashboard-date-range-popper {
-    z-index: 1000;
+    /* !important required: react-datepicker.css ships unlayered, and
+       unlayered CSS always beats @layer rules regardless of z-index value
+       or specificity — plain z-index here is silently ignored. */
+    z-index: 1000 !important;
   }
 
   .animate-float {

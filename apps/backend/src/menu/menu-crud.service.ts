@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -6,8 +6,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TranslationService } from '../translation/translation.service';
-import { MenuTranslationService } from './menu-translation.service';
+import { MenuTranslationReadService } from './menu-translation-read.service';
+import { MenuTranslationEnqueueService } from './menu-translation-enqueue.service';
+import { MenuTranslationWorkerService } from './menu-translation-worker.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -35,14 +36,13 @@ import {
 } from './upsell/upsell-context';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { withEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
-import { isPresetTagKey } from './menu-tags';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
 // history (and the groupBy scan stays bounded).
 const TRENDING_WINDOW_DAYS = 30;
 
-// Rows to skip when checking whether a stored image is still referenced — the
+// Rows to skip when checking whether a stored image is still referenced вЂ” the
 // row(s) currently being deleted/updated must not count as a live reference.
 type ImageRefExclusions = {
   excludeItemIds?: string[];
@@ -55,8 +55,9 @@ export class MenuCrudService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly translationService: TranslationService,
-    private readonly menuTranslationService: MenuTranslationService,
+    private readonly menuTranslationRead: MenuTranslationReadService,
+    private readonly translationEnqueue: MenuTranslationEnqueueService,
+    private readonly translationWorker: MenuTranslationWorkerService,
     private readonly featureService: FeatureService,
     private readonly storageService: StorageService,
     private readonly events: EventsGateway,
@@ -303,7 +304,7 @@ export class MenuCrudService {
   }
 
   /** Dayparting requires the DAYPARTING feature on the restaurant's EFFECTIVE
-   *  tier (honors super-admin forceTier) — not a hardcoded tier list (#11). */
+   *  tier (honors super-admin forceTier) вЂ” not a hardcoded tier list (#11). */
   private isDaypartingEnabled(restaurant: {
     tier: string | null;
     forceTier?: string | null;
@@ -316,12 +317,12 @@ export class MenuCrudService {
   }
 
   /** Strip branding fields from the public restaurant payload when the
-   *  EFFECTIVE tier lacks BRANDING_CUSTOM. Non-destructive — the DB keeps
+   *  EFFECTIVE tier lacks BRANDING_CUSTOM. Non-destructive вЂ” the DB keeps
    *  the values so re-upgrade restores them instantly. Prevents stale
    *  branding (logo/colors/fonts) from a downgraded restaurant continuing
    *  to render on the public menu. Expects `restaurant.tier` to already be
-   *  the effective tier (forceTier resolved). Social URLs are not branding —
-   *  see branding-fields.ts — so the footer is unaffected. */
+   *  the effective tier (forceTier resolved). Social URLs are not branding вЂ”
+   *  see branding-fields.ts вЂ” so the footer is unaffected. */
   private applyBrandingEntitlement<T>(restaurant: T): T {
     const r = restaurant as Record<string, unknown>;
     const tier = (r.tier as string | undefined) ?? 'FREE';
@@ -418,8 +419,11 @@ export class MenuCrudService {
       restaurantClone.tier ?? 'FREE',
       lang,
     );
-    if (requestedLang && process.env.DEEPL_API_KEY) {
-      await this.menuTranslationService.applyLazyTranslations(
+    // Read-only: applies whatever is already cached in `translations`. No
+    // provider call, no DB write — public GETs never trigger translation
+    // work. See MenuTranslationReadService and MenuTranslationWorkerService.
+    if (requestedLang) {
+      this.menuTranslationRead.applyStoredTranslations(
         filteredCategories,
         requestedLang,
       );
@@ -536,9 +540,11 @@ export class MenuCrudService {
       restaurantClone.tier ?? 'FREE',
     );
 
-    // Lazily translate (and cache) category names so the navigation/pills render
-    // in the requested language on first paint instead of falling back to the
-    // original until item lazy-load warms the cache.
+    // Apply cached category-name translations so the navigation/pills render
+    // in the requested language on first paint. Read-only: no ?lang= means
+    // effectiveLang falls back to the owner's own dashboard language, in
+    // which case there is no translations[lang] entry and this is a no-op —
+    // it is a display choice, not a translation trigger.
     const requestedLang = this.resolveRequestedLang(
       restaurantClone,
       restaurantClone.tier ?? 'FREE',
@@ -549,8 +555,8 @@ export class MenuCrudService {
     // with that public-menu default instead of targetLanguages[0].
     const effectiveLang =
       requestedLang ?? this.buildPublicMenuLanguages(restaurantClone)[0];
-    if (effectiveLang && process.env.DEEPL_API_KEY) {
-      await this.menuTranslationService.applyLazyTranslations(
+    if (effectiveLang) {
+      this.menuTranslationRead.applyStoredTranslations(
         filteredCategories,
         effectiveLang,
       );
@@ -606,9 +612,9 @@ export class MenuCrudService {
     });
 
     const requestedLang = this.resolveRequestedLang(restaurant, tier, lang);
-    if (requestedLang && process.env.DEEPL_API_KEY) {
+    if (requestedLang) {
       const fakeCategory = { ...category, items };
-      await this.menuTranslationService.applyLazyTranslations(
+      this.menuTranslationRead.applyStoredTranslations(
         [fakeCategory as any],
         requestedLang,
       );
@@ -626,7 +632,7 @@ export class MenuCrudService {
   }
 
   /** Returns items (with options + translation) for ALL currently-visible
-   *  categories in a single call — one restaurant fetch + one translation batch.
+   *  categories in a single call вЂ” one restaurant fetch + one translation batch.
    *  Replaces the frontend's per-category fan-out, which re-fetched the
    *  restaurant row once per category and triggered a separate DeepL burst each
    *  time. Keyed by categoryId so the client can populate its per-category map
@@ -657,8 +663,8 @@ export class MenuCrudService {
     );
 
     const requestedLang = this.resolveRequestedLang(restaurant, tier, lang);
-    if (requestedLang && process.env.DEEPL_API_KEY) {
-      await this.menuTranslationService.applyLazyTranslations(
+    if (requestedLang) {
+      this.menuTranslationRead.applyStoredTranslations(
         filtered as any[],
         requestedLang,
       );
@@ -929,8 +935,8 @@ export class MenuCrudService {
             candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
         )
       : undefined;
-    if (requestedLang && process.env.DEEPL_API_KEY && items.length > 0) {
-      await this.menuTranslationService.applyLazyTranslations(
+    if (requestedLang && items.length > 0) {
+      this.menuTranslationRead.applyStoredTranslations(
         [
           {
             id: 'trending',
@@ -952,7 +958,7 @@ export class MenuCrudService {
    * trending methods all already fetch the restaurant row, so this takes that
    * row and checks it in memory instead of issuing a second
    * `restaurant.findUnique` per request (which the controller used to do via a
-   * separate pre-check). Lenient on a missing row — the caller's own not-found
+   * separate pre-check). Lenient on a missing row вЂ” the caller's own not-found
    * handling decides that.
    */
   private assertRestaurantActive(
@@ -979,7 +985,7 @@ export class MenuCrudService {
     if (restaurant.ownerId !== userId) {
       // Assigned MANAGERs manage their own restaurant's menu. This mirrors the
       // access already granted on payments, dashboard analytics, and device
-      // enrollment — without it managers were locked out of menu CRUD entirely
+      // enrollment вЂ” without it managers were locked out of menu CRUD entirely
       // (#15). A MANAGER's userId never equals ownerId, so the owner check alone
       // blocked them; the assignment (user.restaurantId === id) is the boundary.
       const isManager = await this.isAssignedManager(userId, restaurantId);
@@ -1004,7 +1010,7 @@ export class MenuCrudService {
     return user?.role === 'MANAGER' && user.restaurantId === restaurantId;
   }
 
-  // ── Category Methods ──
+  // в”Ђв”Ђ Category Methods в”Ђв”Ђ
 
   async verifyCategoryOwnership(categoryId: string, userId: string) {
     const category = await this.prisma.menuCategory.findUnique({
@@ -1090,29 +1096,15 @@ export class MenuCrudService {
       restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
-    if (
-      hasMultiLanguage &&
-      process.env.DEEPL_API_KEY &&
-      restaurant.targetLanguages.length > 0
-    ) {
-      void (async () => {
-        try {
-          const newTranslations = await this.translationService.translateObject(
-            { name: createCategoryDto.name },
-            restaurant.targetLanguages,
-          );
-          if (Object.keys(newTranslations).length > 0) {
-            await this.prisma.menuCategory.update({
-              where: { id: category.id },
-              data: { translations: newTranslations },
-            });
-          }
-        } catch (e: any) {
-          this.logger.error(
-            `Pre-warm failed for category ${category.id}: ${e.message}`,
-          );
-        }
-      })();
+    if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
+      void this.translationEnqueue
+        .enqueueCategory(
+          restaurantId,
+          category,
+          restaurant.targetLanguages,
+          restaurant.dashboardLanguage ?? 'bg',
+        )
+        .then(() => this.translationWorker.kick());
     }
 
     return category;
@@ -1190,7 +1182,7 @@ export class MenuCrudService {
     });
 
     // Delete old R2 objects when the URL is explicitly removed (null) OR replaced
-    // with a different URL. "undefined" means the field was not sent — leave as-is.
+    // with a different URL. "undefined" means the field was not sent вЂ” leave as-is.
     // Previously only null was handled, orphaning objects on non-null replacements (M1.2).
     if (
       updateCategoryDto.imageUrl !== undefined &&
@@ -1219,26 +1211,16 @@ export class MenuCrudService {
       hasMultiLanguage &&
       updateCategoryDto.name &&
       updateCategoryDto.name !== category.name &&
-      process.env.DEEPL_API_KEY &&
       restaurant.targetLanguages.length > 0
     ) {
-      void (async () => {
-        try {
-          const newTranslations = await this.translationService.translateObject(
-            { name: updateCategoryDto.name! },
-            restaurant.targetLanguages,
-          );
-          // F-TRANS-2: atomic jsonb `||` merge instead of read-then-replace —
-          // a concurrent lazy translation write (different lang) between the
-          // findUnique above and this write can no longer be clobbered.
-          await this.prisma
-            .$executeRaw`UPDATE "menu_category" SET translations = COALESCE(translations, '{}'::jsonb) || ${JSON.stringify(newTranslations)}::jsonb WHERE id = ${categoryId}`;
-        } catch (e: any) {
-          this.logger.error(
-            `Pre-warm failed for category ${categoryId}: ${e.message}`,
-          );
-        }
-      })();
+      void this.translationEnqueue
+        .enqueueCategory(
+          category.restaurantId,
+          updated,
+          restaurant.targetLanguages,
+          restaurant.dashboardLanguage ?? 'bg',
+        )
+        .then(() => this.translationWorker.kick());
     }
 
     return updated;
@@ -1340,7 +1322,7 @@ export class MenuCrudService {
     return updated;
   }
 
-  // ── Item Methods ──
+  // в”Ђв”Ђ Item Methods в”Ђв”Ђ
 
   async createItem(
     categoryId: string,
@@ -1373,70 +1355,15 @@ export class MenuCrudService {
       restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
-    if (
-      hasMultiLanguage &&
-      process.env.DEEPL_API_KEY &&
-      restaurant.targetLanguages.length > 0
-    ) {
-      void (async () => {
-        try {
-          const textToTranslate: Record<string, string> = {
-            name: createItemDto.name,
-          };
-          if (createItemDto.description)
-            textToTranslate.description = createItemDto.description;
-          // Preset allergen/dietary keys (e.g. "gluten", "milk") resolve to an
-          // icon + localized name from the app's own locale files on the
-          // client — never DeepL. Only genuinely custom free-text values need
-          // translation here.
-          (createItemDto.allergens || [])
-            .filter((a: string) => !isPresetTagKey(a))
-            .forEach((a: string) => {
-              textToTranslate[`allergen_${a}`] = a;
-            });
-          (createItemDto.dietaryTags || [])
-            .filter((t: string) => !isPresetTagKey(t))
-            .forEach((t: string) => {
-              textToTranslate[`tag_${t}`] = t;
-            });
-
-          const newTranslations = await this.translationService.translateObject(
-            textToTranslate,
-            restaurant.targetLanguages,
-          );
-
-          for (const lang of Object.keys(newTranslations)) {
-            const langData = newTranslations[lang];
-            const translatedAllergens: Record<string, string> = {};
-            const translatedTags: Record<string, string> = {};
-            for (const key of Object.keys(langData)) {
-              if (key.startsWith('allergen_')) {
-                translatedAllergens[key.replace('allergen_', '')] =
-                  langData[key];
-                delete langData[key];
-              } else if (key.startsWith('tag_')) {
-                translatedTags[key.replace('tag_', '')] = langData[key];
-                delete langData[key];
-              }
-            }
-            if (Object.keys(translatedAllergens).length)
-              (langData as any).allergens = translatedAllergens;
-            if (Object.keys(translatedTags).length)
-              (langData as any).dietaryTags = translatedTags;
-          }
-
-          if (Object.keys(newTranslations).length > 0) {
-            await this.prisma.menuItem.update({
-              where: { id: item.id },
-              data: { translations: newTranslations },
-            });
-          }
-        } catch (e: any) {
-          this.logger.error(
-            `Pre-warm failed for item ${item.id}: ${e.message}`,
-          );
-        }
-      })();
+    if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
+      void this.translationEnqueue
+        .enqueueItem(
+          category.restaurantId,
+          item,
+          restaurant.targetLanguages,
+          restaurant.dashboardLanguage ?? 'bg',
+        )
+        .then(() => this.translationWorker.kick());
     }
 
     return item;
@@ -1601,68 +1528,16 @@ export class MenuCrudService {
     if (
       hasMultiLanguage &&
       (nameChanged || descriptionChanged) &&
-      process.env.DEEPL_API_KEY &&
       restaurant.targetLanguages.length > 0
     ) {
-      void (async () => {
-        try {
-          const textToTranslate: Record<string, string> = {
-            name: updateItemDto.name || item.name,
-          };
-          const desc =
-            updateItemDto.description !== undefined
-              ? updateItemDto.description
-              : item.description;
-          if (desc) textToTranslate.description = desc;
-
-          const newTranslations = await this.translationService.translateObject(
-            textToTranslate,
-            restaurant.targetLanguages,
-          );
-
-          // F-TRANS-2: atomic per-language jsonb merge instead of read
-          // (possibly stale, from before the DeepL round-trip) -> JS merge ->
-          // full-column replace. Each statement reads and writes
-          // translations->lang in one round-trip, so a concurrent write to a
-          // different language (or a different field of the same language)
-          // can no longer be silently clobbered.
-          if (
-            updateItemDto.description !== undefined &&
-            !updateItemDto.description
-          ) {
-            // Description explicitly cleared — purge stale translated
-            // descriptions from every cached language atomically. newTranslations
-            // never carries `description` in this branch (translateObject was
-            // never asked to translate one), so this can't race against the
-            // per-language merges below touching the same field.
-            await this.prisma.$executeRaw`
-              UPDATE "menu_item"
-              SET translations = COALESCE(
-                (SELECT jsonb_object_agg(key, value - 'description')
-                 FROM jsonb_each(COALESCE(translations, '{}'::jsonb))),
-                '{}'::jsonb
-              )
-              WHERE id = ${itemId}
-            `;
-          }
-          for (const [tLang, tData] of Object.entries(
-            newTranslations as Record<string, Record<string, any>>,
-          )) {
-            await this.prisma.$executeRaw`
-              UPDATE "menu_item"
-              SET translations = jsonb_set(
-                COALESCE(translations, '{}'::jsonb),
-                ARRAY[${tLang}]::text[],
-                COALESCE(translations -> ${tLang}, '{}'::jsonb) || ${JSON.stringify(tData)}::jsonb,
-                true
-              )
-              WHERE id = ${itemId}
-            `;
-          }
-        } catch (e: any) {
-          this.logger.error(`Pre-warm failed for item ${itemId}: ${e.message}`);
-        }
-      })();
+      void this.translationEnqueue
+        .enqueueItem(
+          restaurant.id,
+          updated,
+          restaurant.targetLanguages,
+          restaurant.dashboardLanguage ?? 'bg',
+        )
+        .then(() => this.translationWorker.kick());
     }
 
     return updated;
@@ -1788,7 +1663,7 @@ export class MenuCrudService {
     return deleted;
   }
 
-  // ── Menu Option Methods ──
+  // в”Ђв”Ђ Menu Option Methods в”Ђв”Ђ
 
   async createMenuOption(
     itemId: string,
@@ -1820,51 +1695,15 @@ export class MenuCrudService {
       restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
-    if (
-      hasMultiLanguage &&
-      process.env.DEEPL_API_KEY &&
-      restaurant.targetLanguages.length > 0
-    ) {
-      void (async () => {
-        try {
-          const textToTranslate: Record<string, string> = {
-            name: createMenuOptionDto.name,
-          };
-          choices.forEach((c: any) => {
-            if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-          });
-
-          const newTranslations = await this.translationService.translateObject(
-            textToTranslate,
-            restaurant.targetLanguages,
-          );
-
-          const parsedTranslations: any = {};
-          for (const lang of Object.keys(newTranslations)) {
-            parsedTranslations[lang] = {
-              name: newTranslations[lang].name,
-              choices: {},
-            };
-            for (const key of Object.keys(newTranslations[lang])) {
-              if (key.startsWith('choice_')) {
-                parsedTranslations[lang].choices[key.replace('choice_', '')] =
-                  newTranslations[lang][key];
-              }
-            }
-          }
-
-          if (Object.keys(parsedTranslations).length > 0) {
-            await this.prisma.menuOption.update({
-              where: { id: option.id },
-              data: { translations: parsedTranslations } as any,
-            });
-          }
-        } catch (e: any) {
-          this.logger.error(
-            `Pre-warm failed for option ${option.id}: ${e.message}`,
-          );
-        }
-      })();
+    if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
+      void this.translationEnqueue
+        .enqueueOption(
+          item.category.restaurantId,
+          { id: option.id, name: option.name, choices: choices as any },
+          restaurant.targetLanguages,
+          restaurant.dashboardLanguage ?? 'bg',
+        )
+        .then(() => this.translationWorker.kick());
     }
 
     return option;
@@ -1911,66 +1750,20 @@ export class MenuCrudService {
       restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
-    if (
-      hasMultiLanguage &&
-      process.env.DEEPL_API_KEY &&
-      restaurant.targetLanguages.length > 0
-    ) {
-      void (async () => {
-        try {
-          const textToTranslate: Record<string, string> = {};
-          if (updateMenuOptionDto.name)
-            textToTranslate.name = updateMenuOptionDto.name;
-          if (choices) {
-            choices.forEach((c: any) => {
-              if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-            });
-          }
-          if (Object.keys(textToTranslate).length === 0) return;
-
-          const newTranslations = await this.translationService.translateObject(
-            textToTranslate,
-            restaurant.targetLanguages,
-          );
-
-          // F-TRANS-2: atomic per-language jsonb_set merge — single-level
-          // path (translations->lang), so Postgres creates the lang key if
-          // missing; name and choices are read fresh from the row at UPDATE
-          // time via COALESCE/#>, not from a snapshot taken before the DeepL
-          // round-trip, so a concurrent write to a different language (or a
-          // different field of the same language) can't be silently lost.
-          for (const lang of Object.keys(newTranslations)) {
-            const langData = newTranslations[lang];
-            const choicesFragment: Record<string, string> = {};
-            for (const key of Object.keys(langData)) {
-              if (key.startsWith('choice_')) {
-                choicesFragment[key.replace('choice_', '')] = langData[key];
-              }
-            }
-            const newName = langData.name ?? null;
-            await this.prisma.$executeRaw`
-              UPDATE "menu_option"
-              SET translations = jsonb_set(
-                COALESCE(translations, '{}'::jsonb),
-                ARRAY[${lang}]::text[],
-                jsonb_build_object(
-                  'name',
-                  COALESCE(to_jsonb(${newName}::text), translations #> ARRAY[${lang}, 'name']::text[]),
-                  'choices',
-                  COALESCE(translations #> ARRAY[${lang}, 'choices']::text[], '{}'::jsonb)
-                    || ${JSON.stringify(choicesFragment)}::jsonb
-                ),
-                true
-              )
-              WHERE id = ${optionId}
-            `;
-          }
-        } catch (e: any) {
-          this.logger.error(
-            `Pre-warm failed for option ${optionId}: ${e.message}`,
-          );
-        }
-      })();
+    // Unlike the old pre-warm IIFE (which only checked whether the DTO
+    // included name/choices fields, not whether their VALUES actually
+    // changed), enqueueOption hashes the current content and is a near
+    // no-op when nothing changed — so it's safe to call unconditionally
+    // here rather than re-deriving a same/different comparison.
+    if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
+      void this.translationEnqueue
+        .enqueueOption(
+          option.menuItem.category.restaurantId,
+          { id: optionId, name: updated.name, choices: updated.choices as any },
+          restaurant.targetLanguages,
+          restaurant.dashboardLanguage ?? 'bg',
+        )
+        .then(() => this.translationWorker.kick());
     }
 
     return updated;

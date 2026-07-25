@@ -67,6 +67,9 @@ model Restaurant {
   contactInfo                 String?
   targetLanguages             String[]                     @default([])
   dashboardLanguage           String?                      @default("en")
+  // Support override for a single tenant's monthly DeepL character cap —
+  // null means "use the tier default" (TranslationQuotaService.TIER_POLICY).
+  translationCharCapOverride  Int?
   timezone                    String?                      @default("Europe/Sofia")
   ownerId                     String
   createdAt                   DateTime                     @default(now())
@@ -168,6 +171,9 @@ model Restaurant {
   reservationServiceHours     ReservationServiceHours[]
   reservationBlackouts        ReservationBlackout[]
   patrons                     Patron[]
+  menuTranslationStates       MenuTranslationState[]
+  translationRuns             TranslationRun[]
+  translationUsages           TranslationUsage[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -1139,6 +1145,196 @@ model HelpContent {
 
   @@unique([section, categoryKey, itemKey, locale])
   @@map("help_content")
+}
+
+// Terminology-constrained translation: known short menu terms (item/category
+// names) resolved here bypass the translation provider entirely — fixes
+// NMT/LLM unreliability on short, context-free, rare-word input (see
+// 03.05.26_loyalty_rewards_implementation.md-style history doc for the
+// Мезета -> "Das Keller" repro that prompted this). Platform-wide, not
+// per-restaurant — vocabulary repeats across tenants.
+// TERM = ordinary vocabulary substitution (sections, prep words, ingredients).
+// PROTECTED_DISH = a proper-noun dish name that should stay recognizable rather
+// than being literally translated (e.g. "Кебапче" -> "Kebapche").
+// DO_NOT_TRANSLATE = brand/product names — DeepL should leave these untouched;
+// enforced as an identity entry in the synced DeepL native glossary.
+enum GlossaryTermKind {
+  TERM
+  PROTECTED_DISH
+  DO_NOT_TRANSLATE
+}
+
+model GlossaryTerm {
+  id             String           @id @default(cuid())
+  sourceLang     String // 2-letter app code, e.g. "bg"
+  sourceText     String // normalized: trim + toLowerCase() — the match key
+  targetLang     String // 2-letter app code, e.g. "de"
+  translatedText String
+  kind           GlossaryTermKind @default(TERM)
+  category       String? // free-text grouping for admin review, e.g. "section", "brand"
+  verified       Boolean          @default(false) // only verified rows are shipped to DeepL's native glossary
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([sourceLang, sourceText, targetLang])
+  @@index([sourceLang, sourceText])
+  @@index([sourceLang, targetLang, kind])
+  @@map("glossary_term")
+}
+
+// One row per (sourceLang, targetLang) pair, caching the id of the DeepL
+// native glossary materialized from verified GlossaryTerm rows. Rebuilt
+// lazily when contentHash drifts from the current verified-term set.
+model DeepLGlossary {
+  id              String    @id @default(cuid())
+  sourceLang      String
+  targetLang      String
+  deeplGlossaryId String?
+  entryCount      Int       @default(0)
+  contentHash     String?
+  syncedAt        DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([sourceLang, targetLang])
+  @@map("deepl_glossary")
+}
+
+// Which menu entity/field/locale combinations have a current, stale, or
+// failed translation. Doubles as the translation work queue: STALE/FAILED
+// rows with an eligible nextAttemptAt are claimable by the worker. See
+// MenuTranslationEntity/Field for the granularity this operates at.
+enum MenuTranslationEntity {
+  CATEGORY
+  ITEM
+  OPTION
+}
+
+enum MenuTranslationField {
+  NAME
+  DESCRIPTION
+  ALLERGENS
+  DIETARY_TAGS
+  CHOICES
+}
+
+// NEEDS_REVIEW is a one-time migration-era status: it flags units whose
+// stored translation is suspected to be un-translated source text written by
+// the pre-fix "glossary-only mode" gate. Never set by ordinary application
+// code after the initial backfill — see repair-poisoned-translations.ts.
+enum MenuTranslationStatus {
+  CURRENT
+  STALE
+  PENDING
+  FAILED
+  SKIPPED
+  NEEDS_REVIEW
+}
+
+model MenuTranslationState {
+  id            String                @id @default(cuid())
+  restaurantId  String
+  entityType    MenuTranslationEntity
+  entityId      String
+  field         MenuTranslationField
+  locale        String
+  sourceLang    String
+  sourceHash    String
+  status        MenuTranslationStatus @default(STALE)
+  provider      String?
+  charCount     Int                   @default(0)
+  failureCount  Int                   @default(0)
+  lastError     String?
+  claimedAt     DateTime?
+  nextAttemptAt DateTime?
+  translatedAt  DateTime?
+  reviewedAt    DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, field, locale])
+  @@index([restaurantId, locale, status])
+  @@index([restaurantId, status])
+  @@index([status, nextAttemptAt])
+  @@map("menu_translation_state")
+}
+
+// Full pre-repair snapshot of an entity's `translations` column, written by
+// repair-poisoned-translations.ts before it deletes any poisoned locale
+// fragment. Restore = jsonb-merge this back, never a blind overwrite, so
+// translations produced after the repair are not clobbered.
+model MenuTranslationBackup {
+  id           String                @id @default(cuid())
+  batchId      String
+  entityType   MenuTranslationEntity
+  entityId     String
+  restaurantId String
+  translations Json
+  createdAt    DateTime              @default(now())
+
+  @@index([batchId])
+  @@index([entityType, entityId])
+  @@map("menu_translation_backup")
+}
+
+enum TranslationRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+  QUOTA_BLOCKED
+  CANCELLED
+}
+
+// One row per "Translate All" click (or auto-enqueue on a new target
+// language). Exists only so the dashboard has something to poll/receive
+// progress on — the actual work items live in MenuTranslationState.
+model TranslationRun {
+  id            String               @id @default(cuid())
+  restaurantId  String
+  requestedById String?
+  status        TranslationRunStatus @default(QUEUED)
+  locales       String[]
+  totalUnits    Int                  @default(0)
+  doneUnits     Int                  @default(0)
+  failedUnits   Int                  @default(0)
+  charsUsed     Int                  @default(0)
+  message       String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+  @@index([status])
+  @@map("translation_run")
+}
+
+// Monthly character-usage ledger, keyed so the platform-wide total (sum
+// across restaurantId for a given periodMonth) and a single tenant's spend
+// are both single-index queries. restaurantId is nullable + ON DELETE SET
+// NULL so deleting a tenant never erases past spend against the shared key.
+model TranslationUsage {
+  id           String      @id @default(cuid())
+  restaurantId String?
+  periodMonth  String // 'YYYY-MM'
+  provider     String
+  sourceLang   String
+  targetLang   String
+  charCount    Int         @default(0)
+  requestCount Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+
+  @@unique([restaurantId, periodMonth, provider, sourceLang, targetLang])
+  @@index([periodMonth])
+  @@map("translation_usage")
 }
 
 model DataRequest {

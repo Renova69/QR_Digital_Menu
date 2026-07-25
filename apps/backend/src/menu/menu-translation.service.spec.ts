@@ -22,6 +22,7 @@ const rawJsonFragmentFor = (table: string, index = 0): any => {
 
 const mockTranslation = {
   translateTexts: jest.fn(),
+  maxBatchSize: 50,
 };
 
 const makeCategory = (overrides: object = {}) => ({
@@ -98,19 +99,41 @@ describe('MenuTranslationService', () => {
       expect(mockTranslation.translateTexts).toHaveBeenCalledWith(
         ['Starters'],
         'bg',
+        undefined,
+        undefined,
       );
       expect(rawJsonFragmentFor('menu_category')).toEqual({
         bg: { name: 'Starters BG' },
       });
     });
 
-    it('applies translated name to in-memory category object', async () => {
-      mockTranslation.translateTexts.mockResolvedValue(['Начала']);
+    it('forwards an explicit sourceLang through to translateTexts', async () => {
+      mockTranslation.translateTexts.mockResolvedValue(['Starters BG']);
       const category = makeCategory({ items: [] });
 
-      await service.applyLazyTranslations([category], 'bg');
+      await service.applyLazyTranslations([category], 'bg', 'en');
 
-      expect(category.name).toBe('Начала');
+      expect(mockTranslation.translateTexts).toHaveBeenCalledWith(
+        ['Starters'],
+        'bg',
+        'en',
+        undefined,
+      );
+    });
+
+    it('forwards opts through to translateTexts', async () => {
+      mockTranslation.translateTexts.mockResolvedValue(['Starters BG']);
+      const category = makeCategory({ items: [] });
+      const opts = { restaurantId: 'rest-1', glossaryId: 'g-1' };
+
+      await service.applyLazyTranslations([category], 'bg', 'en', opts);
+
+      expect(mockTranslation.translateTexts).toHaveBeenCalledWith(
+        ['Starters'],
+        'bg',
+        'en',
+        opts,
+      );
     });
 
     it('translates item name and description in single batched call', async () => {
@@ -133,16 +156,6 @@ describe('MenuTranslationService', () => {
       expect(texts).toContain('Starters');
       expect(texts).toContain('Soup');
       expect(texts).toContain('Hot');
-    });
-
-    it('applies translated name to in-memory item', async () => {
-      mockTranslation.translateTexts.mockResolvedValue(['Начала', 'Супа']);
-      const item = makeItem();
-      const category = makeCategory({ items: [item] });
-
-      await service.applyLazyTranslations([category], 'bg');
-
-      expect(item.name).toBe('Супа');
     });
 
     it('translates option name and choice names', async () => {
@@ -221,7 +234,7 @@ describe('MenuTranslationService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('chunks translations at DEEPL_BATCH_LIMIT (50) texts per call', async () => {
+    it('chunks translations at translationService.maxBatchSize (50) texts per call', async () => {
       // 51 categories each needing translation = 51 texts > 50 → 2 calls
       const categories = Array.from({ length: 51 }, (_, i) =>
         makeCategory({ id: `cat-${i}`, name: `Category ${i}`, items: [] }),
@@ -237,10 +250,13 @@ describe('MenuTranslationService', () => {
       expect(firstChunk).toHaveLength(50);
     });
 
-    it('handles items with allergens and dietary tags', async () => {
+    it('handles items with custom (non-preset) allergens and dietary tags', async () => {
+      // "Milk"/"Vegan" would collide with the preset key allowlist
+      // (menu-tags.ts) and get filtered before ever reaching this batch —
+      // use values that are genuinely custom free text.
       const item = makeItem({
-        allergens: ['Milk'],
-        dietaryTags: ['Vegan'],
+        allergens: ['Truffle'],
+        dietaryTags: ['Homemade'],
       });
       const category = makeCategory({ items: [item] });
 
@@ -250,8 +266,26 @@ describe('MenuTranslationService', () => {
         string[],
         string,
       ];
-      expect(texts.some((t: string) => t === 'Milk')).toBe(true);
-      expect(texts.some((t: string) => t === 'Vegan')).toBe(true);
+      expect(texts.some((t: string) => t === 'Truffle')).toBe(true);
+      expect(texts.some((t: string) => t === 'Homemade')).toBe(true);
+    });
+
+    it('never queues preset allergen/dietary keys for translation', async () => {
+      const item = makeItem({
+        allergens: ['milk', 'Truffle'],
+        dietaryTags: ['vegan'],
+      });
+      const category = makeCategory({ items: [item] });
+
+      await service.applyLazyTranslations([category], 'ro');
+
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
+      expect(texts).not.toContain('milk');
+      expect(texts).not.toContain('vegan');
+      expect(texts).toContain('Truffle');
     });
 
     it('writes item DB update with translated data', async () => {
@@ -356,11 +390,15 @@ describe('MenuTranslationService', () => {
       expect(mockTranslation.translateTexts).not.toHaveBeenCalled();
     });
 
-    it('translates only new allergens when item name already cached', async () => {
+    it('translates only new custom allergens when item name already cached', async () => {
+      // "Truffle"/"Saffron" — non-preset values so the diff being asserted
+      // (cached vs missing) isn't masked by the preset-key filter.
       const item = makeItem({
-        allergens: ['Milk', 'Gluten'],
+        allergens: ['Truffle', 'Saffron'],
         dietaryTags: [],
-        translations: { bg: { name: 'Супа', allergens: { Milk: 'Мляко' } } },
+        translations: {
+          bg: { name: 'Супа', allergens: { Truffle: 'Трюфел' } },
+        },
       });
       const category = makeCategory({
         translations: { bg: { name: 'Стартери' } },
@@ -369,14 +407,14 @@ describe('MenuTranslationService', () => {
 
       await service.applyLazyTranslations([category], 'bg');
 
-      // Only 'Gluten' is missing
+      // Only 'Saffron' is missing
       expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
       const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
         string[],
         string,
       ];
-      expect(texts).toContain('Gluten');
-      expect(texts).not.toContain('Milk');
+      expect(texts).toContain('Saffron');
+      expect(texts).not.toContain('Truffle');
     });
 
     it('makes no API call when all allergens already cached as map', async () => {
@@ -455,6 +493,8 @@ describe('MenuTranslationService', () => {
       expect(mockTranslation.translateTexts).toHaveBeenCalledWith(
         ['Hot soup'],
         'fr',
+        undefined,
+        undefined,
       );
       expect(
         (item.translations as unknown as Record<string, unknown>)['fr'],
@@ -464,60 +504,13 @@ describe('MenuTranslationService', () => {
       });
     });
 
-    it('preserves the canonical item name when applying a translated display name', async () => {
-      const item = makeItem({
-        name: 'Руска салата',
-        translations: {
-          fr: {
-            name: 'Salade russe',
-            description: 'Salade fraîche',
-          },
-        },
-      });
-      const category = makeCategory({
-        translations: { fr: { name: 'Entrées' } },
-        items: [item],
-      });
-
-      await service.applyLazyTranslations([category], 'fr');
-
-      expect(item.name).toBe('Salade russe');
-      expect((item as { originalName?: string }).originalName).toBe(
-        'Руска салата',
-      );
-    });
-
-    it('never mutates the canonical choice key used by order validation', async () => {
-      const choice = { name: 'Голяма', priceModifier: 2 };
-      const option = {
-        id: 'option-1',
-        name: 'Размер',
-        choices: [choice],
-        translations: {
-          fr: {
-            name: 'Taille',
-            choices: { Голяма: 'Grande' },
-          },
-        },
-      };
-      const item = makeItem({
-        translations: {
-          fr: {
-            name: 'Soupe',
-            description: 'Soupe chaude',
-          },
-        },
-        options: [option],
-      });
-      const category = makeCategory({
-        translations: { fr: { name: 'Entrées' } },
-        items: [item],
-      });
-
-      await service.applyLazyTranslations([category], 'fr');
-
-      expect(option.name).toBe('Taille');
-      expect(choice.name).toBe('Голяма');
-    });
+    // The "canonical item name" / "canonical choice key" invariant tests
+    // moved to menu-translation-read.service.spec.ts — this service no
+    // longer applies translations to in-memory objects (see the comment at
+    // the end of applyLazyTranslations). Applying is
+    // MenuTranslationReadService.applyStoredTranslations's job now; this
+    // service is write-only (diff cached translations, call the provider,
+    // persist via $executeRaw jsonb merge) and has no return value to
+    // assert an in-memory swap against.
   });
 });

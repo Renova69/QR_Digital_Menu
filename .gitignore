@@ -3,6 +3,11 @@ node_modules/
 .pnp
 .pnp.js
 
+# Python venvs (in case a future local service needs one)
+.venv/
+__pycache__/
+*.pyc
+
 # Testing
 coverage/
 
@@ -79,3 +84,16 @@ apps/backend/cleanup.sql
 # Superpowers scratch planning docs / tool-local state
 docs/superpowers/plans/
 .superpowers/sdd/
+.superpowers/brainstorm/
+
+# Glossary rework scratch — demo-menu fixture and generated review dumps,
+# not shipped code (see prisma/seed-glossary-terms.ts)
+/Demo_menu.json
+apps/backend/prisma/glossary-en-dump.txt
+apps/backend/_scratch_*.js
+apps/backend/scripts/check-count.ts
+apps/backend/scripts/check-db.ts
+apps/backend/scripts/extract-all-menu-terms.ts
+apps/backend/scripts/extract-real-bg-terms.ts
+apps/backend/scripts/list-enterprise-menu.ts
+apps/backend/scripts/wipe-demo-translations.ts

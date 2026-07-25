@@ -1,10 +1,32 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe, Plus, X, Star, CheckCircle2 } from "lucide-react";
+import {
+  Globe,
+  Plus,
+  X,
+  Star,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
-import { updateRestaurant, triggerTranslation } from "../../../lib/api";
+import { useSocket } from "../../../context/SocketContext";
+import {
+  updateRestaurant,
+  triggerTranslation,
+  getTranslationStatus,
+  type TranslationStatus,
+} from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
 import { getApiError } from "../../../lib/apiError";
+
+// Poll fallback cadence while a translate-all run is active — the socket
+// carries live done/total updates, but its terminal phases are per-batch,
+// not per-run, so it alone can't tell us when ALL queued work is finished.
+// The poll checks the authoritative "is there still STALE/PENDING work"
+// signal instead. Also caps how long the UI keeps polling so a run that
+// somehow never finishes doesn't spin the button forever.
+const TRANSLATION_POLL_INTERVAL_MS = 8_000;
+const TRANSLATION_POLL_MAX_MS = 10 * 60 * 1000;
 
 const AVAILABLE_LANGUAGES = [
   { code: "en", name: "English" },
@@ -73,7 +95,36 @@ const GeneralSettingsTab: React.FC = () => {
     success: "",
   });
   const [translating, setTranslating] = useState(false);
+  const [translateProgress, setTranslateProgress] = useState<{
+    phase: string;
+    done: number;
+    total: number;
+  } | null>(null);
+  const [translationStatus, setTranslationStatus] =
+    useState<TranslationStatus | null>(null);
   const initializedRestaurantId = useRef<string | null>(null);
+  const { socket, isConnected } = useSocket();
+  // Guards setState calls that could otherwise land after unmount (poll
+  // interval, in-flight status fetch) — React only warns for this, but the
+  // guard keeps the interval logic below honest either way.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refreshTranslationStatus = useCallback(async (restaurantId: string) => {
+    try {
+      const result = await getTranslationStatus(restaurantId);
+      if (mountedRef.current) setTranslationStatus(result);
+      return result;
+    } catch {
+      // Badge/poll data is best-effort — never surface this as a page error.
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     if (
@@ -95,8 +146,68 @@ const GeneralSettingsTab: React.FC = () => {
       setTimezone(activeRestaurant.timezone || "Europe/Sofia");
       setTargetLanguages(activeRestaurant.targetLanguages || []);
       setStatus({ loading: false, error: "", success: "" });
+      if (canLanguages) {
+        void refreshTranslationStatus(activeRestaurant.id).then((result) => {
+          if (result?.active) setTranslating(true);
+        });
+      }
     }
-  }, [activeRestaurant]);
+  }, [activeRestaurant, canLanguages, refreshTranslationStatus]);
+
+  // Socket updates the live done/total display only — its phases are
+  // per-batch (one claimed group of work), not per-run, so a "completed"
+  // event here does NOT necessarily mean every queued unit is finished.
+  // Whether the run as a whole is done is decided by the poll below.
+  useEffect(() => {
+    if (!socket || !isConnected || !activeRestaurant?.id) return;
+
+    const handleProgress = (payload: {
+      phase: string;
+      done: number;
+      total: number;
+    }) => {
+      setTranslateProgress(payload);
+    };
+
+    socket.on("translate:progress", handleProgress);
+    return () => {
+      socket.off("translate:progress", handleProgress);
+    };
+  }, [socket, isConnected, activeRestaurant?.id]);
+
+  // Poll fallback: the authoritative "is there still queued work" signal.
+  // Runs only while translating, capped at TRANSLATION_POLL_MAX_MS so a
+  // stuck/never-finishing run doesn't spin the button forever — the owner
+  // can always re-check via the outdated/failed badge afterward.
+  useEffect(() => {
+    if (!translating || !activeRestaurant?.id) return;
+    const restaurantId = activeRestaurant.id;
+    const startedAt = Date.now();
+
+    const poll = async () => {
+      const result = await refreshTranslationStatus(restaurantId);
+      if (!mountedRef.current) return;
+      const timedOut = Date.now() - startedAt > TRANSLATION_POLL_MAX_MS;
+      if (!result || !result.active || timedOut) {
+        setTranslating(false);
+        setTranslateProgress(null);
+        if (result && result.failed > 0) {
+          setStatus((s) => ({
+            ...s,
+            success: "",
+            error: t("settings.translateSomeFailedNotice", {
+              count: result.failed,
+              defaultValue:
+                "Translation finished — {{count}} item(s) failed and will retry automatically.",
+            }),
+          }));
+        }
+      }
+    };
+
+    const interval = setInterval(poll, TRANSLATION_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [translating, activeRestaurant?.id, refreshTranslationStatus, t]);
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -137,6 +248,7 @@ const GeneralSettingsTab: React.FC = () => {
   const handleForceTranslate = async () => {
     if (!activeRestaurant) return;
     setTranslating(true);
+    setTranslateProgress(null);
     setStatus({ loading: false, error: "", success: "" });
     try {
       const savedLangs = activeRestaurant.targetLanguages || [];
@@ -147,11 +259,14 @@ const GeneralSettingsTab: React.FC = () => {
         await updateRestaurant(activeRestaurant.id, { targetLanguages });
         await fetchRestaurants();
       }
+      // translate-all now enqueues and returns immediately (202) — the
+      // actual translation happens asynchronously. `translating` stays true
+      // until the poll effect above confirms no work is left queued, not
+      // when this call resolves.
       const res = await triggerTranslation(activeRestaurant.id);
-      if (res.success) {
-        setStatus({ loading: false, error: "", success: res.message });
-      } else {
+      if (!res.success) {
         setStatus({ loading: false, error: res.message, success: "" });
+        setTranslating(false);
       }
     } catch (err: any) {
       setStatus({
@@ -159,7 +274,6 @@ const GeneralSettingsTab: React.FC = () => {
         error: t(getApiError(err)),
         success: "",
       });
-    } finally {
       setTranslating(false);
     }
   };
@@ -480,9 +594,26 @@ const GeneralSettingsTab: React.FC = () => {
       {/* ── Localization & Translation ── */}
       {canLanguages && (
         <div className="border-b border-border pb-6">
-          <h3 className={`${sectionHeading} mb-1`}>
-            {t("settings.localization")}
-          </h3>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h3 className={sectionHeading}>{t("settings.localization")}</h3>
+            {!translating &&
+              translationStatus &&
+              translationStatus.pending + translationStatus.failed > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 text-[11px] font-medium border border-yellow-500/30"
+                  title={t(
+                    "settings.translationOutdatedBadgeTitle",
+                    "Some menu translations are outdated or failed — click Translate All Now to refresh them.",
+                  )}
+                >
+                  <AlertTriangle size={11} />
+                  {t("settings.translationOutdatedBadge", {
+                    count: translationStatus.pending + translationStatus.failed,
+                    defaultValue: "{{count}} outdated",
+                  })}
+                </span>
+              )}
+          </div>
           <p className="text-sm text-muted-foreground mb-4">
             {t("settings.localizationDesc")}
           </p>
@@ -538,6 +669,45 @@ const GeneralSettingsTab: React.FC = () => {
                 : t("settings.translateAllNow")}
             </button>
           </div>
+          {translating && (
+            <div className="mt-3">
+              {translateProgress && translateProgress.total > 0 ? (
+                <>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>
+                      {t("settings.translatingInProgress", "Translating menu…")}
+                    </span>
+                    <span>
+                      {t("settings.translateProgressCount", {
+                        done: translateProgress.done,
+                        total: translateProgress.total,
+                        remaining: Math.max(
+                          0,
+                          translateProgress.total - translateProgress.done,
+                        ),
+                        defaultValue: "{{done}}/{{total}} · {{remaining}} left",
+                      })}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-yellow-600 transition-all duration-300 ease-out"
+                      style={{
+                        width: `${Math.min(100, Math.round((translateProgress.done / translateProgress.total) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  {t(
+                    "settings.translateQueued",
+                    "Queued — translation is running in the background…",
+                  )}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

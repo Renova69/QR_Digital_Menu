@@ -8,9 +8,16 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { TranslationModule } from '../translation/translation.module';
 import { PaymentModule } from '../payment/payment.module';
 import { UsersModule } from '../users/users.module';
+import { MenuModule } from '../menu/menu.module';
 
 @Module({
-  imports: [PrismaModule, TranslationModule, PaymentModule, UsersModule],
+  imports: [
+    PrismaModule,
+    TranslationModule,
+    PaymentModule,
+    UsersModule,
+    MenuModule,
+  ],
   controllers: [
     RestaurantsController,
     DeviceEnrollmentController,

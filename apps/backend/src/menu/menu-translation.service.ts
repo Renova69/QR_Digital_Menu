@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
-
-// DeepL accepts up to 50 text strings per request
-const DEEPL_BATCH_LIMIT = 50;
+import { TranslateOptions } from '../translation/translation-provider.interface';
+import { isPresetTagKey } from './menu-tags';
 
 @Injectable()
 export class MenuTranslationService {
@@ -20,7 +19,12 @@ export class MenuTranslationService {
       : {};
   }
 
-  async applyLazyTranslations(categories: any[], lang: string): Promise<void> {
+  async applyLazyTranslations(
+    categories: any[],
+    lang: string,
+    sourceLang?: string,
+    opts?: TranslateOptions,
+  ): Promise<void> {
     interface Pending {
       type: 'category' | 'item' | 'option';
       entity: any;
@@ -51,19 +55,27 @@ export class MenuTranslationService {
         if (item.description && !existing[lang]?.description)
           itemTextMap.description = item.description;
         // Diff allergens/dietaryTags: allergens stored as map { orig: translated };
-        // old array format = cannot diff → re-translate all entries
-        (item.allergens || []).forEach((a: string) => {
-          const cached = Array.isArray(existing[lang]?.allergens)
-            ? undefined
-            : existing[lang]?.allergens?.[a];
-          if (!cached) itemTextMap[`allergen_${a}`] = a;
-        });
-        (item.dietaryTags || []).forEach((t: string) => {
-          const cached = Array.isArray(existing[lang]?.dietaryTags)
-            ? undefined
-            : existing[lang]?.dietaryTags?.[t];
-          if (!cached) itemTextMap[`tag_${t}`] = t;
-        });
+        // old array format = cannot diff → re-translate all entries.
+        // Preset keys (menu-tags.ts) are never sent to DeepL — their labels
+        // come from the frontend's own i18n bundle, not the translation
+        // pipeline, so glossary/provider characters would be spent for a
+        // value nothing ever reads.
+        (item.allergens || [])
+          .filter((a: string) => !isPresetTagKey(a))
+          .forEach((a: string) => {
+            const cached = Array.isArray(existing[lang]?.allergens)
+              ? undefined
+              : existing[lang]?.allergens?.[a];
+            if (!cached) itemTextMap[`allergen_${a}`] = a;
+          });
+        (item.dietaryTags || [])
+          .filter((t: string) => !isPresetTagKey(t))
+          .forEach((t: string) => {
+            const cached = Array.isArray(existing[lang]?.dietaryTags)
+              ? undefined
+              : existing[lang]?.dietaryTags?.[t];
+            if (!cached) itemTextMap[`tag_${t}`] = t;
+          });
         if (Object.keys(itemTextMap).length > 0)
           pending.push({
             type: 'item',
@@ -92,7 +104,7 @@ export class MenuTranslationService {
       }
     }
 
-    // Phase 2: single batched DeepL call (chunked at DEEPL_BATCH_LIMIT)
+    // Phase 2: single batched translation call (chunked at the active provider's maxBatchSize)
     if (pending.length > 0) {
       const allTexts: string[] = [];
       const offsets: number[] = [];
@@ -106,19 +118,22 @@ export class MenuTranslationService {
       }
 
       const translated: string[] = [];
+      const batchLimit = this.translationService.maxBatchSize;
       try {
-        for (let i = 0; i < allTexts.length; i += DEEPL_BATCH_LIMIT) {
-          const chunk = allTexts.slice(i, i + DEEPL_BATCH_LIMIT);
+        for (let i = 0; i < allTexts.length; i += batchLimit) {
+          const chunk = allTexts.slice(i, i + batchLimit);
           const result = await this.translationService.translateTexts(
             chunk,
             lang,
+            sourceLang,
+            opts,
           );
           translated.push(...result);
         }
       } catch (err: unknown) {
-        // Issue 17: DeepL failure must not overwrite cached valid translations.
+        // Issue 17: translation failure must not overwrite cached valid translations.
         this.logger.error(
-          `DeepL batch failed for lang=${lang}: ${err instanceof Error ? err.message : String(err)} — skipping DB writes`,
+          `Translation batch failed for lang=${lang}: ${err instanceof Error ? err.message : String(err)} — skipping DB writes`,
         );
         return;
       }
@@ -258,48 +273,14 @@ export class MenuTranslationService {
       await Promise.all(dbWrites);
     }
 
-    // Phase 4: apply all translations (cached + newly fetched) to in-memory objects
-    for (const category of categories) {
-      const t = category.translations as Record<string, any> | null;
-      if (t?.[lang]?.name) {
-        category.originalName ??= category.name;
-        category.name = t[lang].name;
-      }
-
-      for (const item of category.items ?? []) {
-        const t = item.translations as Record<string, any> | null;
-        if (t?.[lang]?.name) {
-          item.originalName ??= item.name;
-          item.name = t[lang].name;
-        }
-        if (t?.[lang]?.description) {
-          item.originalDescription ??= item.description;
-          item.description = t[lang].description;
-        }
-        // allergens/dietaryTags: unlike name/description, item.allergens and
-        // item.dietaryTags are NOT swapped to the translated text here. The
-        // menu-tags preset system (apps/frontend/src/lib/menuTags.ts)
-        // resolves an icon from the RAW stored value — swapping it to
-        // DeepL's translated wording would break that lookup for any
-        // language the item hasn't been re-edited with a preset key for, and
-        // would do so unpredictably per-language depending on what happened
-        // to be cached. The frontend already reads the translated array
-        // separately via item.translations[lang].allergens/dietaryTags
-        // (getTranslatedArray) purely as a display-label fallback for
-        // legacy/custom tags — item.allergens/item.dietaryTags stay
-        // canonical so the icon lookup is identical across every language.
-
-        for (const option of item.options ?? []) {
-          const t = option.translations as Record<string, any> | null;
-          if (t?.[lang]?.name) {
-            option.originalName ??= option.name;
-            option.name = t[lang].name;
-          }
-          // choice.name is the stable DB key used for order validation —
-          // never overwrite it. The frontend reads translated labels via
-          // getChoiceLabel(option, choice) from option.translations directly.
-        }
-      }
-    }
+    // No in-memory apply step here (deliberately) — this method is a pure
+    // write path now. It has no HTTP response to shape; only
+    // MenuTranslationWorkerService calls it, and the public read path
+    // (menu-crud.service.ts) applies cached translations for display via
+    // MenuTranslationReadService.applyStoredTranslations, which never
+    // touches Prisma or TranslationService. That split is what keeps
+    // anonymous public GETs from ever triggering a provider call or a DB
+    // write — see menu-translation-read.service.ts for the invariants
+    // (allergens/dietaryTags and choice.name are never overwritten there).
   }
 }

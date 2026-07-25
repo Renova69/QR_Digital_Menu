@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MenuCrudService } from './menu-crud.service';
 import { MenuTranslationService } from './menu-translation.service';
+import { MenuTranslationReadService } from './menu-translation-read.service';
+import { MenuTranslationEnqueueService } from './menu-translation-enqueue.service';
+import { MenuTranslationWorkerService } from './menu-translation-worker.service';
 import { MenuAuditService } from './menu-audit.service';
 import {
   CategoryController,
@@ -33,9 +36,19 @@ import { WeatherUpsellService } from './upsell/weather-upsell.service';
   providers: [
     MenuCrudService,
     MenuTranslationService,
+    MenuTranslationReadService,
+    MenuTranslationEnqueueService,
+    MenuTranslationWorkerService,
     MenuAuditService,
     WeatherUpsellService,
   ],
-  exports: [MenuCrudService, MenuTranslationService, MenuAuditService],
+  exports: [
+    MenuCrudService,
+    MenuTranslationService,
+    MenuTranslationReadService,
+    MenuTranslationEnqueueService,
+    MenuTranslationWorkerService,
+    MenuAuditService,
+  ],
 })
 export class MenuModule {}
