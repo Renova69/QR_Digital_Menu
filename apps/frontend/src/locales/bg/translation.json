@@ -3851,7 +3851,7 @@
       "NEEDS_CALL_CONFIRMATION": "Нужда от потвърждение по тел."
     },
     "status": {
-      "PENDING": "Очаква",
+      "PENDING": "Очакваща",
       "CONFIRMED": "Потвърдена",
       "ARRIVED": "Пристигнали",
       "NO_SHOW": "Не се явили",
