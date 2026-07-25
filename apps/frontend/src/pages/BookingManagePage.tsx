@@ -383,6 +383,18 @@ const BookingManagePage = () => {
                   "manage.locked",
                   "This reservation can no longer be changed online. Please contact the restaurant.",
                 )}
+                {config?.restaurant?.contactInfo && (
+                  <>
+                    {" "}
+                    <a
+                      href={`tel:${config.restaurant.contactInfo.replace(/[^\d+]/g, "")}`}
+                      className="font-semibold underline"
+                      style={{ color: palette.accent }}
+                    >
+                      {config.restaurant.contactInfo}
+                    </a>
+                  </>
+                )}
               </p>
             )}
 

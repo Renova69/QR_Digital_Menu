@@ -3882,6 +3882,7 @@
     "locked": "This reservation can no longer be changed online. Please contact the restaurant.",
     "saveError": "Could not update. Please choose another time.",
     "saved": "Your reservation has been updated.",
+    "cancelled": "Your reservation has been cancelled.",
     "partyMax": "Max {{n}} guests.",
     "saveChanges": "Save changes",
     "discard": "Discard",
