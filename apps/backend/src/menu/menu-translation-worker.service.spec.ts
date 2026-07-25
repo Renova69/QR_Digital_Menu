@@ -19,6 +19,11 @@ const mockPrisma = {
     update: jest.fn(),
     groupBy: jest.fn(),
   },
+  translationRun: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
 };
 
 const mockMenuTranslation = { applyLazyTranslations: jest.fn() };
@@ -52,6 +57,7 @@ describe('MenuTranslationWorkerService', () => {
     mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
       { status: 'CURRENT', _count: { _all: 1 } },
     ]);
+    mockPrisma.translationRun.findFirst.mockResolvedValue(null);
     mockQuota.assertCanSpend.mockResolvedValue({
       allowed: true,
       remaining: 1000,

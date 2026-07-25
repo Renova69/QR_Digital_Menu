@@ -184,12 +184,25 @@ describe("GeneralSettingsTab - poll fallback", () => {
       .mockResolvedValueOnce({ ...idleStatus, active: true, pending: 1 })
       .mockResolvedValueOnce({ ...idleStatus, active: false, pending: 0 });
 
+    mockSocketState.socket = mockSocket;
+    mockSocketState.isConnected = true;
+    mockSocket.on.mockClear();
+
     render(<GeneralSettingsTab />, { wrapper });
 
     // Initial mount fetch resolves -> translating flips true.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
+    
+    // Simulate the instant QUEUED event from backend so progress is not null
+    const onCall = mockSocket.on.mock.calls.find(c => c[0] === "translate:progress");
+    if (onCall) {
+      act(() => {
+        onCall[1]({ phase: "queued", done: 0, total: 10, status: "QUEUED" });
+      });
+    }
+
     expect(screen.getByText("settings.translating")).toBeTruthy();
 
     // First poll tick picks up the second (inactive) mocked response.
@@ -199,6 +212,47 @@ describe("GeneralSettingsTab - poll fallback", () => {
 
     expect(getTranslationStatus).toHaveBeenCalledTimes(2);
     expect(screen.getByText("settings.translateAllNow")).toBeTruthy();
+    
+    // The status bar should remain visible with the success message
+    expect(screen.getByText("✓ Translation complete!")).toBeTruthy();
+  });
+
+  it("ignores socket batch COMPLETED for terminal UI state but updates numbers", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getTranslationStatus).mockResolvedValue({
+      ...idleStatus,
+      active: true,
+      pending: 10,
+    });
+
+    mockSocketState.socket = mockSocket;
+    mockSocketState.isConnected = true;
+    mockSocket.on.mockClear();
+
+    render(<GeneralSettingsTab />, { wrapper });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Extract the socket handler
+    const onCall = mockSocket.on.mock.calls.find(
+      (c) => c[0] === "translate:progress",
+    );
+    expect(onCall).toBeTruthy();
+    const handleProgress = onCall![1];
+
+    // Emit a batch COMPLETED event
+    act(() => {
+      handleProgress({ phase: "completed", done: 5, total: 10, status: "COMPLETED" });
+    });
+
+    // The numbers update (5/10 · 5 left)
+    expect(screen.getByText("5/10 · 5 left")).toBeTruthy();
+
+    // But the success message does NOT appear, it stays in progress
+    expect(screen.queryByText("✓ Translation complete!")).toBeNull();
+    expect(screen.getByText("Translating menu…")).toBeTruthy();
   });
 
   it("surfaces the some-failed notice once polling finds failures at completion", async () => {

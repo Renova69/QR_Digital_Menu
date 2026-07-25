@@ -554,8 +554,19 @@ export class RestaurantsService {
       ),
     ]);
 
-    const totalUnits =
-      (categories.length + items.length + options.length) * targets.length;
+    const stateCounts = await this.prisma.menuTranslationState.groupBy({
+      by: ['status'],
+      where: { restaurantId: id },
+      _count: { _all: true },
+    });
+    let actualEnqueued = 0;
+    for (const row of stateCounts) {
+      if (['STALE', 'PENDING', 'FAILED'].includes(row.status)) {
+        actualEnqueued += row._count._all;
+      }
+    }
+    const totalUnits = actualEnqueued;
+
     await this.prisma.translationRun.update({
       where: { id: run.id },
       data: { totalUnits, status: 'RUNNING', startedAt: new Date() },
@@ -597,7 +608,8 @@ export class RestaurantsService {
     const byStatus: Record<string, number> = {};
     for (const row of counts) byStatus[row.status] = row._count._all;
 
-    const pending = (byStatus.STALE ?? 0) + (byStatus.PENDING ?? 0);
+    const pending =
+      (byStatus.STALE ?? 0) + (byStatus.PENDING ?? 0) + (byStatus.SKIPPED ?? 0);
     const failed = byStatus.FAILED ?? 0;
     const current = byStatus.CURRENT ?? 0;
 

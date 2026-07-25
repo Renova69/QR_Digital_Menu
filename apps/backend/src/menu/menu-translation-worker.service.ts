@@ -266,19 +266,42 @@ export class MenuTranslationWorkerService {
       where: { restaurantId },
       _count: { _all: true },
     });
-    let done = 0;
+
     let outstanding = 0;
+    let current = 0;
     for (const row of counts) {
-      if (row.status === 'CURRENT') done += row._count._all;
-      else if (
+      if (row.status === 'CURRENT') {
+        current += row._count._all;
+      } else if (
         row.status === 'STALE' ||
         row.status === 'PENDING' ||
-        row.status === 'FAILED'
+        row.status === 'FAILED' ||
+        row.status === 'SKIPPED'
       ) {
         outstanding += row._count._all;
       }
     }
-    return { done, total: done + outstanding };
+
+    // Base the progress bar on the latest user-triggered TranslationRun so
+    // historical CURRENT rows don't inflate the denominator. Freeze `total`
+    // at the run's snapshot — if new STALE rows appear mid-run (e.g. owner
+    // edits a menu item while translation is active), they are NOT part of
+    // this run and should not make the bar jump backward. When no run exists
+    // (e.g. translations triggered by edit→save auto-enqueue), fall back to
+    // the live counts so the bar has a meaningful denominator.
+    const latestRun = await this.prisma.translationRun.findFirst({
+      where: { restaurantId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (latestRun) {
+      const total = latestRun.totalUnits;
+      const done = Math.max(0, total - outstanding);
+      return { done, total };
+    }
+
+    // No run record — use live CURRENT + outstanding as the denominator.
+    return { done: current, total: current + outstanding };
   }
 
   private async markCurrent(ids: string[]): Promise<void> {

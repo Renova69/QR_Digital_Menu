@@ -99,7 +99,13 @@ const GeneralSettingsTab: React.FC = () => {
     phase: string;
     done: number;
     total: number;
+    status?: string;
   } | null>(null);
+  const [translatePhaseStatus, setTranslatePhaseStatus] = useState<
+    string | null
+  >(null);
+  const [translateSuccess, setTranslateSuccess] = useState(false);
+  const [translateTimedOut, setTranslateTimedOut] = useState(false);
   const [translationStatus, setTranslationStatus] =
     useState<TranslationStatus | null>(null);
   const initializedRestaurantId = useRef<string | null>(null);
@@ -108,6 +114,10 @@ const GeneralSettingsTab: React.FC = () => {
   // interval, in-flight status fetch) — React only warns for this, but the
   // guard keeps the interval logic below honest either way.
   const mountedRef = useRef(true);
+  // Baseline FAILED count at the moment Translate All was clicked — used so
+  // stale FAILED rows from a prior run don't cause the current run's poll to
+  // incorrectly report PARTIAL (issue #5).
+  const baselineFailedRef = useRef(0);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -154,10 +164,14 @@ const GeneralSettingsTab: React.FC = () => {
     }
   }, [activeRestaurant, canLanguages, refreshTranslationStatus]);
 
-  // Socket updates the live done/total display only — its phases are
-  // per-batch (one claimed group of work), not per-run, so a "completed"
-  // event here does NOT necessarily mean every queued unit is finished.
-  // Whether the run as a whole is done is decided by the poll below.
+  // Socket carries live done/total updates per worker batch. A "completed"
+  // status means the worker's current claimed batch is done — it does NOT
+  // necessarily mean every queued unit is finished. The poll below decides
+  // when the run as a whole is done.
+  //
+  // Exception: when the socket reports COMPLETED *and* done ≥ total, the
+  // worker has processed everything it knows about — show the green bar
+  // immediately instead of waiting up to 8 s for the next poll tick (#3).
   useEffect(() => {
     if (!socket || !isConnected || !activeRestaurant?.id) return;
 
@@ -165,8 +179,33 @@ const GeneralSettingsTab: React.FC = () => {
       phase: string;
       done: number;
       total: number;
+      status?: string;
     }) => {
+      if (!mountedRef.current) return; // #7 — guard post-unmount socket event
       setTranslateProgress(payload);
+
+      // #3 — immediate COMPLETED when done ≥ total (last batch finished)
+      if (
+        payload.status === "COMPLETED" &&
+        payload.total > 0 &&
+        payload.done >= payload.total
+      ) {
+        setTranslatePhaseStatus("COMPLETED");
+        setTranslateSuccess(true);
+        setTranslateProgress((prev) =>
+          prev ? { ...prev, done: prev.total, status: "COMPLETED" } : null,
+        );
+        return;
+      }
+
+      // Non-COMPLETED terminal statuses (PARTIAL, QUOTA_BLOCKED, etc.)
+      if (payload.status && payload.status !== "COMPLETED") {
+        setTranslatePhaseStatus(payload.status);
+      }
+
+      if (payload.status === "PARTIAL") {
+        setTranslateSuccess(false);
+      }
     };
 
     socket.on("translate:progress", handleProgress);
@@ -183,6 +222,7 @@ const GeneralSettingsTab: React.FC = () => {
     if (!translating || !activeRestaurant?.id) return;
     const restaurantId = activeRestaurant.id;
     const startedAt = Date.now();
+    const baselineFailed = baselineFailedRef.current; // #5 — snapshot at poll start
 
     const poll = async () => {
       const result = await refreshTranslationStatus(restaurantId);
@@ -190,17 +230,45 @@ const GeneralSettingsTab: React.FC = () => {
       const timedOut = Date.now() - startedAt > TRANSLATION_POLL_MAX_MS;
       if (!result || !result.active || timedOut) {
         setTranslating(false);
-        setTranslateProgress(null);
-        if (result && result.failed > 0) {
+        // Do NOT clear translateProgress here, so the status bar stays visible
+        // for the user to read the final success/error state.
+
+        if (timedOut && !result) {
+          // #8 — explicit timeout state so the user knows the run may still
+          // be active but the UI stopped polling.
+          setTranslateTimedOut(true);
+          setTranslateProgress((prev) =>
+            prev ? { ...prev, status: "TIMED_OUT" } : null,
+          );
+          return;
+        }
+
+        // #5 — only count FAILED rows that appeared AFTER this run started.
+        // Stale FAILED rows from a previous run would otherwise cause a false
+        // PARTIAL error on a cleanly-completed current run.
+        const freshFailed =
+          result && result.failed > baselineFailed
+            ? result.failed - baselineFailed
+            : 0;
+        if (freshFailed > 0) {
+          setTranslatePhaseStatus("PARTIAL");
+          setTranslateSuccess(false);
           setStatus((s) => ({
             ...s,
             success: "",
             error: t("settings.translateSomeFailedNotice", {
-              count: result.failed,
+              count: freshFailed,
               defaultValue:
                 "Translation finished — {{count}} item(s) failed and will retry automatically.",
             }),
           }));
+        } else if (result && !result.active) {
+          setTranslatePhaseStatus("COMPLETED");
+          setTranslateSuccess(true);
+          // Force progress to 100% in case the final socket event was missed
+          setTranslateProgress((prev) =>
+            prev ? { ...prev, done: prev.total, status: "COMPLETED" } : null,
+          );
         }
       }
     };
@@ -249,7 +317,13 @@ const GeneralSettingsTab: React.FC = () => {
     if (!activeRestaurant) return;
     setTranslating(true);
     setTranslateProgress(null);
+    setTranslatePhaseStatus(null);
+    setTranslateSuccess(false);
+    setTranslateTimedOut(false);
     setStatus({ loading: false, error: "", success: "" });
+    // #5 — snapshot current FAILED count so poll doesn't blame this run for
+    // stale failures left over from a prior run.
+    baselineFailedRef.current = translationStatus?.failed ?? 0;
     try {
       const savedLangs = activeRestaurant.targetLanguages || [];
       const langsChanged =
@@ -669,15 +743,47 @@ const GeneralSettingsTab: React.FC = () => {
                 : t("settings.translateAllNow")}
             </button>
           </div>
-          {translating && (
-            <div className="mt-3">
+          {(translating || translateProgress !== null) && (
+            <div className="mt-3 space-y-2">
+              {/* Phase-aware label row */}
               {translateProgress && translateProgress.total > 0 ? (
                 <>
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>
-                      {t("settings.translatingInProgress", "Translating menu…")}
+                  <div className="flex justify-between text-xs mb-1">
+                    <span
+                      className={
+                        translatePhaseStatus === "PARTIAL"
+                          ? "text-destructive font-medium"
+                          : translatePhaseStatus === "COMPLETED"
+                            ? "text-green-600 dark:text-green-400 font-medium"
+                            : translateTimedOut
+                              ? "text-muted-foreground font-medium"
+                              : "text-muted-foreground"
+                      }
+                    >
+                      {translatePhaseStatus === "PARTIAL"
+                        ? t("settings.translateSomeFailedNotice", {
+                            count:
+                              translateProgress.total - translateProgress.done,
+                            defaultValue:
+                              "Translation finished — {{count}} item(s) failed and will retry automatically.",
+                          })
+                        : translatePhaseStatus === "COMPLETED" &&
+                            translateSuccess
+                          ? t(
+                              "settings.translateSuccess",
+                              "✓ Translation complete!",
+                            )
+                          : translateTimedOut
+                            ? t(
+                                "settings.translateTimedOut",
+                                "Translation is taking longer than expected — you can check back later.",
+                              )
+                            : t(
+                                "settings.translatingInProgress",
+                                "Translating menu…",
+                              )}
                     </span>
-                    <span>
+                    <span className="text-muted-foreground tabular-nums">
                       {t("settings.translateProgressCount", {
                         done: translateProgress.done,
                         total: translateProgress.total,
@@ -691,9 +797,23 @@ const GeneralSettingsTab: React.FC = () => {
                   </div>
                   <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-yellow-600 transition-all duration-300 ease-out"
+                      className={`h-full rounded-full transition-all duration-300 ease-out ${
+                        translatePhaseStatus === "PARTIAL"
+                          ? "bg-destructive"
+                          : translatePhaseStatus === "COMPLETED"
+                            ? "bg-green-500"
+                            : translateTimedOut
+                              ? "bg-muted-foreground/50"
+                              : "bg-yellow-600"
+                      }`}
                       style={{
-                        width: `${Math.min(100, Math.round((translateProgress.done / translateProgress.total) * 100))}%`,
+                        width: `${Math.min(
+                          100,
+                          Math.round(
+                            (translateProgress.done / translateProgress.total) *
+                              100,
+                          ),
+                        )}%`,
                       }}
                     />
                   </div>
