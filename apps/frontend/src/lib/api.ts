@@ -870,10 +870,15 @@ api.interceptors.response.use(
     logApiError(error);
 
     if (error.response?.status === 401) {
-      // Never redirect for /auth/me — AuthContext handles auth check failures itself
+      // Never redirect for /auth/me — AuthContext handles auth check failures itself.
+      // /auth/me/password's 401 means "wrong current password" (see
+      // AuthService.changePassword), not an expired session — the caller's own
+      // try/catch already surfaces that inline, so it must not trigger a
+      // global logout redirect either.
       const requestUrl = error.config?.url || "";
       if (
         requestUrl.endsWith("/auth/me") ||
+        requestUrl.endsWith("/auth/me/password") ||
         requestUrl.endsWith("/auth/pin-login")
       ) {
         return Promise.reject(error);

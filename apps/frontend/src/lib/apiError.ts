@@ -62,5 +62,19 @@ export function getApiError(err: unknown): string {
     return "apiErrors.invalidCredentials";
   }
 
+  // changePassword (PATCH /auth/me/password) throws 401 for a wrong current
+  // password — a valid-session business rejection, not a session-expiry
+  // 401. The generic apiErrors.unauthorized ("you're not logged in") copy is
+  // actively wrong here, so route it to its own key instead.
+  if (status === 401 && message === "Current password is incorrect.") {
+    return "profileDashboard.currentPasswordIncorrect";
+  }
+  if (
+    status === 400 &&
+    message === "New password must be different from the current password."
+  ) {
+    return "profileDashboard.passwordSameAsCurrent";
+  }
+
   return getApiErrorKey(status);
 }

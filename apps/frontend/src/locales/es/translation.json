@@ -802,7 +802,9 @@
     "passwordMin": "La nueva contraseña debe tener al menos 8 caracteres.",
     "passwordMismatch": "Las contraseñas no coinciden.",
     "passwordSaved": "Se ha cambiado la contraseña",
-    "passwordError": "No se ha podido cambiar tu contraseña."
+    "passwordError": "No se ha podido cambiar tu contraseña.",
+    "currentPasswordIncorrect": "La contraseña actual es incorrecta.",
+    "passwordSameAsCurrent": "La nueva contraseña debe ser diferente de la actual."
   },
   "dashboard": {
     "title": "Panel de control del restaurante",
@@ -993,6 +995,7 @@
     "roleManager": "Gerente",
     "roleWaiter": "Camarero",
     "roleKitchen": "Cocina",
+    "roleOwner": "Propietario",
     "createStaffAccount": "Crear cuenta de empleado",
     "loading": "Cargando...",
     "noStaffYet": "Aún no hay miembros del personal.",

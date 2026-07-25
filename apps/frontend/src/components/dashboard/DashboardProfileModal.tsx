@@ -1,10 +1,27 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Check, KeyRound, Loader2, UserRound } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, type TFunction } from "react-i18next";
 import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
 import { changePassword, updateProfile } from "../../lib/api";
 import { getApiError } from "../../lib/apiError";
+
+function roleLabel(role: string | undefined, t: TFunction): string {
+  switch (role) {
+    case "OWNER":
+      return t("staff.roleOwner", "Owner");
+    case "MANAGER":
+      return t("staff.roleManager", "Manager");
+    case "STAFF":
+      return t("staff.roleStaff", "Staff");
+    case "WAITER":
+      return t("staff.roleWaiter", "Waiter");
+    case "KITCHEN":
+      return t("staff.roleKitchen", "Kitchen");
+    default:
+      return role ?? "";
+  }
+}
 
 type DashboardUser = {
   id: string;
@@ -119,7 +136,9 @@ export function DashboardProfileModal({
             <p className="truncate text-sm font-semibold text-foreground">
               {user?.email}
             </p>
-            <p className="text-xs text-muted-foreground">{user?.role}</p>
+            <p className="text-xs text-muted-foreground">
+              {roleLabel(user?.role, t)}
+            </p>
           </div>
         </div>
 

@@ -113,7 +113,9 @@
     "passwordMin": "Parola noua trebuie sa aiba cel putin 8 caractere.",
     "passwordMismatch": "Parolele nu coincid.",
     "passwordSaved": "Parola a fost schimbata",
-    "passwordError": "Nu s-a putut schimba parola."
+    "passwordError": "Nu s-a putut schimba parola.",
+    "currentPasswordIncorrect": "Parola curentă este incorectă.",
+    "passwordSameAsCurrent": "Parola nouă trebuie să fie diferită de cea curentă."
   },
   "dashboard": {
     "title": "Panou de Bord Restaurant",
@@ -320,6 +322,7 @@
     "roleManager": "Manager",
     "roleWaiter": "Ospătar",
     "roleKitchen": "Bucătărie",
+    "roleOwner": "Proprietar",
     "createStaffAccount": "Creează cont personal",
     "loading": "Se încarcă...",
     "noStaffYet": "Încă nu există personal.",

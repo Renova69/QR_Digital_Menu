@@ -113,7 +113,9 @@
     "passwordMin": "New password must be at least 8 characters.",
     "passwordMismatch": "Passwords do not match.",
     "passwordSaved": "Password changed",
-    "passwordError": "Could not change your password."
+    "passwordError": "Could not change your password.",
+    "currentPasswordIncorrect": "Current password is incorrect.",
+    "passwordSameAsCurrent": "New password must be different from the current password."
   },
   "dashboard": {
     "title": "Restaurant Dashboard",
@@ -320,6 +322,7 @@
     "roleManager": "Manager",
     "roleWaiter": "Waiter",
     "roleKitchen": "Kitchen",
+    "roleOwner": "Owner",
     "createStaffAccount": "Create Staff Account",
     "loading": "Loading...",
     "noStaffYet": "No staff members yet.",

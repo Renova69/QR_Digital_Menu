@@ -802,7 +802,9 @@
     "passwordMin": "Le nouveau mot de passe doit comporter au moins 8 caractères.",
     "passwordMismatch": "Les mots de passe ne correspondent pas.",
     "passwordSaved": "Mot de passe modifié",
-    "passwordError": "Impossible de modifier votre mot de passe."
+    "passwordError": "Impossible de modifier votre mot de passe.",
+    "currentPasswordIncorrect": "Le mot de passe actuel est incorrect.",
+    "passwordSameAsCurrent": "Le nouveau mot de passe doit être différent de l'actuel."
   },
   "dashboard": {
     "title": "Tableau de bord du restaurant",
@@ -993,6 +995,7 @@
     "roleManager": "Responsable",
     "roleWaiter": "Serveur",
     "roleKitchen": "Cuisine",
+    "roleOwner": "Propriétaire",
     "createStaffAccount": "Créer un compte pour le personnel",
     "loading": "Chargement en cours...",
     "noStaffYet": "Il n'y a pas encore de membres du personnel.",

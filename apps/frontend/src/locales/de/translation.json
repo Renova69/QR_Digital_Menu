@@ -802,7 +802,9 @@
     "passwordMin": "Das neue Passwort muss mindestens 8 Zeichen lang sein.",
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
     "passwordSaved": "Passwort geändert",
-    "passwordError": "Dein Passwort konnte nicht geändert werden."
+    "passwordError": "Dein Passwort konnte nicht geändert werden.",
+    "currentPasswordIncorrect": "Das aktuelle Passwort ist falsch.",
+    "passwordSameAsCurrent": "Das neue Passwort muss sich vom aktuellen unterscheiden."
   },
   "dashboard": {
     "title": "Restaurant-Dashboard",
@@ -993,6 +995,7 @@
     "roleManager": "Manager",
     "roleWaiter": "Kellner",
     "roleKitchen": "Küche",
+    "roleOwner": "Inhaber",
     "createStaffAccount": "Mitarbeiterkonto erstellen",
     "loading": "Wird geladen...",
     "noStaffYet": "Es gibt noch keine Mitarbeiter.",
