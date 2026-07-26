@@ -14,6 +14,39 @@ const i18nMock = vi.hoisted(() => ({
   translate: vi.fn((key: string) => key),
 }));
 
+function translateBulgarian(
+  key: string,
+  defaultValueOrOptions?: string | Record<string, unknown>,
+  extraOptions?: Record<string, unknown>,
+) {
+  const translated = key
+    .split(".")
+    .reduce<unknown>(
+      (value, part) =>
+        value &&
+        typeof value === "object" &&
+        part in (value as Record<string, unknown>)
+          ? (value as Record<string, unknown>)[part]
+          : undefined,
+      bgTranslation,
+    );
+  const options =
+    typeof defaultValueOrOptions === "object"
+      ? defaultValueOrOptions
+      : (extraOptions ?? {});
+  const fallback =
+    typeof defaultValueOrOptions === "string"
+      ? defaultValueOrOptions
+      : typeof options.defaultValue === "string"
+        ? options.defaultValue
+        : key;
+  const template = typeof translated === "string" ? translated : fallback;
+
+  return template.replace(/{{\s*(\w+)\s*}}/g, (_match, variable: string) =>
+    String(options[variable] ?? `{{${variable}}}`),
+  );
+}
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: i18nMock.translate,
@@ -150,26 +183,7 @@ describe("CheckoutPage", () => {
 
   it("renders Bulgarian checkout copy instead of English fallbacks", () => {
     i18nMock.resolvedLanguage = "bg";
-    i18nMock.translate.mockImplementation(
-      (key: string, fallback?: string | Record<string, unknown>) => {
-        const translated = key
-          .split(".")
-          .reduce<unknown>(
-            (value, part) =>
-              value &&
-              typeof value === "object" &&
-              part in (value as Record<string, unknown>)
-                ? (value as Record<string, unknown>)[part]
-                : undefined,
-            bgTranslation,
-          );
-        return typeof translated === "string"
-          ? translated
-          : typeof fallback === "string"
-            ? fallback
-            : key;
-      },
-    );
+    i18nMock.translate.mockImplementation(translateBulgarian);
     (useLocation as Mock).mockReturnValue({
       state: { restaurantId: "r1", paymentsEnabled: true },
       hash: "",
@@ -189,6 +203,82 @@ describe("CheckoutPage", () => {
     });
     expect(
       screen.getByText("Чудесно - ще използваме това име за поръчката ви."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders Bulgarian expiry currency, long dates, and savings CTA", async () => {
+    i18nMock.resolvedLanguage = "bg";
+    i18nMock.translate.mockImplementation(translateBulgarian);
+    (useAuth as Mock).mockReturnValue({
+      user: { id: "owner-1", name: "666", role: "OWNER" },
+    });
+    (useCart as Mock).mockReturnValue({
+      items: [
+        {
+          id: "item1",
+          cartId: "c1",
+          quantity: 1,
+          price: 15.34,
+          selectedOptions: [],
+          rewardPointsPrice: 0,
+        },
+      ],
+      tableNumber: "5",
+      getTotal: () => 15.34,
+      clearCart: vi.fn(),
+    });
+    (api.default.post as Mock).mockResolvedValue({
+      data: {
+        points: 10214,
+        expiringSoonPoints: 600,
+        expiringSoonValue: 4,
+        expiringSoon: [
+          {
+            points: 50,
+            value: 0.33,
+            expiresAt: "2026-08-07T15:30:05.725Z",
+          },
+          {
+            points: 550,
+            value: 3.67,
+            expiresAt: "2026-08-08T09:10:26.471Z",
+          },
+        ],
+        restaurantConfig: {
+          isLoyaltyEnabled: true,
+          loyaltyRedeemRate: 150,
+          loyaltyMaxRedemptionPercent: 100,
+          timezone: "Europe/Sofia",
+        },
+      },
+    });
+
+    render(<CheckoutPage />);
+
+    expect(
+      await screen.findByText("4.00 € изтичат скоро"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("50 точки изтичат на 7 август 2026 г."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("550 точки изтичат на 8 август 2026 г."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("switch", {
+        name: "Използвай точки за отстъпка",
+      }),
+    );
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: "Точки за използване" }),
+      { target: { value: "480" } },
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Поръчай — спести 3.20 € с този пакет!",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -424,13 +514,13 @@ describe("CheckoutPage", () => {
     render(<CheckoutPage />);
 
     expect(
-      await screen.findByText("50 points expire on Aug 7, 2026"),
+      await screen.findByText("50 points expire on August 7, 2026"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("550 points expire on Aug 8, 2026"),
+      screen.getByText("550 points expire on August 8, 2026"),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("600 points expire on Aug 7, 2026"),
+      screen.queryByText("600 points expire on August 7, 2026"),
     ).not.toBeInTheDocument();
   });
 

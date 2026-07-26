@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { groupExpiringPointBatches } from "./loyaltyExpiry";
+import {
+  formatLoyaltyExpiryDate,
+  groupExpiringPointBatches,
+} from "./loyaltyExpiry";
 
 describe("groupExpiringPointBatches", () => {
   it("shows each restaurant-local expiry date with only the points expiring that day", () => {
@@ -39,5 +42,17 @@ describe("groupExpiringPointBatches", () => {
         value: 3.67,
       },
     ]);
+  });
+});
+
+describe("formatLoyaltyExpiryDate", () => {
+  it("uses an unambiguous long month name in Bulgarian", () => {
+    expect(
+      formatLoyaltyExpiryDate(
+        "2026-08-07T15:30:05.725Z",
+        "bg",
+        "Europe/Sofia",
+      ),
+    ).toBe("7 август 2026 г.");
   });
 });

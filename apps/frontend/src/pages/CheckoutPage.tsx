@@ -433,8 +433,10 @@ const CheckoutPage = () => {
     : checkoutSavings > 0
       ? t(
           "checkout.placeOrderWithSavings",
-          "Place Order - Save {{amount}} on this bundle!",
-          { amount: formatEuro(checkoutSavings) },
+          {
+            defaultValue: "Place order — save {{amount}} on this bundle!",
+            amount: formatEuro(checkoutSavings),
+          },
         )
       : t("checkout.placeOrder", "Place my order now");
 
@@ -1251,7 +1253,7 @@ const CheckoutPage = () => {
                 <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 p-3 text-sm">
                   <p className="font-bold text-yellow-600 dark:text-yellow-400">
                     {t("checkout.expiringSoon", {
-                      value: loyaltyData.expiringSoonValue.toFixed(2),
+                      value: formatEuro(loyaltyData.expiringSoonValue),
                     })}
                   </p>
                   <div className="mt-1 space-y-1">

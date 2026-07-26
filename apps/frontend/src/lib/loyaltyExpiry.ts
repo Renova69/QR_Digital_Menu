@@ -83,12 +83,16 @@ export function formatLoyaltyExpiryDate(
   if (Number.isNaN(date.getTime())) return "";
   try {
     return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
       timeZone,
     }).format(date);
   } catch {
     return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
       timeZone: "UTC",
     }).format(date);
   }
