@@ -1222,7 +1222,7 @@
     "empty": "Votre panier est vide",
     "remove": "Supprimer",
     "total": "Total",
-    "proceedCheckout": "Passer à la caisse",
+    "proceedCheckout": "Continuer vers la commande",
     "clearCart": "Vider le panier"
   },
   "checkout": {

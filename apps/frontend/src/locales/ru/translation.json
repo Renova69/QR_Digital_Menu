@@ -286,7 +286,7 @@
     "empty": "Корзина пуста",
     "remove": "Удалить",
     "total": "Итого",
-    "proceedCheckout": "Перейти к оформлению",
+    "proceedCheckout": "Перейти к оформлению заказа",
     "clearCart": "Очистить корзину"
   },
   "checkout": {

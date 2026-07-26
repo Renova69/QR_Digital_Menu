@@ -1222,7 +1222,7 @@
     "empty": "Tu carrito está vacío",
     "remove": "Eliminar",
     "total": "Total",
-    "proceedCheckout": "Ir a la caja",
+    "proceedCheckout": "Continuar con el pedido",
     "clearCart": "Vaciar la cesta"
   },
   "checkout": {

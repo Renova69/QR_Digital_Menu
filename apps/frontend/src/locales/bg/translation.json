@@ -705,7 +705,7 @@
     "empty": "Количката е празна",
     "remove": "Премахни",
     "total": "Общо",
-    "proceedCheckout": "Продължи към плащане",
+    "proceedCheckout": "Продължи към поръчката",
     "clearCart": "Изчисти количката"
   },
   "checkout": {
