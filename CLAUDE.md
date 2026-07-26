@@ -10,17 +10,14 @@ Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` dire
 - **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
 - **Currency** — `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` at BNB fixed rate 1 EUR = 1.95583 BGN. Used in CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions.
 
-## I have provided you with two files:
+## Reference docs
 
-- \@CLAUDE.md — Project instruction file for Claude Code. Describes repo layout, common commands, architecture, conventions, and history. Claude reads it at session start to understand how to work in this codebase.
-- \@CODING_ROADMAP.md — Phased development plan. Lists shipped phases (V1 MVP through V2.5 polish, RBAC, Stripe, POS,mobile UX), current focus (Phase 20 Multi-location), and planned V4 Enterprise work. Single source of truth for what's done vs. next.
-- \@HOW_TO.md — Developer onboarding guide. Step-by-step setup instructions: clone, install deps, configure .env, run dev servers, seed DB, common troubleshooting.
-- \@MAIN.md — Project overview/README supplement. High-level description of the QR Digital Menu product, tech stack, and feature set. Likely used as internal reference or mirrors parts of the public README.
-- \@MAIN_FEATURES.md — Feature catalog. Lists all user-facing and admin features by category (menu management, orders,payments, loyalty, analytics, etc.). Used for scope tracking and feature completeness checks.
-- \@fixed_issues_main.md — fixed_issues_main.md — Chronological bug-fix log. Each entry documents problem, root cause, fix applied, and affected files for resolved production issues. Purpose: prevent regressions, provide reference for future debugging, and maintain institutional memory of what broke and why.
-- \@FILE_INDEX.md - contains a list of all the files in the codebase along with a simple description of what it does.
-
-This index may or may not be up to date.
+- \@CLAUDE.md — Project instruction file for Claude Code. Describes repo layout, common commands, architecture, conventions, and history.
+- \@CODING_ROADMAP.md — Phased development plan. Lists shipped phases through V3 Growth + current focus. Single source of truth for what's done vs. next.
+- \@HOW_TO.md — Developer onboarding guide. Step-by-step setup: clone, install deps, configure .env, run dev servers, seed DB, troubleshooting.
+- \@MAIN.md — Project overview. High-level product description, tech stack, feature set.
+- \@MAIN_FEATURES.md — Feature catalog by category (menu, orders, payments, loyalty, reservations, analytics, etc.).
+- \@fixed_issues_main.md — Chronological bug-fix log. Each entry documents problem, root cause, fix applied, affected files.
 
 ### Root (turbo orchestrated)
 
@@ -67,7 +64,7 @@ npm start        # serve dist/ on :3002 (kept off :3001 so a built PWA's service
 
 ## Backend architecture
 
-NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Config (global), Throttler, Prisma, Subscription, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty, Payment, MenuImport, HelpContent. `ThrottlerGuard` applied globally (100 req / 60s).
+NestJS modules registered in `apps/backend/src/app.module.ts`: Config (global), Throttler, Prisma, Subscription, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty, Payment, MenuImport, HelpContent, Reservations, PrintStation, Push, MenuViews, ClientLogs, TableZones, UsersData. `ThrottlerGuard` applied globally (100 req / 60s).
 
 Cross-cutting concerns:
 
@@ -76,7 +73,7 @@ Cross-cutting concerns:
 - **401 interceptor** (`api.ts`) — redirects to `/login` on 401 EXCEPT for `/auth/me` (returns rejected promise instead). This prevents logout loop during app initialization. AuthContext handles `/auth/me` failures silently.
 - **Auth cookie transport** — Dev: same-origin Vite proxy (`api.ts` baseURL `/api/v1`, `sameSite: 'lax'`). Production: cross-origin (`api.ts` uses `VITE_API_URL` env, `sameSite: 'none'` + `secure: true`). CSRF double-submit cookie pattern protects cross-origin state-changing requests. `api.ts` auto-selects baseURL: `/api/v1` in dev (proxy), `VITE_API_URL` in production (cross-origin).
 - **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance / table status / payment pushes. `EventsGateway.emitTableStatusChanged(restaurantId, tableId, sessionId)` emits `table:status-changed` — called from 4 locations (`OrdersService.create`, `OrdersService.updateStatus`, `PaymentService.handleWebhookEvent`, `PaymentService.closeSession`). `payment:confirmed` event emitted on successful payment.
-- **Payment** (`payment/`) — Stripe Connect pay-at-table + Waiter POS session management. `IPaymentProvider` interface abstracts provider; `StripeProvider` implements it (future providers: MyPOS, Square). `PaymentService` handles sessions, bill calculation, PaymentIntent creation, webhook processing, force-open (`forceOpenSession()`), card-payment close (`closeSessionWithCard()` — creates MYPOS payment, sets session PAID, emits socket events). `PaymentController` has 7 routes: sessions, bill, create-payment-intent, webhook (raw body), history, force-open, close-card. `RestaurantsService` manages Stripe Connect account onboarding (create account link, status check, disconnect). Never add provider-specific logic outside the provider — always go through `IPaymentProvider`.
+- **Payment** (`payment/`) — Multi-provider payment system behind `IPaymentProvider` interface. Four providers: **Stripe Connect** (pay-at-table, Connect onboarding, PaymentIntent), **BORICA** (EMV-3DS direct, RSA-SHA256 signing, TRTYPE=90), **ePay.bg** (hosted checkout, HMAC signing, callback verification), **MyPOS** (card terminal, demo/live mode). Provider abstraction: never add provider-specific logic outside the provider — always go through `IPaymentProvider`. `PaymentService` handles sessions, bill calculation, webhook processing, force-open, card-payment close, split bill settlement, cash requests, scoped bill payments. `PaymentController` routes: sessions, bill, payment-intent, webhook (raw body), history, force-open, close-card, split, cash-request. `RestaurantsService` manages Stripe Connect onboarding. BORICA/ePay feature flags independent of Stripe; `paymentsEnabled` on Restaurant gates public menu payment visibility.
 - **Tables** (`tables/`) — `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status per table (empty/occupied/paid — "waiting" removed May 2026). PAID sessions auto-close after 5 minutes via `PaymentService.autoClosePaidSessions()`. `GET /tables/status/:restaurantId` returns enriched data with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`. `getTableOrders(tableId, restaurantId)` returns all orders for a table's active OPEN session with item names — used by dashboard live view and POS order history. Tables have optional `zone` field for grouping/sectioning in large-restaurant POS views.
 - **Staff Attribution** — `OrderSource` enum (POS/QR) + `staffUserId` on Order. Order recorded with source on create — `OrdersService.create()` captures optional staff identity via `OptionalJwtAuthGuard` (public endpoint that extracts JWT user when present, passes through when absent). Source badges appear on dashboard order list, table detail cards, payment detail rows, and PaymentModal. Itemized bill grouped by source (POS vs QR). `OptionalJwtAuthGuard` rethrows JWT errors (expired/malformed tokens) rather than silently passing through — prevents degraded auth on public endpoints.
 - **Table Zones** — `RestaurantTable.zone` field for grouping tables into sections (e.g., "Main Floor", "Terrace", "Bar"). POS table picker groups by zone with section headers. Improves navigation for large-restaurant POS workflows.
@@ -90,7 +87,14 @@ Cross-cutting concerns:
 - **Subscription Cache** — Unified TanStack Query cache key `['subscription-status']` across all components (SubscriptionBanner, PricingPage, BillingView, FeatureGuard). Prevents duplicate fetches and inconsistent state. Locked navigation for unpaid tiers with UpgradeModal.
 - **Public Menu Footer** — Restaurant name bar, location, contact info, social media icon links (Facebook, Instagram, TikTok, YouTube, website) on public menu. Language defaults to BG.
 - **XLSX Import** — Menu import now supports XLSX format alongside JSON OCR. `MenuImportExportView.tsx` ImportTab accepts both `.json` and `.xlsx` files. XLSX export produces multi-sheet workbook for Excel editing roundtrip.
-- **Translation** (`translation/`) — DeepL. Platform owns the key via `DEEPL_API_KEY` env var in `apps/backend/.env`. `TranslationService.translateTexts/translateText/translateObject` take **no** `apiKey` param — the service reads the key internally. `restaurant.deeplApiKey` column exists in schema but is **never read or written** — do not add call-sites that touch it. Three translation paths: (1) fire-and-forget pre-warm on menu item/category/option create+update; (2) owner-triggered "Translate All Now" via `POST /api/restaurants/:id/translate-all`; (3) lazy on-demand per-request via `GET /api/menu/public/:id?lang=<code>` — translates missing entries and caches to DB `translations` JSON field immediately. `lang` param is validated against `restaurant.targetLanguages` — arbitrary langs are rejected. Free-tier detection: key ending in `:fx` routes to `api-free.deepl.com`.
+- **Translation** (`translation/`) — Job-queue pipeline with sidecar `TranslationJob` table for progress tracking, quota management, and DeepL native glossary support. Platform owns the key via `DEEPL_API_KEY` env var. `TranslationService.translateTexts/translateText/translateObject` take **no** `apiKey` param — the service reads the key internally. `restaurant.deeplApiKey` column exists in schema but is **never read or written**. Three translation paths: (1) fire-and-forget pre-warm on menu item/category/option create+update; (2) owner-triggered "Translate All Now" via `POST /api/restaurants/:id/translate-all` (queued, shows progress); (3) lazy on-demand per-request via `GET /api/menu/public/:id?lang=<code>` — translates missing entries and caches to DB. `lang` param validated against `restaurant.targetLanguages`. Free-tier detection: key ending in `:fx` routes to `api-free.deepl.com`. 12 supported locales: EN/BG/RO/DE/ES/FR/IT/ZH/EL/JA/RU/AR.
+- **Reservations** (`reservations/`) — Public booking page + dashboard management. Features: availability calendar, seating zones with capacity, configurable duration, blackout dates, SMS notifications (Twilio + SIM-based SMS gateway providers), self-service manage links, guest preferences (allergens, accessibility, seating), analytics dashboard. `BookingConfirmationPage` + `BookingManagePage` for customer self-service. 12-lang i18n. Tier-gated (PROFESSIONAL+). Real-time status sync via socket.
+- **Print Station** (`print-station/`) — Thermal receipt printing subsystem. `PrintStation` model with per-category assignment. `PrintAgentToken` for device auth. `PrintJob` model with reliability states (PENDING/PRINTING/COMPLETED/FAILED). ESC/POS ticket builder with Cyrillic support. Expo Android printer agent (`PRINT EMULATOR/escpresso/`). Customizable receipt template per station. EventsGateway routes print jobs to agents via socket. `PrintStationsView` dashboard tab.
+- **Service Points** — QR ordering for non-table locations (bar counter, pickup window). `ServicePoint` model with unique QR codes. Public ordering flow parallels table ordering. Dashboard management in TablesView.
+- **Split Bill** (`payment/` split provider) — POS split settlement: per-item, even split, and custom partial amounts. `SplitMode` enum, `SplitProvider`, settlement allocation DTOs. Multiple settlements per session with item count draw-down. Theme-aware split drawer.
+- **Web Push** (`push/`) — VAPID-based push notifications. Service worker registration via `vite-plugin-pwa`. `PushSubscription` model. Notification click opens correct dashboard page. Key rotation with auto-resubscribe. Prod-guarded VAPID keys in Secret Manager.
+- **Allergen/Dietary Tags** — 7 allergen icons (gluten, dairy, nuts, etc.) + dietary tags (vegan, vegetarian, etc.) on `MenuItem.tags`. `TagPicker` component with search in menu editor. 12-lang i18n. Tap-to-open tooltips on public menu.
+- **Context-Aware Upselling** — WeatherAPI integration for weather-context suggestions. Deterministic perfect-pairing triggers. Trending carousel with AUTO mode. Bounded trending queries, batched public-menu items endpoint.
 - **Storage** (`storage/`) — Cloudflare R2 client for image uploads. `StorageService` runs sharp image processing pipeline: EXIF auto-rotate, resize to 1200px max, convert to WebP (quality 82), generate 400px thumbnail (quality 75), upload both in parallel. Methods: `upload(fileBuffer, originalName, contentType)` returns URL; `uploadWithThumbnail(...)` returns `{url, thumbnailUrl}`. ALLOWED_TYPES: JPEG, PNG, WebP. File filter in controllers additionally restricts to JPEG/PNG only. R2 creds in `apps/backend/.env`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`.
 - **Schedule** — `@nestjs/schedule` is registered **only** inside `loyalty.module.ts`. Loyalty expiry-reminder cron runs at midnight UTC.
 
@@ -149,8 +153,10 @@ Key files for the options flow:
 
 ## Frontend architecture
 
-- **Routing** — React Router v7 in `apps/frontend/src/App.tsx`.
-- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`, `PosContext`. Server state via TanStack Query.
+- **Routing** — React Router v7 in `apps/frontend/src/App.tsx`. Three layouts: `AppLayout` (dashboard/auth), `PublicLayout` (customer-facing), `PosLayout` (staff POS).
+- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`, `PosContext`, `ThemeContext`, `PosThemeContext`. Server state via TanStack Query.
+- **Pages** — 19 top-level pages + 5 sub-page directories. Key additions since May 2026: `BookingPage`, `BookingConfirmationPage`, `BookingManagePage` (reservations), `DeviceEnrollPage`, `DeviceLoginPage` (staff PIN), `OAuthCallbackPage`, `ImpersonationExchangePage` (super-admin), `legal/` (PrivacyPolicyPage, TermsPage, CookiePolicyPage), `staff/KitchenPage` (KDS), `onboarding/OnboardingPage`, `profile/DataPrivacyTab`, `super-admin/` (RevenuePage, DataRequestsPage, LegalSettingsPage, TenantDetailPage).
+- **Dashboard sub-pages**: `SummaryView`, `OrdersView`, `LiveTablesView`, `AssistanceView`, `PaymentsView`, `AnalyticsView`, `SettingsView`, `MenuImportExportView`, `ReservationsView`, `HelpView`, `PrintStationsView`, `PaymentReconciliationQueue`.
 - **API client** — `src/lib/api.ts` (axios + CSRF interceptor). BaseURL auto-selects: `/api/v1` in dev (same-origin via Vite proxy), `VITE_API_URL` in production (cross-origin to Cloud Run). `withCredentials: true` sends httpOnly cookie. CSRF token fetched once, cached, attached to state-changing requests. 401 interceptor skips `/auth/me` to prevent logout loop. All requests go through this — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 - **Menu import/export** — `src/pages/Dashboard/MenuImportExportView.tsx` (~380 lines). Combined Import/Export dashboard tab with sub-tab navigation. `ImportTab` accepts both JSON and XLSX files (full roundtrip: export → edit in Excel → re-import). Contains OCR JSON import flow (ApiKeyPanel, FileImporter, PreviewTable, confirm import with mutation). `ExportTab` offers Download JSON, Download XLSX, Download CSV (`menuToCSV()` with BOM + European locale), Copy JSON. Uses lazy fetch (`useQuery({ enabled: false })`) — data fetched on button click only. `exportMenu()` in `api.ts` calls `GET /api/restaurants/:id/menu/export` (JWT-guarded, backend endpoint already existed). Tab label key: `dashboard.tabs.importExport`.
@@ -213,7 +219,7 @@ Third layout (`PosLayout`) alongside `AppLayout` and `PublicLayout`. Full-viewpo
 
 ## Testing
 
-- **Backend** — Jest, specs co-located as `*.spec.ts` under `src/`. E2e config at `apps/backend/test/jest-e2e.json` and requires `.env.test` copied to `.env` first via `npm run test:prepare`.
+- **Backend** — Jest, specs co-located as `*.spec.ts` under `src/`. NestJS CLI compiled via SWC (dev compile ~0.3s). E2e config at `apps/backend/test/jest-e2e.json` and requires `.env.test` copied to `.env` first via `npm run test:prepare`.
 - **Frontend** — Vitest + jsdom; React Testing Library available.
 
 ## graphify
@@ -227,6 +233,6 @@ Rules:
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
-## Deplotyment
+## Deployment
 
-When asked to deploy , deploy backend to existing GCloud - installed at C:\google-cloud-sdk\bin and frontend via Vercel MCP
+When asked to deploy, deploy backend to existing GCloud (installed at `C:\google-cloud-sdk\bin`) and frontend via Vercel MCP.

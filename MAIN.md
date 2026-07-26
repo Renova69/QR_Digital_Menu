@@ -1,8 +1,8 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 29, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed) — Tier Enforcement Sweep Round 2 ✅ (all 22 feature flags enforced, 454 tests passing) — Super-Admin Dashboard ✅ (internal ops panel, tier override, suspend/reactivate, soft delete, live tier propagation via TanStack Query) — GDPR / Legal Module ✅ (May 18, 2026) — Dashboard Vertical Sidebar ✅ (May 18, 2026) — Super-Admin Dark OLED Redesign ✅ (May 18, 2026) — Auth Hardening ✅ (May 18, 2026) — Pricing Page Redesign ✅ (May 19, 2026) — Analytics XLSX Export ✅ (May 19, 2026) — Subscription UX Fixes ✅ (May 19, 2026) — Help Center CMS ✅ (May 22, 2026) — Seed Safety Guards ✅ (May 22, 2026) — Staff Attribution & Itemized Bills ✅ (May 24, 2026) — Table Zones/Sections ✅ (May 24, 2026) — Onboarding Wizard Overhaul ✅ (May 24, 2026) — Dashboard Purple/Violet Luxury Redesign ✅ (May 24, 2026) — Table Status Simplification ✅ (May 24, 2026) — Public Menu Footer ✅ (May 23, 2026) — XLSX Import/Export Roundtrip ✅ (May 23, 2026) — FREE Tier Restrictions ✅ (May 23, 2026) — Analytics Deep-Dive Full i18n ✅ (May 24, 2026) — Homepage Redesign ✅ (May 25, 2026) — Settings/Staff Refactor ✅ (May 25, 2026 — tab components, dedicated StaffController, race-safe creation) — Branding Dual Light/Dark Palette ✅ (May 25, 2026) — Loyalty Happy-Hour Day Selector ✅ (May 25, 2026) — QR Scan Tracking & STAFF Role ✅ (May 27, 2026 — MenuView, scan-stats, visitor ID, restricted STAFF tabs, assistance URGENT type) — Role-Exclusive Staff Credentials ✅ (May 29, 2026 — PIN for WAITER/KITCHEN, password for STAFF/MANAGER/OWNER, pinLogin device-only) — Mobile Dashboard UX ✅ (May 29, 2026 — More sheet, grid segmented controls, scan metrics all tiers, tab guard, mobile UpgradeModal) — Assistance URGENT Badge + Persistent Call-Waiter Cooldown ✅ (May 29, 2026)
-> **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
+> **Last Updated:** July 26, 2026
+> **Status:** V3.5 Platform Expansion Complete — Stripe Payments ✅ | Staff Roles & RBAC ✅ | Security Hardening ✅ | BORICA/ePay.bg/MyPOS ✅ | Print Station System ✅ | Analytics Deep-Dive v2/v3 ✅ | i18n 12 Locales ✅ | Split Bill ✅ | Service Points ✅ | Web Push ✅ | Reservations System ✅ | Translation Pipeline Rework ✅ | Allergen/Dietary Tags ✅ | Loyalty Checkout & Redemption ✅ | Branding/Theme Consolidation ✅ | Dashboard Polish & 21-Agent Audit ✅
+> **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL) + SWC compiler
 
 ---
 
@@ -17,10 +17,12 @@
 
 ### Key Metrics
 
-- **Zero-cost development stack** — Neon Free Tier (0.5GB), Vercel Hobby, Supabase Free (5GB)
+- **Zero-cost development stack** — Neon Free Tier (0.5GB), Vercel Hobby, Cloudflare R2 Free
 - **Startup time** — ~5 seconds (native dev) vs 2-5 minutes (old Docker workflow)
-- **Languages** — EN, BG, RO (DeepL auto-translation, BG as fallback)
+- **Backend compile** — SWC (0.3s dev compile, down from 15s)
+- **Languages** — EN, BG, RO, DE, ES, FR, IT, ZH, EL, JA, RU, AR (12 locales, DeepL auto-translation)
 - **Fonts** — Outfit (body) + Playfair Display (headings)
+- **Test suite** — BE ~1200+, FE ~200+
 
 ---
 
@@ -28,19 +30,22 @@
 
 ### Core
 
-| Layer           | Technology                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Monorepo**    | Turborepo + npm Workspaces (`apps/*`)                                                                        |
-| **Frontend**    | React 18, Vite 6, TypeScript 5.9, Tailwind CSS 4, Radix UI, TanStack Query 5, i18next, socket.io-client      |
-| **Backend**     | NestJS 11, TypeScript, Prisma 6 ORM, `@nestjs/websockets`, `@nestjs/throttler`, `@nestjs/schedule`           |
-| **Database**    | **Neon** (Serverless PostgreSQL, pooled connection)                                                          |
-| **Auth**        | JWT + Google OAuth 2.0 + Email OTP (Resend API) — via Passport.js                                            |
-| **Translation** | DeepL API — platform-managed key, lazy on-demand caching to DB                                               |
-| **Storage**     | Cloudflare R2 (image uploads + CDN), sharp image processing pipeline                                         |
-| **Realtime**    | Socket.io via `@nestjs/websockets` (`EventsGateway`)                                                         |
-| **Payments**    | Stripe Connect (Active — provider abstraction, Connect onboarding, payment history, real-time notifications) |
-| **API Docs**    | Swagger/OpenAPI at `/api-docs`                                                                               |
-| **Testing**     | Jest (backend), Vitest + jsdom (frontend), Supertest (E2E)                                                   |
+| Layer           | Technology                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Monorepo**    | Turborepo + npm Workspaces (`apps/*`)                                                                         |
+| **Frontend**    | React 18, Vite 6, TypeScript 5.9, Tailwind CSS 4, Radix UI, TanStack Query 5, i18next, socket.io-client       |
+| **Backend**     | NestJS 11, TypeScript, Prisma 6 ORM, `@nestjs/websockets`, `@nestjs/throttler`, `@nestjs/schedule`            |
+| **Database**    | **Neon** (Serverless PostgreSQL, pooled connection)                                                           |
+| **Auth**        | JWT + Google OAuth 2.0 + Email OTP (Resend API) + PIN (staff) — via Passport.js                               |
+| **Translation** | DeepL API — job-queue pipeline, sidecar `TranslationJob` table, native glossary, quota management, 12 locales |
+| **Storage**     | Cloudflare R2 (image uploads + CDN), sharp image processing pipeline                                          |
+| **Realtime**    | Socket.io via `@nestjs/websockets` (`EventsGateway`)                                                          |
+| **Payments**    | Stripe Connect + BORICA EMV-3DS + ePay.bg + MyPOS — all behind `IPaymentProvider` interface                   |
+| **Printing**    | ESC/POS thermal receipt system — `PrintStation`/`PrintJob` models, Expo Android agent, customizable templates |
+| **Push**        | VAPID Web Push notifications via `web-push` + `vite-plugin-pwa` service worker                                |
+| **API Docs**    | Swagger/OpenAPI at `/api-docs`                                                                                |
+| **Testing**     | Jest (backend ~1200+ tests), Vitest + jsdom (frontend ~200+ tests), Supertest (E2E)                           |
+| **Compiler**    | SWC (NestJS dev compile 15s → 0.3s)                                                                           |
 
 ### Key Libraries
 

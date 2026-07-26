@@ -1,57 +1,13 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 29, 2026  
-> **MVP Status:** ✅ Complete  
-> **V2 Status:** ✅ Phases 9–14 Complete  
-> **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
-> **Bug Fixes & Polish (May 6, 2026):** ✅ Customer auth OTP, cart language sync, options pre-selection, QR print, analytics dark mode, translation gaps, menu health false positive  
-> **V3 Growth (May 8, 2026):** ✅ Phase 19 (Stripe Connect Payments) Complete — Phase 18 & 20 paused  
-> **OCR Import Integration (May 9, 2026):** ✅ Prisma P2028 fix, schema alignment (allergens/dietaryTags), zero-price fix  
-> **Waiter POS (May 9-10, 2026):** ✅ Full POS interface at /staff/pos — 15 files created, 4 modified, zero schema changes  
-> **Security Hardening (May 10-11, 2026):** ✅ Phase 21 — JWT → httpOnly cookies, CSRF protection, same-origin Vite proxy, CSP headers, per-endpoint rate limits, OTP brute-force protection, body size limits  
-> **Staff Roles & RBAC (May 12-14, 2026):** ✅ Phase 18 Complete — OWNER/MANAGER/WAITER/KITCHEN roles, PIN-based device login, QR enrollment (bond/re-bond), shared device mode, staff settings consolidation, StaffCreatedModal, RBAC across all services  
-> **Public Menu Mobile UX (May 15, 2026):** ✅ TopBar, FilterPanel, CategoryPills, horizontal item cards with dual-currency, slim TrendingCarousel, bottom nav regroup, ~30 i18n keys, dead code cleanup, PublicMenuPage refactored 815→~400 lines  
-> **Code Review & Bug Fixes (May 15, 2026):** ✅ PR#3 findings (HomePage imports, i18n casts, Tailwind durations), RestaurantContext TS error, CheckoutPage Toggle, payments investigation (not a bug — schema default)  
-> **Security & Bug Fixes (May 15, 2026):** ✅ Socket.io CORS wildcard fix, magic-link endpoint removed (token-leak), loyalty expiry emails now sent via Resend, CSV export all 5 sections, TS strict mode (strictNullChecks + noImplicitAny), CategoryPills auto-scroll, ItemWithOptions BGN double-conversion  
-> **Infrastructure & Polish Sprint (May 15, 2026):** ✅ API versioning `/api/v1/*`, Prisma jittered-backoff retry + circuit breaker (CLOSED→OPEN after 5 failures, HALF_OPEN after 30s), order progress stepper, 3 QR print templates (Classic/Premium/Minimal), 122 tests (up from 77), customer split bill  
-> **SaaS Tiering V2 (May 16, 2026):** ✅ 4-tier FREE/STARTER/PROFESSIONAL/ENTERPRISE on `Restaurant.tier`, SubscriptionModule (FeatureService + FeatureGuard + @RequireFeature decorator), Stripe Checkout + Portal + webhook with timestamp-gate race protection, `useFeature` hook, BillingView, PricingPage, SubscriptionBanner, 4 demo accounts  
-> **Menu Import/Export (May 16, 2026):** ✅ Combined Import/Export dashboard tab with sub-tab navigation (Import / Export). Export offers Download JSON, Download CSV, Copy JSON. Backend endpoint already existed — frontend `exportMenu()` + `MenuImportExportView.tsx` added. CSV export with BOM + European locale support. Tab label changed to "Import/Export" across EN/BG/RO.  
-> **Production Deployment & Cross-Origin Fixes (May 16, 2026):** ✅ Frontend on Vercel, backend on Cloud Run. Cross-origin cookie fix (`COOKIE_SAMESITE` default `'none'` in production). CheckoutPage useEffect hang fix (useRef guard). Missing orderId in navigate state fix. CSRF cross-origin compatibility. SPA rewrites in vercel.json.  
-> **Tier Enforcement Sweep Round 2 (May 17, 2026):** ✅ All 22 feature flags now enforced. Backend: `getAllowedStaffRoles(tier)` in FeatureService, dashboard/payment/Stripe controller gates, users.service role-tier matrix, menu-crud DAYPARTING strip-on-write + filter, UPSELLING strip-on-read. Frontend: AnalyticsView basic/full split, PublicMenuPage upselling/customers-auth/payments gates, CheckoutPage customers-auth gate, CategorySettingsModal dayparting gate, PosPage/KitchenPage tier redirect, staff role dropdown filtered by tier. i18n: 11 new keys EN/BG/RO. Tests: 454 passing.  
-> **Auth Hardening & Bug Fixes (May 18, 2026):** ✅ Google OAuth URL fix — corrected `/api/auth/google` → `/api/v1/auth/google` (URI versioning mismatch causing 404). Google OAuth credentials provisioned and stored in Google Secret Manager. OTP verification codes and phone numbers now gated behind `NODE_ENV !== 'production'` — no longer visible in Cloud Run logs. CI gate added (`.github/workflows/ci.yml`) — unit tests + frontend typecheck + build block merge on `main`/`master`.
-> **GDPR / Legal Module (May 18, 2026):** ✅ Super-admin-controlled compliance layer. Backend: `PlatformSettings` singleton with 8 feature toggles, per-locale JSON content fields, retention tunables. `UsersDataModule` — right-to-erasure (Art. 17), data export (Art. 20), retention cron. Frontend: `LegalSettingsPage`, `CookieConsentBanner`, `/privacy`/`/terms`/`/cookies` routes, `DataPrivacyTab` in customer profile.
-> **Dashboard Vertical Sidebar (May 18, 2026):** ✅ Permanent vertical sidebar replacing desktop horizontal tab overflow. All tabs always visible on Enterprise/Pro. Mobile bottom nav unchanged.
-> **Super-Admin Dark OLED Redesign (May 18, 2026):** ✅ Complete visual overhaul of all 5 super-admin pages. Emerald accent, Shield branding, colored stat cards, donut chart, sticky save bars.
-> **Super-Admin Dashboard (May 17, 2026):** ✅ Full internal ops panel at `/super-admin`. Tier override, suspend/reactivate, soft delete/restore. Live tier propagation via TanStack Query.
-> **Help Center CMS (May 19-22, 2026):** ✅ Database-driven CMS for all Help/FAQ content. `HelpContent` model + 6 endpoints + `HelpCenterPage.tsx` with inline CRUD + locale tabs (EN/BG/RO). API-driven LandingFAQ and HelpView.
-> **Pricing Page Redesign (May 21, 2026):** ✅ Full visual redesign with annual billing toggle (15% discount), 22-row feature comparison table, 6-entry FAQ, ~60 i18n keys.
-> **Analytics XLSX Export (May 21, 2026):** ✅ Multi-sheet XLSX workbook (5 sheets). BGN dual-currency columns. `analyticsExport.ts` (217 lines).
-> **Seed Safety + PgBouncer (May 22, 2026):** ✅ 3-layer seed guard (production → remote DB → user count). `seed:help` command. `PrismaService` pool logging.
-> **Super Admin Overview v2 (May 22, 2026):** ✅ Billing vs Effective Tier separation, force-tier summary, richer KPI cards, recent activity feed, "Attention Needed" panel (5 categories). 12 parallel queries in single `Promise.all`.
-> **Security Hardening Round 2 (May 22, 2026):** ✅ Account disable, CONFIRM-typing on 5 dangerous actions, per-mutation throttles (7+4+1), guard coverage tests, NODE_ENV startup enforcement, `AdminAuditLog` audit trail.
-> **XLSX Import/Export Roundtrip (May 23, 2026):** ✅ Menu import now supports XLSX format alongside JSON OCR. Export produces multi-sheet XLSX workbook. Full roundtrip: export → edit in Excel → re-import.
-> **Public Menu Footer + Social Icons (May 23, 2026):** ✅ Restaurant name bar, location, contact info, social media icon links (Facebook, Instagram, TikTok, YouTube, website) on public menu. Language defaults to BG.
-> **FREE Tier Restrictions (May 23, 2026):** ✅ Revenue cards and analytics button hidden for FREE tier restaurants. Tier enforcement hardening.
-> **Subscription/SaaS Polish (May 23, 2026):** ✅ Unified TanStack Query cache (`['subscription-status']`) across all components. Locked navigation for unpaid tiers. UpgradeModal with revenue trap. Stripe price ID saved on subscription events.
-> **Deploy & Schema Fixes (May 23, 2026):** ✅ `prisma db push` removed from container startup (schema managed locally). Legacy `delivery`/`takeaway` columns dropped. `Order.tableId` made nullable for takeaway orders.
-> **Dashboard Purple/Violet Luxury Redesign (May 24, 2026):** ✅ Complete visual overhaul of dashboard operations. Purple/violet accent palette. Payments view strengthened. Dashboard KPI polish.
-> **Onboarding Wizard Overhaul (May 24, 2026):** ✅ New-user wizard fully rewritten. Tier-aware Stripe Checkout (FREE→Starter skips payment). Stripe Connect onboarding integrated. Owner name collected. Table setup flow. 6 bugs from walkthrough resolved. Tier synced from Stripe session (not webhook).
-> **Table Status Simplification (May 24, 2026):** ✅ Removed "waiting" status — tables now: empty/occupied/paid. Auto-close PAID sessions after 5 minutes. POS i18n (BG). TableCard redesigned with compact 4-row layout + live timer.
-> **Dashboard-Wide i18n (May 24, 2026):** ✅ PaymentsView, PaymentDrawer, and AssistanceView fully translated. All dashboard hardcoded strings now wired to i18next. 103 analytics keys synced across EN/BG/RO.
-> **Homepage Redesign (May 25, 2026):** ✅ CC-DESIGN 3-column hero layout, 16 feature cards, 22-row comparison table, 7 FAQ items, operations center, pricing, footer. Menu editor header redesigned.
-> **Settings & Staff Refactor (May 25, 2026):** ✅ All settings tabs extracted to self-contained components (`GeneralSettingsTab`, `LoyaltySettingsTab`, `PaymentSettingsTab`, `StaffSettingsTab`), `SettingsView` slimmed to a shell. Staff CRUD moved to dedicated `StaffController`; auth hardened with serializable-transaction retry + duplicate-email handling. Prevent duplicate restaurant per owner. Stale `prefetchedRestaurants` cleared on login.
-> **Perf (May 25, 2026):** ✅ Eliminated login/navigation request waterfall + added menu query cache.
-> **Loyalty (May 25, 2026):** ✅ Happy-hour day-of-week selector + 24h time inputs.
-> **Branding Dual Palette (May 25, 2026):** ✅ Paired light/dark brand palette system end-to-end (`themeLight*` / `themeDark*` / `defaultTheme`). Editor polish (i18n, dark-mode override, tab stability). Public-menu theme application + border-opacity fixes. `websiteUrl`/`youtubeUrl` wired into public menu.
-> **Subscription/Billing (May 25, 2026):** ✅ Billing UI redesign, tier-gating fixes, test-subscriptions tooling. Onboarding: dashboard access restored for pre-existing owners.
-> **QR Scan Tracking & STAFF Role (May 27, 2026):** ✅ `MenuView` model + public `recordView` + dashboard `scan-stats` endpoint (menu views, unique visitors, per-table). Visitor-ID tracking. Seat-matrix rework. STAFF dashboard role with restricted tabs (orders/assistance/tables). Order session tokens scoped by restaurant+table. Assistance `type` (STANDARD/URGENT).
-> **Role-Exclusive Staff Credentials (May 29, 2026):** ✅ `apps/backend/src/users/staff-roles.ts` is the single source of truth. WAITER/KITCHEN authenticate by PIN; STAFF/MANAGER/OWNER by email+password and are excluded from `pinLogin` (a 4-digit PIN can never mint a dashboard JWT). Device-enrollment QR shown only for PIN roles.
-> **Mobile Dashboard UX (May 29, 2026):** ✅ Bottom nav trimmed to 4 primary tabs + a "More" sheet (account, overflow tabs, language, theme, logout, view public menu). Equal-width grid segmented controls (no ragged wrap). Trimmed mobile padding. Scan metrics shown on all tiers. Tab guard redirects forced `?tab=` to unentitled tabs → summary; `PaymentsView` render now also requires `canPayments`. `UpgradeModal` shows only required-tier-and-above, stacks on mobile.
-> **Assistance & Misc (May 29, 2026):** ✅ URGENT badge in dashboard assistance view; call-waiter 60s cooldown persisted per restaurant+table (survives page reload). Stripe SDK `apiVersion` bumped to `2026-05-27.dahlia` (Cloud Build fix).
-> **Staff Attribution & Itemized Bills (May 24, 2026):** ✅ `OrderSource` enum (POS/QR) + `staffUserId` on Order. Order recorded with source on create. Source badges on dashboard order list, table detail cards, payment detail rows, and PaymentModal. Itemized bill grouped by source. `OptionalJwtAuthGuard` for public order endpoints — captures staff identity when JWT present.
-> **Table Zones/Sections (May 24, 2026):** ✅ Table zones/sections for large-restaurant POS filtering. Zone field on RestaurantTable. POS table picker grouped by zone with section headers.
-> **Analytics Deep-Dive Full i18n (May 24, 2026):** ✅ All hardcoded English strings in analytics deep-dive tab replaced with i18next `t()` calls. 16 new keys (day parts, order statuses, hour bar labels). Excel export localized. Custom date filter heading supported.
-> **Current Focus:** Documentation update (May 24, 2026) — Phase 20 (Multi-location) paused until concerns cleared
+> **Last Updated:** July 26, 2026
+> **MVP Status:** ✅ Complete
+> **V2 Status:** ✅ Phases 9–14 Complete
+> **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete
+> **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
+> **Security Hardening:** ✅ Phase 21 + Round 2 Complete
+> **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
+> **Current Focus:** Bug fixes & polish only — feature development paused per project directive.
 
 ---
 
@@ -1102,6 +1058,281 @@ Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
 **Fix:** Configured PgBouncer-compatible connection parameters in `PrismaService`. Added `super({ log: ['warn', 'error'] })` for pool exhaustion visibility in Cloud Run logs.
 
 **Key files:** `apps/backend/src/prisma/prisma.service.ts`
+
+---
+
+## 🔶 V3.5 — Platform Expansion (Complete — June–July 2026)
+
+### Phase 22: Payment Provider Expansion ✅ (June 2026)
+
+**Goal:** Support Bulgarian payment methods beyond Stripe — BORICA EMV-3DS (direct card processing) and ePay.bg (hosted checkout).
+
+**Shipped:**
+
+- **BORICA** (`payment/borica.provider.ts`) — RSA-SHA256 MAC signing, TRTYPE=90 protocol, EMV-3DS authentication, EUR enforcement, ADDENDUM support, certificate validation
+- **ePay.bg** (`payment/epay.provider.ts`) — HMAC-signed hosted checkout, callback verification, merchant config, invoice lifecycle management, expired-invoice recovery
+- **MyPOS** (`payment/mypos.provider.ts`) — Card terminal integration, demo/live mode, settlement workflow
+- All behind `IPaymentProvider` interface — no provider-specific logic outside providers
+- Independent feature flags per provider; `paymentsEnabled` gates public menu payment visibility
+- Provider status labels + cards in PaymentsView dashboard
+
+**Selling Point:** _"Every Bulgarian payment method — one unified checkout."_
+
+---
+
+### Phase 23: Print Station System ✅ (June 2026)
+
+**Goal:** Thermal receipt printing for kitchen/bar — orders route to correct print station based on item category.
+
+**Shipped:**
+
+- `PrintStation` model — per-category assignment, health status tracking
+- `PrintAgentToken` model — device authentication tokens
+- `PrintJob` model — PENDING/PRINTING/COMPLETED/FAILED reliability states with retry logic
+- ESC/POS ticket builder — Cyrillic encoding support, customizable receipt template per station
+- Expo Android printer agent (`PRINT EMULATOR/escpresso/`) — socket-based job delivery
+- EventsGateway routing — agent auth, `emitPrintJob`, `print:ack` handler
+- `PrintStationsView` dashboard tab — station management, health badges, token generation modal
+- Printer agent QR setup scanner
+
+**Selling Point:** _"Orders print instantly where they're needed — kitchen, bar, or counter."_
+
+---
+
+### Phase 24: Analytics Deep-Dive v2/v3 ✅ (June 2026)
+
+**Goal:** Professional-grade analytics with advanced metrics, revenue reconciliation, and loading polish.
+
+**Shipped:**
+
+- **Phase 2 metrics:** Refund rate, payment split breakdown, repeat customer rate, revenue per hour
+- **Revenue reconciliation strip:** Ordered vs collected comparison
+- **Completion rate:** Replaced misleading Served-rate KPI
+- **Phase 3:** Layout-matched loading skeleton
+- At-order price snapshots for accurate historical revenue
+- DB-side aggregations for large datasets; bounded cache
+- DST-correct peak hours analysis
+- XLSX export gated to PRO tier; includes all new metrics
+- STARTER tier: basic KPIs + revenue trend visible
+
+**Selling Point:** _"Know exactly how your restaurant is performing — down to the hour."_
+
+---
+
+### Phase 25: i18n Expansion — 12 Locales ✅ (June 2026)
+
+**Goal:** Expand from 3 languages (EN/BG/RO) to 12 for EU market readiness.
+
+**Shipped:**
+
+- New locales: DE, ES, FR, IT, ZH, EL, JA, RU, AR (RTL)
+- DeepL-generated locale files with manual QA pass
+- All public menu UI chrome + dashboard fully translated
+- lazy-loaded translation bundles (183→54 KB gz per language)
+- i18next interpolation for dynamic values (FR/DE grammar)
+- RTL-aware layout adjustments for AR
+
+**Selling Point:** _"Your menu speaks every customer's language."_
+
+---
+
+### Phase 26: Split Bill ✅ (June 2026)
+
+**Goal:** Staff can split a table bill multiple ways — per item, evenly, or custom partial amounts.
+
+**Shipped:**
+
+- `SplitMode` enum: PER_ITEM, EVEN, CUSTOM_PARTIAL
+- `SplitProvider` — allocation calculation, item count draw-down
+- Multiple settlements per session with balance tracking
+- Theme-aware `PosSplitDrawer` component
+- Even split uses people-left model; locks after first payment
+- Settlement lock ordering to prevent race conditions
+- Cash request settlement flow for partial cash payments
+
+**Selling Point:** _"Tables settle however they want — item by item, evenly, or custom."_
+
+---
+
+### Phase 27: Service Points ✅ (June 2026)
+
+**Goal:** Non-table QR ordering for bar counters, pickup windows, and service locations.
+
+**Shipped:**
+
+- `ServicePoint` model with unique QR codes
+- Public ordering flow parallel to table ordering
+- Dashboard management in `LiveTablesView`
+- Service point session isolation + IDOR hardening
+- QR code download for each service point
+
+**Selling Point:** _"QR ordering works for every spot in the restaurant — not just tables."_
+
+---
+
+### Phase 28: Web Push Notifications ✅ (June 2026)
+
+**Goal:** Push notifications for dashboard users — new orders, assistance requests, payment confirmations.
+
+**Shipped:**
+
+- VAPID-based push via `web-push` library
+- `PushSubscription` model — per-user device subscriptions
+- Service worker via `vite-plugin-pwa`
+- Notification click opens correct dashboard page
+- VAPID key rotation with auto-resubscribe
+- Prod-guarded: keys in Google Secret Manager
+- SSRF-hardened push fetch
+
+**Selling Point:** _"Staff get notified even when the dashboard isn't open."_
+
+---
+
+### Phase 29: Context-Aware Upselling ✅ (June 2026)
+
+**Goal:** Smarter item suggestions based on weather, time of day, and menu context.
+
+**Shipped:**
+
+- WeatherAPI integration — weather-context item suggestions
+- AUTO mode trending with bounded queries, batched public-menu endpoint
+- Deterministic perfect-pairing triggers
+- Base-score scaling with input array length; negative-score prevention
+- Scan retention tracking for trending accuracy
+
+**Selling Point:** _"Suggest the right dish for the moment — hot soup on a cold day."_
+
+---
+
+### Phase 30: Staff Device Management ✅ (June 2026)
+
+**Goal:** Secure device enrollment with shared device mode for kitchen/bar stations.
+
+**Shipped:**
+
+- Device enrollment hardening — token lifecycle, session version
+- Shared device mode enforcement
+- Device count limits per staff member
+- PIN login audit trail
+- Staff usage tracking in device sessions
+- CSPRNG PIN generation (`crypto.randomInt`)
+
+**Selling Point:** _"Every staff device is secure, tracked, and always ready."_
+
+---
+
+### Phase 31: Reservations System ✅ (July 2026)
+
+**Goal:** Full restaurant reservation management — public booking, dashboard CRUD, SMS notifications, self-service.
+
+**Shipped:**
+
+- Public `BookingPage` — date/time picker, guest count, seating preferences, allergens, accessibility needs
+- `BookingConfirmationPage` + `BookingManagePage` — customer self-service (modify/cancel)
+- Dashboard `ReservationsView` — calendar, list, analytics, manual reservation creation
+- Seating zones with capacity tracking; configurable duration
+- Blackout dates; atomic capacity enforcement
+- SMS notifications (Twilio + SIM-based SMS gateway provider abstraction)
+- Self-service manage links (short in-house URL in SMS)
+- 12-lang i18n with localized date pickers (`react-datepicker`)
+- Real-time status sync via socket
+- Tier-gated (PROFESSIONAL+); full feature-gate enforcement
+- Reservation analytics dashboard
+
+**Selling Point:** _"Guests book their own table. Restaurant stays full. No phone tag."_
+
+---
+
+### Phase 32: Branding/Theme Consolidation ✅ (July 2026)
+
+**Goal:** Eliminate theme FOUC, unify theme state, and harden branding across all surfaces.
+
+**Shipped:**
+
+- `ThemeContext` — shared theme state across dashboard + public menu
+- `PosThemeContext` — POS-specific theme (always dark)
+- FOUC fix: per-restaurant theme check before global in inline script
+- Light default enforcement; theme persistence per storage key
+- Theme-aware cart, checkout, POS cart sheet
+- Press-twice bug fix on public menu theme toggle
+
+**Selling Point:** _"Your brand looks perfect — first paint, every time."_
+
+---
+
+### Phase 33: Loyalty Checkout & Redemption ✅ (July 2026)
+
+**Goal:** Customers see and redeem loyalty rewards directly during checkout.
+
+**Shipped:**
+
+- Tier progress bar in CheckoutPage showing progress toward next tier
+- Reward redemption with deterministic per-line `redeemCartIds`
+- Automated menu reward pricing
+- FOR UPDATE locking on loyalty ledger writes
+- Guest checkout guard for tier progress row
+- Clamped progress bar width (0–100%)
+
+**Selling Point:** _"Customers see their rewards grow — and spend them immediately."_
+
+---
+
+### Phase 34: Translation Pipeline Rework ✅ (July 2026)
+
+**Goal:** Replace the fragile glossary-only gate with a robust job-queue pipeline.
+
+**Shipped:**
+
+- `TranslationJob` sidecar table — progress tracking, quota management
+- Job queue with retry/backoff for DeepL API calls
+- Native DeepL glossary support (not dish-stuffed workaround)
+- Per-restaurant quota enforcement
+- Progress bar UI during translate-all operations
+- Race-condition hardening (6 edge cases fixed)
+
+**Selling Point:** _"Menu translation just works — at scale, with progress you can watch."_
+
+---
+
+### Phase 35: Allergen/Dietary Tag System ✅ (July 2026)
+
+**Goal:** Rich allergen and dietary preference tagging with visual icons.
+
+**Shipped:**
+
+- 7 allergen SVG icons (gluten, dairy, nuts, eggs, fish, shellfish, soy)
+- Dietary tags (vegan, vegetarian, spicy, new, featured)
+- `TagPicker` component with search in menu editor
+- `MenuItem.tags String[]` on Prisma schema + DTOs
+- 12-lang i18n for all tag labels
+- Tap-to-open allergen tooltips on public menu cards
+- Description expand/collapse for long item descriptions
+
+**Selling Point:** _"Every dietary need is visible at a glance — no surprises."_
+
+---
+
+### Phase 36: Dashboard Polish & Hardening ✅ (July 2026)
+
+**Goal:** Close remaining UX gaps, fix analytics math, harden security, improve dev experience.
+
+**Shipped:**
+
+- Dashboard URL tab persistence — refresh keeps your place
+- `react-datepicker` replacing native date inputs across all dashboard tabs
+- Analytics math fixes: deleted-item grouping keys, preset execution against PostgreSQL, timezone fixture isolation
+- POS offline-queue fixes: stale notice clearing, duplicate order prevention
+- Payment settlement lock ordering; session mutation serialization
+- CSRF webhook allowlist hardening; conditional `/orders` CSRF
+- Socket room join authorization; malformed room rejection
+- Checkout page: consistent payment labels, cash-request refresh hardening
+- Menu: no-store Cache-Control on public endpoints; undefined route prevention
+- Dev: NODE_ENV passthrough in turbo tasks; `start:dev` boot heartbeat
+- SWC compiler for NestJS (dev compile 15s → 0.3s)
+- Stale chunk auto-reload (`lazyWithReload`) for deployed SPA
+- 21-agent system audit: 259 findings → 56 fixes in single remediation pass
+
+**Selling Point:** _"Rock-solid. Every edge case hardened. Every pixel polished."_
 
 ---
 
