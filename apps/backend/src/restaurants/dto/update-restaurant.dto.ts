@@ -154,6 +154,12 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsInt()
+  @Min(0)
+  @Max(100)
+  loyaltyMaxRedemptionPercent?: number;
+
+  @IsOptional()
+  @IsInt()
   @Min(1)
   loyaltyPointExpiryDays?: number;
 

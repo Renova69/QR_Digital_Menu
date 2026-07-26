@@ -195,12 +195,14 @@ const makeTx = (orderOverride: Record<string, any> = {}) => {
     order: {
       create: jest
         .fn()
-        .mockImplementation((args: { data: { totalPrice: number } }) =>
-          Promise.resolve({
-            ...makeOrder(),
-            totalPrice: args.data.totalPrice,
-            ...orderOverride,
-          }),
+        .mockImplementation(
+          (args: { data: { totalPrice: number; status: string } }) =>
+            Promise.resolve({
+              ...makeOrder(),
+              totalPrice: args.data.totalPrice,
+              status: args.data.status,
+              ...orderOverride,
+            }),
         ),
     },
   };
@@ -1626,6 +1628,83 @@ describe('OrdersService', () => {
       expect(printStationService.routeOrderToPrinters).not.toHaveBeenCalled();
     });
 
+    it('releases a fully point-funded online order without waiting for a zero-value payment', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          isLoyaltyEnabled: true,
+          loyaltyMaxRedemptionPercent: 100,
+        }),
+      );
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-cuid-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        isActive: true,
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['ONLINE'],
+      });
+      const tx = makeTx();
+      tx.$queryRaw = makeOrderQueryRawMock({
+        sessionsById: new Map([
+          [
+            'sess-new',
+            lockedSession({
+              id: 'sess-new',
+              token: 'tok-new',
+              tableId: 'room-cuid-304',
+              isServicePoint: true,
+            }),
+          ],
+        ]),
+      });
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 2000,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 2000,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 2000 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+      mockAuthenticatedCustomer(prisma);
+
+      await service.create(
+        {
+          customerName: 'Customer',
+          customerId: 'cust-1',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          servicePointToken: 'sp-token',
+          fulfillmentType: 'ROOM_DELIVERY',
+          paymentPreference: 'ONLINE',
+          usePoints: true,
+          redeemPoints: 1500,
+        } as CreateOrderDto,
+        'cust-1',
+      );
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'NEW',
+            totalPrice: 0,
+            pointsRedeemedForDiscount: 1500,
+          }),
+        }),
+      );
+      expect(printStationService.routeOrderToPrinters).toHaveBeenCalledWith(
+        'order-1',
+      );
+    });
+
     it('rejects a service-point order when the restaurant plan does not include service points', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
@@ -2495,7 +2574,7 @@ describe('OrdersService', () => {
       expect(tx.loyaltyPointLedger.create).toHaveBeenCalledTimes(2);
     });
 
-    it('calculates loyalty discount from DB points and ignores legacy redeemPoints input', async () => {
+    it('caps a requested loyalty discount using the DB balance and owner policy', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ isLoyaltyEnabled: true }),
@@ -2535,6 +2614,51 @@ describe('OrdersService', () => {
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.pointsRedeemedForDiscount).toBe(5);
       expect(createCall.data.totalPrice).toBeCloseTo(10 - 5 / 150);
+    });
+
+    it('redeems the customer-selected points within the owner-configured order limit', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          isLoyaltyEnabled: true,
+          loyaltyMaxRedemptionPercent: 100,
+        }),
+      );
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 2000,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 2000,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 2000 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+      mockAuthenticatedCustomer(prisma);
+
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+          usePoints: true,
+          redeemPoints: 750,
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
+        'cust-1',
+      );
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      expect(createCall.data.pointsRedeemedForDiscount).toBe(750);
+      expect(createCall.data.totalPrice).toBe(5);
     });
   });
 

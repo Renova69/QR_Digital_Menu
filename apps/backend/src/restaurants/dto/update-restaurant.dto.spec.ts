@@ -164,4 +164,32 @@ describe('UpdateRestaurantDto validation', () => {
       expect(keysFor({ happyHourDays: [0] }, 'happyHourDays')).toContain('min');
     });
   });
+
+  describe('loyaltyMaxRedemptionPercent', () => {
+    it('accepts the full owner-configurable range', () => {
+      expect(validate({ loyaltyMaxRedemptionPercent: 0 })).toHaveLength(0);
+      expect(validate({ loyaltyMaxRedemptionPercent: 100 })).toHaveLength(0);
+    });
+
+    it('rejects values outside 0-100 and fractional percentages', () => {
+      expect(
+        keysFor(
+          { loyaltyMaxRedemptionPercent: -1 },
+          'loyaltyMaxRedemptionPercent',
+        ),
+      ).toContain('min');
+      expect(
+        keysFor(
+          { loyaltyMaxRedemptionPercent: 101 },
+          'loyaltyMaxRedemptionPercent',
+        ),
+      ).toContain('max');
+      expect(
+        keysFor(
+          { loyaltyMaxRedemptionPercent: 12.5 },
+          'loyaltyMaxRedemptionPercent',
+        ),
+      ).toContain('isInt');
+    });
+  });
 });

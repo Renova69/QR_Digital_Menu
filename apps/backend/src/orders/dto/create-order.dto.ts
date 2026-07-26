@@ -134,6 +134,11 @@ export class CreateOrderDto {
   @IsOptional()
   usePoints?: boolean;
 
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  redeemPoints?: number;
+
   @IsArray()
   @IsOptional()
   @IsString({ each: true })

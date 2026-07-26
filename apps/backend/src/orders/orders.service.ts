@@ -87,10 +87,6 @@ const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CANCELED]: [],
 };
 
-const LOYALTY_CONFIG = {
-  MAX_ORDER_DISCOUNT: 0.15, // max 15% of order total redeemable
-} as const;
-
 const ORDER_CREATE_RESTAURANT_FIELDS = {
   id: true,
   ownerId: true,
@@ -106,6 +102,7 @@ const ORDER_CREATE_RESTAURANT_FIELDS = {
   isLoyaltyEnabled: true,
   loyaltyExchangeRate: true,
   loyaltyRedeemRate: true,
+  loyaltyMaxRedemptionPercent: true,
   loyaltySignupBonus: true,
   loyaltyPointExpiryDays: true,
   loyaltySilverThreshold: true,
@@ -1083,12 +1080,16 @@ export class OrdersService {
                 loyaltyAcc.points - pointsRedeemedForItems,
                 0,
               );
-              const maxDiscount =
-                finalTotal * LOYALTY_CONFIG.MAX_ORDER_DISCOUNT;
+              const maxRedemptionPercent =
+                restaurant.loyaltyMaxRedemptionPercent ?? 15;
+              const maxDiscount = finalTotal * (maxRedemptionPercent / 100);
               const maxDiscountPoints = Math.floor(maxDiscount * redeemRate);
+              const requestedPoints =
+                createOrderDto.redeemPoints ?? Number.POSITIVE_INFINITY;
               const pointsToRedeem = Math.min(
                 remainingPoints,
                 maxDiscountPoints,
+                requestedPoints,
               );
 
               if (pointsToRedeem > 0) {
@@ -1165,7 +1166,7 @@ export class OrdersService {
               fulfillmentType,
               paymentPreference,
               status:
-                effectivePaymentPreference === 'ONLINE'
+                effectivePaymentPreference === 'ONLINE' && finalTotal > 0
                   ? OrderStatus.PENDING_PAYMENT
                   : OrderStatus.NEW,
               specialRequests: createOrderDto.specialRequests,
@@ -1233,7 +1234,7 @@ export class OrdersService {
       throw error;
     }
 
-    const isAwaitingPayment = effectivePaymentPreference === 'ONLINE';
+    const isAwaitingPayment = finalOrder.status === OrderStatus.PENDING_PAYMENT;
 
     this.eventsGateway.emitOrderEventToRestaurant(
       finalOrder.restaurantId,
@@ -1273,6 +1274,7 @@ export class OrdersService {
       customerId: createOrderDto.customerId ?? null,
       specialRequests: createOrderDto.specialRequests ?? null,
       usePoints: createOrderDto.usePoints ?? false,
+      redeemPoints: createOrderDto.redeemPoints ?? null,
       redeemItemIds: createOrderDto.redeemItemIds ?? [],
       redeemCartIds: createOrderDto.redeemCartIds ?? [],
       posSubmission: createOrderDto.posSubmission,

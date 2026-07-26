@@ -7,6 +7,10 @@ import { useTranslation } from "react-i18next";
 import { formatEuro, formatBgn } from "../lib/currency";
 import { orderStatusKeyMap } from "./Dashboard/analytics/shared";
 import DataPrivacyTab from "./profile/DataPrivacyTab";
+import {
+  formatLoyaltyExpiryDate,
+  groupExpiringPointBatches,
+} from "../lib/loyaltyExpiry";
 
 export const CustomerProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -168,9 +172,26 @@ export const CustomerProfilePage: React.FC = () => {
               const pointsToFirstReward: number = acc.pointsToFirstReward ?? 0;
               const expiringSoonPoints = acc.expiringSoonPoints || 0;
               const expiringSoonValue = acc.expiringSoonValue || 0;
-              const nextExpirationAt = acc.nextExpirationAt
-                ? new Date(acc.nextExpirationAt)
-                : null;
+              const loyaltyTimeZone = acc.restaurant?.timezone || "UTC";
+              const expiryBatches =
+                acc.expiringSoon?.length > 0
+                  ? acc.expiringSoon
+                  : expiringSoonPoints > 0 && acc.nextExpirationAt
+                    ? [
+                        {
+                          points: expiringSoonPoints,
+                          value: expiringSoonValue,
+                          expiresAt: acc.nextExpirationAt,
+                        },
+                      ]
+                    : [];
+              const expiringPointGroups = groupExpiringPointBatches(
+                expiryBatches,
+                acc.restaurant?.loyaltyRedeemRate || 150,
+                loyaltyTimeZone,
+              );
+              const loyaltyLocale =
+                i18n.resolvedLanguage || i18n.language || "en";
 
               return (
                 <div
@@ -248,18 +269,25 @@ export const CustomerProfilePage: React.FC = () => {
                           value: expiringSoonValue.toFixed(2),
                         })}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("profile.expiringSoonBody", {
-                          count: expiringSoonPoints,
-                          date: nextExpirationAt
-                            ? t("profile.expiringSoonOn", {
-                                date: nextExpirationAt.toLocaleDateString(
-                                  i18n.language,
+                      <div className="mt-1 space-y-1">
+                        {expiringPointGroups.map((group) => (
+                          <p
+                            key={group.dateKey}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {t("profile.expiringSoonBody", {
+                              count: group.points,
+                              date: t("profile.expiringSoonOn", {
+                                date: formatLoyaltyExpiryDate(
+                                  group.expiresAt,
+                                  loyaltyLocale,
+                                  loyaltyTimeZone,
                                 ),
-                              })
-                            : "",
-                        })}
-                      </p>
+                              }),
+                            })}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   )}
 

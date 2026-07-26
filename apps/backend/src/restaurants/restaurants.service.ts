@@ -74,6 +74,7 @@ const RESTAURANT_READ_SELECT = {
   loyaltyExchangeRate: true,
   loyaltySignupBonus: true,
   loyaltyRedeemRate: true,
+  loyaltyMaxRedemptionPercent: true,
   loyaltyExpiryReminderDays: true,
   loyaltyGoldMultiplier: true,
   loyaltyGoldThreshold: true,

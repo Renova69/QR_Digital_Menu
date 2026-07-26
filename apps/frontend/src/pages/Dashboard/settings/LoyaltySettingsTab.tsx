@@ -38,6 +38,8 @@ const LoyaltySettingsTab: React.FC = () => {
   const [loyaltySignupBonus, setLoyaltySignupBonus] = useState(0);
   const [loyaltyExchangeRate, setLoyaltyExchangeRate] = useState(10);
   const [loyaltyRedeemRate, setLoyaltyRedeemRate] = useState(150);
+  const [loyaltyMaxRedemptionPercent, setLoyaltyMaxRedemptionPercent] =
+    useState(15);
   const [loyaltyPointExpiryDays, setLoyaltyPointExpiryDays] = useState(90);
   const [loyaltyExpiryReminderDays, setLoyaltyExpiryReminderDays] =
     useState(15);
@@ -71,6 +73,9 @@ const LoyaltySettingsTab: React.FC = () => {
       setLoyaltySignupBonus(activeRestaurant.loyaltySignupBonus ?? 0);
       setLoyaltyExchangeRate(activeRestaurant.loyaltyExchangeRate ?? 10);
       setLoyaltyRedeemRate(activeRestaurant.loyaltyRedeemRate ?? 150);
+      setLoyaltyMaxRedemptionPercent(
+        activeRestaurant.loyaltyMaxRedemptionPercent ?? 15,
+      );
       setLoyaltyPointExpiryDays(activeRestaurant.loyaltyPointExpiryDays ?? 90);
       setLoyaltyExpiryReminderDays(
         activeRestaurant.loyaltyExpiryReminderDays ?? 15,
@@ -110,6 +115,7 @@ const LoyaltySettingsTab: React.FC = () => {
         loyaltySignupBonus,
         loyaltyExchangeRate,
         loyaltyRedeemRate,
+        loyaltyMaxRedemptionPercent,
         loyaltyPointExpiryDays,
         loyaltyExpiryReminderDays,
         loyaltySilverThreshold,
@@ -204,7 +210,7 @@ const LoyaltySettingsTab: React.FC = () => {
             })}
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground/80 mb-1">
                 {t("loyaltySettings.signupBonus")}
@@ -249,6 +255,33 @@ const LoyaltySettingsTab: React.FC = () => {
               />
               <p className="text-[10px] text-muted-foreground mt-1">
                 {t("loyaltySettings.redeemRateDesc")}
+              </p>
+            </div>
+            <div>
+              <label
+                htmlFor="loyalty-max-redemption-percent"
+                className="block text-sm font-medium text-foreground/80 mb-1"
+              >
+                {t("loyaltySettings.maxRedemptionPercent", {
+                  defaultValue: "Maximum bill payable with points (%)",
+                })}
+              </label>
+              <input
+                id="loyalty-max-redemption-percent"
+                type="number"
+                min={0}
+                max={100}
+                value={loyaltyMaxRedemptionPercent}
+                onChange={(e) =>
+                  setLoyaltyMaxRedemptionPercent(Number(e.target.value))
+                }
+                className={inputCls}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {t("loyaltySettings.maxRedemptionPercentDesc", {
+                  defaultValue:
+                    "Customers choose how many points to use, up to this percentage of the order.",
+                })}
               </p>
             </div>
           </div>

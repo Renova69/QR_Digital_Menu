@@ -82,7 +82,7 @@ describe('CreateOrderDto validation', () => {
       expect(constraintKeys(errors)).toContain('isBoolean');
     });
 
-    it('strips legacy redeemPoints payloads from the DTO', () => {
+    it('accepts a positive whole-point redemption amount', () => {
       const dto = plainToInstance(CreateOrderDto, {
         ...basePayload,
         redeemPoints: 500,
@@ -91,9 +91,19 @@ describe('CreateOrderDto validation', () => {
       expect(
         validateSync(dto, { whitelist: true, forbidNonWhitelisted: false }),
       ).toHaveLength(0);
+      expect(dto.redeemPoints).toBe(500);
+    });
+
+    it('rejects zero, negative, and fractional redemption amounts', () => {
       expect(
-        (dto as unknown as Record<string, unknown>)['redeemPoints'],
-      ).toBeUndefined();
+        constraintKeys(validate({ ...basePayload, redeemPoints: 0 })),
+      ).toContain('min');
+      expect(
+        constraintKeys(validate({ ...basePayload, redeemPoints: -1 })),
+      ).toContain('min');
+      expect(
+        constraintKeys(validate({ ...basePayload, redeemPoints: 1.5 })),
+      ).toContain('isInt');
     });
   });
 

@@ -41,6 +41,7 @@ export interface Restaurant {
   loyaltySignupBonus?: number;
   loyaltyExchangeRate?: number;
   loyaltyRedeemRate?: number;
+  loyaltyMaxRedemptionPercent?: number;
   loyaltyPointExpiryDays?: number;
   loyaltyExpiryReminderDays?: number;
   loyaltySilverThreshold?: number;

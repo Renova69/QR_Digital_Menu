@@ -35,9 +35,11 @@ import {
   findHostedCheckoutToken,
   readTableSessionTokenFromHash,
 } from "../lib/tableSessionCredential";
+import {
+  formatLoyaltyExpiryDate,
+  groupExpiringPointBatches,
+} from "../lib/loyaltyExpiry";
 import { cn } from "../lib/utils";
-
-const MAX_ORDER_DISCOUNT_RATE = 0.15;
 
 type FieldState = "neutral" | "valid" | "invalid";
 
@@ -252,6 +254,7 @@ const CheckoutPage = () => {
   const [loyaltyData, setLoyaltyData] = useState<any>(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState(0);
   // Fix C-3 — track redemption per cart ENTRY (cartId), not per product (item.id).
   // Two cart lines for the same product must be redeemable independently.
   const [redeemedCartIds, setRedeemedCartIds] = useState<Set<string>>(
@@ -268,6 +271,27 @@ const CheckoutPage = () => {
   const restaurantConfig = loyaltyData?.restaurantConfig || loyaltyData;
   const exchangeRate = restaurantConfig?.loyaltyExchangeRate || 10;
   const effectiveRedeemRate = restaurantConfig?.loyaltyRedeemRate || 150;
+  const maxRedemptionPercent =
+    restaurantConfig?.loyaltyMaxRedemptionPercent ?? 15;
+  const loyaltyTimeZone = restaurantConfig?.timezone || "UTC";
+  const expiryBatches =
+    loyaltyData?.expiringSoon?.length > 0
+      ? loyaltyData.expiringSoon
+      : loyaltyData?.expiringSoonPoints > 0 && loyaltyData?.nextExpirationAt
+        ? [
+            {
+              points: loyaltyData.expiringSoonPoints,
+              value: loyaltyData.expiringSoonValue,
+              expiresAt: loyaltyData.nextExpirationAt,
+            },
+          ]
+        : [];
+  const expiringPointGroups = groupExpiringPointBatches(
+    expiryBatches,
+    effectiveRedeemRate,
+    loyaltyTimeZone,
+  );
+  const loyaltyLocale = i18n.resolvedLanguage || i18n.language || "en";
   const isServicePointOrder = !!orderLocation && orderLocation.type !== "TABLE";
   const orderLocationKey =
     tableNumber ?? (orderLocation?.token ? `sp-${orderLocation.token}` : null);
@@ -354,21 +378,31 @@ const CheckoutPage = () => {
   }, [isServicePointOrder, orderLocation?.token, paymentOptionsKey]);
 
   // Fix H-6 — this is an APPROXIMATE client-side preview only. The backend
-  // recalculates and caps the loyalty discount from DB prices and DB points.
-  // The frontend never sends a discount amount.
+  // recalculates and caps the requested points from DB prices, DB balance,
+  // redeem rate, and the owner-configured policy.
   // Fix H-10 — CartContext removes redeemed base prices while retaining paid
   // modifiers, matching the server-authoritative order calculation.
-  const getEstimatedDiscountPoints = () => {
-    if (!usePoints) return 0;
+  const getMaximumDiscountPoints = () => {
     const availablePoints = getAvailableLoyaltyPoints();
-    const maxDiscount = getTotal(redeemedCartIds) * MAX_ORDER_DISCOUNT_RATE;
+    const maxDiscount =
+      getTotal(redeemedCartIds) * (maxRedemptionPercent / 100);
     const maxDiscountPoints = Math.floor(maxDiscount * effectiveRedeemRate);
     const computed = Math.min(availablePoints, maxDiscountPoints);
     return Math.min(computed, loyaltyPoints);
   };
 
+  const getEstimatedDiscountPoints = () => {
+    if (!usePoints) return 0;
+    return Math.min(redeemPoints, getMaximumDiscountPoints());
+  };
+
   const getEstimatedPointsDiscount = () =>
     getEstimatedDiscountPoints() / effectiveRedeemRate;
+
+  const handleUsePointsChange = (enabled: boolean) => {
+    setUsePoints(enabled);
+    setRedeemPoints(enabled ? getMaximumDiscountPoints() : 0);
+  };
 
   const customerNameTrimmed = customerName.trim();
   const customerPhoneTrimmed = customerPhone.trim();
@@ -543,11 +577,13 @@ const CheckoutPage = () => {
         : undefined,
     };
 
-    if (user && user.role === "CUSTOMER") {
+    if (user?.role === "CUSTOMER") {
       orderData.customerId = user.id;
-      if (usePoints) {
-        orderData.usePoints = true;
-      }
+    }
+    const selectedDiscountPoints = getEstimatedDiscountPoints();
+    if (user && usePoints && selectedDiscountPoints > 0) {
+      orderData.usePoints = true;
+      orderData.redeemPoints = selectedDiscountPoints;
     }
 
     try {
@@ -575,7 +611,7 @@ const CheckoutPage = () => {
       clearCart();
       setShowResetCartAction(false);
 
-      if (paymentPreference === "ONLINE" && newOrder.sessionToken) {
+      if (newOrder.status === "PENDING_PAYMENT" && newOrder.sessionToken) {
         const paymentUrl = new URL(
           buildTableSessionCheckoutUrl(
             window.location.origin,
@@ -1135,21 +1171,81 @@ const CheckoutPage = () => {
                     </div>
                   )}
                 </div>
-                {loyaltyPoints - getItemsPointsCost() > 0 &&
-                  getTotal(redeemedCartIds) > 0 && (
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-sm font-bold text-foreground">
-                        {t("checkout.redeemForDiscount")}
-                      </span>
-                      <Toggle
-                        checked={usePoints}
-                        onChange={setUsePoints}
-                        label={t("checkout.redeemForDiscount")}
-                        size="sm"
+                {getMaximumDiscountPoints() > 0 && (
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-sm font-bold text-foreground">
+                      {t("checkout.redeemForDiscount")}
+                    </span>
+                    <Toggle
+                      checked={usePoints}
+                      onChange={handleUsePointsChange}
+                      label={t("checkout.redeemForDiscount")}
+                      size="sm"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {usePoints && getMaximumDiscountPoints() > 0 && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-end gap-3">
+                    <div className="min-w-0 flex-1">
+                      <label
+                        htmlFor="checkout-redeem-points"
+                        className="mb-1 block text-xs font-bold text-foreground"
+                      >
+                        {t("checkout.pointsToRedeem", {
+                          defaultValue: "Points to use",
+                        })}
+                      </label>
+                      <input
+                        id="checkout-redeem-points"
+                        aria-label={t("checkout.pointsToRedeem", {
+                          defaultValue: "Points to use",
+                        })}
+                        type="number"
+                        min={1}
+                        max={getMaximumDiscountPoints()}
+                        step={1}
+                        value={getEstimatedDiscountPoints()}
+                        onChange={(event) => {
+                          const next = Number(event.target.value);
+                          setRedeemPoints(
+                            Math.max(
+                              1,
+                              Math.min(
+                                Number.isFinite(next) ? Math.floor(next) : 1,
+                                getMaximumDiscountPoints(),
+                              ),
+                            ),
+                          );
+                        }}
+                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                       />
                     </div>
-                  )}
-              </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRedeemPoints(getMaximumDiscountPoints())
+                      }
+                      className="h-10 shrink-0 rounded-lg border border-primary/25 bg-primary/10 px-3 text-xs font-bold text-primary hover:bg-primary/15"
+                    >
+                      {t("checkout.useMaximumPoints", {
+                        defaultValue: "Use maximum",
+                      })}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t("checkout.redemptionSelectionSummary", {
+                      defaultValue:
+                        "{{points}} points = {{value}} discount (maximum {{max}} points)",
+                      points: getEstimatedDiscountPoints(),
+                      value: formatEuro(getEstimatedPointsDiscount()),
+                      max: getMaximumDiscountPoints(),
+                    })}
+                  </p>
+                </div>
+              )}
 
               {loyaltyData?.expiringSoonPoints > 0 && (
                 <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 p-3 text-sm">
@@ -1158,16 +1254,20 @@ const CheckoutPage = () => {
                       value: loyaltyData.expiringSoonValue.toFixed(2),
                     })}
                   </p>
-                  <p className="text-muted-foreground">
-                    {t("checkout.pointsExpire", {
-                      points: loyaltyData.expiringSoonPoints,
-                      date: loyaltyData.nextExpirationAt
-                        ? new Date(
-                            loyaltyData.nextExpirationAt,
-                          ).toLocaleDateString()
-                        : "",
-                    })}
-                  </p>
+                  <div className="mt-1 space-y-1">
+                    {expiringPointGroups.map((group) => (
+                      <p key={group.dateKey} className="text-muted-foreground">
+                        {t("checkout.pointsExpire", {
+                          points: group.points,
+                          date: formatLoyaltyExpiryDate(
+                            group.expiresAt,
+                            loyaltyLocale,
+                            loyaltyTimeZone,
+                          ),
+                        })}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
 

@@ -58,6 +58,7 @@ const LOYALTY_CONFIG_FIELDS = {
   happyHourMultiplier: true,
   loyaltyExchangeRate: true,
   loyaltyRedeemRate: true,
+  loyaltyMaxRedemptionPercent: true,
   loyaltyPointExpiryDays: true,
   loyaltyExpiryReminderDays: true,
   loyaltySignupBonus: true,

@@ -97,6 +97,7 @@ model Restaurant {
   loyaltyExchangeRate         Int                          @default(10)
   loyaltySignupBonus          Int                          @default(50)
   loyaltyRedeemRate           Int                          @default(150)
+  loyaltyMaxRedemptionPercent Int                          @default(15)
   loyaltyExpiryReminderDays   Int                          @default(15)
   loyaltyGoldMultiplier       Float                        @default(1.5)
   loyaltyGoldThreshold        Int                          @default(2000)
