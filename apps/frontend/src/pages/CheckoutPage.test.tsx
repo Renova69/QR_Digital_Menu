@@ -277,7 +277,7 @@ describe("CheckoutPage", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Поръчай — спести 3.20 € с този пакет!",
+        name: "Поръчай — спести 3.20 €",
       }),
     ).toBeInTheDocument();
   });

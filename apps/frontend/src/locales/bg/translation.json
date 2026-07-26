@@ -726,7 +726,7 @@
     "notSpecified": "Не е посочена",
     "submitting": "Изпращане...",
     "placeOrder": "Поръчай",
-    "placeOrderWithSavings": "Поръчай — спести {{amount}} с този пакет!",
+    "placeOrderWithSavings": "Поръчай — спести {{amount}}",
     "tableRequired": "Номерът на масата е задължителен. Моля сканирайте QR кода отново.",
     "failedSubmit": "Неуспешна поръчка. Моля опитайте отново.",
     "loyaltyPoints": "Точки за лоялност",
