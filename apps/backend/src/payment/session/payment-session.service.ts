@@ -370,9 +370,105 @@ export class PaymentSessionService {
     };
 
     const enrichedOrders = orders.map((order) => {
-      const fullyCoveredByPoints =
-        (order.pointsRedeemedForDiscount ?? 0) > 0 &&
-        this.core.roundMoney(order.totalPrice ?? 0) === 0;
+      const items = order.items.map((oi) => {
+        const optionsTotal = Array.isArray(oi.selectedOptions)
+          ? (
+              oi.selectedOptions as Array<{
+                priceModifier?: number;
+              }>
+            ).reduce((s, x) => s + (x?.priceModifier || 0), 0)
+          : 0;
+        const persistedUnitPrice =
+          typeof oi.unitPrice === 'number' ? oi.unitPrice : null;
+        const persistedUnitPriceWithOptions =
+          typeof oi.unitPriceWithOptions === 'number'
+            ? oi.unitPriceWithOptions
+            : null;
+        const itemRedeemedWithPoints =
+          (order.pointsRedeemedForItems ?? 0) > 0 && persistedUnitPrice === 0;
+        const originalBasePrice = itemRedeemedWithPoints
+          ? (oi.menuItem?.price ?? 0)
+          : (persistedUnitPrice ?? oi.menuItem?.price ?? 0);
+        const originalUnitPriceWithOptions = itemRedeemedWithPoints
+          ? this.core.roundMoney(originalBasePrice + optionsTotal)
+          : (persistedUnitPriceWithOptions ??
+            this.core.roundMoney(originalBasePrice + optionsTotal));
+        const effectiveUnitPrice = itemRedeemedWithPoints
+          ? 0
+          : persistedUnitPrice !== null && persistedUnitPrice > 0
+            ? persistedUnitPrice
+            : (oi.menuItem?.price ?? 0);
+        const effectiveUnitPriceWithOptions = itemRedeemedWithPoints
+          ? (persistedUnitPriceWithOptions ??
+            this.core.roundMoney(optionsTotal))
+          : persistedUnitPriceWithOptions !== null &&
+              persistedUnitPriceWithOptions > 0
+            ? persistedUnitPriceWithOptions
+            : this.core.roundMoney((oi.menuItem?.price ?? 0) + optionsTotal);
+
+        return {
+          // orderItemId + paidQuantity drive the by-item split picker.
+          orderItemId: oi.id,
+          name: translatedName(oi.menuItem),
+          quantity: oi.quantity,
+          paidQuantity: oi.paidQuantity ?? 0,
+          unitPrice: effectiveUnitPrice,
+          unitPriceWithOptions: effectiveUnitPriceWithOptions,
+          originalUnitPriceWithOptions,
+          redeemedWithPoints: itemRedeemedWithPoints,
+          selectedOptions: Array.isArray(oi.selectedOptions)
+            ? oi.selectedOptions
+            : [],
+        };
+      });
+
+      // Order-level loyalty is a discount on the net order total, while the
+      // persisted item snapshots retain their pre-discount prices. Allocate
+      // that discount from the first displayed item forward so the bill makes
+      // the redemption visible: fully covered lines become zero, one boundary
+      // line may be partially reduced, and later lines stay at full price.
+      const toCents = (value: number) =>
+        Math.round(this.core.roundMoney(value) * 100);
+      const preDiscountTotalCents = items.reduce(
+        (sum, item) => sum + toCents(item.unitPriceWithOptions * item.quantity),
+        0,
+      );
+      const orderTotalCents = Math.max(0, toCents(order.totalPrice ?? 0));
+      let loyaltyDiscountCents =
+        (order.pointsRedeemedForDiscount ?? 0) > 0
+          ? Math.max(
+              0,
+              Math.min(
+                preDiscountTotalCents,
+                preDiscountTotalCents - orderTotalCents,
+              ),
+            )
+          : 0;
+
+      const allocatedItems = items.map((item) => {
+        if (loyaltyDiscountCents <= 0) return item;
+
+        const lineTotalCents = toCents(
+          item.unitPriceWithOptions * item.quantity,
+        );
+        const appliedDiscountCents = Math.min(
+          loyaltyDiscountCents,
+          lineTotalCents,
+        );
+        if (appliedDiscountCents <= 0) return item;
+
+        loyaltyDiscountCents -= appliedDiscountCents;
+        const effectiveLineTotalCents = lineTotalCents - appliedDiscountCents;
+        const effectiveUnitPrice =
+          effectiveLineTotalCents / 100 / item.quantity;
+
+        return {
+          ...item,
+          unitPrice: effectiveUnitPrice,
+          unitPriceWithOptions: effectiveUnitPrice,
+          redeemedWithPoints: true,
+        };
+      });
 
       return {
         id: order.id,
@@ -382,64 +478,7 @@ export class PaymentSessionService {
         staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
         staffRole: order.staff?.role ?? null,
         totalPrice: order.totalPrice,
-        items: order.items.map((oi: any) => {
-          const optionsTotal = Array.isArray(oi.selectedOptions)
-            ? (oi.selectedOptions as any[]).reduce(
-                (s, x) => s + (x?.priceModifier || 0),
-                0,
-              )
-            : 0;
-          const persistedUnitPrice =
-            typeof oi.unitPrice === 'number' ? oi.unitPrice : null;
-          const persistedUnitPriceWithOptions =
-            typeof oi.unitPriceWithOptions === 'number'
-              ? oi.unitPriceWithOptions
-              : null;
-          const itemRedeemedWithPoints =
-            (order.pointsRedeemedForItems ?? 0) > 0 && persistedUnitPrice === 0;
-          const redeemedWithPoints =
-            fullyCoveredByPoints || itemRedeemedWithPoints;
-          const originalBasePrice = itemRedeemedWithPoints
-            ? (oi.menuItem?.price ?? 0)
-            : (persistedUnitPrice ?? oi.menuItem?.price ?? 0);
-          const originalUnitPriceWithOptions = itemRedeemedWithPoints
-            ? this.core.roundMoney(originalBasePrice + optionsTotal)
-            : (persistedUnitPriceWithOptions ??
-              this.core.roundMoney(originalBasePrice + optionsTotal));
-          const effectiveUnitPrice = fullyCoveredByPoints
-            ? 0
-            : itemRedeemedWithPoints
-              ? 0
-              : persistedUnitPrice !== null && persistedUnitPrice > 0
-                ? persistedUnitPrice
-                : (oi.menuItem?.price ?? 0);
-          const effectiveUnitPriceWithOptions = fullyCoveredByPoints
-            ? 0
-            : itemRedeemedWithPoints
-              ? (persistedUnitPriceWithOptions ??
-                this.core.roundMoney(optionsTotal))
-              : persistedUnitPriceWithOptions !== null &&
-                  persistedUnitPriceWithOptions > 0
-                ? persistedUnitPriceWithOptions
-                : this.core.roundMoney(
-                    (oi.menuItem?.price ?? 0) + optionsTotal,
-                  );
-
-          return {
-            // orderItemId + paidQuantity drive the by-item split picker.
-            orderItemId: oi.id,
-            name: translatedName(oi.menuItem),
-            quantity: oi.quantity,
-            paidQuantity: oi.paidQuantity ?? 0,
-            unitPrice: effectiveUnitPrice,
-            unitPriceWithOptions: effectiveUnitPriceWithOptions,
-            originalUnitPriceWithOptions,
-            redeemedWithPoints,
-            selectedOptions: Array.isArray(oi.selectedOptions)
-              ? oi.selectedOptions
-              : [],
-          };
-        }),
+        items: allocatedItems,
       };
     });
 

@@ -936,6 +936,8 @@ export interface SessionBillItem {
   paidQuantity: number;
   unitPrice: number;
   unitPriceWithOptions: number;
+  originalUnitPriceWithOptions?: number;
+  redeemedWithPoints?: boolean;
   selectedOptions: any[];
 }
 

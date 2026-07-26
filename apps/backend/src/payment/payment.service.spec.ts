@@ -616,6 +616,93 @@ describe('PaymentService', () => {
         redeemedWithPoints: true,
       });
     });
+
+    it('uses loyalty discount on the first bill items and partially discounts the boundary item', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'rest1',
+        status: 'OPEN',
+        restaurant: { tipsEnabled: false, tipOptions: [] },
+        table: { name: '6' },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([
+        {
+          id: 'partially-redeemed-order',
+          source: 'CUSTOMER',
+          totalPrice: 8.5,
+          pointsRedeemedForDiscount: 1500,
+          pointsRedeemedForItems: 0,
+          customerName: 'Johny',
+          customerPhone: null,
+          staff: null,
+          items: [
+            {
+              id: 'oi-first',
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 5,
+              unitPriceWithOptions: 5,
+              selectedOptions: [],
+              menuItem: { name: 'First', price: 5, translations: null },
+            },
+            {
+              id: 'oi-boundary',
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 7,
+              unitPriceWithOptions: 7,
+              selectedOptions: [],
+              menuItem: { name: 'Boundary', price: 7, translations: null },
+            },
+            {
+              id: 'oi-full-price',
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 6.5,
+              unitPriceWithOptions: 6.5,
+              selectedOptions: [],
+              menuItem: {
+                name: 'Full price',
+                price: 6.5,
+                translations: null,
+              },
+            },
+          ],
+        },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.cashPaymentRequest.findMany.mockResolvedValue([]);
+
+      const result = await service.getSessionBill('tok1', 'en');
+
+      expect(result.orders[0].items).toMatchObject([
+        {
+          orderItemId: 'oi-first',
+          unitPriceWithOptions: 0,
+          originalUnitPriceWithOptions: 5,
+          redeemedWithPoints: true,
+        },
+        {
+          orderItemId: 'oi-boundary',
+          unitPriceWithOptions: 2,
+          originalUnitPriceWithOptions: 7,
+          redeemedWithPoints: true,
+        },
+        {
+          orderItemId: 'oi-full-price',
+          unitPriceWithOptions: 6.5,
+          originalUnitPriceWithOptions: 6.5,
+          redeemedWithPoints: false,
+        },
+      ]);
+      const [firstItem, boundaryItem, fullPriceItem] = result.orders[0].items;
+      expect(
+        firstItem.unitPriceWithOptions * firstItem.quantity +
+          boundaryItem.unitPriceWithOptions * boundaryItem.quantity +
+          fullPriceItem.unitPriceWithOptions * fullPriceItem.quantity,
+      ).toBe(8.5);
+    });
   });
 
   describe('createPaymentIntent', () => {

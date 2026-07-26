@@ -864,6 +864,91 @@ describe("PaymentModal hosted provider choices", () => {
     ).toBeTruthy();
   });
 
+  it("shows sequential full and partial item reductions for a partial loyalty redemption", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(["STRIPE"]),
+      orders: [
+        {
+          id: "partially-redeemed-order",
+          source: "CUSTOMER",
+          customerName: "Johny",
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 8.5,
+          items: [
+            {
+              orderItemId: "oi-first",
+              name: "First covered item",
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 0,
+              unitPriceWithOptions: 0,
+              originalUnitPriceWithOptions: 5,
+              redeemedWithPoints: true,
+              selectedOptions: [],
+            },
+            {
+              orderItemId: "oi-boundary",
+              name: "Boundary item",
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 2,
+              unitPriceWithOptions: 2,
+              originalUnitPriceWithOptions: 7,
+              redeemedWithPoints: true,
+              selectedOptions: [],
+            },
+            {
+              orderItemId: "oi-full-price",
+              name: "Full price item",
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 6.5,
+              unitPriceWithOptions: 6.5,
+              originalUnitPriceWithOptions: 6.5,
+              redeemedWithPoints: false,
+              selectedOptions: [],
+            },
+          ],
+        },
+      ],
+      subtotal: 8.5,
+      remaining: 8.5,
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    const coveredLine = (await screen.findByText(/First covered item/)).closest(
+      "div",
+    ) as HTMLElement;
+    expect(within(coveredLine).getByText(/^5\.00/).className).toContain(
+      "line-through",
+    );
+    expect(within(coveredLine).getByText(/^0\.00/)).toBeTruthy();
+
+    const boundaryLine = screen
+      .getByText(/Boundary item/)
+      .closest("div") as HTMLElement;
+    expect(within(boundaryLine).getByText(/^7\.00/).className).toContain(
+      "line-through",
+    );
+    expect(within(boundaryLine).getByText(/^2\.00/)).toBeTruthy();
+
+    const fullPriceLine = screen
+      .getByText(/Full price item/)
+      .closest("div") as HTMLElement;
+    expect(within(fullPriceLine).getByText(/^6\.50/).className).not.toContain(
+      "line-through",
+    );
+  });
+
   it("auto-submits returned ePay form fields", async () => {
     vi.useFakeTimers();
     const submitSpy = vi
