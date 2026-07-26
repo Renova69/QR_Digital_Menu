@@ -6,7 +6,7 @@ Welcome to the modernized QR Menu project! This guide will walk you through sett
 
 Before you start, make sure you have:
 
-1. **Node.js** (v20+ recommended)
+1. **Node.js 24.x** (`24.18.0` is pinned in `.nvmrc`; Node 25 is unsupported because it breaks the Nest/SWC development watcher)
 2. **Neon.tech Account**: Get a free Serverless PostgreSQL database URL.
 3. **NPM**: (Standard with Node.js)
 
@@ -17,6 +17,9 @@ Before you start, make sure you have:
 Open a terminal at the project root (`codespaces-react`) and run:
 
 ```bash
+# NVM for Windows
+nvm use 24.18.0
+
 # Install all dependencies for both apps at once
 npm install
 ```

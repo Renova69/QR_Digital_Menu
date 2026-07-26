@@ -2,12 +2,20 @@
   "name": "qr-menu-monorepo",
   "private": true,
   "packageManager": "npm@10.2.4",
+  "engines": {
+    "node": "24.x"
+  },
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
+    "check:node": "node scripts/check-node-version.js",
+    "test:node-version": "node --test scripts/check-node-version.test.js",
+    "predev": "npm run check:node",
     "dev": "node scripts/dev-with-logs.js",
+    "predev:raw": "npm run check:node",
     "dev:raw": "turbo dev",
+    "prebuild": "npm run check:node",
     "build": "turbo build",
     "lint": "turbo lint",
     "guard:prisma-raw-void": "node scripts/check-prisma-raw-void.js",
