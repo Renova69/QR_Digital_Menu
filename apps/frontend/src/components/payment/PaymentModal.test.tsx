@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -782,6 +783,85 @@ describe("PaymentModal hosted provider choices", () => {
     expect(await screen.findByText(/Staff: 666/)).toBeTruthy();
     expect(screen.getByText(/You$/)).toBeTruthy();
     expect(screen.queryByText(/Owner/i)).toBeNull();
+  });
+
+  it("shows redeemed order items as free while preserving their original prices", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(["STRIPE"]),
+      orders: [
+        {
+          id: "paid-order",
+          source: "CUSTOMER",
+          customerName: "Johny",
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 15.34,
+          items: [
+            {
+              orderItemId: "oi-paid",
+              name: "Paid items",
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 15.34,
+              unitPriceWithOptions: 15.34,
+              selectedOptions: [],
+            },
+          ],
+        },
+        {
+          id: "redeemed-order",
+          source: "CUSTOMER",
+          customerName: "Johny",
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 0,
+          items: [
+            {
+              orderItemId: "oi-redeemed",
+              name: "Redeemed salad",
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 0,
+              unitPriceWithOptions: 0,
+              originalUnitPriceWithOptions: 5.62,
+              redeemedWithPoints: true,
+              selectedOptions: [],
+            },
+          ],
+        },
+      ],
+      subtotal: 15.34,
+      remaining: 15.34,
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    const redeemedItemName = await screen.findByText(/Redeemed salad/);
+    const redeemedLine = redeemedItemName.closest("div");
+    expect(redeemedLine).not.toBeNull();
+
+    const paidItemName = screen.getByText(/Paid items/);
+    const paidLine = paidItemName.closest("div");
+    expect(paidLine).not.toBeNull();
+    expect(
+      within(paidLine as HTMLElement).getByText(/^15\.34/).className,
+    ).not.toContain("line-through");
+
+    const originalPrice = within(redeemedLine as HTMLElement).getByText(
+      /^5\.62/,
+    );
+    expect(originalPrice.className).toContain("line-through");
+    expect(
+      within(redeemedLine as HTMLElement).getByText(/^0\.00/),
+    ).toBeTruthy();
   });
 
   it("auto-submits returned ePay form fields", async () => {

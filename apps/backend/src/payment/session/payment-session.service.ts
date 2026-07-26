@@ -369,42 +369,79 @@ export class PaymentSessionService {
       return typeof translated === 'string' && translated ? translated : base;
     };
 
-    const enrichedOrders = orders.map((order) => ({
-      id: order.id,
-      source: order.source,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
-      staffRole: order.staff?.role ?? null,
-      totalPrice: order.totalPrice,
-      items: order.items.map((oi: any) => {
-        const optionsTotal = Array.isArray(oi.selectedOptions)
-          ? (oi.selectedOptions as any[]).reduce(
-              (s, x) => s + (x?.priceModifier || 0),
-              0,
-            )
-          : 0;
-        return {
-          // orderItemId + paidQuantity drive the by-item split picker.
-          orderItemId: oi.id,
-          name: translatedName(oi.menuItem),
-          quantity: oi.quantity,
-          paidQuantity: oi.paidQuantity ?? 0,
-          unitPrice:
-            typeof oi.unitPrice === 'number' && oi.unitPrice > 0
-              ? oi.unitPrice
-              : (oi.menuItem?.price ?? 0),
-          unitPriceWithOptions:
-            typeof oi.unitPriceWithOptions === 'number' &&
-            oi.unitPriceWithOptions > 0
+    const enrichedOrders = orders.map((order) => {
+      const fullyCoveredByPoints =
+        (order.pointsRedeemedForDiscount ?? 0) > 0 &&
+        this.core.roundMoney(order.totalPrice ?? 0) === 0;
+
+      return {
+        id: order.id,
+        source: order.source,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
+        staffRole: order.staff?.role ?? null,
+        totalPrice: order.totalPrice,
+        items: order.items.map((oi: any) => {
+          const optionsTotal = Array.isArray(oi.selectedOptions)
+            ? (oi.selectedOptions as any[]).reduce(
+                (s, x) => s + (x?.priceModifier || 0),
+                0,
+              )
+            : 0;
+          const persistedUnitPrice =
+            typeof oi.unitPrice === 'number' ? oi.unitPrice : null;
+          const persistedUnitPriceWithOptions =
+            typeof oi.unitPriceWithOptions === 'number'
               ? oi.unitPriceWithOptions
-              : this.core.roundMoney((oi.menuItem?.price ?? 0) + optionsTotal),
-          selectedOptions: Array.isArray(oi.selectedOptions)
-            ? oi.selectedOptions
-            : [],
-        };
-      }),
-    }));
+              : null;
+          const itemRedeemedWithPoints =
+            (order.pointsRedeemedForItems ?? 0) > 0 && persistedUnitPrice === 0;
+          const redeemedWithPoints =
+            fullyCoveredByPoints || itemRedeemedWithPoints;
+          const originalBasePrice = itemRedeemedWithPoints
+            ? (oi.menuItem?.price ?? 0)
+            : (persistedUnitPrice ?? oi.menuItem?.price ?? 0);
+          const originalUnitPriceWithOptions = itemRedeemedWithPoints
+            ? this.core.roundMoney(originalBasePrice + optionsTotal)
+            : (persistedUnitPriceWithOptions ??
+              this.core.roundMoney(originalBasePrice + optionsTotal));
+          const effectiveUnitPrice = fullyCoveredByPoints
+            ? 0
+            : itemRedeemedWithPoints
+              ? 0
+              : persistedUnitPrice !== null && persistedUnitPrice > 0
+                ? persistedUnitPrice
+                : (oi.menuItem?.price ?? 0);
+          const effectiveUnitPriceWithOptions = fullyCoveredByPoints
+            ? 0
+            : itemRedeemedWithPoints
+              ? (persistedUnitPriceWithOptions ??
+                this.core.roundMoney(optionsTotal))
+              : persistedUnitPriceWithOptions !== null &&
+                  persistedUnitPriceWithOptions > 0
+                ? persistedUnitPriceWithOptions
+                : this.core.roundMoney(
+                    (oi.menuItem?.price ?? 0) + optionsTotal,
+                  );
+
+          return {
+            // orderItemId + paidQuantity drive the by-item split picker.
+            orderItemId: oi.id,
+            name: translatedName(oi.menuItem),
+            quantity: oi.quantity,
+            paidQuantity: oi.paidQuantity ?? 0,
+            unitPrice: effectiveUnitPrice,
+            unitPriceWithOptions: effectiveUnitPriceWithOptions,
+            originalUnitPriceWithOptions,
+            redeemedWithPoints,
+            selectedOptions: Array.isArray(oi.selectedOptions)
+              ? oi.selectedOptions
+              : [],
+          };
+        }),
+      };
+    });
 
     return {
       sessionId: session.id,

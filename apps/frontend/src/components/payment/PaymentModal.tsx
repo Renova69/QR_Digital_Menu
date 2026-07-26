@@ -62,6 +62,8 @@ interface BillItem {
   paidQuantity: number;
   unitPrice: number;
   unitPriceWithOptions: number;
+  originalUnitPriceWithOptions?: number;
+  redeemedWithPoints?: boolean;
   selectedOptions: any[];
 }
 
@@ -188,13 +190,51 @@ function showGroupHeaders(orders: BillOrder[]): boolean {
 
 function getBillItemUnitPrice(item: BillItem): number {
   return typeof item.unitPriceWithOptions === "number" &&
-    item.unitPriceWithOptions > 0
+    item.unitPriceWithOptions >= 0
     ? item.unitPriceWithOptions
     : item.unitPrice;
 }
 
+function getBillItemOriginalUnitPrice(item: BillItem): number {
+  return typeof item.originalUnitPriceWithOptions === "number" &&
+    item.originalUnitPriceWithOptions >= 0
+    ? item.originalUnitPriceWithOptions
+    : getBillItemUnitPrice(item);
+}
+
 function getBillItemRemainingQuantity(item: BillItem): number {
   return Math.max(0, item.quantity - (item.paidQuantity ?? 0));
+}
+
+function BillItemPrice({
+  item,
+  remainingQuantity,
+}: {
+  item: BillItem;
+  remainingQuantity: number;
+}) {
+  const effectiveTotal = getBillItemUnitPrice(item) * remainingQuantity;
+
+  if (!item.redeemedWithPoints) {
+    return (
+      <span className="text-gray-700 shrink-0 whitespace-nowrap">
+        {formatEuro(effectiveTotal)}
+      </span>
+    );
+  }
+
+  const originalTotal = getBillItemOriginalUnitPrice(item) * remainingQuantity;
+
+  return (
+    <span className="flex shrink-0 flex-col items-end whitespace-nowrap leading-tight">
+      <del className="text-[11px] text-gray-500 line-through">
+        {formatEuro(originalTotal)}
+      </del>
+      <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+        {formatEuro(effectiveTotal)}
+      </span>
+    </span>
+  );
 }
 
 function getOrderRemainingSubtotal(order: BillOrder): number {
@@ -935,12 +975,12 @@ export function PaymentModal({
                             <span className="text-gray-700 min-w-0 mr-2">
                               {item.name} ×{getBillItemRemainingQuantity(item)}
                             </span>
-                            <span className="text-gray-700 shrink-0 whitespace-nowrap">
-                              {formatEuro(
-                                getBillItemUnitPrice(item) *
-                                  getBillItemRemainingQuantity(item),
+                            <BillItemPrice
+                              item={item}
+                              remainingQuantity={getBillItemRemainingQuantity(
+                                item,
                               )}
-                            </span>
+                            />
                           </div>
                         ))}
                     </div>
@@ -960,12 +1000,12 @@ export function PaymentModal({
                           <span className="text-gray-700 min-w-0 mr-2">
                             {item.name} ×{getBillItemRemainingQuantity(item)}
                           </span>
-                          <span className="text-gray-700 shrink-0 whitespace-nowrap">
-                            {formatEuro(
-                              getBillItemUnitPrice(item) *
-                                getBillItemRemainingQuantity(item),
+                          <BillItemPrice
+                            item={item}
+                            remainingQuantity={getBillItemRemainingQuantity(
+                              item,
                             )}
-                          </span>
+                          />
                         </div>
                       )),
                   )}

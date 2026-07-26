@@ -567,6 +567,55 @@ describe('PaymentService', () => {
 
       expect(result.orders[0].items[0].name).toBe('Кафе');
     });
+
+    it('preserves zero effective prices and exposes the original price for redeemed items', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'rest1',
+        status: 'OPEN',
+        restaurant: { tipsEnabled: false, tipOptions: [] },
+        table: { name: '6' },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([
+        {
+          id: 'redeemed-order',
+          source: 'CUSTOMER',
+          totalPrice: 0,
+          pointsRedeemedForDiscount: 843,
+          pointsRedeemedForItems: 0,
+          customerName: 'Johny',
+          customerPhone: null,
+          staff: null,
+          items: [
+            {
+              id: 'oi-redeemed',
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 5.62,
+              unitPriceWithOptions: 5.62,
+              selectedOptions: [],
+              menuItem: {
+                name: 'Green salad',
+                price: 5.62,
+                translations: null,
+              },
+            },
+          ],
+        },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.cashPaymentRequest.findMany.mockResolvedValue([]);
+
+      const result = await service.getSessionBill('tok1', 'en');
+
+      expect(result.orders[0].items[0]).toMatchObject({
+        unitPrice: 0,
+        unitPriceWithOptions: 0,
+        originalUnitPriceWithOptions: 5.62,
+        redeemedWithPoints: true,
+      });
+    });
   });
 
   describe('createPaymentIntent', () => {
