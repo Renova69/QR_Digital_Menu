@@ -204,6 +204,7 @@
       "payments": "Plăți",
       "import": "Import",
       "importExport": "Import/Export",
+      "bulkEdit": "Editare în masă",
       "pos": "POS",
       "kitchen": "Bucătărie",
       "help": "Centru de ajutor",
@@ -3042,6 +3043,56 @@
     "xlsxSheetCategories": "Categorii",
     "xlsxSheetItems": "Articole",
     "xlsxSheetOptions": "Opțiuni și alegeri"
+  },
+  "bulkEdit": {
+    "title": "Editare în masă",
+    "subtitle": "Editează prețuri și detalii pentru tot meniul ca într-un tabel — dă clic pe o celulă, lipește din Excel sau ajustează prețurile în masă.",
+    "wholeMenu": "Tot meniul",
+    "discard": "Renunță",
+    "done": "Gata",
+    "addColumns": "Adaugă coloane",
+    "selectAll": "Selectează tot",
+    "addTags": "+ Adaugă",
+    "saving": "Se salvează…",
+    "saveChanges": "Salvează modificările ({{count}})",
+    "confirmDiscard": "Renunți la {{count}} modificare(ări) nesalvată(e)?",
+    "partialFailure": "{{count}} rând(uri) nu au putut fi salvate — treci cursorul peste rândurile evidențiate pentru detalii.",
+    "priceAdjustSelected": "Ajustează preț ({{count}})",
+    "priceAdjustAll": "Ajustează preț (toate vizibile)",
+    "columns": {
+      "name": "Nume articol",
+      "description": "Descriere",
+      "price": "Preț (EUR)",
+      "costPrice": "Preț de cost",
+      "weight": "Greutate",
+      "allergens": "Alergeni",
+      "dietaryTags": "Etichete dietetice",
+      "isFeatured": "Recomandat",
+      "isOutOfStock": "Epuizat",
+      "rewardPointsMode": "Mod puncte de fidelitate",
+      "rewardPointsPrice": "Preț în puncte de fidelitate"
+    },
+    "columnGroups": {
+      "allergensDietary": "Alergeni + Etichete dietetice",
+      "weightCost": "Greutate + Preț de cost",
+      "featuredStock": "Recomandat + Epuizat",
+      "rewardPoints": "Mod/preț puncte de fidelitate"
+    },
+    "rewardMode": {
+      "off": "Dezactivat",
+      "auto": "Automat",
+      "custom": "Personalizat"
+    },
+    "priceAdjust": {
+      "title": "Ajustare de preț în masă",
+      "description": "Se aplică pentru {{count}} articol(e) — revizuiește, apoi apasă Salvează modificările pentru a confirma.",
+      "increase": "Crește",
+      "decrease": "Scade",
+      "percent": "%",
+      "fixedEur": "EUR",
+      "andMore": "…și încă {{count}}",
+      "apply": "Aplică la {{count}} articol(e)"
+    }
   },
   "menu": {
     "options": "Opțiuni:",

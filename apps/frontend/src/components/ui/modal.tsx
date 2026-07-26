@@ -25,11 +25,11 @@ export const Modal: React.FC<ModalProps> = ({
       <Dialog.Portal>
         <Dialog.Overlay className="bg-background/60 backdrop-blur-sm fixed inset-0 z-[1000]" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-lg glass-panel bg-background p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl z-[1001] border-white/5 animate-in zoom-in-95 fade-in duration-300">
-          <Dialog.Title className="text-3xl font-display font-black text-foreground tracking-tight mb-2">
+          <Dialog.Title className="text-3xl font-display font-black text-foreground tracking-tight mb-2 pr-10">
             {title}
           </Dialog.Title>
           {description && (
-            <Dialog.Description className="text-sm font-medium text-muted-foreground italic mb-8 opacity-80">
+            <Dialog.Description className="text-sm font-medium text-muted-foreground italic mb-8 opacity-80 pr-10">
               {description}
             </Dialog.Description>
           )}

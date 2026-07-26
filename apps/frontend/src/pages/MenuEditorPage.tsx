@@ -16,15 +16,23 @@ import {
 import { updateRestaurant } from "../services/restaurantService";
 import RestaurantContext from "../context/RestaurantContext";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Download, Search, Settings2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Search,
+  Settings2,
+  Table2,
+  X,
+} from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { useAuth } from "../context/AuthContext";
 import MenuImportExportView from "./Dashboard/MenuImportExportView";
+import BulkEditView from "./Dashboard/BulkEditView";
 import { MenuCheckWidget } from "../components/dashboard/MenuCheckWidget";
 import { searchMenuItems } from "../lib/menuSearch";
 
-type EditorTab = "editor" | "importExport";
+type EditorTab = "editor" | "importExport" | "bulkEdit";
 
 const DASHBOARD_LANGUAGES = [
   { code: "bg", label: "BG" },
@@ -229,6 +237,11 @@ const MenuEditorPage: React.FC = () => {
                 label: t("dashboard.tabs.importExport", "Import/Export"),
                 icon: Download,
               },
+              {
+                id: "bulkEdit" as EditorTab,
+                label: t("dashboard.tabs.bulkEdit", "Bulk Edit"),
+                icon: Table2,
+              },
             ].map(({ id, label, icon: Icon }) => {
               const isActive = activeEditorTab === id;
               return (
@@ -374,9 +387,13 @@ const MenuEditorPage: React.FC = () => {
               </div>
             </div>
           </DndContext>
-        ) : (
+        ) : activeEditorTab === "importExport" ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <MenuImportExportView />
+          </div>
+        ) : (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <BulkEditView />
           </div>
         )}
       </div>

@@ -204,6 +204,7 @@
       "payments": "Payments",
       "import": "Import",
       "importExport": "Import/Export",
+      "bulkEdit": "Bulk Edit",
       "pos": "POS",
       "kitchen": "Kitchen",
       "help": "Help Center",
@@ -2955,6 +2956,56 @@
     "xlsxSheetCategories": "Categories",
     "xlsxSheetItems": "Items",
     "xlsxSheetOptions": "Options & Choices"
+  },
+  "bulkEdit": {
+    "title": "Bulk Edit",
+    "subtitle": "Edit prices and details across your whole menu like a spreadsheet — click a cell, paste from Excel, or adjust prices in bulk.",
+    "wholeMenu": "Whole menu",
+    "discard": "Discard",
+    "done": "Done",
+    "addColumns": "Add columns",
+    "selectAll": "Select all",
+    "addTags": "+ Add",
+    "saving": "Saving…",
+    "saveChanges": "Save changes ({{count}})",
+    "confirmDiscard": "Discard {{count}} unsaved change(s)?",
+    "partialFailure": "{{count}} row(s) failed to save — hover the highlighted rows for details.",
+    "priceAdjustSelected": "Adjust price ({{count}})",
+    "priceAdjustAll": "Adjust price (all visible)",
+    "columns": {
+      "name": "Item name",
+      "description": "Description",
+      "price": "Price (EUR)",
+      "costPrice": "Cost price",
+      "weight": "Weight",
+      "allergens": "Allergens",
+      "dietaryTags": "Dietary tags",
+      "isFeatured": "Featured",
+      "isOutOfStock": "Out of stock",
+      "rewardPointsMode": "Reward points mode",
+      "rewardPointsPrice": "Reward points price"
+    },
+    "columnGroups": {
+      "allergensDietary": "Allergens + Dietary tags",
+      "weightCost": "Weight + Cost price",
+      "featuredStock": "Featured + Out-of-stock",
+      "rewardPoints": "Reward points mode/price"
+    },
+    "rewardMode": {
+      "off": "Off",
+      "auto": "Auto",
+      "custom": "Custom"
+    },
+    "priceAdjust": {
+      "title": "Bulk price adjustment",
+      "description": "Applies to {{count}} item(s) — review, then hit Save Changes to commit.",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "percent": "%",
+      "fixedEur": "EUR",
+      "andMore": "…and {{count}} more",
+      "apply": "Apply to {{count}} item(s)"
+    }
   },
   "menu": {
     "options": "Options:",

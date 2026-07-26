@@ -206,6 +206,7 @@
       "payments": "Плащания",
       "import": "Импорт",
       "importExport": "Импорт/Експорт",
+      "bulkEdit": "Групово редактиране",
       "pos": "POS",
       "kitchen": "Кухня",
       "help": "Помощен център",
@@ -3064,6 +3065,56 @@
     "xlsxSheetCategories": "Категории",
     "xlsxSheetItems": "Артикули",
     "xlsxSheetOptions": "Опции и избори"
+  },
+  "bulkEdit": {
+    "title": "Групово редактиране",
+    "subtitle": "Редактирайте цени и детайли в цялото меню като таблица — кликнете клетка, поставете от Excel или коригирайте цените наведнъж.",
+    "wholeMenu": "Цялото меню",
+    "discard": "Отхвърли",
+    "done": "Готово",
+    "addColumns": "Добави колони",
+    "selectAll": "Избери всички",
+    "addTags": "+ Добави",
+    "saving": "Запазване…",
+    "saveChanges": "Запази промените ({{count}})",
+    "confirmDiscard": "Отхвърляне на {{count}} незапазена(и) промяна(и)?",
+    "partialFailure": "{{count}} ред(а) не бяха запазени — задръжте показалеца над маркираните редове за подробности.",
+    "priceAdjustSelected": "Коригирай цена ({{count}})",
+    "priceAdjustAll": "Коригирай цена (всички видими)",
+    "columns": {
+      "name": "Име на артикул",
+      "description": "Описание",
+      "price": "Цена (EUR)",
+      "costPrice": "Себестойност",
+      "weight": "Тегло",
+      "allergens": "Алергени",
+      "dietaryTags": "Диетични етикети",
+      "isFeatured": "Препоръчано",
+      "isOutOfStock": "Изчерпано",
+      "rewardPointsMode": "Режим точки за лоялност",
+      "rewardPointsPrice": "Цена в точки за лоялност"
+    },
+    "columnGroups": {
+      "allergensDietary": "Алергени + Диетични етикети",
+      "weightCost": "Тегло + Себестойност",
+      "featuredStock": "Препоръчано + Изчерпано",
+      "rewardPoints": "Режим/цена точки за лоялност"
+    },
+    "rewardMode": {
+      "off": "Изключено",
+      "auto": "Автоматично",
+      "custom": "По избор"
+    },
+    "priceAdjust": {
+      "title": "Групова корекция на цени",
+      "description": "Прилага се за {{count}} артикул(а) — прегледайте и натиснете „Запази промените“, за да потвърдите.",
+      "increase": "Увеличи",
+      "decrease": "Намали",
+      "percent": "%",
+      "fixedEur": "EUR",
+      "andMore": "…и още {{count}}",
+      "apply": "Приложи към {{count}} артикул(а)"
+    }
   },
   "menu": {
     "options": "Опции:",

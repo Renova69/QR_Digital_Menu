@@ -257,10 +257,7 @@ export const getTranslationStatus = async (
 export type ServicePointType = "TABLE" | "ROOM" | "PICKUP" | "OTHER";
 export type FulfillmentMode = "DINE_IN" | "ROOM_DELIVERY" | "PICKUP";
 export type ServicePointPaymentMethod =
-  | "ONLINE"
-  | "CASH"
-  | "PAY_ON_DELIVERY"
-  | "PAY_AT_PICKUP";
+  "ONLINE" | "CASH" | "PAY_ON_DELIVERY" | "PAY_AT_PICKUP";
 
 export interface ServicePoint {
   id: string;
@@ -574,11 +571,7 @@ export const getPaymentHistory = (
     .then((res) => res.data);
 
 export type PaymentReconciliationProvider =
-  | "STRIPE"
-  | "EPAY"
-  | "BORICA"
-  | "MYPOS"
-  | "CASH";
+  "STRIPE" | "EPAY" | "BORICA" | "MYPOS" | "CASH";
 
 export type PaymentReconciliationReason =
   | "SESSION_NOT_OPEN"
@@ -1292,6 +1285,51 @@ export const confirmMenuImport = async (restaurantId: string, payload: any) => {
 export const exportMenu = async (restaurantId: string) => {
   const response = await api.get(`/restaurants/${restaurantId}/menu/export`);
   return response.data as { restaurantId: string; categories: any[] };
+};
+
+export type BulkEditItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  costPrice: number | null;
+  weight: string | null;
+  currency: "EUR" | "BGN";
+  categoryId: string;
+  allergens: string[];
+  dietaryTags: string[];
+  tags: string[];
+  isFeatured: boolean;
+  isOutOfStock: boolean;
+  rewardPointsMode: "OFF" | "AUTO" | "CUSTOM";
+  rewardPointsPrice: number | null;
+};
+
+export type BulkItemUpdate = { id: string } & Partial<
+  Omit<BulkEditItem, "id" | "categoryId" | "currency">
+>;
+
+export type BulkUpdateResult = {
+  updated: string[];
+  failed: { id: string; error: string }[];
+};
+
+export const getBulkEditItems = async (restaurantId: string) => {
+  const response = await api.get(
+    `/restaurants/${restaurantId}/menu/bulk-items`,
+  );
+  return response.data as BulkEditItem[];
+};
+
+export const bulkUpdateMenuItems = async (
+  restaurantId: string,
+  updates: BulkItemUpdate[],
+) => {
+  const response = await api.patch(
+    `/restaurants/${restaurantId}/menu/bulk-items`,
+    { updates },
+  );
+  return response.data as BulkUpdateResult;
 };
 
 // Staff Management

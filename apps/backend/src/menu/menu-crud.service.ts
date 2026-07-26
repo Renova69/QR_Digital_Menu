@@ -1038,6 +1038,12 @@ export class MenuCrudService {
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
   }
 
+  // Thin public wrapper so sibling services (e.g. bulk menu edit) can reuse
+  // the same owner/manager check without duplicating it.
+  async verifyRestaurantOwnership(restaurantId: string, userId: string) {
+    await this.checkRestaurantOwnership(restaurantId, userId);
+  }
+
   async createCategory(
     restaurantId: string,
     createCategoryDto: CreateCategoryDto,

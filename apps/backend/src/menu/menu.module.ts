@@ -20,6 +20,8 @@ import { TranslationModule } from '../translation/translation.module';
 
 import { MenuAuditController } from './audit.controller';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
+import { BulkItemController } from './bulk-item.controller';
+import { MenuBulkEditService } from './menu-bulk-edit.service';
 
 @Module({
   imports: [PrismaModule, TranslationModule],
@@ -32,6 +34,7 @@ import { WeatherUpsellService } from './upsell/weather-upsell.service';
     MenuAuditController,
     MenuOptionController,
     MenuOptionDetailController,
+    BulkItemController,
   ],
   providers: [
     MenuCrudService,
@@ -41,6 +44,7 @@ import { WeatherUpsellService } from './upsell/weather-upsell.service';
     MenuTranslationWorkerService,
     MenuAuditService,
     WeatherUpsellService,
+    MenuBulkEditService,
   ],
   exports: [
     MenuCrudService,
