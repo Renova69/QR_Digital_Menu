@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { useTranslation } from "react-i18next";
 import { formatEuro, formatBgn } from "../lib/currency";
+import { orderStatusKeyMap } from "./Dashboard/analytics/shared";
 import DataPrivacyTab from "./profile/DataPrivacyTab";
 
 export const CustomerProfilePage: React.FC = () => {
@@ -233,8 +234,7 @@ export const CustomerProfilePage: React.FC = () => {
                     ) : (
                       <p className="text-sm font-bold text-muted-foreground">
                         {t("profile.rewardAvailable", {
-                          defaultValue:
-                            "Можеш да използваш {{amount}} в награди",
+                          defaultValue: "You can redeem {{amount}} in rewards",
                           amount: formatEuro(rewardValue),
                         })}
                       </p>
@@ -351,9 +351,11 @@ export const CustomerProfilePage: React.FC = () => {
                     </p>
                     {order.status && (
                       <span className="mt-2 inline-block rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary">
-                        {t(`orders.tabs.${order.status.toLowerCase()}`, {
-                          defaultValue: order.status,
-                        })}
+                        {t(
+                          orderStatusKeyMap[order.status] ??
+                            `orders.tabs.${order.status.toLowerCase()}`,
+                          String(order.status),
+                        )}
                       </span>
                     )}
                     <div className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
