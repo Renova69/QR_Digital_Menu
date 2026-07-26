@@ -148,7 +148,12 @@ export class PaymentProviderConfigService {
           purpose: 'mypos-private-key',
         }),
         publicCertPem: restaurant.myposPublicCert!,
-        currency: (restaurant.myposCurrency || 'EUR').toUpperCase(),
+        // Always charge in EUR; the app totals are EUR and no FX conversion
+        // is implemented — mirrors the BORICA provider (see borica-checkout
+        // .service.ts #9). Never trust restaurant.myposCurrency here: it can
+        // drift from the actual (EUR) bill total and cause a currency
+        // mismatch undercharge/overcharge at the provider.
+        currency: 'EUR',
       };
     }
 
@@ -176,7 +181,8 @@ export class PaymentProviderConfigService {
         restaurant.myposPublicCert ||
         process.env.MYPOS_TEST_PUBLIC_CERT ||
         MYPOS_TEST_PUBLIC_CERT,
-      currency: (restaurant.myposCurrency || 'EUR').toUpperCase(),
+      // Always EUR — see the LIVE branch above.
+      currency: 'EUR',
     };
   }
 

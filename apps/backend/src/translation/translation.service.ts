@@ -217,7 +217,12 @@ export class TranslationService {
         opts,
       );
       return results[0] || text;
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        `translateText fallback to source text (${targetLanguage}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       return text;
     }
   }

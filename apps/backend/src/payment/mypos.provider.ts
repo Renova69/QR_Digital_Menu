@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
 export type MyposMode = 'DEMO' | 'LIVE';
@@ -79,6 +79,8 @@ export const MYPOS_TEST_PUBLIC_CERT = [
 
 @Injectable()
 export class MyposProvider {
+  private readonly logger = new Logger(MyposProvider.name);
+
   getActionUrl(mode: MyposMode): string {
     if (mode === 'DEMO') {
       return (
@@ -156,8 +158,17 @@ export class MyposProvider {
         .createVerify('RSA-SHA256')
         .update(this.buildSignedPayload(fields))
         .verify(publicCertPem, Buffer.from(signature, 'base64'));
-    } catch {
+    } catch (error) {
+      // Distinguish "signature genuinely doesn't match" (silent, expected for
+      // real fraud attempts) from "verification itself threw" (bad cert PEM,
+      // malformed base64 Signature field, unsupported format) — the latter is
+      // a config/data problem support needs to see, not a fraud signal.
       verified = false;
+      this.logger.warn(
+        `myPOS notification signature verification threw for order ${getField(body, 'OrderID')}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
 
     return {

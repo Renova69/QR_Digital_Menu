@@ -1434,7 +1434,7 @@ describe('PaymentService', () => {
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
     });
 
-    it('uses the currency resolved from the restaurant myPOS configuration', async () => {
+    it('always sends currency EUR regardless of myposCurrency setting', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
         restaurantId: 'rest1',
@@ -1448,10 +1448,10 @@ describe('PaymentService', () => {
       await service.createCheckout('tok1', 'MYPOS', 0);
 
       expect(mockMyposProvider.createCheckoutForm).toHaveBeenCalledWith(
-        expect.objectContaining({ currency: 'BGN' }),
+        expect.objectContaining({ currency: 'EUR' }),
       );
       expect(mockPrisma.payment.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ currency: 'bgn' }),
+        data: expect.objectContaining({ currency: 'eur' }),
       });
     });
   });

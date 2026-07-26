@@ -18,7 +18,7 @@ import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { GoogleAuthGuard } from './google-auth.guard';
+import { GoogleAuthGuard, isAllowedReturnTo } from './google-auth.guard';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
@@ -114,7 +114,10 @@ export class AuthController {
     if (req.query.state) {
       try {
         const state = JSON.parse(req.query.state as string);
-        if (state.returnTo) {
+        // Google reflects `state` back unsigned — never trust it without
+        // re-validating at the point of use, even though the guard already
+        // checked origin at initiation (#AUTH-C1 defense-in-depth).
+        if (state.returnTo && isAllowedReturnTo(state.returnTo)) {
           returnTo = `&returnTo=${encodeURIComponent(state.returnTo)}`;
         }
       } catch (error) {

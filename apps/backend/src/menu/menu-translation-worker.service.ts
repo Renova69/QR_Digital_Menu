@@ -321,28 +321,32 @@ export class MenuTranslationWorkerService {
   private async markFailed(rows: ClaimedRow[], error: unknown): Promise<void> {
     if (rows.length === 0) return;
     const message = error instanceof Error ? error.message : String(error);
-    await Promise.all(
-      rows.map((row) => {
-        const newFailureCount = row.failureCount + 1;
-        const backoffMinutes = Math.pow(
-          3,
-          Math.min(
-            newFailureCount,
-            MenuTranslationWorkerService.MAX_FAILURE_COUNT,
-          ),
-        );
-        return this.prisma.menuTranslationState.update({
-          where: { id: row.id },
-          data: {
-            status: 'FAILED',
-            failureCount: newFailureCount,
-            nextAttemptAt: new Date(Date.now() + backoffMinutes * 60_000),
-            lastError: message.slice(0, 500),
-            claimedAt: null,
-          },
-        });
-      }),
-    );
+    // Sequential, not Promise.all: each row needs a different backoffMinutes
+    // (derived from its own failureCount), so this can't collapse into a
+    // single updateMany. Up to BATCH_LIMIT (100) rows can land here in one
+    // call; firing them concurrently bursts the PgBouncer transaction-mode
+    // pool for no benefit — this is a background cron worker, so the extra
+    // latency of awaiting one at a time is free.
+    for (const row of rows) {
+      const newFailureCount = row.failureCount + 1;
+      const backoffMinutes = Math.pow(
+        3,
+        Math.min(
+          newFailureCount,
+          MenuTranslationWorkerService.MAX_FAILURE_COUNT,
+        ),
+      );
+      await this.prisma.menuTranslationState.update({
+        where: { id: row.id },
+        data: {
+          status: 'FAILED',
+          failureCount: newFailureCount,
+          nextAttemptAt: new Date(Date.now() + backoffMinutes * 60_000),
+          lastError: message.slice(0, 500),
+          claimedAt: null,
+        },
+      });
+    }
   }
 
   private async releaseToStale(ids: string[]): Promise<void> {

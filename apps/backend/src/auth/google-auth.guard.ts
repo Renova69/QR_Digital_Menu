@@ -1,11 +1,47 @@
 import {
   ExecutionContext,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
+
+const logger = new Logger('GoogleAuthGuard');
+
+// Only permit same-origin destinations. Blocking cross-origin returnTo
+// prevents an open redirect that sends an authenticated user to an
+// attacker-controlled domain with their session cookie alive (#AUTH-C1).
+// Exported so the callback handler can re-validate on consume, not just
+// at initiation — the OAuth `state` param is reflected by Google unsigned,
+// so it must never be trusted without re-checking at the point of use.
+export function isAllowedReturnTo(returnTo: string): boolean {
+  if (returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+    // Relative path (e.g. /dashboard) — safe. Reject protocol-relative
+    // URLs (//evil.com) which would bypass the origin check.
+    return true;
+  }
+  const frontendOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
+  try {
+    const parsed = new URL(returnTo);
+    const allowedOrigin = new URL(frontendOrigin);
+    return (
+      parsed.hostname === allowedOrigin.hostname &&
+      parsed.port === allowedOrigin.port &&
+      parsed.protocol === allowedOrigin.protocol
+    );
+  } catch (error) {
+    // Malformed URL (either returnTo or FRONTEND_URL) — reject, but log so
+    // a bad FRONTEND_URL/allowed-origin config isn't a silent OAuth outage.
+    logger.warn(
+      `Rejecting OAuth returnTo — malformed URL: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return false;
+  }
+}
 
 const NONCE_COOKIE = 'oauth_nonce';
 const NONCE_COOKIE_OPTIONS = {
@@ -70,29 +106,7 @@ export class GoogleAuthGuard extends AuthGuard('google') {
     if (nonce) stateObj.nonce = nonce;
     if (req.query['returnTo']) {
       const returnTo = req.query['returnTo'] as string;
-      // Only permit same-origin destinations. Blocking cross-origin returnTo
-      // prevents an open redirect that sends an authenticated user to an
-      // attacker-controlled domain with their session cookie alive (#AUTH-C1).
-      const frontendOrigin =
-        process.env.FRONTEND_URL || 'http://localhost:3001';
-      let allowed = false;
-      if (returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-        // Relative path (e.g. /dashboard) — safe. Reject protocol-relative
-        // URLs (//evil.com) which would bypass the origin check.
-        allowed = true;
-      } else {
-        try {
-          const parsed = new URL(returnTo);
-          const allowedOrigin = new URL(frontendOrigin);
-          allowed =
-            parsed.hostname === allowedOrigin.hostname &&
-            parsed.port === allowedOrigin.port &&
-            parsed.protocol === allowedOrigin.protocol;
-        } catch {
-          // Malformed URL — reject.
-        }
-      }
-      if (allowed) {
+      if (isAllowedReturnTo(returnTo)) {
         stateObj.returnTo = returnTo;
       }
     }

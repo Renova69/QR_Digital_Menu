@@ -164,8 +164,15 @@ export class EventsGateway
             client.data.deviceTokenId = payload.deviceTokenId;
           }
         }
-      } catch {
-        // invalid/expired — stay anonymous
+      } catch (error) {
+        // invalid/expired — stay anonymous. debug (not warn): expired tokens
+        // are routine on reconnect; this just keeps the failure reason
+        // searchable if a token-refresh regression starts spiking these.
+        this.logger.debug(
+          `Socket JWT auth failed, staying anonymous: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
     }
 

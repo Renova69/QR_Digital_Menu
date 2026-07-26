@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscribePushDto } from './dto/subscribe-push.dto';
 
 /**
  * Exact hosts / host suffixes of the browser push services we accept. The
@@ -99,11 +100,8 @@ export class PushService implements OnModuleInit {
     }
   }
 
-  async createSubscription(userId: string, subscription: any) {
+  async createSubscription(userId: string, subscription: SubscribePushDto) {
     const { endpoint, keys } = subscription;
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      throw new BadRequestException('Invalid subscription object format');
-    }
     this.assertAllowedPushEndpoint(endpoint);
 
     return this.prisma.pushSubscription.upsert({
