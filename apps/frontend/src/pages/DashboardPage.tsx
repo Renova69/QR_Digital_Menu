@@ -396,7 +396,7 @@ const DashboardPage = () => {
                     isActive
                       ? {
                           background: "var(--brand)",
-                          boxShadow: "0 6px 16px -6px rgba(0, 184, 148, 0.55)",
+                          boxShadow: "0 6px 16px -6px rgba(110, 86, 248, 0.55)",
                         }
                       : {}
                   }
@@ -498,7 +498,7 @@ const DashboardPage = () => {
               className="rounded-2xl p-4"
               style={{
                 background: "var(--gradient-brand-soft)",
-                border: "1px solid rgba(0, 184, 148, 0.2)",
+                border: "1px solid rgba(110, 86, 248, 0.2)",
               }}
             >
               <div className="flex items-center gap-2 mb-2">

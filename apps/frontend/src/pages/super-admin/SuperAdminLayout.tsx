@@ -89,7 +89,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
               isActive
                 ? {
                     background: "var(--gradient-brand-soft)",
-                    color: "#5ee7ca",
+                    color: "hsl(265 95% 80%)",
                   }
                 : {}
             }

@@ -782,12 +782,12 @@ function DashboardPreview() {
   ];
   const channels = [
     {
-      color: "#00B894",
+      color: "#6E56F8",
       label: t("landing.dashboardMock.channels.qr"),
       pct: "46%",
     },
     {
-      color: "#2ECC71",
+      color: "#A78BFA",
       label: t("landing.dashboardMock.channels.staff"),
       pct: "28%",
     },
@@ -910,8 +910,8 @@ function DashboardPreview() {
             >
               <defs>
                 <linearGradient id="heroLineGrad" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#00B894" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#00B894" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#8B6FFF" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#8B6FFF" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <g
@@ -927,7 +927,7 @@ function DashboardPreview() {
               <path
                 d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25"
                 fill="none"
-                stroke="#00B894"
+                stroke="#8B6FFF"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -936,7 +936,7 @@ function DashboardPreview() {
                 d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25 L345,120 L30,120 Z"
                 fill="url(#heroLineGrad)"
               />
-              <g fill="#00B894">
+              <g fill="#8B6FFF">
                 {[30, 75, 120, 165, 210, 255, 300, 345].map((cx, idx) => (
                   <circle
                     key={cx}
@@ -1010,7 +1010,7 @@ function DashboardPreview() {
                     cx="50"
                     cy="50"
                     fill="none"
-                    stroke="#00B894"
+                    stroke="#6E56F8"
                     strokeWidth="14"
                     strokeDasharray="116 251"
                     transform="rotate(-90 50 50)"
@@ -1020,7 +1020,7 @@ function DashboardPreview() {
                     cx="50"
                     cy="50"
                     fill="none"
-                    stroke="#2ECC71"
+                    stroke="#A78BFA"
                     strokeWidth="14"
                     strokeDasharray="70 251"
                     strokeDashoffset="-116"
@@ -1116,9 +1116,9 @@ function DashboardPreview() {
       </div>
 
       <div
-        className="absolute -bottom-10 -right-2 hidden w-[150px] -rotate-3 rounded-[14px] p-3.5 text-white shadow-[0_20px_40px_-10px_rgba(0,184,148,.5)] sm:block"
+        className="absolute -bottom-10 -right-2 hidden w-[150px] -rotate-3 rounded-[14px] p-3.5 text-white shadow-[0_20px_40px_-10px_rgba(110,86,248,.5)] sm:block"
         style={{
-          background: "linear-gradient(160deg, #00B894 0%, #087F6C 100%)",
+          background: "linear-gradient(160deg, #6E56F8 0%, #4A39B8 100%)",
         }}
       >
         <div className="mb-2.5 text-[11px] font-semibold leading-tight">
