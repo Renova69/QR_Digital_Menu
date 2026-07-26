@@ -66,6 +66,9 @@ describe('DashboardController analytics tier gating', () => {
     getAnalytics: jest.fn(),
     getSummary: jest.fn(),
     getPaymentsSummary: jest.fn(),
+    getDailyTarget: jest.fn(),
+    setDailyTarget: jest.fn(),
+    getDailyCloseout: jest.fn(),
   };
 
   const OWNER = { id: 'owner-1', role: 'OWNER' };
@@ -224,5 +227,150 @@ describe('DashboardController analytics tier gating', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
+  });
+
+  // ── Daily Target ───────────────────────────────────────────────────────
+
+  it('returns daily target for a given date', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+    mockDashboard.getDailyTarget.mockResolvedValue({
+      date: '2026-08-01',
+      dailyRevenue: 500,
+    });
+
+    const result = await controller.getDailyTarget(
+      OWNER,
+      'rest-1',
+      '2026-08-01',
+    );
+
+    expect(mockDashboard.getDailyTarget).toHaveBeenCalledWith(
+      'rest-1',
+      '2026-08-01',
+    );
+    expect(result).toEqual({ date: '2026-08-01', dailyRevenue: 500 });
+  });
+
+  it('rejects getDailyTarget without restaurantId', async () => {
+    await expect(controller.getDailyTarget(OWNER, '')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('sets daily target', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+    mockDashboard.setDailyTarget.mockResolvedValue({ success: true });
+
+    const result = await controller.setDailyTarget(OWNER, 'rest-1', {
+      dailyRevenue: 800,
+    });
+
+    expect(mockDashboard.setDailyTarget).toHaveBeenCalledWith(
+      'rest-1',
+      expect.any(String),
+      800,
+    );
+    expect(result).toEqual({ success: true });
+  });
+
+  it('rejects negative dailyRevenue in setDailyTarget', async () => {
+    await expect(
+      controller.setDailyTarget(OWNER, 'rest-1', { dailyRevenue: -1 }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects setDailyTarget without restaurantId', async () => {
+    await expect(
+      controller.setDailyTarget(OWNER, '', { dailyRevenue: 100 }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // ── Daily Closeout ─────────────────────────────────────────────────────
+
+  it('returns daily closeout for a date', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+    mockDashboard.getDailyCloseout.mockResolvedValue({
+      date: '2026-08-01',
+      orderedRevenue: 1200,
+      totalOrderCount: 45,
+      netRevenue: 1150,
+    });
+
+    const result = await controller.getDailyCloseout(
+      OWNER,
+      'rest-1',
+      '2026-08-01',
+    );
+
+    expect(mockDashboard.getDailyCloseout).toHaveBeenCalledWith(
+      'rest-1',
+      '2026-08-01',
+    );
+    expect(result.orderedRevenue).toBe(1200);
+  });
+
+  it('rejects getDailyCloseout without date', async () => {
+    await expect(
+      controller.getDailyCloseout(OWNER, 'rest-1', ''),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects getDailyCloseout without restaurantId', async () => {
+    await expect(
+      controller.getDailyCloseout(OWNER, '', '2026-08-01'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // ── Date range validation ──────────────────────────────────────────────
+
+  it('rejects analytics with inverted date range', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await expect(
+      controller.getAnalytics(OWNER, 'rest-1', undefined, {
+        startDate: '2026-12-31',
+        endDate: '2026-01-01',
+      } as any),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects analytics with excessive date range', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await expect(
+      controller.getAnalytics(OWNER, 'rest-1', undefined, {
+        startDate: '2025-01-01',
+        endDate: '2026-12-31',
+      } as any),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts analytics with valid date range', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await controller.getAnalytics(OWNER, 'rest-1', undefined, {
+      startDate: '2026-06-01',
+      endDate: '2026-06-30',
+    } as any);
+
+    expect(mockDashboard.getAnalytics).toHaveBeenCalled();
+  });
+
+  it('rejects analytics without restaurantId', async () => {
+    await expect(controller.getAnalytics(OWNER, '')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

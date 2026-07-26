@@ -7,8 +7,10 @@ import { FeatureService } from '../subscription/feature.service';
 const mockTx = {
   loyaltyAccount: {
     findMany: jest.fn(),
+    findUniqueOrThrow: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    create: jest.fn(),
   },
   loyaltyPointLedger: {
     findMany: jest.fn(),
@@ -26,10 +28,11 @@ const mockTransaction = jest.fn(
 
 const mockPrisma = {
   $transaction: mockTransaction,
-  restaurant: { findFirst: jest.fn() },
+  restaurant: { findFirst: jest.fn(), findUnique: jest.fn() },
   loyaltyAccount: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     groupBy: jest.fn(),
     aggregate: jest.fn(),
   },
@@ -37,7 +40,11 @@ const mockPrisma = {
   order: { findMany: jest.fn(), groupBy: jest.fn(), aggregate: jest.fn() },
 };
 
-const mockFeatureService = { canAccess: jest.fn().mockResolvedValue(true) };
+const mockFeatureService = {
+  canAccess: jest.fn().mockResolvedValue(true),
+  getEffectiveTier: jest.fn().mockReturnValue('PROFESSIONAL'),
+  hasFeature: jest.fn().mockReturnValue(true),
+};
 
 describe('LoyaltyService', () => {
   let service: LoyaltyService;
@@ -416,6 +423,296 @@ describe('LoyaltyService', () => {
 
       const result = await service.notifyExpiryReminders('r1', 'owner1');
       expect(result).toEqual([]);
+    });
+  });
+
+  // ─── Core flows previously untested ─────────────────────────────────────────
+
+  describe('getPublicConfig', () => {
+    it('returns config when loyalty is available', async () => {
+      const mockRestaurant = {
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+        loyaltyExchangeRate: 10,
+        loyaltyRedeemRate: 150,
+        loyaltyMaxRedemptionPercent: 50,
+        loyaltyPointExpiryDays: 90,
+        loyaltyExpiryReminderDays: 15,
+        loyaltySignupBonus: 0,
+        timezone: 'Europe/Sofia',
+        happyHourEnable: false,
+        happyHourDays: '',
+        happyHourStartTime: '17:00',
+        happyHourEndTime: '19:00',
+        happyHourMultiplier: 1.5,
+        loyaltySilverThreshold: 500,
+        loyaltyGoldThreshold: 2000,
+        loyaltySilverMultiplier: 1.2,
+        loyaltyGoldMultiplier: 1.5,
+      };
+      // Simulate prisma returning the restaurant
+      // We need to mock the actual findUnique call. The service uses
+      // `this.prisma.restaurant.findUnique` but our mock only has `findFirst`.
+      // Actually we need to also mock findUnique. Let's add it.
+      (mockPrisma.restaurant as any).findUnique = jest
+        .fn()
+        .mockResolvedValue(mockRestaurant);
+
+      const result = await service.getPublicConfig('r1');
+
+      expect(result).toBeDefined();
+      expect(result).not.toHaveProperty('tier');
+      expect(result).not.toHaveProperty('forceTier');
+      expect(result!.isLoyaltyEnabled).toBe(true);
+    });
+
+    it('returns null when loyalty is unavailable', async () => {
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+      });
+      mockFeatureService.hasFeature.mockReturnValueOnce(false);
+
+      const result = await service.getPublicConfig('r1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('enroll', () => {
+    it('returns existing points when already enrolled', async () => {
+      const existingAccount = {
+        id: 'acc-1',
+        userId: 'user-1',
+        restaurantId: 'r1',
+        points: 100,
+        lifetimePoints: 150,
+      };
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValue(existingAccount);
+
+      // getPoints will also call findUnique again, then restaurant
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+        loyaltyExchangeRate: 10,
+        loyaltyRedeemRate: 150,
+        loyaltyMaxRedemptionPercent: 50,
+        loyaltyPointExpiryDays: 90,
+        loyaltyExpiryReminderDays: 15,
+        loyaltySignupBonus: 50,
+        timezone: 'UTC',
+        happyHourEnable: false,
+        happyHourDays: '',
+        happyHourStartTime: '17:00',
+        happyHourEndTime: '19:00',
+        happyHourMultiplier: 1.5,
+        loyaltySilverThreshold: 500,
+        loyaltyGoldThreshold: 2000,
+        loyaltySilverMultiplier: 1.2,
+        loyaltyGoldMultiplier: 1.5,
+      });
+
+      // getPoints flow: transaction with lock + expire + find + batches
+      mockTx.loyaltyAccount.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(existingAccount);
+      mockTx.loyaltyPointLedger.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.enroll('user-1', 'r1');
+
+      expect(result.points).toBe(100);
+    });
+
+    it('returns zero points when loyalty is unavailable', async () => {
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValue(null);
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+      });
+      mockFeatureService.hasFeature.mockReturnValueOnce(false);
+
+      const result = await service.enroll('user-1', 'r1');
+
+      expect(result.points).toBe(0);
+      expect(result.lifetimePoints).toBe(0);
+    });
+  });
+
+  describe('getPoints', () => {
+    it('returns zero points when loyalty is unavailable', async () => {
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValue(null);
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+      });
+      mockFeatureService.hasFeature.mockReturnValueOnce(false);
+
+      const result = await service.getPoints('user-1', 'r1');
+
+      expect(result.points).toBe(0);
+      expect(result.lifetimePoints).toBe(0);
+      expect(result.restaurantConfig).toBeNull();
+    });
+
+    it('returns points with reward summary when account exists', async () => {
+      const account = { id: 'acc-1', points: 500, lifetimePoints: 800 };
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValue(account);
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+        loyaltyExchangeRate: 10,
+        loyaltyRedeemRate: 150,
+        loyaltyMaxRedemptionPercent: 50,
+        loyaltyPointExpiryDays: 90,
+        loyaltyExpiryReminderDays: 15,
+        loyaltySignupBonus: 0,
+        timezone: 'UTC',
+        happyHourEnable: false,
+        happyHourDays: '',
+        happyHourStartTime: '17:00',
+        happyHourEndTime: '19:00',
+        happyHourMultiplier: 1.5,
+        loyaltySilverThreshold: 500,
+        loyaltyGoldThreshold: 2000,
+        loyaltySilverMultiplier: 1.2,
+        loyaltyGoldMultiplier: 1.5,
+      });
+
+      mockTx.loyaltyAccount.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(account);
+      mockTx.loyaltyPointLedger.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.getPoints('user-1', 'r1');
+
+      expect(result.points).toBe(500);
+      expect(result.lifetimePoints).toBe(800);
+      expect((result as any).rewardValue).toBeDefined();
+      expect((result as any).tier).toBeDefined();
+      expect(result.restaurantConfig).toBeDefined();
+    });
+
+    it('handles no account gracefully', async () => {
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValue(null);
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+        loyaltyExchangeRate: 10,
+        loyaltyRedeemRate: 150,
+        loyaltyPointExpiryDays: 90,
+      });
+
+      const result = await service.getPoints('user-1', 'r1');
+
+      expect(result.points).toBe(0);
+      expect((result as any).rewardValue).toBeDefined();
+    });
+  });
+
+  describe('getLoyaltyAccounts', () => {
+    it('returns enriched accounts for user', async () => {
+      const accounts = [
+        {
+          id: 'acc-1',
+          userId: 'user-1',
+          restaurantId: 'r1',
+          points: 300,
+          lifetimePoints: 500,
+          restaurant: {
+            name: 'Test Bistro',
+            isLoyaltyEnabled: true,
+            loyaltyExchangeRate: 10,
+            loyaltyRedeemRate: 150,
+            loyaltyMaxRedemptionPercent: 50,
+            loyaltyPointExpiryDays: 90,
+            loyaltyExpiryReminderDays: 15,
+            loyaltySignupBonus: 0,
+            timezone: 'UTC',
+            happyHourEnable: false,
+            happyHourDays: '',
+            happyHourStartTime: '17:00',
+            happyHourEndTime: '19:00',
+            happyHourMultiplier: 1.5,
+            loyaltySilverThreshold: 500,
+            loyaltyGoldThreshold: 2000,
+            loyaltySilverMultiplier: 1.2,
+            loyaltyGoldMultiplier: 1.5,
+          },
+        },
+      ];
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue(accounts);
+
+      mockTx.loyaltyAccount.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(accounts[0]);
+      mockTx.loyaltyPointLedger.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.getLoyaltyAccounts('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].points).toBe(300);
+      expect(result[0].restaurant.name).toBe('Test Bistro');
+    });
+
+    it('returns empty array when no accounts', async () => {
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([]);
+
+      const result = await service.getLoyaltyAccounts('user-1');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getHistory extended', () => {
+    it('returns empty data when no orders exist', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([]);
+
+      const result = await service.getHistory('user-1', { limit: 10 });
+
+      expect(result.data).toEqual([]);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it('handles default limit when not specified', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([]);
+
+      await service.getHistory('user-1', {} as any);
+
+      // Default limit is 25, so take should be 26 (limit + 1 for hasMore check)
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 26 }),
+      );
     });
   });
 });
