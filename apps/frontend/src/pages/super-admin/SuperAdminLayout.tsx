@@ -7,13 +7,13 @@ import {
   Menu,
   X,
   ShieldCheck,
-  Shield,
   MessageCircleQuestion,
   TrendingUp,
   FileText,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import { RenovaMark } from "../../components/brand/RenovaBrand";
 
 const NAV_ITEMS = [
   { to: "/super-admin", icon: LayoutDashboard, label: "Overview", end: true },
@@ -49,15 +49,10 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       {/* Brand */}
       <div className="px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-red-500/30"
-            style={{ background: "hsl(0 80% 55% / 0.15)" }}
-          >
-            <Shield className="w-4 h-4 text-red-400" />
-          </div>
+          <RenovaMark className="h-8 w-8 shrink-0" inverse />
           <div>
             <p className="text-sm font-bold text-white leading-none tracking-tight">
-              {t("auto.qRMenuAdmin", "QR Menu Admin")}
+              {t("auto.qRMenuAdmin", "Renova Admin")}
             </p>
             <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-widest font-medium">
               {t("auto.platformControl", "Platform Control")}
@@ -94,7 +89,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
               isActive
                 ? {
                     background: "var(--gradient-brand-soft)",
-                    color: "hsl(265 95% 80%)",
+                    color: "#5ee7ca",
                   }
                 : {}
             }
@@ -182,9 +177,9 @@ export default function SuperAdminLayout() {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-red-400" />
+            <RenovaMark className="h-5 w-5" inverse />
             <span className="text-sm font-bold text-white">
-              {t("auto.qRMenuAdmin", "QR Menu Admin")}
+              {t("auto.qRMenuAdmin", "Renova Admin")}
             </span>
           </div>
         </div>

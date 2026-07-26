@@ -38,6 +38,7 @@ import { ItemWithOptions } from "../components/menu/ItemWithOptions";
 import Footer from "../components/menu/Footer";
 import { CartProvider } from "../context/CartContext";
 import type { Item, Category } from "../types";
+import { RenovaBrand, RenovaMark } from "../components/brand/RenovaBrand";
 
 /* ═══════════════════════════════════════════════════════════
    DATA
@@ -781,12 +782,12 @@ function DashboardPreview() {
   ];
   const channels = [
     {
-      color: "#6E56F8",
+      color: "#00B894",
       label: t("landing.dashboardMock.channels.qr"),
       pct: "46%",
     },
     {
-      color: "#A78BFA",
+      color: "#2ECC71",
       label: t("landing.dashboardMock.channels.staff"),
       pct: "28%",
     },
@@ -909,8 +910,8 @@ function DashboardPreview() {
             >
               <defs>
                 <linearGradient id="heroLineGrad" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#8B6FFF" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#8B6FFF" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#00B894" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#00B894" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <g
@@ -926,7 +927,7 @@ function DashboardPreview() {
               <path
                 d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25"
                 fill="none"
-                stroke="#8B6FFF"
+                stroke="#00B894"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -935,7 +936,7 @@ function DashboardPreview() {
                 d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25 L345,120 L30,120 Z"
                 fill="url(#heroLineGrad)"
               />
-              <g fill="#8B6FFF">
+              <g fill="#00B894">
                 {[30, 75, 120, 165, 210, 255, 300, 345].map((cx, idx) => (
                   <circle
                     key={cx}
@@ -1009,7 +1010,7 @@ function DashboardPreview() {
                     cx="50"
                     cy="50"
                     fill="none"
-                    stroke="#6E56F8"
+                    stroke="#00B894"
                     strokeWidth="14"
                     strokeDasharray="116 251"
                     transform="rotate(-90 50 50)"
@@ -1019,7 +1020,7 @@ function DashboardPreview() {
                     cx="50"
                     cy="50"
                     fill="none"
-                    stroke="#A78BFA"
+                    stroke="#2ECC71"
                     strokeWidth="14"
                     strokeDasharray="70 251"
                     strokeDashoffset="-116"
@@ -1115,9 +1116,9 @@ function DashboardPreview() {
       </div>
 
       <div
-        className="absolute -bottom-10 -right-2 hidden w-[150px] -rotate-3 rounded-[14px] p-3.5 text-white shadow-[0_20px_40px_-10px_rgba(110,86,248,.5)] sm:block"
+        className="absolute -bottom-10 -right-2 hidden w-[150px] -rotate-3 rounded-[14px] p-3.5 text-white shadow-[0_20px_40px_-10px_rgba(0,184,148,.5)] sm:block"
         style={{
-          background: "linear-gradient(160deg, #6E56F8 0%, #4A39B8 100%)",
+          background: "linear-gradient(160deg, #00B894 0%, #087F6C 100%)",
         }}
       >
         <div className="mb-2.5 text-[11px] font-semibold leading-tight">
@@ -1823,7 +1824,7 @@ const HomePage = () => {
       <section className="relative overflow-hidden bg-foreground px-4 py-16 text-background sm:px-6 md:py-24 lg:px-8">
         <div className="relative z-10 mx-auto max-w-5xl text-center">
           <div className="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-background text-foreground">
-            <QrCode className="h-7 w-7" />
+            <RenovaMark className="h-9 w-9" />
           </div>
           <h2 className="text-4xl font-black tracking-tight md:text-6xl">
             {t("landing.bottomCtaTitle")}
@@ -1854,14 +1855,7 @@ const HomePage = () => {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
             <div>
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-white">
-                  <QrCode className="h-5 w-5" />
-                </div>
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-foreground">
-                  QR Menu
-                </p>
-              </div>
+              <RenovaBrand size="md" showTagline />
               <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
                 {t("landing.footer.description")}
               </p>
@@ -1910,7 +1904,7 @@ const HomePage = () => {
           </div>
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 md:flex-row">
             <span className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} QR Menu
+              © {new Date().getFullYear()} Renova
             </span>
             <span className="text-xs text-muted-foreground">
               {t("landing.footerRights")}

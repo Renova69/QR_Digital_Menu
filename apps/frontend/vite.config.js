@@ -92,18 +92,19 @@ export default defineConfig(({ mode }) => {
         registerType: "autoUpdate",
         injectRegister: "auto",
         manifest: {
-          name: "QR Digital Menu",
-          short_name: "QR Menu",
-          description: "Digital menu — scan, browse, order.",
-          theme_color: "#000000",
-          background_color: "#ffffff",
+          name: "Renova Digital Menu Platform",
+          short_name: "Renova",
+          description: "Renova digital menu platform — scan, browse, order.",
+          theme_color: "#0D1B2A",
+          background_color: "#F5F7FA",
           display: "standalone",
           start_url: ".",
           icons: [
             {
-              src: "favicon.ico",
-              sizes: "64x64 32x32 24x24 16x16",
-              type: "image/x-icon",
+              src: "renova-mark.svg",
+              sizes: "any",
+              type: "image/svg+xml",
+              purpose: "any",
             },
             {
               src: "logo192.png",

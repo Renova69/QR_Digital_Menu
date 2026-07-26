@@ -4,6 +4,7 @@ import { Cross2Icon } from "@radix-ui/react-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { RenovaBrand } from "../brand/RenovaBrand";
 
 interface LoginDialogProps {
   open?: boolean;
@@ -72,6 +73,9 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
       <Dialog.Portal>
         <Dialog.Overlay className="bg-black/50 backdrop-blur-sm fixed inset-0" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md bg-background p-6 rounded-2xl shadow-2xl border border-border/60">
+          <div className="mb-5 flex justify-center">
+            <RenovaBrand size="md" />
+          </div>
           <Dialog.Title className="text-lg font-bold text-foreground">
             {isLogin
               ? t("auto.login", "Login")

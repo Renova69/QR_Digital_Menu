@@ -1711,7 +1711,7 @@
       "headline": "Built for modern Bulgarian restaurants, cafes, bars, hotels, and food halls"
     },
     "advantages": {
-      "badge": "Why QR Menu",
+      "badge": "Why Renova",
       "title": "Less waiting, clearer orders, better control.",
       "subtitle": "Built around your daily workflow: menus update instantly, guests order easily, and the team sees what is happening.",
       "items": {
@@ -1996,7 +1996,7 @@
       "viewPricing": "View Pricing"
     },
     "footer": {
-      "description": "QR Menu helps Bulgarian venues manage menus, tables, orders, and service from one platform.",
+      "description": "Renova helps Bulgarian venues manage menus, tables, orders, and service from one platform.",
       "product": {
         "title": "Product",
         "features": "Features",
@@ -2047,7 +2047,7 @@
       "line2": "digital menus for",
       "line3": "modern restaurants"
     },
-    "heroSubtextAlt": "QR MENU helps restaurants streamline operations, boost sales, and deliver exceptional experiences — all from a scan.",
+    "heroSubtextAlt": "RENOVA helps restaurants streamline operations, boost sales, and deliver exceptional experiences — all from a scan.",
     "heroStartFreeTrial": "Start Free Trial",
     "heroWatchDemo": "Watch Demo",
     "viewPricing": "View plans",
@@ -3020,7 +3020,7 @@
     "createCustomOption": "Create Custom Option"
   },
   "onboarding": {
-    "brand": "QR Menu",
+    "brand": "Renova",
     "setup": "Setup",
     "backToHome": "Back to home",
     "steps": {
@@ -3135,7 +3135,7 @@
     "checkoutError": "checkoutError"
   },
   "auto": {
-    "qRMENU": "QR MENU",
+    "qRMENU": "RENOVA",
     "deviceNotLinked": "This device is not linked to this restaurant anymore.",
     "pts": "pts",
     "valueEUR": "Value:",
@@ -3155,7 +3155,7 @@
     "month": "Month",
     "topDishes": "Top dishes",
     "launchYourQRMenu": "Launch your QR menu",
-    "qRMenu": "QR Menu",
+    "qRMenu": "Renova",
     "restaurantSaaSThatSellsSe": "restaurant SaaS that sells, serves, and scales.",
     "startFreeTrial": "Start Free Trial",
     "comparePlans": "Compare Plans",
@@ -3205,7 +3205,7 @@
     "termsOfService": "Terms of Service",
     "cookiePolicy": "Cookie Policy",
     "gDPR": "GDPR",
-    "qRMenuAllRightsReserved": "QR Menu. All rights reserved.",
+    "qRMenuAllRightsReserved": "Renova. All rights reserved.",
     "vsMonthly": "vs monthly",
     "Menu": ".menu",
     "aaBb123": "Aa Bb 123",
@@ -3476,7 +3476,7 @@
     "newUsers": "New Users",
     "orders": "Orders",
     "paymentVolume": "Payment Volume",
-    "qRMenuAdmin": "QR Menu Admin",
+    "qRMenuAdmin": "Renova Admin",
     "platformControl": "Platform Control",
     "signOut": "Sign out",
     "cONFIRM": "CONFIRM",

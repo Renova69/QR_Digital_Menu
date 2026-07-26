@@ -14,7 +14,6 @@ import {
   Utensils,
   HelpCircle,
   Lock,
-  QrCode,
   Zap,
   LogOut,
   Users,
@@ -42,6 +41,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import { DashboardProfileModal } from "../components/dashboard/DashboardProfileModal";
 import { updateRestaurant } from "../lib/api";
 import { buildMenuReturnUrl, normalizeRestaurantId } from "../lib/menuUrl";
+import { RenovaBrand } from "../components/brand/RenovaBrand";
 
 const AnalyticsView = lazy(() => import("./Dashboard/AnalyticsView"));
 const SettingsView = lazy(() => import("./Dashboard/SettingsView"));
@@ -361,16 +361,8 @@ const DashboardPage = () => {
       <aside className="hidden md:flex flex-col w-[260px] shrink-0 sidebar-dark h-full overflow-y-auto hide-scrollbar z-40">
         {/* Wordmark */}
         <div className="px-5 py-5 border-b border-border/40">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: "var(--brand)" }}
-            >
-              <QrCode className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-display font-bold brand-gradient-text tracking-tight">
-              {t("auto.qRMENU", "QR MENU")}
-            </span>
+          <Link to="/" aria-label="Renova home">
+            <RenovaBrand size="sm" />
           </Link>
         </div>
 
@@ -404,7 +396,7 @@ const DashboardPage = () => {
                     isActive
                       ? {
                           background: "var(--brand)",
-                          boxShadow: "0 6px 16px -6px rgba(110, 86, 248, 0.55)",
+                          boxShadow: "0 6px 16px -6px rgba(0, 184, 148, 0.55)",
                         }
                       : {}
                   }
@@ -506,7 +498,7 @@ const DashboardPage = () => {
               className="rounded-2xl p-4"
               style={{
                 background: "var(--gradient-brand-soft)",
-                border: "1px solid rgba(110, 86, 248, 0.2)",
+                border: "1px solid rgba(0, 184, 148, 0.2)",
               }}
             >
               <div className="flex items-center gap-2 mb-2">
@@ -636,17 +628,7 @@ const DashboardPage = () => {
 
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border/60 shrink-0">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: "var(--brand)" }}
-            >
-              <QrCode className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="text-sm font-display font-bold brand-gradient-text">
-              {t("auto.qRMENU", "QR MENU")}
-            </span>
-          </div>
+          <RenovaBrand size="sm" showDomain={false} />
           <div className="flex items-center gap-2">
             <ThemeToggle size="sm" />
             {paymentsEnabled && <NotificationBell />}

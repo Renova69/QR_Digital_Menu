@@ -8,7 +8,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "./ui/ThemeToggle";
-import { QrCode, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { RenovaBrand } from "./brand/RenovaBrand";
 
 const DASHBOARD_LANGUAGES = [
   { code: "bg", label: "BG" },
@@ -46,16 +47,8 @@ const Header: React.FC = () => {
       <header className="max-w-7xl mx-auto glass-panel rounded-2xl pointer-events-auto shadow-xl">
         <nav className="px-5 h-14 flex items-center justify-between gap-4">
           {/* Wordmark */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: "var(--gradient-brand)" }}
-            >
-              <QrCode className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-display font-bold tracking-tight brand-gradient-text">
-              {t("auto.qRMENU", "QR MENU")}
-            </span>
+          <Link to="/" className="shrink-0" aria-label="Renova home">
+            <RenovaBrand size="sm" />
           </Link>
 
           {/* Center nav (desktop) */}

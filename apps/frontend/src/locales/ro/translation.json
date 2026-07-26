@@ -1582,7 +1582,7 @@
     "heroLine1": "Meniul tău,",
     "heroWordAccent": "digitalizat",
     "heroLine2": "afacerea ta, amplificată",
-    "heroSubtext": "QR Menu oferă restaurantelor o vitrină digitală completă — comandă fără contact, gestionarea meselor în direct, afișaj pentru bucătărie, plăți, loialitate și analize. Totul într-o singură platformă. Totul în mai puțin de 5 minute.",
+    "heroSubtext": "Renova oferă restaurantelor o vitrină digitală completă — comandă fără contact, gestionarea meselor în direct, afișaj pentru bucătărie, plăți, loialitate și analize. Totul într-o singură platformă. Totul în mai puțin de 5 minute.",
     "startFreeTrial": "Începeți perioada de probă gratuită",
     "viewLiveDemo": "Vizualizați demo live",
     "featuresBadge": "Tot ce ai nevoie",
@@ -1599,7 +1599,7 @@
     "bottomCtaSubtitle": "Lansează un meniu QR uimitor astăzi, apoi extinde-te la comenzi, plăți, loialitate, POS, afișaj pentru bucătărie și operațiuni cu locații multiple când restaurantul este pregătit.",
     "bottomCtaButton": "Începeți gratuit",
     "bottomCtaLogin": "Autentificare în panou",
-    "footerRights": "QR Menu. Toate drepturile rezervate.",
+    "footerRights": "Renova. Toate drepturile rezervate.",
     "overview": "Prezentare",
     "orders": "Comenzi",
     "analytics": "Analize",
@@ -1703,12 +1703,12 @@
       "title": "Întrebări frecvente",
       "subtitle": "Tot ce trebuie să știți înainte de a începe.",
       "q1": {
-        "question": "Ce este QR Menu și cum funcționează?",
-        "answer": "QR Menu transformă fiecare masă într-o stație digitală de comandă. Clienții scanează un cod QR, navighează prin meniul complet pe telefon, plasează comenzi instantaneu și plătesc cu cardul — totul din browser. Fără descărcare de aplicație, fără înregistrare, fără fricțiuni. Comenzile apar imediat în panoul dvs., pe afișajul de bucătărie și în sistemul POS."
+        "question": "Ce este Renova și cum funcționează?",
+        "answer": "Renova transformă fiecare masă într-o stație digitală de comandă. Clienții scanează un cod QR, navighează prin meniul complet pe telefon, plasează comenzi instantaneu și plătesc cu cardul — totul din browser. Fără descărcare de aplicație, fără înregistrare, fără fricțiuni. Comenzile apar imediat în panoul dvs., pe afișajul de bucătărie și în sistemul POS."
       },
       "q2": {
         "question": "Am nevoie de hardware sau imprimante speciale?",
-        "answer": "Nu este necesar hardware special. QR Menu este complet bazat pe cloud — aveți nevoie doar de o imprimantă standard (inkjet sau laser) pentru a imprima cartonașe QR pe hârtie A4. Oferim trei șabloane de imprimare (Classic, Premium, Minimal) formatate pentru o distribuție curată 2×2. Tabletele pentru POS și afișajul de bucătărie sunt opționale. Cel mai bun lucru: codurile QR nu se schimbă niciodată — actualizați meniul, prețurile sau articolele fără a reimprima."
+        "answer": "Nu este necesar hardware special. Renova este complet bazat pe cloud — aveți nevoie doar de o imprimantă standard (inkjet sau laser) pentru a imprima cartonașe QR pe hârtie A4. Oferim trei șabloane de imprimare (Classic, Premium, Minimal) formatate pentru o distribuție curată 2×2. Tabletele pentru POS și afișajul de bucătărie sunt opționale. Cel mai bun lucru: codurile QR nu se schimbă niciodată — actualizați meniul, prețurile sau articolele fără a reimprima."
       },
       "q3": {
         "question": "Cât costă? Există taxe ascunse?",
@@ -1728,7 +1728,7 @@
       },
       "q7": {
         "question": "Ce se întâmplă cu confidențialitatea datelor clienților și GDPR?",
-        "answer": "QR Menu este complet conform cu GDPR. Oferim bannere de consimțământ pentru cookie-uri pe pagina publică a meniului, generăm automat paginile /privacy și /terms și includem un buton „Dreptul la ștergere\" cu un singur clic care șterge definitiv e-mailurile clienților, istoricul tranzacțiilor și punctele de loialitate. Clienții se autentifică cu OTP prin e-mail (coduri unice) — parolele nu sunt niciodată stocate. Conturile șterse nu pot fi recuperate."
+        "answer": "Renova este complet conform cu GDPR. Oferim bannere de consimțământ pentru cookie-uri pe pagina publică a meniului, generăm automat paginile /privacy și /terms și includem un buton „Dreptul la ștergere\" cu un singur clic care șterge definitiv e-mailurile clienților, istoricul tranzacțiilor și punctele de loialitate. Clienții se autentifică cu OTP prin e-mail (coduri unice) — parolele nu sunt niciodată stocate. Conturile șterse nu pot fi recuperate."
       },
       "q8": {
         "question": "Pot să-l încerc înainte de a mă abona?",
@@ -1743,7 +1743,7 @@
       "headline": "Încredere din partea restaurantelor moderne, cafenelelor, barurilor, hotelurilor și halelor de mâncare"
     },
     "advantages": {
-      "badge": "De ce QR Menu",
+      "badge": "De ce Renova",
       "title": "Patru motive pentru care restaurantele ne aleg.",
       "subtitle": "Construit pentru fluxul tău zilnic de lucru: meniurile se actualizează instantaneu, oaspeții comandă ușor, iar echipa vede tot ce se întâmplă.",
       "items": {
@@ -1851,7 +1851,7 @@
     "testimonials": {
       "badge": "Ce spun restaurantele",
       "title": "Rezultate reale de la restaurante reale.",
-      "subtitle": "De la cafenele de familie la mărci cu mai multe locații — iată ce spun operatorii după ce au trecut la QR Menu.",
+      "subtitle": "De la cafenele de familie la mărci cu mai multe locații — iată ce spun operatorii după ce au trecut la Renova.",
       "stats": {
         "restaurants": "Restaurante",
         "avgRating": "Evaluare medie",
@@ -1945,7 +1945,7 @@
     "homeFaq": {
       "items": {
         "q1": {
-          "question": "Pot folosi QR Menu fără a accepta plăți online?",
+          "question": "Pot folosi Renova fără a accepta plăți online?",
           "answer": "Da. Puteți începe cu meniul digital și fluxul de lucru cu coduri QR, apoi adăugați comenzi, plăți, loialitate, instrumente POS sau pentru bucătărie când restaurantul este pregătit. Fiecare caracteristică se deblochează la nivelul potrivit."
         },
         "q2": {
@@ -2091,7 +2091,7 @@
         "help": "Ajutor"
       },
       "tagline": "Platforma digitală all-in-one pentru restaurante. Meniuri, comenzi, plăți, loialitate, analize, instrumente pentru personal, POS și afișaj de bucătărie — totul dintr-o scanare QR.",
-      "description": "QR Menu ajută localurile din Bulgaria să gestioneze meniuri, mese, comenzi și servire dintr-o singură platformă."
+      "description": "Renova ajută localurile din Bulgaria să gestioneze meniuri, mese, comenzi și servire dintr-o singură platformă."
     },
     "heroBadgeBuilt": "Creat pentru restaurante. Iubit de clienți.",
     "heroPills": {
@@ -2117,7 +2117,7 @@
       }
     },
     "heroStartFreeTrial": "Începe perioada gratuită",
-    "heroSubtextAlt": "QR MENU ajută restaurantele să își optimizeze operațiunile, să crească vânzările și să ofere experiențe excepționale — totul dintr-o scanare.",
+    "heroSubtextAlt": "RENOVA ajută restaurantele să își optimizeze operațiunile, să crească vânzările și să ofere experiențe excepționale — totul dintr-o scanare.",
     "heroTitle": {
       "accent": "Mobile-first",
       "line2": "meniuri digitale pentru",
@@ -3563,7 +3563,7 @@
     "newUsers": "New Users",
     "orders": "Orders",
     "paymentVolume": "Payment Volume",
-    "qRMenuAdmin": "QR Menu Admin",
+    "qRMenuAdmin": "Renova Admin",
     "platformControl": "Platform Control",
     "signOut": "Sign out",
     "cONFIRM": "CONFIRM",
