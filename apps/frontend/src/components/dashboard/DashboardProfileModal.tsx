@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Check, KeyRound, Loader2, UserRound } from "lucide-react";
-import { useTranslation, type TFunction } from "react-i18next";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
 import { changePassword, updateProfile } from "../../lib/api";

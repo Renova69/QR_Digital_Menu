@@ -196,6 +196,10 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: "jsdom",
+      setupFiles: "./src/setupTests.js",
+      include: ["src/**/*.test.{ts,tsx}"],
+      pool: "forks",
+      maxWorkers: 4,
       reporters: [
         "default",
         [
@@ -203,6 +207,24 @@ export default defineConfig(({ mode }) => {
           { projectRoot: "F:/PROGRAMING/QR_Digital_Menu-main" },
         ],
       ],
+      coverage: {
+        provider: "v8",
+        reporter: ["text", "json-summary", "html", "clover"],
+        reportsDirectory: "./coverage",
+        include: ["src/**/*.{ts,tsx}"],
+        exclude: [
+          "src/**/*.test.{ts,tsx}",
+          "src/**/__tests__/**",
+          "src/**/*.d.ts",
+          "src/**/*.backup.{ts,tsx}",
+        ],
+        thresholds: {
+          branches: 65,
+          functions: 40,
+          lines: 35,
+          statements: 35,
+        },
+      },
     },
   };
 });

@@ -30,12 +30,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user, logout } = useAuth();
   const logoutRef = useRef(logout);
   const userId = user?.id ?? null;
+  const socketDisabled = import.meta.env.VITE_DISABLE_SOCKET === "true";
 
   useEffect(() => {
     logoutRef.current = logout;
   }, [logout]);
 
   useEffect(() => {
+    // Browser smoke tests exercise UI workflows with API boundaries stubbed.
+    // Keeping Socket.IO disabled in that explicit environment prevents an
+    // unrelated backend reconnect loop from leaking past Playwright teardown.
+    if (socketDisabled) {
+      setSocket(null);
+      setIsConnected(false);
+      return;
+    }
+
     // Dev (incl. LAN IP testing): same-origin via Vite proxy. Production: connect
     // directly to backend. VITE_API_URL is the backend origin (e.g. https://api.example.com/api).
     // Must key off the actual build mode (import.meta.env.PROD), not hostname —
@@ -107,7 +117,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       socketInstance.disconnect();
     };
-  }, [userId]);
+  }, [socketDisabled, userId]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

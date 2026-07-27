@@ -13,6 +13,14 @@ import {
 import { Category, Item } from "../types";
 import { useCallback } from "react";
 
+const useItemsQuery = (categoryId: string | undefined) =>
+  useQuery({
+    queryKey: ["items", categoryId],
+    queryFn: () => getItems(categoryId!),
+    enabled: !!categoryId,
+    staleTime: 60_000,
+  });
+
 export const useMenu = (restaurantId: string | undefined) => {
   const queryClient = useQueryClient();
 
@@ -56,14 +64,6 @@ export const useMenu = (restaurantId: string | undefined) => {
       queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
     },
   });
-
-  const getItemsQuery = (categoryId: string | undefined) =>
-    useQuery({
-      queryKey: ["items", categoryId],
-      queryFn: () => getItems(categoryId!),
-      enabled: !!categoryId,
-      staleTime: 60_000,
-    });
 
   const setItems = useCallback(
     (categoryId: string, updater: (old: Item[] | undefined) => Item[]) => {
@@ -121,7 +121,7 @@ export const useMenu = (restaurantId: string | undefined) => {
     createCategory: createCategoryMutation.mutateAsync,
     updateCategory: updateCategoryMutation.mutateAsync,
     deleteCategory: deleteCategoryMutation.mutateAsync,
-    getItemsQuery,
+    useItemsQuery,
     setItems,
     createItem: createItemMutation.mutateAsync,
     updateItem: updateItemMutation.mutateAsync,

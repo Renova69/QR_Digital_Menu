@@ -38,6 +38,15 @@ export function BulkEditCell({
   const tagsTriggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const type = BULK_COLUMNS[field].type;
+  const inputType = type === "number" ? "number" : "text";
+  const asText =
+    value === null || value === undefined
+      ? ""
+      : Array.isArray(value)
+        ? value.join(", ")
+        : String(value);
+  const [isFocused, setIsFocused] = useState(false);
+  const [draft, setDraft] = useState(asText);
 
   // Positions the tags popover in a document.body portal instead of nesting
   // it inside the table cell — the grid's scroll container clips/obscures
@@ -79,6 +88,10 @@ export function BulkEditCell({
       window.removeEventListener("resize", closeOnScroll);
     };
   }, [tagsOpen]);
+
+  useEffect(() => {
+    if (!isFocused) setDraft(asText);
+  }, [asText, isFocused]);
 
   const wrapperClass = `relative ${isDirty ? "bg-amber-500/10" : ""}`;
 
@@ -171,25 +184,11 @@ export function BulkEditCell({
     );
   }
 
-  const inputType = type === "number" ? "number" : "text";
-  const asText =
-    value === null || value === undefined
-      ? ""
-      : Array.isArray(value)
-        ? value.join(", ")
-        : String(value);
-
   // Local draft buffer: while focused, the input shows exactly what was
   // typed (so "1." doesn't get squashed back to "1" by the parsed-number
   // round-trip on every keystroke). Only resyncs from the incoming value
   // when the cell isn't focused — e.g. after a paste or price-adjust touches
   // a cell the user isn't currently editing.
-  const [isFocused, setIsFocused] = useState(false);
-  const [draft, setDraft] = useState(asText);
-  useEffect(() => {
-    if (!isFocused) setDraft(asText);
-  }, [asText, isFocused]);
-
   return (
     <div className={wrapperClass} onMouseDown={onMouseDownCell}>
       <input

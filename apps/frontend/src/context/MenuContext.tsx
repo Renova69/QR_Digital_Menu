@@ -82,7 +82,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
     createCategory,
     updateCategory,
     deleteCategory,
-    getItemsQuery,
+    useItemsQuery,
     createItem,
     updateItem,
     deleteItem,
@@ -95,7 +95,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
     null,
   );
 
-  const { data: items, isLoading: isLoadingItems } = getItemsQuery(
+  const { data: items, isLoading: isLoadingItems } = useItemsQuery(
     selectedCategory?.id,
   );
 

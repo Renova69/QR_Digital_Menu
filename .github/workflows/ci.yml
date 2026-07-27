@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24.18.0"
           cache: "npm"
 
       - name: Install dependencies
@@ -63,9 +63,17 @@ jobs:
       - name: Prisma raw-query guard
         run: npm run guard:prisma-raw-void
 
+      - name: Backend lint
+        working-directory: apps/backend
+        run: npm run lint
+
+      - name: Frontend lint
+        working-directory: apps/frontend
+        run: npm run lint
+
       - name: Backend unit tests
         working-directory: apps/backend
-        run: npx jest --reporters=default --ci --coverage
+        run: npm run test:cov -- --reporters=default --ci
 
       - name: Backend end-to-end tests
         working-directory: apps/backend
@@ -73,11 +81,31 @@ jobs:
 
       - name: Frontend type-check
         working-directory: apps/frontend
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Frontend tests
         working-directory: apps/frontend
-        run: npx vitest run --coverage
+        run: npm run test:cov
 
-      - name: Build (both apps)
+      - name: Printer-agent type-check
+        working-directory: apps/printer-agent
+        run: npm run typecheck
+
+      - name: Printer-agent lint
+        working-directory: apps/printer-agent
+        run: npm run lint
+
+      - name: Printer-agent tests
+        working-directory: apps/printer-agent
+        run: npm run test:cov
+
+      - name: Install Chromium for browser smoke tests
+        working-directory: apps/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke tests
+        working-directory: apps/frontend
+        run: npm run test:e2e
+
+      - name: Build applications
         run: npx turbo run build
