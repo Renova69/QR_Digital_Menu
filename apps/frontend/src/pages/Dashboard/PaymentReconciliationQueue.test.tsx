@@ -7,6 +7,7 @@ import { PaymentReconciliationQueue } from "./PaymentReconciliationQueue";
 const api = vi.hoisted(() => ({
   getPaymentReconciliationIssues: vi.fn(),
   resolvePaymentReconciliationIssue: vi.fn(),
+  reopenPaymentReconciliationIssue: vi.fn(),
 }));
 
 const socketState = vi.hoisted(() => ({
@@ -32,15 +33,20 @@ const translations: Record<string, string> = {
   "payments.reconciliation.created": "Captured",
   "payments.reconciliation.resolve": "Resolve",
   "payments.reconciliation.dismiss": "Dismiss",
+  "payments.reconciliation.reopenSession": "Reopen for re-collection",
   "payments.reconciliation.note": "Resolution note (optional)",
   "payments.reconciliation.notePlaceholder": "What was checked or corrected?",
   "payments.reconciliation.confirmResolve": "Confirm resolve",
   "payments.reconciliation.confirmDismiss": "Confirm dismiss",
+  "payments.reconciliation.confirmReopen": "Confirm reopen",
   "payments.reconciliation.cancel": "Cancel",
   "payments.reconciliation.reason.SESSION_NOT_OPEN":
     "The table session was no longer open when the provider confirmed payment.",
+  "payments.reconciliation.reason.REFUND_LEFT_BALANCE":
+    "A refund left an outstanding balance on a session that was already closed. Reopen it to collect the remainder.",
   "payments.reconciliation.sessionStatus.CLOSED_NO_PAYMENT":
     "Closed without payment",
+  "payments.reconciliation.sessionStatus.CLOSED_PAID": "Closed and paid",
 };
 
 vi.mock("react-i18next", () => ({
@@ -62,6 +68,7 @@ vi.mock("../../context/SocketContext", () => ({
 vi.mock("../../lib/api", () => ({
   getPaymentReconciliationIssues: api.getPaymentReconciliationIssues,
   resolvePaymentReconciliationIssue: api.resolvePaymentReconciliationIssue,
+  reopenPaymentReconciliationIssue: api.reopenPaymentReconciliationIssue,
 }));
 
 const issue = {
@@ -94,6 +101,18 @@ const issue = {
   tableSession: {
     id: "session-1",
     status: "CLOSED_NO_PAYMENT" as const,
+    table: { name: "Garden 4" },
+  },
+};
+
+const refundBalanceIssue = {
+  ...issue,
+  id: "issue-2",
+  paymentId: "payment-2",
+  reason: "REFUND_LEFT_BALANCE" as const,
+  tableSession: {
+    id: "session-1",
+    status: "CLOSED_PAID" as const,
     table: { name: "Garden 4" },
   },
 };
@@ -185,6 +204,47 @@ describe("PaymentReconciliationQueue", () => {
           status: "RESOLVED",
           note: "Matched against the BORICA settlement.",
         },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Payments need review")).toBeNull(),
+    );
+  });
+
+  it("only shows Reopen for re-collection on refund-left-balance issues", async () => {
+    api.getPaymentReconciliationIssues.mockResolvedValue([issue]);
+
+    renderQueue();
+
+    await screen.findByText("Payments need review");
+    expect(
+      screen.queryByRole("button", { name: "Reopen for re-collection" }),
+    ).toBeNull();
+  });
+
+  it("reopens the session for re-collection and removes the issue from the queue", async () => {
+    api.getPaymentReconciliationIssues.mockResolvedValue([refundBalanceIssue]);
+    api.reopenPaymentReconciliationIssue.mockResolvedValue({
+      ...refundBalanceIssue,
+      status: "RESOLVED",
+    });
+
+    renderQueue();
+
+    await screen.findByText("Payments need review");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reopen for re-collection" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Resolution note (optional)" }),
+      { target: { value: "Collected cash from guest." } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm reopen" }));
+
+    await waitFor(() =>
+      expect(api.reopenPaymentReconciliationIssue).toHaveBeenCalledWith(
+        "issue-2",
+        { note: "Collected cash from guest." },
       ),
     );
     await waitFor(() =>

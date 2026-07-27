@@ -95,6 +95,17 @@ describe('PaymentSettlementService', () => {
         .mockImplementation((request) => request),
     };
     const session = {
+      findPendingCheckoutPayments: jest.fn().mockResolvedValue({
+        stripe: [],
+        nonStripeIds: ['online-payment-1'],
+      }),
+      cancelStripePaymentIntents: jest.fn().mockResolvedValue([]),
+      applyAbandonedPaymentsForLockedSession: jest
+        .fn()
+        .mockImplementation(async () => {
+          lockOrder.push('abandon');
+          return ['online-payment-1'];
+        }),
       abandonPendingCheckoutPaymentsForLockedSession: jest
         .fn()
         .mockImplementation(async () => {
@@ -190,6 +201,12 @@ describe('PaymentSettlementService', () => {
       }),
     };
     const session = {
+      findPendingCheckoutPayments: jest.fn().mockResolvedValue({
+        stripe: [],
+        nonStripeIds: [],
+      }),
+      cancelStripePaymentIntents: jest.fn().mockResolvedValue([]),
+      applyAbandonedPaymentsForLockedSession: jest.fn(),
       abandonPendingCheckoutPaymentsForLockedSession: jest.fn(),
       emitAbandonedCheckoutEvents: jest.fn(),
     };

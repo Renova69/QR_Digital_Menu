@@ -1043,6 +1043,65 @@ export class PaymentCoreService {
     };
   }
 
+  /**
+   * A confirmed refund reversed a payment that helped close out a session
+   * (PAID/CLOSED_*). If billSubtotal now exceeds paidSubtotal, the session
+   * needs money re-collected but we deliberately do NOT reopen it here — an
+   * auto-reopened session could resurrect a bill after the customer already
+   * left. Instead this raises a queue entry; staff reopen it explicitly via
+   * PaymentReportingService.reopenSessionForRecollection.
+   */
+  async recordRefundBalanceReconciliation(
+    tx: Prisma.TransactionClient,
+    payment: {
+      id: string;
+      restaurantId: string;
+      tableSessionId: string | null;
+      provider: PaymentProvider;
+      currency: string;
+      providerReference: string | null;
+      stripePaymentIntentId: string | null;
+    },
+    refundedAmount: number,
+    remaining: number,
+    sessionStatus: TableSessionStatus,
+  ): Promise<void> {
+    const details = {
+      refundedAmount,
+      remaining,
+      sessionStatus,
+    } as Prisma.InputJsonValue;
+    await tx.paymentReconciliationIssue.upsert({
+      where: { paymentId: payment.id },
+      create: {
+        paymentId: payment.id,
+        restaurantId: payment.restaurantId,
+        tableSessionId: payment.tableSessionId ?? null,
+        provider: payment.provider,
+        reason: PaymentReconciliationReason.REFUND_LEFT_BALANCE,
+        status: 'OPEN',
+        amount: remaining,
+        currency: payment.currency,
+        providerReference:
+          payment.providerReference ?? payment.stripePaymentIntentId ?? null,
+        providerStatus: null,
+        details,
+      },
+      update: {
+        reason: PaymentReconciliationReason.REFUND_LEFT_BALANCE,
+        status: 'OPEN',
+        amount: remaining,
+        currency: payment.currency,
+        providerReference:
+          payment.providerReference ?? payment.stripePaymentIntentId ?? null,
+        details,
+        resolvedById: null,
+        resolutionNote: null,
+        resolvedAt: null,
+      },
+    });
+  }
+
   private async releasePendingPaymentOrders(
     tx: any,
     tableSessionId: string,

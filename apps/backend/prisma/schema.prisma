@@ -1024,6 +1024,10 @@ enum PaymentReconciliationReason {
   PROVIDER_CONFIRMATION_MISMATCH
   PROVIDER_STATUS_UNKNOWN
   HISTORICAL_CAPTURE
+  // A confirmed refund dropped paidSubtotal below billSubtotal on a session
+  // that isn't OPEN (already PAID/CLOSED_*). We never auto-reopen the
+  // session for this — staff must explicitly reopen it for re-collection.
+  REFUND_LEFT_BALANCE
 }
 
 enum PaymentReconciliationStatus {

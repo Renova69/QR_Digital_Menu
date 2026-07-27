@@ -273,7 +273,11 @@ function createHarness() {
     core,
     sessions,
   );
-  const reporting = new PaymentReportingService(prisma, core);
+  const reporting = new PaymentReportingService(
+    prisma,
+    core,
+    events as unknown as EventsGateway,
+  );
   const stripeCheckout = new StripeCheckoutService(
     prisma,
     stripe as unknown as StripeProvider,

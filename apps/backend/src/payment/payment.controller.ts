@@ -22,6 +22,7 @@ import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { CreateCashRequestDto } from './dto/create-cash-request.dto';
 import { PaymentReconciliationQueryDto } from './dto/payment-reconciliation-query.dto';
 import { ResolvePaymentReconciliationDto } from './dto/resolve-payment-reconciliation.dto';
+import { ReopenSessionReconciliationDto } from './dto/reopen-session-reconciliation.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -289,6 +290,22 @@ export class PaymentController {
       issueId,
       req.user.id,
       body.status,
+      body.note,
+    );
+  }
+
+  @Post('reconciliation/issues/:issueId/reopen-session')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  reopenSessionForRecollection(
+    @Req() req: any,
+    @Param('issueId') issueId: string,
+    @Body() body: ReopenSessionReconciliationDto,
+  ) {
+    return this.paymentService.reopenSessionForRecollection(
+      issueId,
+      req.user.id,
       body.note,
     );
   }

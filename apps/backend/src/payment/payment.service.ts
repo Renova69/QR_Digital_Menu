@@ -230,6 +230,10 @@ export class PaymentService {
     );
   }
 
+  reopenSessionForRecollection(issueId: string, userId: string, note?: string) {
+    return this.reporting.reopenSessionForRecollection(issueId, userId, note);
+  }
+
   exportPayments(
     restaurantId: string,
     userId: string,

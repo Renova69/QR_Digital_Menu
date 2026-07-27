@@ -2451,10 +2451,12 @@
       "noSession": "Fără sesiune",
       "resolve": "Rezolvă",
       "dismiss": "Respinge",
+      "reopenSession": "Redeschide pentru încasare",
       "note": "Notă de rezolvare (opțional)",
       "notePlaceholder": "Ce a fost verificat sau corectat?",
       "confirmResolve": "Confirmă rezolvarea",
       "confirmDismiss": "Confirmă respingerea",
+      "confirmReopen": "Confirmă redeschiderea",
       "cancel": "Anulează",
       "mutationError": "Problema nu a putut fi actualizată. Este posibil ca alt proprietar să o fi procesat deja. Reîncărcați și încercați din nou.",
       "reason": {
@@ -2463,7 +2465,8 @@
         "SCOPE_CONFLICT": "Articolele selectate erau deja achitate când furnizorul a confirmat plata.",
         "PROVIDER_CONFIRMATION_MISMATCH": "Confirmarea furnizorului nu corespunde plății înregistrate.",
         "PROVIDER_STATUS_UNKNOWN": "Starea plății la furnizor a rămas necunoscută și necesită verificare.",
-        "HISTORICAL_CAPTURE": "O plată capturată anterior necesită verificare."
+        "HISTORICAL_CAPTURE": "O plată capturată anterior necesită verificare.",
+        "REFUND_LEFT_BALANCE": "O rambursare a lăsat un sold neachitat pe o sesiune deja închisă. Redeschide-o pentru a încasa diferența."
       },
       "sessionStatus": {
         "OPEN": "Deschisă",

@@ -516,6 +516,15 @@ export class PaymentSessionService {
   }
 
   async abandonCheckout(token: string): Promise<void> {
+    const preflight = await this.prisma.tableSession.findFirst({
+      where: { token },
+      select: { id: true },
+    });
+    if (!preflight) return;
+    const abandonedIds = await this.prepareAndCancelPendingCheckoutPayments(
+      preflight.id,
+    );
+
     const result = await this.prisma.$transaction(async (tx) => {
       const sessions = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT "id"
@@ -527,9 +536,10 @@ export class PaymentSessionService {
       if (!session) return null;
 
       const abandonedPaymentIds =
-        await this.abandonPendingCheckoutPaymentsForLockedSession(
+        await this.applyAbandonedPaymentsForLockedSession(
           tx,
           session.id,
+          abandonedIds,
           false,
         );
       return { sessionId: session.id, abandonedPaymentIds };
@@ -543,49 +553,82 @@ export class PaymentSessionService {
     }
   }
 
-  async abandonPendingCheckoutPaymentsForLockedSession(
-    tx: Prisma.TransactionClient,
-    sessionId: string,
-    throwIfPending = true,
-  ): Promise<string[]> {
-    const pendingPayments = await tx.payment.findMany({
+  /**
+   * Pre-flight read (no transaction, no lock): find the session's PENDING
+   * payments and split out which ones need an external Stripe cancel call.
+   * Callers run this BEFORE opening their settlement transaction — the DB
+   * read is just a hint (re-verified by the CAS in
+   * applyAbandonedPaymentsForLockedSession), so it's safe outside a lock.
+   */
+  async findPendingCheckoutPayments(sessionId: string): Promise<{
+    stripe: Array<{ id: string; stripePaymentIntentId: string }>;
+    nonStripeIds: string[];
+  }> {
+    const pendingPayments = await this.prisma.payment.findMany({
       where: { tableSessionId: sessionId, status: 'PENDING' },
       select: { id: true, provider: true, stripePaymentIntentId: true },
     });
-    if (pendingPayments.length === 0) return [];
+    const stripe = pendingPayments
+      .filter((p) => p.provider === 'STRIPE' && p.stripePaymentIntentId)
+      .map((p) => ({
+        id: p.id,
+        stripePaymentIntentId: p.stripePaymentIntentId!,
+      }));
+    const nonStripeIds = pendingPayments
+      .filter((p) => p.provider !== 'STRIPE' || !p.stripePaymentIntentId)
+      .map((p) => p.id);
+    return { stripe, nonStripeIds };
+  }
 
-    // Separate Stripe payments (need external API cancellation) from others.
-    const stripePayments = pendingPayments.filter(
-      (p) => p.provider === 'STRIPE' && p.stripePaymentIntentId,
+  /**
+   * Cancel Stripe PaymentIntents OUTSIDE any DB transaction. This must never
+   * run while holding a Postgres row lock under PgBouncer transaction-mode
+   * pooling — an HTTP round-trip to Stripe held open across a locked
+   * connection can exhaust the pool under load. Returns the payment ids whose
+   * intent was confirmed cancelled; a payment Stripe couldn't cancel (already
+   * succeeded, network error) stays PENDING — safe default, matches prior
+   * behavior.
+   */
+  async cancelStripePaymentIntents(
+    stripePayments: Array<{ id: string; stripePaymentIntentId: string }>,
+    sessionId: string,
+  ): Promise<string[]> {
+    if (stripePayments.length === 0) return [];
+    // Independent HTTP requests, no point waiting sequentially (#N+1-C2).
+    const cancelResults = await Promise.allSettled(
+      stripePayments.map((p) =>
+        this.stripe.cancelPaymentIntent(p.stripePaymentIntentId),
+      ),
     );
-    const nonStripePayments = pendingPayments.filter(
-      (p) => p.provider !== 'STRIPE' || !p.stripePaymentIntentId,
-    );
+    const cancelledIds: string[] = [];
+    cancelResults.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        cancelledIds.push(stripePayments[i].id);
+      } else {
+        this.logger.warn(
+          `Could not cancel abandoned PaymentIntent ${stripePayments[i].stripePaymentIntentId} for session ${sessionId}`,
+        );
+      }
+    });
+    return cancelledIds;
+  }
 
-    // Cancel Stripe PaymentIntents in parallel — each call is an independent
-    // HTTP request, no point waiting sequentially (#N+1-C2).
-    const abandonedIds: string[] = [...nonStripePayments.map((p) => p.id)];
-    if (stripePayments.length > 0) {
-      const cancelResults = await Promise.allSettled(
-        stripePayments.map((p) =>
-          this.stripe.cancelPaymentIntent(p.stripePaymentIntentId!),
-        ),
-      );
-      cancelResults.forEach((result, i) => {
-        if (result.status === 'fulfilled') {
-          abandonedIds.push(stripePayments[i].id);
-        } else {
-          this.logger.warn(
-            `Could not cancel abandoned PaymentIntent ${stripePayments[i].stripePaymentIntentId} for session ${sessionId}`,
-          );
-          // Payment stays PENDING — safe default; if Stripe can't cancel it,
-          // the intent may still succeed and the system should acknowledge it.
-        }
-      });
-    }
-
-    // Batch update all payments whose cancellation succeeded (or didn't need
-    // an external API call) in a single query.
+  /**
+   * Apply the abandon outcome atomically inside the caller's lock — DB writes
+   * only, no external calls. The CAS (`status: 'PENDING'`) guards against a
+   * payment that flipped SUCCEEDED between the pre-flight read and this
+   * write (webhook landed first) — it's left untouched rather than wrongly
+   * marked ABANDONED. Fails closed (ConflictException) if anything is still
+   * PENDING afterward, including a payment that appeared after the
+   * pre-flight read — the caller retries, which redoes the whole
+   * prepare/cancel/apply cycle fresh.
+   */
+  async applyAbandonedPaymentsForLockedSession(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+    abandonedIds: string[],
+    throwIfPending = true,
+  ): Promise<string[]> {
     if (abandonedIds.length > 0) {
       await tx.payment.updateMany({
         where: { id: { in: abandonedIds }, status: 'PENDING' },
@@ -595,7 +638,7 @@ export class PaymentSessionService {
 
     const pendingPayment = await tx.payment.findFirst({
       where: { tableSessionId: sessionId, status: 'PENDING' },
-      select: { id: true, provider: true, stripePaymentIntentId: true },
+      select: { id: true },
     });
     if (pendingPayment && throwIfPending) {
       this.logger.warn(
@@ -607,6 +650,23 @@ export class PaymentSessionService {
     }
 
     return abandonedIds;
+  }
+
+  /**
+   * Convenience wrapper for callers that just need "abandon this session's
+   * pending checkout payments" without any other work sharing the lock —
+   * still runs the Stripe cancel outside the transaction.
+   */
+  private async prepareAndCancelPendingCheckoutPayments(
+    sessionId: string,
+  ): Promise<string[]> {
+    const { stripe, nonStripeIds } =
+      await this.findPendingCheckoutPayments(sessionId);
+    const cancelledStripeIds = await this.cancelStripePaymentIntents(
+      stripe,
+      sessionId,
+    );
+    return [...nonStripeIds, ...cancelledStripeIds];
   }
 
   emitAbandonedCheckoutEvents(
@@ -653,7 +713,12 @@ export class PaymentSessionService {
     // Cancel any pending online payments before closing the session.
     // Without this, a customer who started a Stripe checkout while the waiter
     // force-closes would still be charged, but the system would never
-    // acknowledge the payment — money stuck in limbo (#C1).
+    // acknowledge the payment — money stuck in limbo (#C1). The Stripe cancel
+    // runs before the transaction opens — see cancelStripePaymentIntents.
+    const abandonedIds = await this.prepareAndCancelPendingCheckoutPayments(
+      session.id,
+    );
+
     const abandonedPaymentIds = await this.prisma.$transaction(async (tx) => {
       await this.core.lockOpenSessionForSettlement(tx, session.id);
       const lockedOrderCount = await tx.order.count({
@@ -664,11 +729,11 @@ export class PaymentSessionService {
           'An order was added while the table was being closed. Review the table and retry.',
         );
       }
-      const abandoned =
-        await this.abandonPendingCheckoutPaymentsForLockedSession(
-          tx,
-          session.id,
-        );
+      const abandoned = await this.applyAbandonedPaymentsForLockedSession(
+        tx,
+        session.id,
+        abandonedIds,
+      );
 
       await tx.tableSession.update({
         where: { id: session.id },
@@ -723,7 +788,12 @@ export class PaymentSessionService {
     // Cancel any pending online payments before recording a POS settlement.
     // Without this, a concurrent Stripe checkout that succeeds after the waiter
     // closes would charge the customer twice — once via the terminal/cash and
-    // once via the online payment (#POS-C2).
+    // once via the online payment (#POS-C2). Stripe cancel runs before the
+    // transaction opens — see cancelStripePaymentIntents.
+    const abandonedIds = await this.prepareAndCancelPendingCheckoutPayments(
+      session.id,
+    );
+
     // #2: compute the bill INSIDE the same transaction that flips the session to
     // PAID. Reading orders before the transaction let a QR order placed during
     // the close window slip through unbilled (TOCTOU on the total). Bill only the
@@ -741,9 +811,10 @@ export class PaymentSessionService {
           );
 
         const abandonedPaymentIds =
-          await this.abandonPendingCheckoutPaymentsForLockedSession(
+          await this.applyAbandonedPaymentsForLockedSession(
             tx,
             session.id,
+            abandonedIds,
           );
 
         const payment = await tx.payment.create({
@@ -847,6 +918,13 @@ export class PaymentSessionService {
           where: { tableSessionId: existing.id },
         })
       : 0;
+    // Stripe cancel runs before the transaction opens — see
+    // cancelStripePaymentIntents. Safe to key off the pre-lock `existing.id`:
+    // the in-transaction check below throws (and discards this list) unless
+    // the locked session still matches that exact id.
+    const abandonedIds = existing
+      ? await this.prepareAndCancelPendingCheckoutPayments(existing.id)
+      : [];
     const { session, closedSession, abandonedPaymentIds } =
       await this.prisma.$transaction(async (tx) => {
         const lockedTables = await tx.$queryRaw<
@@ -896,9 +974,10 @@ export class PaymentSessionService {
             );
           }
           abandonedPaymentIds =
-            await this.abandonPendingCheckoutPaymentsForLockedSession(
+            await this.applyAbandonedPaymentsForLockedSession(
               tx,
               existingInTx.id,
+              abandonedIds,
             );
 
           await tx.tableSession.update({

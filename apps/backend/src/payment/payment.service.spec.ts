@@ -67,7 +67,7 @@ describe('PaymentService', () => {
       core,
       sessions,
     );
-    const reporting = new PaymentReportingService(_prisma, core);
+    const reporting = new PaymentReportingService(_prisma, core, _events);
     const stripeCheckout = new StripeCheckoutService(
       _prisma,
       _stripe as unknown as StripeProvider,
@@ -110,6 +110,7 @@ describe('PaymentService', () => {
     mockPrisma = {
       tableSession: {
         findFirst: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue(null),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -3199,6 +3200,99 @@ describe('PaymentService', () => {
       });
     });
 
+    // Refund-reopen feature: a confirmed refund can drop paidSubtotal below
+    // billSubtotal on a session that's no longer OPEN. We never reopen the
+    // session automatically — this only raises a reconciliation issue.
+    it('flags a REFUND_LEFT_BALANCE issue when the refund strands a closed session with an unpaid balance', async () => {
+      mockPrisma.payment.findUnique
+        .mockResolvedValueOnce(succeededPayload)
+        .mockResolvedValueOnce(refundedPayload);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.findUnique.mockResolvedValue({
+        status: 'CLOSED_PAID',
+      });
+      mockPrisma.order.findMany.mockResolvedValue([
+        {
+          totalPrice: 30,
+          pointsRedeemedForDiscount: 0,
+          pointsRedeemedForItems: 0,
+          items: [],
+        },
+      ]);
+      mockStripeProvider.createRefund!.mockResolvedValue({
+        refundId: 're_123',
+        status: 'succeeded',
+      });
+
+      await service.refundPayment('pay1', 'owner1', {});
+
+      expect(mockPrisma.tableSession.findUnique).toHaveBeenCalledWith({
+        where: { id: 'sess1' },
+        select: { status: true },
+      });
+      expect(mockPrisma.paymentReconciliationIssue.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { paymentId: 'pay1' },
+          create: expect.objectContaining({
+            paymentId: 'pay1',
+            restaurantId: 'rest1',
+            tableSessionId: 'sess1',
+            reason: 'REFUND_LEFT_BALANCE',
+            amount: 30,
+          }),
+        }),
+      );
+    });
+
+    it('does not flag a reconciliation issue when the session is still OPEN', async () => {
+      mockPrisma.payment.findUnique
+        .mockResolvedValueOnce(succeededPayload)
+        .mockResolvedValueOnce(refundedPayload);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.findUnique.mockResolvedValue({
+        status: 'OPEN',
+      });
+      mockPrisma.order.findMany.mockResolvedValue([
+        {
+          totalPrice: 30,
+          pointsRedeemedForDiscount: 0,
+          pointsRedeemedForItems: 0,
+          items: [],
+        },
+      ]);
+      mockStripeProvider.createRefund!.mockResolvedValue({
+        refundId: 're_123',
+        status: 'succeeded',
+      });
+
+      await service.refundPayment('pay1', 'owner1', {});
+
+      expect(
+        mockPrisma.paymentReconciliationIssue.upsert,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('does not flag a reconciliation issue when the refund did not leave a balance', async () => {
+      mockPrisma.payment.findUnique
+        .mockResolvedValueOnce(succeededPayload)
+        .mockResolvedValueOnce(refundedPayload);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.findUnique.mockResolvedValue({
+        status: 'CLOSED_PAID',
+      });
+      // Default order.findMany() resolves [] -> billSubtotal 0 <= paidSubtotal 0.
+      mockStripeProvider.createRefund!.mockResolvedValue({
+        refundId: 're_123',
+        status: 'succeeded',
+      });
+
+      await service.refundPayment('pay1', 'owner1', {});
+
+      expect(
+        mockPrisma.paymentReconciliationIssue.upsert,
+      ).not.toHaveBeenCalled();
+    });
+
     // F-PAY-1 (v2): the crux — an ambiguous Stripe error (timeout/connection/
     // 5xx) must NOT touch the payment or its allocations. The attempt stays
     // PENDING (snapshot already persisted) and the payment stays SUCCEEDED, so
@@ -4200,7 +4294,15 @@ describe('PaymentService', () => {
       expect(rawSqlCalls[0]).toContain('"table_session"');
       expect(rawSqlCalls[1]).toContain('"cash_payment_request"');
       expect(mockPrisma.tableSession.findFirst).not.toHaveBeenCalled();
-      expect(mockPrisma.payment.findMany).not.toHaveBeenCalled();
+      // The Stripe-cancel prep now runs before the transaction opens, keyed
+      // off the pre-lock tableSessionId — a benign read (default mock has no
+      // pending payments, so no Stripe call fires) even though the in-lock
+      // reread aborts the mutation once it sees the request moved sessions.
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith({
+        where: { tableSessionId: 's1', status: 'PENDING' },
+        select: { id: true, provider: true, stripePaymentIntentId: true },
+      });
+      expect(mockStripeProvider.cancelPaymentIntent).not.toHaveBeenCalled();
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
       expect(mockPrisma.cashPaymentRequest.update).not.toHaveBeenCalled();
     });

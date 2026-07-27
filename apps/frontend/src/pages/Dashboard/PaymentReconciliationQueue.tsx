@@ -5,12 +5,14 @@ import {
   AlertTriangle,
   Check,
   CircleX,
+  DoorOpen,
   LoaderCircle,
   RefreshCw,
   X,
 } from "lucide-react";
 import {
   getPaymentReconciliationIssues,
+  reopenPaymentReconciliationIssue,
   resolvePaymentReconciliationIssue,
   type PaymentReconciliationIssue,
   type PaymentReconciliationStatus,
@@ -25,6 +27,7 @@ import {
 } from "./paymentsShared";
 
 type ReconciliationDecision = Exclude<PaymentReconciliationStatus, "OPEN">;
+type QueueAction = ReconciliationDecision | "REOPEN";
 
 interface PaymentReconciliationQueueProps {
   restaurantId?: string | null;
@@ -46,7 +49,7 @@ export function PaymentReconciliationQueue({
   );
   const [decision, setDecision] = useState<{
     issueId: string;
-    status: ReconciliationDecision;
+    status: QueueAction;
   } | null>(null);
   const [note, setNote] = useState("");
 
@@ -105,6 +108,28 @@ export function PaymentReconciliationQueue({
     },
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: ({
+      issueId,
+      note: resolutionNote,
+    }: {
+      issueId: string;
+      note?: string;
+    }) =>
+      reopenPaymentReconciliationIssue(issueId, {
+        ...(resolutionNote ? { note: resolutionNote } : {}),
+      }),
+    onSuccess: (resolvedIssue) => {
+      queryClient.setQueryData<PaymentReconciliationIssue[]>(
+        queryKey,
+        (current = []) =>
+          current.filter((issue) => issue.id !== resolvedIssue.id),
+      );
+      setDecision(null);
+      setNote("");
+    },
+  });
+
   if (!restaurantId) return null;
 
   if (isLoading) {
@@ -146,8 +171,9 @@ export function PaymentReconciliationQueue({
 
   if (issues.length === 0) return null;
 
-  const startDecision = (issueId: string, status: ReconciliationDecision) => {
+  const startDecision = (issueId: string, status: QueueAction) => {
     resolveMutation.reset();
+    reopenMutation.reset();
     setDecision({ issueId, status });
     setNote("");
   };
@@ -185,7 +211,9 @@ export function PaymentReconciliationQueue({
       <div className="divide-y divide-amber-200 dark:divide-amber-400/20">
         {issues.map((issue) => {
           const isDeciding = decision?.issueId === issue.id;
-          const isMutating = isDeciding && resolveMutation.isPending;
+          const isMutating =
+            isDeciding &&
+            (resolveMutation.isPending || reopenMutation.isPending);
           const providerStyle = methodStyles[issue.provider];
           const ProviderIcon = providerStyle.Icon;
           const tableName =
@@ -242,10 +270,25 @@ export function PaymentReconciliationQueue({
                 </div>
 
                 <div className="flex flex-wrap gap-2 xl:justify-end">
+                  {issue.reason === "REFUND_LEFT_BALANCE" && (
+                    <button
+                      type="button"
+                      onClick={() => startDecision(issue.id, "REOPEN")}
+                      disabled={
+                        resolveMutation.isPending || reopenMutation.isPending
+                      }
+                      className="flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <DoorOpen className="h-4 w-4" />
+                      {t("payments.reconciliation.reopenSession")}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => startDecision(issue.id, "RESOLVED")}
-                    disabled={resolveMutation.isPending}
+                    disabled={
+                      resolveMutation.isPending || reopenMutation.isPending
+                    }
                     className="flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Check className="h-4 w-4" />
@@ -254,7 +297,9 @@ export function PaymentReconciliationQueue({
                   <button
                     type="button"
                     onClick={() => startDecision(issue.id, "DISMISSED")}
-                    disabled={resolveMutation.isPending}
+                    disabled={
+                      resolveMutation.isPending || reopenMutation.isPending
+                    }
                     className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <CircleX className="h-4 w-4" />
@@ -268,11 +313,18 @@ export function PaymentReconciliationQueue({
                   className="mt-4 border-t border-amber-200 pt-4 dark:border-amber-400/20"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    resolveMutation.mutate({
-                      issueId: issue.id,
-                      status: decision.status,
-                      note: note.trim() || undefined,
-                    });
+                    if (decision.status === "REOPEN") {
+                      reopenMutation.mutate({
+                        issueId: issue.id,
+                        note: note.trim() || undefined,
+                      });
+                    } else {
+                      resolveMutation.mutate({
+                        issueId: issue.id,
+                        status: decision.status,
+                        note: note.trim() || undefined,
+                      });
+                    }
                   }}
                 >
                   <label
@@ -291,7 +343,7 @@ export function PaymentReconciliationQueue({
                     placeholder={t("payments.reconciliation.notePlaceholder")}
                     className="mt-2 block w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-60"
                   />
-                  {resolveMutation.isError && (
+                  {(resolveMutation.isError || reopenMutation.isError) && (
                     <p
                       className="mt-2 text-sm font-bold text-red-700 dark:text-red-200"
                       role="alert"
@@ -307,24 +359,31 @@ export function PaymentReconciliationQueue({
                         "flex h-9 items-center gap-2 rounded-md px-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50",
                         decision.status === "RESOLVED"
                           ? "bg-emerald-600 hover:bg-emerald-700"
-                          : "bg-red-600 hover:bg-red-700",
+                          : decision.status === "REOPEN"
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "bg-red-600 hover:bg-red-700",
                       )}
                     >
                       {isMutating ? (
                         <LoaderCircle className="h-4 w-4 animate-spin" />
                       ) : decision.status === "RESOLVED" ? (
                         <Check className="h-4 w-4" />
+                      ) : decision.status === "REOPEN" ? (
+                        <DoorOpen className="h-4 w-4" />
                       ) : (
                         <CircleX className="h-4 w-4" />
                       )}
                       {decision.status === "RESOLVED"
                         ? t("payments.reconciliation.confirmResolve")
-                        : t("payments.reconciliation.confirmDismiss")}
+                        : decision.status === "REOPEN"
+                          ? t("payments.reconciliation.confirmReopen")
+                          : t("payments.reconciliation.confirmDismiss")}
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         resolveMutation.reset();
+                        reopenMutation.reset();
                         setDecision(null);
                         setNote("");
                       }}

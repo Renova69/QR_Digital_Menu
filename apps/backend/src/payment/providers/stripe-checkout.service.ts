@@ -15,8 +15,14 @@ import { FeatureFlag } from '../../subscription/feature-flag.enum';
 import { StripeProvider } from '../stripe.provider';
 import { PaymentCoreService } from '../core/payment-core.service';
 import { PaymentProviderConfigService } from '../payment-provider-config.service';
-import { PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  PaymentProvider,
+  PaymentStatus,
+  Prisma,
+  TableSessionStatus,
+} from '@prisma/client';
 import { SplitMode } from '../dto/settle-partial.dto';
+import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
 import {
   CheckoutScopeInput,
   checkoutScopePayload,
@@ -33,6 +39,19 @@ type AllocationSnapshot = {
   orderItemId: string;
   quantity: number;
   amount: number;
+};
+
+/** The payment fields finalizeRefundSuccessTx needs — every call site already
+ * has these from its own fetch, so no re-fetch happens inside the tx. */
+type RefundPaymentContext = {
+  id: string;
+  restaurantId: string;
+  tableSessionId: string | null;
+  provider: PaymentProvider;
+  amount: number;
+  currency: string;
+  providerReference: string | null;
+  stripePaymentIntentId: string | null;
 };
 
 @Injectable()
@@ -449,7 +468,7 @@ export class StripeCheckoutService {
           if (!rec) return { recorded: false, finalized: false };
           const done = await this.finalizeRefundSuccessTx(
             tx,
-            payment.id,
+            payment,
             snapshot,
             attempt.id,
             refundObj.id,
@@ -503,16 +522,11 @@ export class StripeCheckoutService {
       allocationSnapshot: unknown;
       paymentId: string;
     } | null;
-    payment: {
-      id: string;
-      restaurantId: string;
-      amount: number;
-      // Nullable: Payment.tableSessionId is SetNull on TableSession/table
-      // deletion (was Cascade) so historical payments survive table removal.
-      tableSessionId: string | null;
-      stripePaymentIntentId: string | null;
-      tableSession?: { table?: { name: string | null } | null } | null;
-    } | null;
+    payment:
+      | (RefundPaymentContext & {
+          tableSession?: { table?: { name: string | null } | null } | null;
+        })
+      | null;
   }> {
     const paymentInclude = {
       tableSession: { include: { table: { select: { name: true } } } },
@@ -753,7 +767,7 @@ export class StripeCheckoutService {
 
     // Inspect the synchronous status. Only `succeeded` is final success.
     const refundConfirmed = await this.applyRefundOutcome(
-      { id: payment.id, restaurantId: payment.restaurantId },
+      payment,
       attempt.id,
       snapshot,
       refund,
@@ -799,14 +813,14 @@ export class StripeCheckoutService {
    * attempt terminally, leaving the payment SUCCEEDED and allocations intact.
    */
   private async applyRefundOutcome(
-    payment: { id: string; restaurantId: string },
+    payment: RefundPaymentContext,
     attemptId: string,
     snapshot: AllocationSnapshot[],
     refund: { refundId: string; status: string | null },
   ): Promise<boolean> {
     if (refund.status === 'succeeded') {
       return this.finalizeRefundSuccess(
-        payment.id,
+        payment,
         snapshot,
         attemptId,
         refund.refundId,
@@ -842,19 +856,13 @@ export class StripeCheckoutService {
    * win the CAS performs the reversal. Returns true iff this call did it.
    */
   private async finalizeRefundSuccess(
-    paymentId: string,
+    payment: RefundPaymentContext,
     snapshot: AllocationSnapshot[],
     attemptId: string,
     refundId: string,
   ): Promise<boolean> {
     return this.prisma.$transaction((tx) =>
-      this.finalizeRefundSuccessTx(
-        tx,
-        paymentId,
-        snapshot,
-        attemptId,
-        refundId,
-      ),
+      this.finalizeRefundSuccessTx(tx, payment, snapshot, attemptId, refundId),
     );
   }
 
@@ -867,11 +875,12 @@ export class StripeCheckoutService {
    */
   private async finalizeRefundSuccessTx(
     tx: Prisma.TransactionClient,
-    paymentId: string,
+    payment: RefundPaymentContext,
     snapshot: AllocationSnapshot[],
     attemptId: string,
     refundId: string,
   ): Promise<boolean> {
+    const paymentId = payment.id;
     const claim = await tx.payment.updateMany({
       where: { id: paymentId, status: 'SUCCEEDED' },
       data: { status: 'REFUNDED' },
@@ -908,7 +917,42 @@ export class StripeCheckoutService {
       where: { id: attemptId },
       data: { status: 'SUCCEEDED', providerRefundId: refundId },
     });
+
+    await this.flagRefundBalanceIfStranded(tx, payment);
+
     return true;
+  }
+
+  /**
+   * After a refund reversal, check whether it left an outstanding balance on
+   * a session that already closed out (PAID/CLOSED_*). We never reopen the
+   * session automatically here — see recordRefundBalanceReconciliation.
+   */
+  private async flagRefundBalanceIfStranded(
+    tx: Prisma.TransactionClient,
+    payment: RefundPaymentContext,
+  ): Promise<void> {
+    if (!payment.tableSessionId) return;
+
+    const session = await tx.tableSession.findUnique({
+      where: { id: payment.tableSessionId },
+      select: { status: true },
+    });
+    if (!session || session.status === TableSessionStatus.OPEN) return;
+
+    const balance = await this.core.computeSessionBalance(
+      tx,
+      payment.tableSessionId,
+    );
+    if (balance.remaining <= PAYMENT_AMOUNT_TOLERANCE) return;
+
+    await this.core.recordRefundBalanceReconciliation(
+      tx,
+      payment,
+      payment.amount,
+      balance.remaining,
+      session.status,
+    );
   }
 
   /** Parse the persisted snapshot fail-closed; refund accounting is all-or-nothing. */
@@ -995,6 +1039,9 @@ export class StripeCheckoutService {
             amount: true,
             tableSessionId: true,
             stripePaymentIntentId: true,
+            provider: true,
+            currency: true,
+            providerReference: true,
           },
         },
       },
@@ -1035,7 +1082,7 @@ export class StripeCheckoutService {
 
         if (refund.status === 'succeeded') {
           const finalized = await this.finalizeRefundSuccess(
-            payment.id,
+            payment,
             snapshot,
             attempt.id,
             refund.refundId,

@@ -2372,10 +2372,12 @@
       "noSession": "No session",
       "resolve": "Resolve",
       "dismiss": "Dismiss",
+      "reopenSession": "Reopen for re-collection",
       "note": "Resolution note (optional)",
       "notePlaceholder": "What was checked or corrected?",
       "confirmResolve": "Confirm resolve",
       "confirmDismiss": "Confirm dismiss",
+      "confirmReopen": "Confirm reopen",
       "cancel": "Cancel",
       "mutationError": "The issue could not be updated. It may have been handled by another owner. Refresh and try again.",
       "reason": {
@@ -2384,7 +2386,8 @@
         "SCOPE_CONFLICT": "The selected items were already settled when the provider confirmed payment.",
         "PROVIDER_CONFIRMATION_MISMATCH": "The provider confirmation does not match the payment record.",
         "PROVIDER_STATUS_UNKNOWN": "The provider status remained unknown and requires manual review.",
-        "HISTORICAL_CAPTURE": "A previously captured payment needs review."
+        "HISTORICAL_CAPTURE": "A previously captured payment needs review.",
+        "REFUND_LEFT_BALANCE": "A refund left an outstanding balance on a session that was already closed. Reopen it to collect the remainder."
       },
       "sessionStatus": {
         "OPEN": "Open",

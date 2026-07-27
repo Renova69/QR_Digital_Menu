@@ -5,11 +5,17 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PaymentReconciliationStatus, PaymentStatus } from '@prisma/client';
+import {
+  PaymentReconciliationReason,
+  PaymentReconciliationStatus,
+  PaymentStatus,
+  TableSessionStatus,
+} from '@prisma/client';
 import { PaymentHistoryQueryDto } from '../dto/payment-history-query.dto';
 import { PaymentCoreService } from '../core/payment-core.service';
 import { buildRestaurantDateRange } from '../../common/restaurant-date-range';
 import { PAYMENT_AMOUNT_TOLERANCE } from '../payment.constants';
+import { EventsGateway } from '../../events/events.gateway';
 
 const MAX_PAYMENT_EXPORT_ROWS = 5_000;
 
@@ -18,6 +24,7 @@ export class PaymentReportingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly core: PaymentCoreService,
+    private readonly events: EventsGateway,
   ) {}
 
   private applyPaymentFilters(
@@ -227,6 +234,105 @@ export class PaymentReportingService {
         'Reconciliation issue was resolved by another user',
       );
     }
+
+    return this.prisma.paymentReconciliationIssue.findUnique({
+      where: { id: issueId },
+    });
+  }
+
+  /**
+   * Staff-triggered re-collection: a refund left a REFUND_LEFT_BALANCE issue
+   * on a session that already closed out. We only reopen it here — never
+   * automatically (see recordRefundBalanceReconciliation) — and only when no
+   * OTHER session is already OPEN for that table (table turnover may have
+   * already started a new session; reopening the old one would give the
+   * table two open sessions at once).
+   */
+  async reopenSessionForRecollection(
+    issueId: string,
+    userId: string,
+    note?: string,
+  ) {
+    const issue = await this.prisma.paymentReconciliationIssue.findUnique({
+      where: { id: issueId },
+      select: {
+        id: true,
+        restaurantId: true,
+        status: true,
+        reason: true,
+        tableSessionId: true,
+      },
+    });
+    if (!issue) throw new NotFoundException('Reconciliation issue not found');
+
+    await this.core.verifyRestaurantAccess(issue.restaurantId, userId);
+    if (issue.status !== PaymentReconciliationStatus.OPEN) {
+      throw new ConflictException('Reconciliation issue is already closed');
+    }
+    if (issue.reason !== PaymentReconciliationReason.REFUND_LEFT_BALANCE) {
+      throw new ConflictException(
+        'Reopen-for-recollection only applies to refund-left-balance issues',
+      );
+    }
+    if (!issue.tableSessionId) {
+      throw new ConflictException(
+        'Reconciliation issue has no linked table session to reopen',
+      );
+    }
+    const tableSessionId = issue.tableSessionId;
+
+    const reopenedSession = await this.prisma.$transaction(async (tx) => {
+      const session = await tx.tableSession.findUnique({
+        where: { id: tableSessionId },
+        select: { id: true, tableId: true, restaurantId: true, status: true },
+      });
+      if (!session) {
+        throw new ConflictException('Linked table session no longer exists');
+      }
+
+      if (session.status !== TableSessionStatus.OPEN) {
+        const conflicting = await tx.tableSession.findFirst({
+          where: {
+            tableId: session.tableId,
+            status: TableSessionStatus.OPEN,
+            NOT: { id: session.id },
+          },
+          select: { id: true },
+        });
+        if (conflicting) {
+          throw new ConflictException(
+            'Table already has a different open session — resolve or dismiss this issue manually',
+          );
+        }
+        await tx.tableSession.update({
+          where: { id: session.id },
+          data: { status: TableSessionStatus.OPEN, paidAt: null },
+        });
+      }
+
+      const issueUpdate = await tx.paymentReconciliationIssue.updateMany({
+        where: { id: issueId, status: PaymentReconciliationStatus.OPEN },
+        data: {
+          status: PaymentReconciliationStatus.RESOLVED,
+          resolutionNote: note?.trim() || 'Session reopened for re-collection',
+          resolvedById: userId,
+          resolvedAt: new Date(),
+        },
+      });
+      if (issueUpdate.count === 0) {
+        throw new ConflictException(
+          'Reconciliation issue was resolved by another user',
+        );
+      }
+
+      return session;
+    });
+
+    this.events.emitTableStatusChanged(
+      reopenedSession.restaurantId,
+      reopenedSession.tableId,
+      reopenedSession.id,
+    );
 
     return this.prisma.paymentReconciliationIssue.findUnique({
       where: { id: issueId },

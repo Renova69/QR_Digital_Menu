@@ -579,7 +579,8 @@ export type PaymentReconciliationReason =
   | "SCOPE_CONFLICT"
   | "PROVIDER_CONFIRMATION_MISMATCH"
   | "PROVIDER_STATUS_UNKNOWN"
-  | "HISTORICAL_CAPTURE";
+  | "HISTORICAL_CAPTURE"
+  | "REFUND_LEFT_BALANCE";
 
 export type PaymentReconciliationStatus = "OPEN" | "RESOLVED" | "DISMISSED";
 
@@ -634,6 +635,17 @@ export const resolvePaymentReconciliationIssue = (
 ) =>
   api
     .post(`/payments/reconciliation/issues/${issueId}/resolve`, data)
+    .then((res) => res.data as PaymentReconciliationIssue);
+
+export const reopenPaymentReconciliationIssue = (
+  issueId: string,
+  data?: { note?: string },
+) =>
+  api
+    .post(
+      `/payments/reconciliation/issues/${issueId}/reopen-session`,
+      data ?? {},
+    )
     .then((res) => res.data as PaymentReconciliationIssue);
 
 export const getPaymentsExport = (

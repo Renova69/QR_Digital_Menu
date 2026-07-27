@@ -205,6 +205,14 @@ export class PaymentSettlementService {
     }
     const tableSessionId = existing.tableSessionId;
 
+    const { stripe, nonStripeIds } =
+      await this.session.findPendingCheckoutPayments(tableSessionId);
+    const cancelledStripeIds = await this.session.cancelStripePaymentIntents(
+      stripe,
+      tableSessionId,
+    );
+    const abandonedIds = [...nonStripeIds, ...cancelledStripeIds];
+
     const result = await this.prisma.$transaction(async (tx) => {
       await this.core.lockOpenSessionForSettlement(tx, tableSessionId);
       await this.core.lockPendingCashPaymentRequest(tx, requestId);
@@ -261,9 +269,10 @@ export class PaymentSettlementService {
       }
 
       const abandonedPaymentIds =
-        await this.session.abandonPendingCheckoutPaymentsForLockedSession(
+        await this.session.applyAbandonedPaymentsForLockedSession(
           tx,
           session.id,
+          abandonedIds,
         );
 
       const payment = await tx.payment.create({
@@ -438,6 +447,14 @@ export class PaymentSettlementService {
 
     const tipPercent = this.core.normalizeTipPercent(dto.tipPercent);
 
+    const { stripe, nonStripeIds } =
+      await this.session.findPendingCheckoutPayments(openSession.id);
+    const cancelledStripeIds = await this.session.cancelStripePaymentIntents(
+      stripe,
+      openSession.id,
+    );
+    const abandonedIds = [...nonStripeIds, ...cancelledStripeIds];
+
     const result = await this.prisma.$transaction(async (tx) => {
       const session = await tx.tableSession.findFirst({
         where: { token, restaurantId, status: 'OPEN' },
@@ -521,9 +538,10 @@ export class PaymentSettlementService {
       const total = this.core.roundMoney(chargeSubtotal + tipAmount);
 
       const abandonedPaymentIds =
-        await this.session.abandonPendingCheckoutPaymentsForLockedSession(
+        await this.session.applyAbandonedPaymentsForLockedSession(
           tx,
           session.id,
+          abandonedIds,
         );
 
       const payment = await tx.payment.create({
