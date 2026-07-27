@@ -56,6 +56,7 @@ const Header: React.FC = () => {
             {[
               { to: "/#features", label: t("nav.features", "Features") },
               { to: "/pricing", label: t("nav.pricing", "Pricing") },
+              { to: "/about", label: t("nav.about", "About Us") },
             ].map((item) => (
               <Link
                 key={item.to}
@@ -158,6 +159,13 @@ const Header: React.FC = () => {
               className="px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
             >
               {t("nav.pricing", "Pricing")}
+            </Link>
+            <Link
+              to="/about"
+              onClick={() => setMobileOpen(false)}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+            >
+              {t("nav.about", "About Us")}
             </Link>
             {user ? (
               <>

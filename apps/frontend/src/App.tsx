@@ -36,6 +36,7 @@ const OnboardingPage = lazy(() => import("./pages/onboarding/OnboardingPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const MenuEditorPage = lazy(() => import("./pages/MenuEditorPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
 const PosPage = lazy(() => import("./pages/pos/PosPage"));
 const KitchenPage = lazy(() => import("./pages/staff/KitchenPage"));
 const CustomerProfilePage = lazy(() => import("./pages/CustomerProfilePage"));
@@ -130,6 +131,7 @@ function App() {
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/pricing" element={<PricingPage />} />
+                    <Route path="/about" element={<AboutPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route

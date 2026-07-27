@@ -93,7 +93,8 @@
     "login": "Autentificare",
     "getStarted": "Începeți",
     "features": "Caracteristici",
-    "pricing": "Prețuri"
+    "pricing": "Prețuri",
+    "about": "Despre Noi"
   },
   "profileDashboard": {
     "title": "Profil",
@@ -3378,7 +3379,7 @@
     "paymentNotificationsAriaLabel": "Notificări de plată",
     "justNow": "chiar acum",
     "minutesAgo": "acum {{count}} min",
-    "hoursAgo": "acum {{count}} h",
+    "hoursAgo": "acum {{hours}} ore",
     "daysAgo": "acum {{count}} z",
     "noPaymentsYet": "Nicio plată încă",
     "table": "Masa",
@@ -3649,11 +3650,9 @@
     "ddMmYy": "zz/ll/aa",
     "eGKirilPetrov": "e.g. Kiril Petrov",
     "eGLaPiazza": "e.g. La Piazza",
-    "justNow": "chiar acum",
     "1MinAgo": "acum 1 min",
     "minAgo": "acum {{min}} min",
     "1HourAgo": "acum 1 oră",
-    "hoursAgo": "acum {{hours}} ore",
     "verificationCode": "Cod de verificare",
     "login": "Autentificare",
     "verifyYourEmail": "Verifică-ți emailul",
@@ -4110,5 +4109,68 @@
     "gatewayTimeout": "Cererea a expirat. Te rugăm să încerci din nou.",
     "unexpected": "A apărut o eroare neașteptată. Te rugăm să încerci din nou.",
     "invalidCredentials": "Email sau parolă incorectă"
+  },
+  "about": {
+    "policy": {
+      "guarantee": "Garanție de returnare a banilor 30 de zile",
+      "noCard": "Nu este necesar card de credit pentru setare",
+      "compliant": "Meniuri digitale conforme ANAF"
+    },
+    "hero": {
+      "title": "\"Credem că proprietarii de restaurante nu ar trebui să fie nevoiți să aleagă între a conduce o bucătărie aglomerată și a se bucura de viața lor.\"",
+      "subtitle": "Am construit Renova pentru că am văzut proprietari muncitori care se luptau cu lipsa cronică de personal, cu costurile în creștere ale tipăririi pe hârtie și cu servicii lente. Misiunea noastră este să vă punem din nou controlul în mâini.",
+      "cta": "Alătură-te Misiunii Noastre – Începe Gratuit",
+      "imageAlt": "Proprietar de restaurant fericit",
+      "statTitle": "Timp economisit",
+      "statValue": "15+ min / masă"
+    },
+    "origin": {
+      "title": "Născut în agitația serilor de Vineri",
+      "p1": "Dacă ați condus vreodată un restaurant, știți haosul absolut al unei seri de vineri: trei chelneri și-au luat concediu medical, clienții așteaptă douăzeci de minute doar pentru a atrage atenția cuiva ca să comande o băutură, iar mesele rămân neservite. Am fost acolo. Am simțit exact acel stres.",
+      "p2": "Ne-am dat seama că meniurile de hârtie rețin restaurantele în loc. Sunt lente la actualizare, scumpe de tipărit și creează un blocaj. Știam că trebuie să existe o modalitate mai bună și mai simplă de a ajuta mesenii locali să comande și să plătească instantaneu, direct de la mesele lor. De aceea am proiectat Renova."
+    },
+    "pillars": {
+      "p1": {
+        "title": "0% Curbă de învățare",
+        "desc": "Proiectăm pentru proprietari ocupați și personal mai în vârstă. Fără instalări complicate, fără dureri de cap tehnologice și nu necesită descărcarea unei aplicații de către clienți."
+      },
+      "p2": {
+        "title": "Punând profitul înapoi în buzunarul tău",
+        "desc": "Nu credem în preluarea unor procente uriașe din comenzile obținute cu greu de tine. Plătiți un abonament lunar fix, transparent. Punct."
+      },
+      "p3": {
+        "title": "Experiențe impecabile pentru oaspeți",
+        "desc": "Construim instrumente care fac comanda distractivă, rapidă și complet fără efort pentru oaspeții dvs., crescând în mod natural valorile medii ale comenzilor."
+      }
+    },
+    "stats": {
+      "s1": {
+        "unit": "m",
+        "title": "Salvate per rotație de masă",
+        "desc": "prin automatizarea comenzilor"
+      },
+      "s2": {
+        "value": "€0.00",
+        "title": "Vreodată irosiți din nou",
+        "desc": "pe tipărirea meniurilor de hârtie actualizate"
+      },
+      "s3": {
+        "value": "22%",
+        "title": "Creștere medie",
+        "desc": "în valoarea comenzii prin recomandări automate"
+      }
+    },
+    "guarantee": {
+      "title": "Promisiunea noastră personală: Încercați-ne complet fără riscuri timp de 30 de zile",
+      "desc": "Știm că încercarea unui software nou se simte ca un joc de noroc când ai un restaurant de condus. De aceea eliminăm tot riscul. Dacă Renova nu vă scutește personalul de ore de muncă și nu vă face comenzile mai fluide în primele 30 de zile, vă vom rambursa fiecare cent din abonament. Fără întrebări, fără supărări.",
+      "signName": "Fondatorii",
+      "signRole": "Fondatori Renova"
+    },
+    "cta": {
+      "title": "Gata să oferi restaurantului tău un avantaj digital?",
+      "subtitle": "Hai să activăm meniul tău digital astăzi. Setare în mai puțin de 10 minute.",
+      "button": "Creează-ți Contul Gratuit Acum"
+    },
+    "pageTitle": "Despre Noi"
   }
 }

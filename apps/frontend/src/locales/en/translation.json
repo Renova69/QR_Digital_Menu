@@ -93,7 +93,8 @@
     "getStarted": "Get Started",
     "features": "Features",
     "pricing": "Pricing",
-    "menu": "Menu"
+    "menu": "Menu",
+    "about": "About Us"
   },
   "profileDashboard": {
     "title": "Profile",
@@ -3291,7 +3292,7 @@
     "paymentNotificationsAriaLabel": "Payment notifications",
     "justNow": "just now",
     "minutesAgo": "{{count}}m ago",
-    "hoursAgo": "{{count}}h ago",
+    "hoursAgo": "{{hours}} hours ago",
     "daysAgo": "{{count}}d ago",
     "noPaymentsYet": "No payments yet",
     "table": "Table",
@@ -3562,11 +3563,9 @@
     "ddMmYy": "dd/mm/yy",
     "eGKirilPetrov": "e.g. Kiril Petrov",
     "eGLaPiazza": "e.g. La Piazza",
-    "justNow": "just now",
     "1MinAgo": "1 min ago",
     "minAgo": "{{min}} min ago",
     "1HourAgo": "1 hour ago",
-    "hoursAgo": "{{hours}} hours ago",
     "verificationCode": "Verification code",
     "login": "Login",
     "verifyYourEmail": "Verify your email",
@@ -4023,5 +4022,68 @@
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
     "invalidCredentials": "Invalid email or password"
+  },
+  "about": {
+    "policy": {
+      "guarantee": "30-Day Money-Back Guarantee",
+      "noCard": "No Credit Card Required to Setup",
+      "compliant": "NRA & ANAF Compliant Digital Menus"
+    },
+    "hero": {
+      "title": "\"We believe restaurant owners shouldn't have to choose between running a busy kitchen and enjoying their lives.\"",
+      "subtitle": "We built Renova because we saw hard-working owners struggling with endless staff shortages, rising paper printing costs, and slow service. Our mission is to put control back in your hands.",
+      "cta": "Join Our Mission – Start Free",
+      "imageAlt": "Happy restaurant owner",
+      "statTitle": "Time Saved",
+      "statValue": "15+ mins / table"
+    },
+    "origin": {
+      "title": "Born in the Heat of the Friday Night Rush",
+      "p1": "If you've ever run a restaurant, you know the absolute chaos of a Friday night: three waiters called in sick, customers waiting twenty minutes just to catch someone's eye to order a drink, and tables left unserved. we've been there. we've felt that exact stress.",
+      "p2": "We realized that paper menus were holding restaurants back. They are slow to update, expensive to print, and create a bottleneck. We knew there had to be a better, simpler way to help local diners order and pay instantly, directly from their tables. That's why we engineered Renova."
+    },
+    "pillars": {
+      "p1": {
+        "title": "0% Learning Curve",
+        "desc": "We design for busy owners and older staff. No complicated installations, no tech-headaches, and no customer app downloads required."
+      },
+      "p2": {
+        "title": "Putting Profit Back in Your Pocket",
+        "desc": "We don't believe in taking huge percentage cuts of your hard-earned orders. You pay a flat, transparent monthly subscription. Period."
+      },
+      "p3": {
+        "title": "Flawless Guest Experiences",
+        "desc": "We build tools that make ordering fun, fast, and completely effortless for your guests, naturally driving up average order values."
+      }
+    },
+    "stats": {
+      "s1": {
+        "unit": "m",
+        "title": "Saved per table turn",
+        "desc": "by automating orders"
+      },
+      "s2": {
+        "value": "€0.00",
+        "title": "Ever wasted again",
+        "desc": "on printing updated paper menus"
+      },
+      "s3": {
+        "value": "22%",
+        "title": "Avg. Increase",
+        "desc": "in order value via automatic upsell"
+      }
+    },
+    "guarantee": {
+      "title": "Our Personal Promise: Try Us Completely Risk-Free for 30 Days",
+      "desc": "We know trying new software feels like a gamble when you have a restaurant to run. That's why we remove all the risk. If Renova doesn't save your staff hours of work and make your ordering smoother within your first 30 days, we will refund every single cent of your subscription. No questions asked, no hard feelings.",
+      "signName": "The Founders",
+      "signRole": "Founders of Renova"
+    },
+    "cta": {
+      "title": "Ready to give your restaurant a digital advantage?",
+      "subtitle": "Let’s get your digital menu live today. Set up in under 10 minutes.",
+      "button": "Create Your Free Account Now"
+    },
+    "pageTitle": "About Us"
   }
 }
