@@ -159,39 +159,50 @@ const ItemRow = ({
 }) => {
   return (
     <div className="group flex min-w-0 flex-col items-start justify-between gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 sm:flex-row sm:items-center">
-      <div className="flex w-full min-w-0 flex-1 items-start gap-3">
-        {/* Drag handle - only this triggers drag */}
-        <span
-          {...dragHandleProps}
-          className="mt-1 flex-shrink-0 touch-none select-none cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
-        >
-          <GripVertical className="h-4 w-4" />
-        </span>
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
+        <div className="flex w-full items-center">
+          {/* Drag handle - only this triggers drag */}
+          <span
+            {...dragHandleProps}
+            className="flex-shrink-0 touch-none select-none cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
+          >
+            <GripVertical className="h-4 w-4" />
+          </span>
+        </div>
 
-        {item.imageUrl && (
-          <div className="h-16 w-16 min-w-[4rem] shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
-            <img
-              src={
-                item.imageUrl.startsWith("http")
-                  ? item.imageUrl
-                  : `${(import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace("/api", "")}/${item.imageUrl}`
-              }
-              alt={item.name}
-              className="h-full w-full object-cover"
-            />
+        <div className="flex min-w-0 items-start gap-3">
+          {item.imageUrl && (
+            <div className="h-16 w-16 min-w-[4rem] shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+              <img
+                src={
+                  item.imageUrl.startsWith("http")
+                    ? item.imageUrl
+                    : `${(import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace("/api", "")}/${item.imageUrl}`
+                }
+                alt={item.name}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <h4 className="max-w-full break-words font-bold text-foreground">
+                {item.name}
+              </h4>
+              {item.isOutOfStock && (
+                <span className="shrink-0 rounded-full border border-red-100 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                  {t("menuAdmin.outOfStock", "86'd")}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground sm:line-clamp-1">
+              {item.description}
+            </p>
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-            <h4 className="max-w-full break-words font-bold text-foreground">
-              {item.name}
-            </h4>
-            {item.isOutOfStock && (
-              <span className="shrink-0 rounded-full border border-red-100 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
-                {t("menuAdmin.outOfStock", "86'd")}
-              </span>
-            )}
-            <div className="flex flex-wrap max-w-full gap-1">
+        </div>
+        {(item.dietaryTags?.length || item.allergens?.length) && (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex max-w-full flex-wrap gap-1">
               {item.dietaryTags?.map((tag) => {
                 const preset = resolveTag(tag);
                 const label = preset ? t(preset.labelKey, tag) : tag;
@@ -200,21 +211,14 @@ const ItemRow = ({
                     key={tag}
                     className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-green-100 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
                   >
-                    {preset && <preset.Icon className="h-2.5 w-2.5 shrink-0" />}
+                    {preset && (
+                      <preset.Icon className="h-2.5 w-2.5 shrink-0" />
+                    )}
                     {label}
                   </span>
                 );
               })}
             </div>
-          </div>
-          <p className="mt-0.5 line-clamp-2 sm:line-clamp-1 break-words text-xs text-muted-foreground">
-            {item.description}
-          </p>
-          <div className="mt-2 flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <span className="shrink-0 font-bold text-primary">
-              {item.currency === "BGN" ? "лв" : "€"}
-              {item.price.toFixed(2)}
-            </span>
             {item.allergens && item.allergens.length > 0 && (
               <div className="flex flex-wrap max-w-full min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground/70">
                 <Info className="h-3 w-3 flex-shrink-0" />
@@ -237,7 +241,12 @@ const ItemRow = ({
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        <span className="shrink-0 font-bold text-primary">
+          {item.currency === "BGN" ? "лв" : "€"}
+          {item.price.toFixed(2)}
+        </span>
       </div>
 
       {/* Action buttons - NOT inside drag target */}
