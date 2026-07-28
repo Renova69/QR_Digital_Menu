@@ -3,8 +3,11 @@ import type { TFunction } from "i18next";
 import { formatNotificationTimeAgo } from "./NotificationBell";
 
 const translate = vi.fn(
-  (key: string, fallback: string, options?: { count?: number }) =>
-    `${key}:${options?.count ?? fallback}`,
+  (
+    key: string,
+    fallback: string,
+    options?: { count?: number; hours?: number },
+  ) => `${key}:${options?.count ?? options?.hours ?? fallback}`,
 ) as unknown as TFunction;
 
 describe("formatNotificationTimeAgo", () => {

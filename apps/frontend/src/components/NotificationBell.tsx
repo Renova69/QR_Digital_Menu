@@ -15,7 +15,7 @@ export const formatNotificationTimeAgo = (
   if (minutes < 60)
     return t("auto.minutesAgo", "{{count}}m ago", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return t("auto.hoursAgo", "{{count}}h ago", { count: hours });
+  if (hours < 24) return t("auto.hoursAgo", "{{hours}} hours ago", { hours });
   return t("auto.daysAgo", "{{count}}d ago", {
     count: Math.floor(hours / 24),
   });
