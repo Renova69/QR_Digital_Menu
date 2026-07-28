@@ -2842,7 +2842,7 @@
   },
   "gdpr": {
     "cookieBannerAccept": "Accept",
-    "cookieBannerSettings": "Setari cookie-uri",
+    "cookieBannerSettings": "Politica cookie-uri",
     "rejectAll": "Respinge tot",
     "customize": "Personalizeaza",
     "cookiePreferencesTitle": "Preferinte cookie-uri",

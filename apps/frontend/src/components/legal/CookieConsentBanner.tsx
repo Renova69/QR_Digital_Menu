@@ -35,32 +35,37 @@ export default function CookieConsentBanner() {
           className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-50 rounded-xl bg-gray-900 border border-white/10 shadow-2xl p-5 text-sm text-gray-300"
         >
           <p className="mb-4 leading-relaxed">{text}</p>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={accept}
-              className="px-4 py-2 rounded-lg brand-cta text-white text-xs font-semibold hover:opacity-90 transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg brand-cta text-white text-xs font-semibold hover:opacity-90 transition-colors"
             >
               {t("gdpr.cookieBannerAccept")}
             </button>
             <button
               onClick={reject}
-              className="px-4 py-2 rounded-lg bg-white/10 text-gray-200 text-xs font-semibold hover:bg-white/20 transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg bg-white/10 text-gray-200 text-xs font-semibold hover:bg-white/20 transition-colors"
             >
               {t("gdpr.rejectAll")}
             </button>
+          </div>
+          <div className="mt-3 flex items-center gap-2.5 text-[11px] text-gray-500">
             <button
               onClick={openPreferences}
-              className="text-xs text-gray-400 hover:text-white underline underline-offset-2"
+              className="hover:text-gray-300 underline underline-offset-2"
             >
               {t("gdpr.customize")}
             </button>
             {data?.cookiePolicyEnabled && (
-              <Link
-                to="/cookies"
-                className="text-xs text-gray-400 hover:text-white underline underline-offset-2"
-              >
-                {t("gdpr.cookieBannerSettings")}
-              </Link>
+              <>
+                <span aria-hidden="true">·</span>
+                <Link
+                  to="/cookies"
+                  className="hover:text-gray-300 underline underline-offset-2"
+                >
+                  {t("gdpr.cookieBannerSettings")}
+                </Link>
+              </>
             )}
           </div>
         </div>

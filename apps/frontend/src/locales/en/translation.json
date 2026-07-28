@@ -2755,7 +2755,7 @@
   },
   "gdpr": {
     "cookieBannerAccept": "Accept",
-    "cookieBannerSettings": "Cookie settings",
+    "cookieBannerSettings": "Cookie Policy",
     "rejectAll": "Reject all",
     "customize": "Customize",
     "cookiePreferencesTitle": "Cookie Preferences",
