@@ -205,8 +205,8 @@ export const HourlyDemand = ({
       : 0;
 
   return (
-    <div className="rounded-lg border border-border bg-secondary/20 p-4">
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="rounded-lg border border-border bg-secondary/20 p-3 sm:p-4">
+      <div className="mb-3 flex flex-col justify-between gap-2 sm:mb-5 sm:flex-row sm:items-center sm:gap-3">
         <div>
           <p className="text-sm font-black text-foreground">
             {t("analytics.popularTimes")}
@@ -229,42 +229,38 @@ export const HourlyDemand = ({
 
       <div
         data-testid="hourly-demand-mobile"
-        className="flex flex-col gap-2 sm:hidden"
+        className="grid grid-cols-4 gap-1.5 sm:hidden"
       >
         {displayHours.map((hour) => {
           const isPeak = hour.hour === peak?.hour && hour.orders > 0;
           const isBusy = hour.orders >= averageOrders && hour.orders > 0;
-          const isActive = hour.hour === activeHour?.hour;
           const width =
             hour.orders > 0 ? Math.max(6, (hour.orders / maxOrders) * 100) : 2;
 
           return (
-            <button
+            <div
               key={hour.hour}
-              type="button"
               aria-label={t("analytics.hourBarLabel", {
                 label: hour.label,
                 orders: hour.orders,
               })}
-              className={`rounded-lg border p-3 text-left outline-none transition ${
-                isActive
-                  ? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
+              className={`min-w-0 rounded-md border px-1.5 py-1.5 ${
+                isPeak
+                  ? "border-rose-300 bg-rose-50 dark:bg-rose-950/20"
                   : "border-border bg-card"
               }`}
-              onClick={() => setHoveredHour(hour)}
-              onFocus={() => setHoveredHour(hour)}
             >
-              <span className="flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center justify-between gap-1">
                 <span
-                  className={`text-xs font-black ${isPeak ? "text-rose-500" : "text-foreground"}`}
+                  className={`truncate text-[9px] font-black leading-none ${isPeak ? "text-rose-500" : "text-foreground"}`}
                 >
                   {hour.label}
                 </span>
-                <span className="text-xs font-bold text-muted-foreground">
-                  {t("analytics.peakOrdersCount", { count: hour.orders })}
+                <span className="shrink-0 text-[9px] font-bold leading-none text-muted-foreground">
+                  {hour.orders}
                 </span>
               </span>
-              <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-border">
+              <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-border">
                 <span
                   className={`block h-full rounded-full transition-all ${
                     isPeak
@@ -276,7 +272,7 @@ export const HourlyDemand = ({
                   style={{ width: `${width}%` }}
                 />
               </span>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -350,7 +346,7 @@ export const HourlyDemand = ({
         </div>
       </div>
 
-      <div className="mt-3 rounded-lg border border-border bg-card px-3 py-2">
+      <div className="mt-3 hidden rounded-lg border border-border bg-card px-3 py-2 sm:block">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-black text-foreground">
             {activeHour?.label ?? t("analytics.noTimeSelected")}:{" "}
@@ -362,7 +358,7 @@ export const HourlyDemand = ({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-4 text-[11px] font-bold text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-muted-foreground sm:mt-3 sm:gap-4 sm:text-[11px]">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-primary/35" />
           {t("analytics.quiet")}

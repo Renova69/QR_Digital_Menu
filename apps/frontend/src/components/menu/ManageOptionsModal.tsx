@@ -192,17 +192,17 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       title={`${t("menu.options", "Options:")} ${item.name}`}
+      contentClassName="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl overflow-hidden rounded-2xl p-4 sm:w-[95vw] sm:p-6 md:p-8"
+      titleClassName="break-words pr-12 text-xl leading-tight sm:text-2xl"
     >
-      <div className="max-h-[70vh] w-full max-w-2xl overflow-y-auto pr-1">
-        <h2 className="mb-6 text-xl font-display font-bold sm:text-2xl">
-          {t("menu.options", "Options:")}{" "}
-          <span className="text-primary">{item.name}</span>
-        </h2>
-
+      <div
+        data-testid="manage-options-scroll"
+        className="max-h-[calc(100dvh-6.5rem)] min-w-0 w-full overflow-x-hidden overflow-y-auto pr-0 sm:pr-1"
+      >
         {/* Existing Options */}
-        <div className="space-y-4 mb-8">
+        <div className="mb-6 min-w-0 space-y-3 sm:mb-8 sm:space-y-4">
           {options.length === 0 && !isAdding && (
-            <div className="text-center p-8 bg-secondary/30 rounded-xl border border-dashed border-border">
+            <div className="min-w-0 rounded-xl border border-dashed border-border bg-secondary/30 p-4 text-center sm:p-8">
               <p className="text-muted-foreground mb-5">
                 {t(
                   "auto.noOptionsConfiguredForThisItemYet",
@@ -219,7 +219,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyPreset("SIZE")}
-                  className="gap-2 border-primary/30 hover:border-primary"
+                  className="max-w-full gap-2 whitespace-normal border-primary/30 px-3 text-center hover:border-primary"
                 >
                   <Wand2 className="w-3 h-3 text-primary" />{" "}
                   {t("menu.size", "Size")}
@@ -228,7 +228,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyPreset("DONENESS")}
-                  className="gap-2 border-primary/30 hover:border-primary"
+                  className="max-w-full gap-2 whitespace-normal border-primary/30 px-3 text-center hover:border-primary"
                 >
                   <Wand2 className="w-3 h-3 text-primary" />{" "}
                   {t("menu.doneness", "Doneness")}
@@ -237,7 +237,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyPreset("QUANTITY")}
-                  className="gap-2 border-primary/30 hover:border-primary"
+                  className="max-w-full gap-2 whitespace-normal border-primary/30 px-3 text-center hover:border-primary"
                 >
                   <Wand2 className="w-3 h-3 text-primary" />{" "}
                   {t("menu.quantity", "Quantity")}
@@ -249,7 +249,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   setEditingId(null);
                 }}
                 variant="outline"
-                className="gap-2"
+                className="max-w-full gap-2 whitespace-normal px-3 text-center"
               >
                 <Plus className="w-4 h-4" />{" "}
                 {t("menu.createCustomOption", "Create Custom Option")}
@@ -264,18 +264,20 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
             return (
               <div
                 key={option.id}
-                className="p-5 bg-card border border-border rounded-xl shadow-sm hover:border-primary/30 transition-colors"
+                className="min-w-0 overflow-hidden rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/30 sm:p-5"
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-bold text-lg">{option.name}</h3>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-secondary text-secondary-foreground rounded-md">
+                <div className="mb-3 flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:justify-between">
+                  <div className="min-w-0 w-full">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+                      <h3 className="min-w-0 break-words text-base font-bold sm:text-lg">
+                        {option.name}
+                      </h3>
+                      <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
                         {option.type}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -298,9 +300,11 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   {parsedChoices.map((choice: any, idx: number) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded-lg text-sm"
+                      className="flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
                     >
-                      <span className="font-medium">{choice.name}</span>
+                      <span className="min-w-0 break-words font-medium">
+                        {choice.name}
+                      </span>
                       {choice.priceModifier !== 0 && (
                         <span className="text-primary font-bold">
                           {choice.priceModifier > 0 ? "+" : ""}€
@@ -317,9 +321,9 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
 
         {/* Add Option Form */}
         {isAdding ? (
-          <div className="rounded-xl border border-border bg-secondary/20 p-4 sm:p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-secondary/20 p-3 sm:p-6">
+            <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
+              <h3 className="min-w-0 break-words text-base font-bold sm:text-lg">
                 {editingId ? "Edit Option" : "Create New Option"}
               </h3>
               <Button
@@ -357,7 +361,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   onChange={(e) =>
                     setNewOptionType(e.target.value as OptionType)
                   }
-                  className="w-full h-10 px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="h-12 min-w-0 w-full rounded-md border border-border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/50 sm:h-10 sm:text-sm"
                 >
                   <option value="VARIATION">
                     {t(
@@ -434,7 +438,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={handleAddChoiceRow}
-                className="mt-2 text-xs gap-1"
+                className="mt-2 max-w-full gap-1 whitespace-normal px-3 text-center text-xs"
               >
                 <Plus className="w-3 h-3" /> {t("auto.addChoice", "Add Choice")}
               </Button>
@@ -446,19 +450,21 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   {errorMsg}
                 </div>
               )}
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <Button
                   variant="ghost"
                   onClick={() => {
                     setIsAdding(false);
                     setEditingId(null);
                   }}
+                  className="w-full sm:w-auto"
                 >
                   {t("auto.cancel", "Cancel")}
                 </Button>
                 <Button
                   onClick={handleSaveOption}
                   disabled={isSaving || !newOptionName.trim()}
+                  className="w-full whitespace-normal px-3 text-center sm:w-auto sm:px-6"
                 >
                   {isSaving
                     ? "Saving..."
@@ -482,7 +488,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyPreset("SIZE")}
-                  className="gap-2 border-primary/30 hover:border-primary"
+                  className="max-w-full gap-2 whitespace-normal border-primary/30 px-3 text-center hover:border-primary"
                 >
                   <Wand2 className="w-3 h-3 text-primary" />{" "}
                   {t("menu.sizeTemplate", "Size Template")}
@@ -491,7 +497,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyPreset("DONENESS")}
-                  className="gap-2 border-primary/30 hover:border-primary"
+                  className="max-w-full gap-2 whitespace-normal border-primary/30 px-3 text-center hover:border-primary"
                 >
                   <Wand2 className="w-3 h-3 text-primary" />{" "}
                   {t("menu.donenessTemplate", "Doneness Template")}
@@ -500,7 +506,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyPreset("QUANTITY")}
-                  className="gap-2 border-primary/30 hover:border-primary"
+                  className="max-w-full gap-2 whitespace-normal border-primary/30 px-3 text-center hover:border-primary"
                 >
                   <Wand2 className="w-3 h-3 text-primary" />{" "}
                   {t("menu.quantityTemplate", "Quantity Template")}
@@ -511,7 +517,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   setIsAdding(true);
                   setEditingId(null);
                 }}
-                className="w-full gap-2"
+                className="w-full gap-2 whitespace-normal px-3 text-center sm:px-6"
               >
                 <Plus className="w-4 h-4" />{" "}
                 {t("menu.createCustomOption", "Create Custom Option")}

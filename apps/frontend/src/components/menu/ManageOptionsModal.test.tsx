@@ -11,8 +11,20 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("../ui/modal", () => ({
-  Modal: ({ open, children }: { open?: boolean; children: React.ReactNode }) =>
-    open ? <div role="dialog">{children}</div> : null,
+  Modal: ({
+    open,
+    children,
+    contentClassName,
+  }: {
+    open?: boolean;
+    children: React.ReactNode;
+    contentClassName?: string;
+  }) =>
+    open ? (
+      <div role="dialog" className={contentClassName}>
+        {children}
+      </div>
+    ) : null,
 }));
 
 vi.mock("../ui/button", () => ({
@@ -75,5 +87,27 @@ describe("ManageOptionsModal mobile browser compatibility", () => {
     ).not.toThrow();
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("constrains the options shell to the mobile viewport", () => {
+    render(
+      <ManageOptionsModal
+        item={
+          {
+            id: "item-1",
+            name: "A very long mobile item name",
+            options: [],
+          } as unknown as Item
+        }
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("dialog")).toHaveClass(
+      "max-h-[calc(100dvh-1rem)]",
+      "overflow-hidden",
+      "p-4",
+    );
   });
 });

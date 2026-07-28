@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Cross2Icon } from "@radix-ui/react-icons";
+import { cn } from "../../lib/utils";
 
 interface ModalProps {
   open?: boolean;
@@ -9,6 +10,8 @@ interface ModalProps {
   title: string;
   description?: string;
   trigger?: React.ReactNode;
+  contentClassName?: string;
+  titleClassName?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,14 +21,26 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   description,
   trigger,
+  contentClassName,
+  titleClassName,
 }) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       <Dialog.Portal>
         <Dialog.Overlay className="bg-background/60 backdrop-blur-sm fixed inset-0 z-[1000]" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-lg glass-panel bg-background p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl z-[1001] border-white/5 animate-in zoom-in-95 fade-in duration-300">
-          <Dialog.Title className="text-3xl font-display font-black text-foreground tracking-tight mb-2 pr-10">
+        <Dialog.Content
+          className={cn(
+            "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-lg glass-panel bg-background p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl z-[1001] border-white/5 animate-in zoom-in-95 fade-in duration-300",
+            contentClassName,
+          )}
+        >
+          <Dialog.Title
+            className={cn(
+              "text-3xl font-display font-black text-foreground tracking-tight mb-2 pr-10",
+              titleClassName,
+            )}
+          >
             {title}
           </Dialog.Title>
           {description && (

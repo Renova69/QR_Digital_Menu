@@ -29,8 +29,8 @@ export function CustomPreferencesEditor({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
         {labels.length === 0 && (
           <span className="text-xs text-gray-400">
             {t("reservations.noCustomPrefs", "No custom chips yet.")}
@@ -39,12 +39,12 @@ export function CustomPreferencesEditor({
         {labels.map((l) => (
           <span
             key={l}
-            className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 rounded-full px-2.5 py-1"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700"
           >
             {l}
             <button
               onClick={() => setLabels((p) => p.filter((x) => x !== l))}
-              className="text-indigo-400 hover:text-indigo-700"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base text-indigo-400 transition hover:bg-indigo-100 hover:text-indigo-700"
               aria-label="remove"
             >
               ×
@@ -64,16 +64,20 @@ export function CustomPreferencesEditor({
           }}
           maxLength={40}
           placeholder={t("reservations.addChipPlaceholder", "Add a chip…")}
-          className="h-11 min-w-0 w-full flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+          className="h-12 min-h-12 min-w-0 w-full shrink-0 rounded-lg border border-border bg-background px-4 text-base text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 sm:flex-1 sm:text-sm"
         />
         <button
           onClick={add}
-          className="h-11 w-full shrink-0 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted sm:w-auto"
+          className="h-12 min-h-12 w-full shrink-0 rounded-lg border border-border bg-card px-5 text-base font-semibold text-foreground transition hover:bg-muted sm:w-auto sm:text-sm"
         >
           {t("reservations.add", "Add")}
         </button>
       </div>
-      <Button onClick={() => onSave(labels)} disabled={saving} className="mt-1">
+      <Button
+        onClick={() => onSave(labels)}
+        disabled={saving}
+        className="mt-1 h-12 w-full sm:w-auto"
+      >
         {t("reservations.savePrefs", "Save chips")}
       </Button>
     </div>
