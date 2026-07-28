@@ -172,7 +172,7 @@ const ItemRow = ({
 
         <div className="flex min-w-0 items-start gap-3">
           {item.imageUrl && (
-            <div className="h-16 w-16 min-w-[4rem] shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+            <div className="h-24 w-24 min-w-[6rem] shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
               <img
                 src={
                   item.imageUrl.startsWith("http")
@@ -195,53 +195,54 @@ const ItemRow = ({
                 </span>
               )}
             </div>
-            <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground sm:line-clamp-1">
-              {item.description}
-            </p>
-          </div>
-        </div>
-        {(item.dietaryTags?.length || item.allergens?.length) && (
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <div className="flex max-w-full flex-wrap gap-1">
-              {item.dietaryTags?.map((tag) => {
-                const preset = resolveTag(tag);
-                const label = preset ? t(preset.labelKey, tag) : tag;
-                return (
-                  <span
-                    key={tag}
-                    className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-green-100 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
-                  >
-                    {preset && (
-                      <preset.Icon className="h-2.5 w-2.5 shrink-0" />
-                    )}
-                    {label}
-                  </span>
-                );
-              })}
-            </div>
-            {item.allergens && item.allergens.length > 0 && (
-              <div className="flex flex-wrap max-w-full min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground/70">
-                <Info className="h-3 w-3 flex-shrink-0" />
-                <span>{t("publicMenu.contains", "Contains")}:</span>
-                {item.allergens.map((tag) => {
-                  const preset = resolveTag(tag);
-                  const label = preset ? t(preset.labelKey, tag) : tag;
-                  return (
-                    <span
-                      key={tag}
-                      className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-amber-700"
-                    >
-                      {preset && (
-                        <preset.Icon className="h-2.5 w-2.5 shrink-0" />
-                      )}
-                      {label}
-                    </span>
-                  );
-                })}
+            {(item.dietaryTags?.length || item.allergens?.length) && (
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                <div className="flex max-w-full flex-wrap gap-1">
+                  {item.dietaryTags?.map((tag) => {
+                    const preset = resolveTag(tag);
+                    const label = preset ? t(preset.labelKey, tag) : tag;
+                    return (
+                      <span
+                        key={tag}
+                        className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-green-100 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
+                      >
+                        {preset && (
+                          <preset.Icon className="h-2.5 w-2.5 shrink-0" />
+                        )}
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+                {item.allergens && item.allergens.length > 0 && (
+                  <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/70">
+                    <Info className="h-3 w-3 flex-shrink-0" />
+                    <span>{t("publicMenu.contains", "Contains")}:</span>
+                    {item.allergens.map((tag) => {
+                      const preset = resolveTag(tag);
+                      const label = preset ? t(preset.labelKey, tag) : tag;
+                      return (
+                        <span
+                          key={tag}
+                          className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-amber-700"
+                        >
+                          {preset && (
+                            <preset.Icon className="h-2.5 w-2.5 shrink-0" />
+                          )}
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
+
+        <p className="line-clamp-2 break-words text-xs text-muted-foreground sm:line-clamp-1">
+          {item.description}
+        </p>
 
         <span className="shrink-0 font-bold text-primary">
           {item.currency === "BGN" ? "лв" : "€"}
