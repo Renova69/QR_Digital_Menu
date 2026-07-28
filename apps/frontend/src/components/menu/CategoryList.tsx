@@ -199,7 +199,7 @@ const CategoryRow = ({
   return (
     <li
       onClick={onSelect}
-      className={`group flex flex-wrap items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border sm:flex-nowrap ${
+      className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${
         isSelected
           ? "bg-primary text-white border-primary shadow-sm"
           : "hover:bg-secondary border-transparent text-foreground"
@@ -258,7 +258,7 @@ const CategoryRow = ({
             )}
           </div>
 
-          <div className="ml-6 flex basis-full items-center justify-end gap-0.5 opacity-100 transition-opacity sm:ml-0 sm:basis-auto sm:opacity-0 sm:group-hover:opacity-100">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
             <Button
               variant="ghost"
               size="icon"

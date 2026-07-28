@@ -31,7 +31,6 @@ import MenuImportExportView from "./Dashboard/MenuImportExportView";
 import BulkEditView from "./Dashboard/BulkEditView";
 import { MenuCheckWidget } from "../components/dashboard/MenuCheckWidget";
 import { DashboardButton } from "../components/dashboard/DashboardButton";
-import { dashboardSurface } from "../components/dashboard/dashboardUi";
 import { searchMenuItems } from "../lib/menuSearch";
 
 type EditorTab = "editor" | "importExport" | "bulkEdit";
@@ -338,7 +337,7 @@ const MenuEditorPage: React.FC = () => {
                 </div>
 
                 <div
-                  className={`glass-panel ${dashboardSurface.roomy} min-h-[50vh] rounded-2xl border-white/5`}
+                  className="glass-panel p-2 sm:p-6 min-h-[50vh] rounded-2xl border-white/5"
                 >
                   <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-8">
                     {t("menuAdmin.categories")}
@@ -363,7 +362,7 @@ const MenuEditorPage: React.FC = () => {
               </div>
               <div className="lg:col-span-2">
                 <div
-                  className={`glass-panel ${dashboardSurface.roomy} relative min-h-[50vh] overflow-hidden rounded-2xl border-white/5`}
+                  className="glass-panel p-2 sm:p-6 relative min-h-[50vh] overflow-hidden rounded-2xl border-white/5"
                 >
                   <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-8">
                     {selectedCategory
