@@ -207,7 +207,7 @@ const CategoryRow = ({
     >
       <span
         {...dragHandleProps}
-        className={`shrink-0 cursor-grab active:cursor-grabbing ${isSelected ? "text-white/70" : "text-muted-foreground/30 hover:text-muted-foreground"}`}
+        className={`shrink-0 touch-none select-none cursor-grab active:cursor-grabbing ${isSelected ? "text-white/70" : "text-muted-foreground/30 hover:text-muted-foreground"}`}
       >
         <GripVertical className="h-4 w-4 flex-shrink-0" />
       </span>

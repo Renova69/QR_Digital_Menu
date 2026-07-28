@@ -163,7 +163,7 @@ const ItemRow = ({
         {/* Drag handle - only this triggers drag */}
         <span
           {...dragHandleProps}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground mt-1 flex-shrink-0"
+          className="mt-1 flex-shrink-0 touch-none select-none cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
         >
           <GripVertical className="h-4 w-4" />
         </span>
