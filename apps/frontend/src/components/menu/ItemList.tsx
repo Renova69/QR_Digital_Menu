@@ -13,7 +13,6 @@ import {
   Trash2,
   Edit,
   Plus,
-  Info,
   GripVertical,
   Star,
   Ban,
@@ -216,8 +215,6 @@ const ItemRow = ({
                 </div>
                 {item.allergens && item.allergens.length > 0 && (
                   <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/70">
-                    <Info className="h-3 w-3 flex-shrink-0" />
-                    <span>{t("publicMenu.contains", "Contains")}:</span>
                     {item.allergens.map((tag) => {
                       const preset = resolveTag(tag);
                       const label = preset ? t(preset.labelKey, tag) : tag;
