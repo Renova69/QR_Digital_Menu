@@ -96,6 +96,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
     <>
       {ToastComponent}
       <Modal
+        dashboardUi
         open={isOpen}
         onOpenChange={(open) => !open && onClose()}
         title={`Availability: ${category.name}`}

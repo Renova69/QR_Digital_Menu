@@ -17,6 +17,7 @@ import {
   Timer,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { DashboardButton } from "../dashboard/DashboardButton";
 import { Input } from "../ui/input";
 import { useTranslation } from "react-i18next";
 import { CategorySettingsModal } from "./CategorySettingsModal";
@@ -138,7 +139,7 @@ export const CategoryList: React.FC = () => {
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-sm mx-auto rounded-xl bg-background p-6 shadow-xl">
+          <Dialog.Content className="dashboard-ui fixed inset-x-4 top-1/2 z-50 mx-auto max-w-sm -translate-y-1/2 rounded-xl bg-background p-4 shadow-xl sm:p-6">
             <Dialog.Title className="text-base font-semibold text-foreground mb-2">
               {t("menuAdmin.deleteCategoryTitle", "Delete Category")}
             </Dialog.Title>
@@ -154,23 +155,23 @@ export const CategoryList: React.FC = () => {
               )}
             </Dialog.Description>
             <div className="flex gap-3">
-              <button
+              <DashboardButton
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="flex-1 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+                className="flex-1 border border-border text-foreground hover:bg-secondary"
               >
                 {t("common.cancel", "Cancel")}
-              </button>
-              <button
+              </DashboardButton>
+              <DashboardButton
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
-                className="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-red-600 text-white hover:bg-red-700"
               >
                 {isDeleting
                   ? t("common.deleting", "Deleting…")
                   : t("menuAdmin.deleteCategory", "Delete Category")}
-              </button>
+              </DashboardButton>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

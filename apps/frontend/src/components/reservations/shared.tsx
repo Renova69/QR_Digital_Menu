@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DashboardButton } from "../dashboard/DashboardButton";
 
 // Status badge background/text classes, keyed by ReservationStatus.
 export const STATUS_STYLES: Record<string, string> = {
@@ -152,17 +153,18 @@ export interface ActionBtnProps {
 
 export function ActionBtn({ onClick, disabled, label, tone }: ActionBtnProps) {
   return (
-    <button
+    <DashboardButton
+      density="compact"
       onClick={onClick}
       disabled={disabled}
-      className={`text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 ${
+      className={`border ${
         tone === "primary"
-          ? "bg-indigo-600 text-white"
+          ? "border-indigo-600 bg-indigo-600 text-white"
           : "bg-white border text-gray-700"
       }`}
     >
       {label}
-    </button>
+    </DashboardButton>
   );
 }
 

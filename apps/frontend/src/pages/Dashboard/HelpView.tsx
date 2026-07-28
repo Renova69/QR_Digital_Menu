@@ -49,6 +49,8 @@ import {
   PlayCircle,
   FileQuestion,
 } from "lucide-react";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 const ICON_MAP: Record<string, any> = {
   BookOpen,
@@ -331,14 +333,16 @@ const HelpView = () => {
               !searchQuery || filteredCategoryKeys.includes(cat.id);
             if (!hasContent || !matchesSearch) return null;
             return (
-              <button
+              <DashboardButton
+                density="tab"
                 key={cat.id}
                 onClick={() => {
                   setActiveCategory(cat.id);
                   setSearchQuery("");
                   setExpandedFaq(null);
                 }}
-                className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all cursor-pointer lg:gap-3 lg:px-4 ${
+                aria-pressed={isActive}
+                className={`min-w-0 justify-start border text-left lg:gap-3 lg:px-4 ${
                   isActive
                     ? "bg-primary/10 text-primary border-primary/20"
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent"
@@ -351,7 +355,7 @@ const HelpView = () => {
                 {isActive && (
                   <ChevronRight className="hidden lg:block ml-auto w-4 h-4" />
                 )}
-              </button>
+              </DashboardButton>
             );
           })}
         </aside>
@@ -360,7 +364,9 @@ const HelpView = () => {
         <main className="lg:col-span-9 space-y-8">
           {/* Guides & Steps Section */}
           {activeMeta && guideTitle && !searchQuery && (
-            <div className="glass-panel p-6 sm:p-8 rounded-[2rem] border-white/5 bg-gradient-to-br from-background to-secondary/10 space-y-6 animate-in fade-in duration-300">
+            <div
+              className={`glass-panel ${dashboardSurface.roomy} animate-in space-y-6 rounded-[2rem] border-white/5 bg-gradient-to-br from-background to-secondary/10 fade-in duration-300`}
+            >
               <div className="flex items-center gap-4 border-b border-border/30 pb-4">
                 <div className="p-3 bg-primary/10 border border-primary/10 rounded-xl text-primary">
                   <activeMeta.icon className="h-6 w-6" />
@@ -400,7 +406,7 @@ const HelpView = () => {
 
               {/* Callouts */}
               {guideTip && (
-                <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 flex items-start gap-4 mt-6">
+                <div className="mt-6 flex items-start gap-4 rounded-2xl border border-primary/10 bg-primary/5 p-4 sm:p-5">
                   <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-primary">
@@ -414,7 +420,7 @@ const HelpView = () => {
               )}
 
               {guideWarning && (
-                <div className="p-5 rounded-2xl bg-orange-500/5 border border-orange-500/10 flex items-start gap-4 mt-4">
+                <div className="mt-4 flex items-start gap-4 rounded-2xl border border-orange-500/10 bg-orange-500/5 p-4 sm:p-5">
                   <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-orange-500">
@@ -449,7 +455,9 @@ const HelpView = () => {
             </h3>
 
             {filteredFaqs.length === 0 ? (
-              <div className="glass-panel p-8 text-center text-muted-foreground rounded-2xl border-white/5">
+              <div
+                className={`glass-panel ${dashboardSurface.empty} rounded-2xl border-white/5 text-center text-muted-foreground`}
+              >
                 {t(
                   "help.noFaqsFound",
                   "No FAQs matching your query. Try searching for other keywords.",
@@ -466,12 +474,13 @@ const HelpView = () => {
                       key={faqId}
                       className="glass-panel rounded-2xl border-white/5 overflow-hidden transition-all duration-300"
                     >
-                      <button
+                      <DashboardButton
+                        density="action"
                         type="button"
                         onClick={() => toggleFaq(faqId)}
                         aria-expanded={isExpanded}
                         aria-controls={panelId}
-                        className="w-full flex items-center justify-between p-5 text-left font-semibold text-sm hover:bg-secondary/35 transition-colors cursor-pointer text-foreground"
+                        className="min-h-0 w-full justify-between rounded-none p-4 text-left text-foreground hover:bg-secondary/35 sm:p-5"
                       >
                         <span>{faq.title}</span>
                         <ChevronDown
@@ -479,12 +488,12 @@ const HelpView = () => {
                             isExpanded ? "rotate-185" : ""
                           }`}
                         />
-                      </button>
+                      </DashboardButton>
 
                       {isExpanded && (
                         <div
                           id={panelId}
-                          className="p-5 pt-0 border-t border-border/20 bg-secondary/10 animate-in slide-in-from-top-2 duration-300"
+                          className="animate-in border-t border-border/20 bg-secondary/10 p-4 pt-0 duration-300 slide-in-from-top-2 sm:p-5 sm:pt-0"
                         >
                           <p className="text-sm text-muted-foreground leading-relaxed mt-4">
                             {faq.body}

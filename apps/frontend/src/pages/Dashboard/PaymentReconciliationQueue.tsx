@@ -25,6 +25,7 @@ import {
   methodStyles,
   shortId,
 } from "./paymentsShared";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
 
 type ReconciliationDecision = Exclude<PaymentReconciliationStatus, "OPEN">;
 type QueueAction = ReconciliationDecision | "REOPEN";
@@ -156,15 +157,16 @@ export function PaymentReconciliationQueue({
             {t("payments.reconciliation.loadError")}
           </span>
         </div>
-        <button
+        <DashboardButton
+          density="compact"
           type="button"
           onClick={() => void refetch()}
           disabled={isFetching}
-          className="flex h-9 items-center gap-2 rounded-md border border-red-300 bg-background px-3 text-sm font-bold text-red-800 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-400/30 dark:text-red-100 dark:hover:bg-red-400/10"
+          className="border border-red-300 bg-background text-red-800 hover:bg-red-100 dark:border-red-400/30 dark:text-red-100 dark:hover:bg-red-400/10"
         >
           <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
           {t("payments.reconciliation.retry")}
-        </button>
+        </DashboardButton>
       </div>
     );
   }
@@ -271,40 +273,43 @@ export function PaymentReconciliationQueue({
 
                 <div className="flex flex-wrap gap-2 xl:justify-end">
                   {issue.reason === "REFUND_LEFT_BALANCE" && (
-                    <button
+                    <DashboardButton
+                      density="compact"
                       type="button"
                       onClick={() => startDecision(issue.id, "REOPEN")}
                       disabled={
                         resolveMutation.isPending || reopenMutation.isPending
                       }
-                      className="flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="bg-blue-600 text-white hover:bg-blue-700"
                     >
                       <DoorOpen className="h-4 w-4" />
                       {t("payments.reconciliation.reopenSession")}
-                    </button>
+                    </DashboardButton>
                   )}
-                  <button
+                  <DashboardButton
+                    density="compact"
                     type="button"
                     onClick={() => startDecision(issue.id, "RESOLVED")}
                     disabled={
                       resolveMutation.isPending || reopenMutation.isPending
                     }
-                    className="flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
                   >
                     <Check className="h-4 w-4" />
                     {t("payments.reconciliation.resolve")}
-                  </button>
-                  <button
+                  </DashboardButton>
+                  <DashboardButton
+                    density="compact"
                     type="button"
                     onClick={() => startDecision(issue.id, "DISMISSED")}
                     disabled={
                       resolveMutation.isPending || reopenMutation.isPending
                     }
-                    className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    className="border border-border bg-background text-foreground hover:bg-muted"
                   >
                     <CircleX className="h-4 w-4" />
                     {t("payments.reconciliation.dismiss")}
-                  </button>
+                  </DashboardButton>
                 </div>
               </div>
 
@@ -352,11 +357,12 @@ export function PaymentReconciliationQueue({
                     </p>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button
+                    <DashboardButton
+                      density="compact"
                       type="submit"
                       disabled={isMutating}
                       className={cn(
-                        "flex h-9 items-center gap-2 rounded-md px-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50",
+                        "text-white",
                         decision.status === "RESOLVED"
                           ? "bg-emerald-600 hover:bg-emerald-700"
                           : decision.status === "REOPEN"
@@ -378,8 +384,9 @@ export function PaymentReconciliationQueue({
                         : decision.status === "REOPEN"
                           ? t("payments.reconciliation.confirmReopen")
                           : t("payments.reconciliation.confirmDismiss")}
-                    </button>
-                    <button
+                    </DashboardButton>
+                    <DashboardButton
+                      density="compact"
                       type="button"
                       onClick={() => {
                         resolveMutation.reset();
@@ -388,11 +395,11 @@ export function PaymentReconciliationQueue({
                         setNote("");
                       }}
                       disabled={isMutating}
-                      className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-50"
+                      className="border border-border bg-background text-foreground hover:bg-muted"
                     >
                       <X className="h-4 w-4" />
                       {t("payments.reconciliation.cancel")}
-                    </button>
+                    </DashboardButton>
                   </div>
                 </form>
               )}

@@ -13,6 +13,8 @@ import {
   StaffSettingsTab,
 } from "./settings";
 import PrintStationsView from "./PrintStationsView";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 type SettingsTab =
   | "general"
@@ -123,29 +125,38 @@ const SettingsView = () => {
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-clip text-left">
         {/* Tab nav */}
-        <div className="grid grid-cols-2 gap-1 px-3 pt-4 sm:flex sm:flex-wrap sm:border-b sm:border-border sm:px-6">
+        <div
+          className="grid grid-cols-2 gap-1 px-3 pt-3 sm:flex sm:flex-wrap sm:border-b sm:border-border sm:px-6 sm:pt-4"
+          role="tablist"
+          aria-label={t("settings.title")}
+        >
           {visibleTabs.map((tab) => (
-            <button
+            <DashboardButton
+              density="tab"
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-md px-4 py-2.5 text-center text-sm font-medium whitespace-nowrap transition-colors sm:rounded-none sm:py-2 sm:border-b-2 sm:-mb-px ${
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`w-full text-center sm:-mb-px sm:w-auto sm:rounded-none sm:border-b-2 ${
                 activeTab === tab.id
                   ? "bg-primary text-primary-foreground shadow-sm sm:bg-transparent sm:text-primary sm:border-primary sm:shadow-none"
                   : "text-muted-foreground hover:text-foreground sm:border-transparent"
               }`}
             >
               {tab.label}
-            </button>
+            </DashboardButton>
           ))}
         </div>
 
         {/* Tab content */}
-        <div className="p-4 sm:p-6">
+        <div className="p-3 sm:p-6">
           {activeTab === "general" && <GeneralSettingsTab />}
           {activeTab === "loyalty" && canLoyalty && <LoyaltySettingsTab />}
           {activeTab === "loyalty" && !canLoyalty && (
-            <div className="rounded-xl border border-border bg-muted/30 p-8 text-center">
+            <div
+              className={`rounded-xl border border-border bg-muted/30 text-center ${dashboardSurface.empty}`}
+            >
               <h3 className="text-lg font-semibold text-foreground">
                 {t(
                   "settings.loyaltyLocked",
@@ -172,7 +183,9 @@ const SettingsView = () => {
             />
           )}
           {activeTab === "branding" && activeRestaurant && !canBranding && (
-            <div className="rounded-xl border border-border bg-muted/30 p-8 text-center">
+            <div
+              className={`rounded-xl border border-border bg-muted/30 text-center ${dashboardSurface.empty}`}
+            >
               <h3 className="text-lg font-semibold text-foreground">
                 {t("settings.brandingLocked")}
               </h3>

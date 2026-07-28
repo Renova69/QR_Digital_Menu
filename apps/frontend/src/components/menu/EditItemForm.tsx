@@ -97,6 +97,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
     <>
       {ToastComponent}
       <Modal
+        dashboardUi
         open={open}
         onOpenChange={setOpen}
         title={t("auto.editItem", "Edit Item")}

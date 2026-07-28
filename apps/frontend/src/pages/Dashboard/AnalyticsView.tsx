@@ -37,6 +37,8 @@ import {
   exportCloseoutXlsx,
 } from "../../lib/analyticsExport";
 import { formatEuro } from "../../lib/currency";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 import { Panel } from "./analytics/Panel";
 import MenuProfitabilityPanel from "./analytics/MenuProfitabilityPanel";
 import AnalyticsSkeleton from "./analytics/AnalyticsSkeleton";
@@ -142,7 +144,9 @@ const AnalyticsView = () => {
 
   if (error) {
     return (
-      <div className="glass-panel border-destructive/20 text-destructive p-8 rounded-lg text-center">
+      <div
+        className={`glass-panel rounded-lg border-destructive/20 text-center text-destructive ${dashboardSurface.empty}`}
+      >
         <p className="font-display font-bold text-xl mb-2">
           {t("analytics.loadingFailed")}
         </p>
@@ -172,14 +176,14 @@ const AnalyticsView = () => {
           onCustomRange={dateRange.setCustomRange}
         />
         {canFullAnalytics && (
-          <button
+          <DashboardButton
             onClick={handleExport}
             disabled={isPlaceholderData}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-xs font-bold text-background shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto 2xl:self-end"
+            className="w-full bg-foreground text-background shadow-sm hover:opacity-90 sm:w-auto 2xl:self-end"
           >
             <Download className="w-4 h-4" />
             {t("analytics.exportLabel", "Export")}
-          </button>
+          </DashboardButton>
         )}
       </div>
 
@@ -428,7 +432,7 @@ const AnalyticsView = () => {
       </section>
 
       {!canFullAnalytics && (
-        <div className="glass-panel p-6 rounded-lg border-primary/20 flex items-center justify-between gap-4">
+        <div className="glass-panel flex items-center justify-between gap-4 rounded-lg border-primary/20 p-4 sm:p-6">
           <div className="flex items-center gap-4">
             <Lock className="w-5 h-5 text-primary flex-shrink-0" />
             <div>
@@ -655,8 +659,8 @@ const AnalyticsView = () => {
                 dateFormat="P"
                 className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-mono w-[110px]"
               />
-              <button
-                className="rounded-lg bg-foreground text-background px-4 py-2 text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"
+              <DashboardButton
+                className="bg-foreground text-background hover:opacity-90"
                 onClick={async () => {
                   const date = formatISO(closeoutDate);
                   const { getDailyCloseout } = await import("../../lib/api");
@@ -668,7 +672,7 @@ const AnalyticsView = () => {
                 }}
               >
                 {t("analytics.generateCloseout", "Generate Closeout")}
-              </button>
+              </DashboardButton>
             </div>
           </Panel>
         </section>

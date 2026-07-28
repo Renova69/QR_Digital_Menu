@@ -21,6 +21,7 @@ import {
   exportPaymentsCsv,
   openStripePayment,
 } from "./paymentsShared";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
 
 function getMethodLabel(
   method: string,
@@ -95,15 +96,16 @@ export function PaymentDrawer({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[1000] bg-background/65 backdrop-blur-sm" />
         <Dialog.Content className="fixed right-0 top-0 z-[1001] flex h-full w-full max-w-[480px] flex-col border-l border-border bg-background shadow-2xl outline-none">
-          <div className="border-b border-border p-6">
-            <button
+          <div className="border-b border-border p-4 sm:p-6">
+            <DashboardButton
+              density="icon"
               type="button"
               onClick={onClose}
-              className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-muted-foreground transition hover:text-foreground"
+              className="absolute right-4 top-4 bg-muted text-muted-foreground hover:text-foreground sm:right-5 sm:top-5"
               aria-label={t("payments.close")}
             >
               <X className="h-4 w-4" />
-            </button>
+            </DashboardButton>
             <Dialog.Title className="text-xs font-black uppercase tracking-[0.18em] text-primary">
               {t("payments.transaction")}
             </Dialog.Title>
@@ -132,7 +134,7 @@ export function PaymentDrawer({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
             {loading && (
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs font-bold text-muted-foreground">
                 {t("payments.loadingDetail")}
@@ -323,7 +325,7 @@ export function PaymentDrawer({
             </section>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2 border-t border-border p-5">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-border p-4 sm:p-5">
             {confirmingRefund ? (
               <>
                 <span className="flex h-10 items-center text-sm font-medium text-foreground">
@@ -331,61 +333,61 @@ export function PaymentDrawer({
                     amount: formatMoney(payment.amount, payment.currency),
                   })}
                 </span>
-                <button
+                <DashboardButton
                   type="button"
                   onClick={() => setConfirmingRefund(false)}
                   disabled={refunding}
-                  className="flex h-10 items-center rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-40"
+                  className="border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40"
                 >
                   {t("payments.cancel")}
-                </button>
-                <button
+                </DashboardButton>
+                <DashboardButton
                   type="button"
                   onClick={() => {
                     onRefund(payment);
                     setConfirmingRefund(false);
                   }}
                   disabled={refunding}
-                  className="flex h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="bg-red-600 text-white hover:bg-red-500 disabled:opacity-60"
                 >
                   <RefreshCcw className="h-4 w-4" />
                   {refunding
                     ? t("payments.refunding")
                     : t("payments.confirmRefund")}
-                </button>
+                </DashboardButton>
               </>
             ) : (
               <>
                 {payment.provider === "STRIPE" && (
-                  <button
+                  <DashboardButton
                     type="button"
                     onClick={() =>
                       openStripePayment(payment.stripePaymentIntentId)
                     }
                     disabled={!payment.stripePaymentIntentId}
-                    className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    className="border border-border bg-card text-foreground hover:bg-muted"
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("payments.viewOnStripe")}
-                  </button>
+                  </DashboardButton>
                 )}
-                <button
+                <DashboardButton
                   type="button"
                   onClick={() => exportPaymentsCsv([payment])}
-                  className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted"
+                  className="border border-border bg-card text-foreground hover:bg-muted"
                 >
                   <Download className="h-4 w-4" />
                   {t("payments.receipt")}
-                </button>
+                </DashboardButton>
                 {payment.status === "SUCCEEDED" && (
-                  <button
+                  <DashboardButton
                     type="button"
                     onClick={() => setConfirmingRefund(true)}
-                    className="flex h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-500"
+                    className="bg-red-600 text-white hover:bg-red-500"
                   >
                     <RefreshCcw className="h-4 w-4" />
                     {t("payments.refund")}
-                  </button>
+                  </DashboardButton>
                 )}
               </>
             )}

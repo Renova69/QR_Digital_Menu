@@ -189,6 +189,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
 
   return (
     <Modal
+      dashboardUi
       open={open}
       onOpenChange={onOpenChange}
       title={`${t("menu.options", "Options:")} ${item.name}`}

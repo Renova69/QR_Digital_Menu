@@ -253,7 +253,7 @@ export default function BulkEditView() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center p-8">
+        <div className="flex justify-center p-4 sm:p-8">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : isError ? (

@@ -8,6 +8,7 @@ import {
 } from "../../lib/api";
 import { todayISO } from "./shared";
 import { getApiError } from "../../lib/apiError";
+import { DashboardButton } from "../dashboard/DashboardButton";
 
 export interface BlackoutEditorProps {
   restaurantId: string;
@@ -101,13 +102,13 @@ export function BlackoutEditor({ restaurantId }: BlackoutEditorProps) {
           )}
           className="flex-1 min-w-[8rem] border rounded-lg px-3 py-1.5 text-sm"
         />
-        <button
+        <DashboardButton
           onClick={() => date && add.mutate()}
           disabled={!date || add.isPending}
-          className="text-sm px-3 py-1.5 rounded-lg bg-white border font-medium disabled:opacity-50"
+          className="w-full border bg-white text-foreground sm:w-auto"
         >
           {t("reservations.add", "Add")}
-        </button>
+        </DashboardButton>
       </div>
     </div>
   );

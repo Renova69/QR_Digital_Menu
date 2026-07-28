@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useRestaurantContext } from "../../context/RestaurantContext";
 import { ReservationList } from "../../components/reservations/ReservationList";
 import { ReservationSettingsForm } from "../../components/reservations/ReservationSettingsForm";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
 
 const ReservationsView = ({
   canConfigure = true,
@@ -19,7 +20,7 @@ const ReservationsView = ({
   }, [canConfigure, subTab]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4">
       {!canConfigure && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {t(
@@ -28,7 +29,11 @@ const ReservationsView = ({
           )}
         </div>
       )}
-      <div className="flex gap-2">
+      <div
+        className="flex gap-2"
+        role="tablist"
+        aria-label={t("reservations.title", "Reservations")}
+      >
         <TabButton
           active={subTab === "list"}
           onClick={() => setSubTab("list")}
@@ -65,14 +70,17 @@ function TabButton({
   label: string;
 }) {
   return (
-    <button
+    <DashboardButton
+      density="tab"
       onClick={onClick}
-      className={`px-4 py-2 text-sm rounded-lg font-medium ${
+      role="tab"
+      aria-selected={active}
+      className={`flex-1 sm:flex-none ${
         active ? "bg-indigo-600 text-white" : "bg-white border text-gray-700"
       }`}
     >
       {label}
-    </button>
+    </DashboardButton>
   );
 }
 

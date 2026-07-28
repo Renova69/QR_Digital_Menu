@@ -25,6 +25,8 @@ import {
   exportMenu,
 } from "../../lib/api";
 import { getApiError } from "../../lib/apiError";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 type SubTabId = "import" | "export";
 
@@ -469,7 +471,9 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
   const apiUrl = `${(import.meta as any).env?.VITE_API_URL || "http://localhost:3000/api"}/restaurants/${restaurantId}/menu/import`;
 
   return (
-    <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-5">
+    <div
+      className={`glass-panel ${dashboardSurface.roomy} space-y-5 rounded-2xl border border-white/10`}
+    >
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
           <Key className="w-4 h-4 text-primary" />
@@ -497,17 +501,19 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
               : "—")}
         </code>
         {oneTimeKey && (
-          <button
+          <DashboardButton
+            density="icon"
             onClick={copyKey}
-            className="p-3 rounded-xl bg-secondary/60 border border-border/40 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+            className="border border-border/40 bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
             title={t("importExport.copyKey", "Copy")}
+            aria-label={t("importExport.copyKey", "Copy")}
           >
             {copied ? (
               <Check className="w-4 h-4 text-green-500" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
-          </button>
+          </DashboardButton>
         )}
       </div>
 
@@ -551,28 +557,31 @@ Content-Type: application/json
               "This will invalidate the current key. The OCR tool will need the new key.",
             )}
           </p>
-          <button
+          <DashboardButton
+            density="compact"
             onClick={() => regenMutation.mutate()}
             disabled={regenMutation.isPending}
-            className="text-xs font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/80 transition-colors"
+            className="bg-destructive text-white hover:bg-destructive/80"
           >
             {regenMutation.isPending ? "..." : t("common.confirm", "Confirm")}
-          </button>
-          <button
+          </DashboardButton>
+          <DashboardButton
+            density="compact"
             onClick={() => setShowRegen(false)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:bg-background/70 hover:text-foreground"
           >
             {t("common.cancel", "Cancel")}
-          </button>
+          </DashboardButton>
         </div>
       ) : (
-        <button
+        <DashboardButton
+          density="compact"
           onClick={() => setShowRegen(true)}
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors font-semibold"
+          className="text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
         >
           <RefreshCw className="w-3 h-3" />
           {t("importExport.regenerateKey", "Regenerate key")}
-        </button>
+        </DashboardButton>
       )}
     </div>
   );
@@ -715,7 +724,7 @@ function FileImporter({
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
       onClick={() => inputRef.current?.click()}
-      className={`relative rounded-2xl border-2 border-dashed transition-all cursor-pointer p-10 text-center ${
+      className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-5 text-center transition-all sm:p-10 ${
         dragging
           ? "border-primary bg-primary/5"
           : "border-border/40 hover:border-primary/50 hover:bg-secondary/30"
@@ -803,13 +812,14 @@ function PreviewTable({
             · {parsed.totalItems} {t("importExport.items", "items")}
           </p>
         </div>
-        <button
+        <DashboardButton
+          density="compact"
           onClick={onClear}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
         >
           <Trash2 className="w-3.5 h-3.5" />
           {t("common.clear", "Clear")}
-        </button>
+        </DashboardButton>
       </div>
 
       <div className="rounded-2xl border border-border/40 overflow-hidden">
@@ -925,7 +935,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="space-y-8">
       {result && (
-        <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5 flex items-start gap-4">
+        <div className="flex items-start gap-4 rounded-2xl border border-green-500/20 bg-green-500/5 p-4 sm:p-5">
           <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
           <div>
             <p className="font-black text-sm text-foreground">
@@ -943,18 +953,21 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
               )}
             </p>
           </div>
-          <button
+          <DashboardButton
+            density="compact"
             onClick={() => setResult(null)}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="ml-auto text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
           >
             {t("common.dismiss", "Dismiss")}
-          </button>
+          </DashboardButton>
         </div>
       )}
 
       <ApiKeyPanel key={restaurantId} restaurantId={restaurantId} />
 
-      <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-6">
+      <div
+        className={`glass-panel ${dashboardSurface.roomy} space-y-6 rounded-2xl border border-white/10`}
+      >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
             <Upload className="w-4 h-4 text-primary" />
@@ -976,27 +989,28 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 flex items-center gap-3">
             <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
             <p className="text-sm text-destructive">{parsed.error}</p>
-            <button
+            <DashboardButton
+              density="compact"
               onClick={() => setParsed(null)}
-              className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="ml-auto text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             >
               {t("common.dismiss", "Dismiss")}
-            </button>
+            </DashboardButton>
           </div>
         ) : parsed ? (
           <>
             <PreviewTable parsed={parsed} onClear={() => setParsed(null)} />
             <div className="flex items-center justify-end gap-3 pt-2">
-              <button
+              <DashboardButton
                 onClick={() => setParsed(null)}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
               >
                 {t("common.cancel", "Cancel")}
-              </button>
-              <button
+              </DashboardButton>
+              <DashboardButton
                 onClick={handleConfirm}
                 disabled={importMutation.isPending}
-                className="px-6 py-2.5 rounded-xl brand-cta text-white text-sm font-black uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="brand-cta text-white hover:opacity-90"
               >
                 {importMutation.isPending
                   ? t("importExport.importing", "Importing…")
@@ -1005,7 +1019,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
                       "Confirm Import ({{count}} items)",
                       { count: parsed.totalItems },
                     )}
-              </button>
+              </DashboardButton>
             </div>
             {importMutation.isError && (
               <p className="text-xs text-destructive">
@@ -1089,7 +1103,9 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="space-y-6">
       {/* Export actions */}
-      <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-5">
+      <div
+        className={`glass-panel ${dashboardSurface.roomy} space-y-5 rounded-2xl border border-white/10`}
+      >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
             <Download className="w-4 h-4 text-primary" />
@@ -1108,10 +1124,10 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button
+          <DashboardButton
             onClick={handleExport}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-foreground text-background text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-foreground text-background hover:-translate-y-0.5 hover:shadow-lg"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1119,11 +1135,11 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
               <FileJson className="w-4 h-4" />
             )}
             {t("importExport.downloadJson", "Download JSON")}
-          </button>
-          <button
+          </DashboardButton>
+          <DashboardButton
             onClick={handleExportXLSX}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl border border-border/40 text-sm font-black uppercase tracking-widest transition-all hover:bg-secondary/60 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="border border-border/40 hover:bg-secondary/60"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1131,11 +1147,11 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
               <FileText className="w-4 h-4" />
             )}
             {t("importExport.downloadXlsx", "Download XLSX")}
-          </button>
-          <button
+          </DashboardButton>
+          <DashboardButton
             onClick={handleCopyJSON}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl border border-border/40 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="border border-border/40 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
           >
             {copied ? (
               <Check className="w-4 h-4 text-green-500" />
@@ -1145,7 +1161,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
             {copied
               ? t("common.copied", "Copied")
               : t("importExport.copyJson", "Copy JSON")}
-          </button>
+          </DashboardButton>
         </div>
 
         {/* Preview stats if data loaded */}
@@ -1180,7 +1196,9 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
       </div>
 
       {/* Format info */}
-      <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-4">
+      <div
+        className={`glass-panel ${dashboardSurface.roomy} space-y-4 rounded-2xl border border-white/10`}
+      >
         <h4 className="font-black text-xs uppercase tracking-widest text-muted-foreground">
           {t("importExport.exportFormat", "Export Format")}
         </h4>
@@ -1258,7 +1276,8 @@ export default function MenuImportExportView() {
         ].map(({ id, label, icon: Icon }) => {
           const isActive = activeSubTab === id;
           return (
-            <button
+            <DashboardButton
+              density="tab"
               key={id}
               onClick={() => setActiveSubTab(id)}
               className={`${
@@ -1266,13 +1285,13 @@ export default function MenuImportExportView() {
                   ? "bg-foreground text-background shadow-lg"
                   : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
               }
-                px-5 py-3 rounded-xl font-bold text-[11px] uppercase tracking-[0.12em] transition-all flex items-center gap-2 active:scale-95`}
+                flex-1 sm:flex-none`}
               role="tab"
               aria-selected={isActive}
             >
               <Icon className="w-4 h-4" />
               {label}
-            </button>
+            </DashboardButton>
           );
         })}
       </div>

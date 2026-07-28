@@ -96,6 +96,7 @@ const QrCodeModal = ({
 
   return (
     <Modal
+      dashboardUi
       open={open}
       onOpenChange={onOpenChange}
       title={
@@ -121,7 +122,7 @@ const QrCodeModal = ({
     >
       {target && qrUrl && (
         <div className="flex flex-col items-center">
-          <div className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-6 shadow-inner">
+          <div className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-4 shadow-inner sm:p-6">
             <QRCodeSVG
               value={qrUrl}
               size={256}

@@ -6,6 +6,7 @@ import { updateRestaurant } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
 import ToggleSwitch from "../../../components/ui/ToggleSwitch";
 import { getApiError } from "../../../lib/apiError";
+import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -563,7 +564,8 @@ const LoyaltySettingsTab: React.FC = () => {
                   ).map(({ n, short }) => {
                     const active = happyHourDays.includes(n);
                     return (
-                      <button
+                      <DashboardButton
+                        density="compact"
                         key={n}
                         type="button"
                         onClick={() =>
@@ -573,14 +575,14 @@ const LoyaltySettingsTab: React.FC = () => {
                               : [...prev, n].sort(),
                           )
                         }
-                        className={`w-12 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        className={`w-12 border px-2 ${
                           active
                             ? "bg-primary/15 text-primary border-primary/30"
                             : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                         }`}
                       >
                         {short}
-                      </button>
+                      </DashboardButton>
                     );
                   })}
                 </div>
@@ -684,13 +686,13 @@ const LoyaltySettingsTab: React.FC = () => {
 
       {/* Save */}
       <div className="flex justify-end pt-2 border-t border-border">
-        <button
+        <DashboardButton
           type="submit"
           disabled={status.loading || silverAboveGold || reminderTooHigh}
-          className="brand-cta text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="brand-cta w-full text-white sm:w-auto"
         >
           {status.loading ? t("settings.saving") : t("settings.saveSettings")}
-        </button>
+        </DashboardButton>
       </div>
     </form>
   );

@@ -30,6 +30,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { DashboardButton } from "../dashboard/DashboardButton";
+import { dashboardSurface } from "../dashboard/dashboardUi";
 
 const servicePointTypes: Array<{
   value: Exclude<ServicePointType, "TABLE">;
@@ -392,18 +394,18 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
             )}
             className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
-          <button
+          <DashboardButton
             type="submit"
             disabled={
               createServicePointMutation.isPending ||
               !newServicePointName.trim() ||
               duplicateServicePoint
             }
-            className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-primary text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent"
           >
             <Plus className="h-4 w-4" />
             {t("servicePoints.add", "Add")}
-          </button>
+          </DashboardButton>
         </div>
 
         {duplicateServicePoint && (
@@ -422,19 +424,20 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
             </p>
             <div className="flex flex-wrap gap-2">
               {fulfillmentOptions.map((option) => (
-                <button
+                <DashboardButton
+                  density="compact"
                   key={option.value}
                   type="button"
                   onClick={() => toggleFulfillmentMode(option.value)}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-xs font-black transition",
+                    "border",
                     newFulfillmentModes.includes(option.value)
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-muted-foreground hover:bg-muted",
                   )}
                 >
                   {t(option.labelKey, option.fallback)}
-                </button>
+                </DashboardButton>
               ))}
             </div>
           </div>
@@ -444,20 +447,21 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
             </p>
             <div className="flex flex-wrap gap-2">
               {paymentOptions.map((option) => (
-                <button
+                <DashboardButton
+                  density="compact"
                   key={option.value}
                   type="button"
                   onClick={() => togglePaymentMethod(option.value)}
                   disabled={option.value === "ONLINE" && !paymentsEnabled}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40",
+                    "border",
                     newPaymentMethods.includes(option.value)
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-muted-foreground hover:bg-muted",
                   )}
                 >
                   {t(option.labelKey, option.fallback)}
-                </button>
+                </DashboardButton>
               ))}
             </div>
           </div>
@@ -492,7 +496,9 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
           ))}
         </div>
       ) : filteredServicePoints.length === 0 ? (
-        <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm font-medium text-muted-foreground">
+        <div
+          className={`flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center text-sm font-medium text-muted-foreground ${dashboardSurface.empty}`}
+        >
           {servicePoints?.length === 0
             ? t(
                 "servicePoints.empty",
@@ -619,7 +625,7 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                       })}
                     </div>
                     <div className="flex gap-2">
-                      <button
+                      <DashboardButton
                         type="button"
                         onClick={() =>
                           updateServicePointMutation.mutate(editingServicePoint)
@@ -628,19 +634,19 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                           !editingServicePoint.name.trim() ||
                           updateServicePointMutation.isPending
                         }
-                        className="flex h-8 flex-1 items-center justify-center gap-1 rounded bg-primary text-xs font-black text-white disabled:opacity-50"
+                        className="flex-1 bg-primary px-2 text-white"
                       >
                         <Check className="h-3.5 w-3.5" />
                         {t("menuAdmin.save", "Save")}
-                      </button>
-                      <button
+                      </DashboardButton>
+                      <DashboardButton
                         type="button"
                         onClick={() => setEditingServicePoint(null)}
-                        className="flex h-8 flex-1 items-center justify-center gap-1 rounded border border-border text-xs font-black text-muted-foreground"
+                        className="flex-1 border border-border px-2 text-muted-foreground"
                       >
                         <X className="h-3.5 w-3.5" />
                         {t("menuAdmin.cancel", "Cancel")}
-                      </button>
+                      </DashboardButton>
                     </div>
                   </div>
                 ) : (
@@ -649,10 +655,11 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                       <span className="truncate text-xl font-black tracking-tight text-foreground">
                         {point.name}
                       </span>
-                      <button
+                      <DashboardButton
+                        density="compact"
                         type="button"
                         onClick={() => handleCopy(point.id, publicUrl)}
-                        className="flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px] font-black text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        className="shrink-0 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
                         title={publicUrl}
                       >
                         {copiedId === point.id ? (
@@ -663,7 +670,7 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                         {copiedId === point.id
                           ? t("auto.copied", "Copied!")
                           : t("auto.copyURL", "Copy URL")}
-                      </button>
+                      </DashboardButton>
                     </div>
 
                     <div className="space-y-1">
@@ -680,37 +687,39 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                 )}
 
                 <div className="flex items-center gap-2">
-                  <button
+                  <DashboardButton
                     type="button"
                     onClick={() => onShowQr(point)}
                     disabled={!point.publicToken}
-                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-black text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex-1 bg-primary px-2 text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] hover:bg-accent"
                   >
                     <QrCode className="h-3.5 w-3.5" />
                     {t("auto.generateQR", "Generate QR")}
-                  </button>
-                  <button
+                  </DashboardButton>
+                  <DashboardButton
+                    density="icon"
                     type="button"
                     onClick={() =>
                       rotateServicePointTokenMutation.mutate(point.id)
                     }
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                    className="border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                     aria-label={t(
                       "servicePoints.rotateToken",
                       "Rotate QR token",
                     )}
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </DashboardButton>
+                  <DashboardButton
+                    density="icon"
                     type="button"
                     onClick={() => deleteMutation.mutate(point.id)}
                     disabled={deleteMutation.isPending}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-card text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                    className="border border-red-200 bg-card text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
                     aria-label={t("tables.delete")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </DashboardButton>
                 </div>
               </article>
             );

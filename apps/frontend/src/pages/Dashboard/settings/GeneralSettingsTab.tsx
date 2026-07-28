@@ -18,6 +18,7 @@ import {
 } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
 import { getApiError } from "../../../lib/apiError";
+import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 
 // Poll fallback cadence while a translate-all run is active — the socket
 // carries live done/total updates, but its terminal phases are per-batch,
@@ -553,13 +554,14 @@ const GeneralSettingsTab: React.FC = () => {
 
           {availableToAdd.length > 0 && (
             <div className="relative inline-flex">
-              <button
+              <DashboardButton
+                density="compact"
                 type="button"
-                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 transition-colors bg-primary/5 px-2 py-1 rounded-md"
+                className="bg-primary/5 px-2 text-primary hover:bg-primary/10"
               >
                 <Plus size={12} />
                 {t("common.add", "Add")}
-              </button>
+              </DashboardButton>
               <select
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 value=""
@@ -616,7 +618,7 @@ const GeneralSettingsTab: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground italic bg-muted/30 py-4 px-5 rounded-xl border border-dashed border-border/60">
+          <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm italic text-muted-foreground sm:px-5">
             {t(
               "settings.noSocialMedia",
               "No social media links added yet. Click 'Add' to add them.",
@@ -698,18 +700,19 @@ const GeneralSettingsTab: React.FC = () => {
               </label>
               <div className="flex flex-wrap gap-2">
                 {AVAILABLE_LANGUAGES.map((lang) => (
-                  <button
+                  <DashboardButton
+                    density="compact"
                     key={lang.code}
                     type="button"
                     onClick={() => handleLanguageToggle(lang.code)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                    className={`rounded-full border ${
                       targetLanguages.includes(lang.code)
                         ? "bg-primary/15 text-primary border-primary/30"
                         : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                     }`}
                   >
                     {t(`language.${lang.code}`, lang.name)}
-                  </button>
+                  </DashboardButton>
                 ))}
               </div>
             </div>
@@ -732,16 +735,16 @@ const GeneralSettingsTab: React.FC = () => {
                   : t("settings.processExistingDesc")}
               </p>
             </div>
-            <button
+            <DashboardButton
               type="button"
               onClick={handleForceTranslate}
               disabled={translating || langCount === 0}
-              className="whitespace-nowrap px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+              className="bg-yellow-600 text-white hover:bg-yellow-700"
             >
               {translating
                 ? t("settings.translating")
                 : t("settings.translateAllNow")}
-            </button>
+            </DashboardButton>
           </div>
           {(translating || translateProgress !== null) && (
             <div className="mt-3 space-y-2">
@@ -833,13 +836,13 @@ const GeneralSettingsTab: React.FC = () => {
 
       {/* Save */}
       <div className="flex justify-end pt-2">
-        <button
+        <DashboardButton
           type="submit"
           disabled={status.loading}
-          className="brand-cta text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="brand-cta w-full text-white sm:w-auto"
         >
           {status.loading ? t("settings.saving") : t("settings.saveSettings")}
-        </button>
+        </DashboardButton>
       </div>
     </form>
   );

@@ -16,7 +16,7 @@ export const Panel = ({
   action?: string;
   children: React.ReactNode;
 }) => (
-  <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+  <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
     <div className="mb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-2">
       <div>
         <p className="text-[10px] font-black uppercase tracking-widest text-primary">

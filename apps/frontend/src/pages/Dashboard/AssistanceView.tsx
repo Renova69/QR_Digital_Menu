@@ -31,6 +31,8 @@ import { formatEuro } from "../../lib/currency";
 import { cn } from "../../lib/utils";
 import { useMinuteTicker } from "../../hooks/useMinuteTicker";
 import { getApiError } from "../../lib/apiError";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 type AssistanceContextValue = ReturnType<typeof useAssistance>;
 type AssistanceRequest = AssistanceContextValue["requests"][number];
@@ -418,14 +420,15 @@ const AssistanceView = () => {
               className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
-          <button
+          <DashboardButton
+            density="icon"
             type="button"
             onClick={handleSoundPreview}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary transition hover:bg-primary/15"
+            className="border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
             aria-label={t("orders.previewSound", "Preview request sound")}
           >
             <Volume2 className="h-4 w-4" />
-          </button>
+          </DashboardButton>
         </div>
       </div>
 
@@ -437,17 +440,18 @@ const AssistanceView = () => {
               "Some assistance requests could not be loaded.",
             )}
           </span>
-          <button
+          <DashboardButton
+            density="compact"
             type="button"
             onClick={() => {
               void refreshRequests();
               void refreshCashRequests();
             }}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-3 text-xs font-bold"
+            className="border border-destructive/30"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("common.retry", "Retry")}
-          </button>
+          </DashboardButton>
         </div>
       )}
 
@@ -457,12 +461,14 @@ const AssistanceView = () => {
             {filters.map(({ id, label, count, Icon }) => {
               const isActive = filter === id;
               return (
-                <button
+                <DashboardButton
+                  density="tab"
                   key={id}
                   type="button"
                   onClick={() => setFilter(id)}
+                  aria-pressed={isActive}
                   className={cn(
-                    "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                    "w-full sm:w-auto sm:px-4",
                     isActive
                       ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -480,7 +486,7 @@ const AssistanceView = () => {
                   >
                     {count}
                   </span>
-                </button>
+                </DashboardButton>
               );
             })}
           </div>
@@ -607,11 +613,11 @@ const AssistanceView = () => {
 
                   {isPending ? (
                     <div className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <button
+                      <DashboardButton
                         type="button"
                         onClick={() => handleConfirmCash(request.id)}
                         disabled={isBusy || !canManageCashPayments}
-                        className="flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(5,150,105,0.9)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                        className="bg-emerald-600 px-3 text-white shadow-[0_10px_20px_-12px_rgba(5,150,105,0.9)] hover:bg-emerald-700"
                       >
                         <Check className="h-3.5 w-3.5" />
                         {isBusy
@@ -620,16 +626,16 @@ const AssistanceView = () => {
                               "assistance.confirmCashCollected",
                               "Confirm cash collected",
                             )}
-                      </button>
-                      <button
+                      </DashboardButton>
+                      <DashboardButton
                         type="button"
                         onClick={() => handleCancelCash(request.id)}
                         disabled={isBusy || !canManageCashPayments}
-                        className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                        className="border border-border bg-muted px-3 text-foreground hover:bg-secondary"
                       >
                         <Ban className="h-3.5 w-3.5" />
                         {t("common.cancel", "Cancel")}
-                      </button>
+                      </DashboardButton>
                     </div>
                   ) : (
                     <div className="mt-auto rounded-lg border border-border bg-muted/35 px-3 py-2 text-xs font-bold text-muted-foreground">
@@ -756,25 +762,25 @@ const AssistanceView = () => {
 
                 <div className="mt-auto border-t border-border pt-3">
                   {request.isResolved ? (
-                    <button
+                    <DashboardButton
                       type="button"
                       disabled={requestActionId === request.id}
                       onClick={() => handleReopen(request.id)}
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary active:scale-[0.98]"
+                      className="w-full border border-border bg-muted px-3 text-foreground hover:bg-secondary"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       {t("assistance.reopen")}
-                    </button>
+                    </DashboardButton>
                   ) : (
-                    <button
+                    <DashboardButton
                       type="button"
                       disabled={requestActionId === request.id}
                       onClick={() => handleResolve(request.id)}
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
+                      className="w-full bg-primary px-3 text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent"
                     >
                       <Check className="h-3.5 w-3.5" />
                       {t("assistance.markResolved")}
-                    </button>
+                    </DashboardButton>
                   )}
                 </div>
               </article>
@@ -782,7 +788,9 @@ const AssistanceView = () => {
           })}
         </div>
       ) : visibleCashRequests.length === 0 ? (
-        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center shadow-sm">
+        <div
+          className={`flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center shadow-sm ${dashboardSurface.empty}`}
+        >
           <div>
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <Sparkles className="h-6 w-6" />
@@ -805,17 +813,17 @@ const AssistanceView = () => {
 
       {(filter === "resolved" || filter === "all") && hasMoreResolved && (
         <div className="mt-5 flex justify-center">
-          <button
+          <DashboardButton
             type="button"
             onClick={() => void loadMoreResolved()}
             disabled={isLoadingMoreResolved}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-50"
+            className="border border-border bg-card text-foreground hover:bg-muted"
           >
             <RefreshCw
               className={cn("h-4 w-4", isLoadingMoreResolved && "animate-spin")}
             />
             {t("assistance.loadMoreResolved", "Load older resolved requests")}
-          </button>
+          </DashboardButton>
         </div>
       )}
 

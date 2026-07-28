@@ -19,6 +19,8 @@ import { cn } from "../../lib/utils";
 import TableDetailModal from "../../components/tables/TableDetailModal";
 import { useFeature } from "../../hooks/useFeature";
 import { useMinuteTicker } from "../../hooks/useMinuteTicker";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 type OrdersContextValue = ReturnType<typeof useOrders>;
 type DashboardOrder = OrdersContextValue["orders"][number];
@@ -442,14 +444,15 @@ const OrdersView = () => {
               "Orders could not be synchronized. Please retry.",
             )}
           </span>
-          <button
+          <DashboardButton
+            density="compact"
             type="button"
             onClick={() => void refreshOrders()}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-3 text-xs font-bold"
+            className="border border-destructive/30"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("common.retry", "Retry")}
-          </button>
+          </DashboardButton>
         </div>
       )}
 
@@ -459,12 +462,14 @@ const OrdersView = () => {
             ({ status, labelKey, fallback, Icon, tone }) => {
               const isActive = activeTab === status;
               return (
-                <button
+                <DashboardButton
+                  density="tab"
                   key={status}
                   type="button"
                   onClick={() => setActiveTab(status)}
+                  aria-pressed={isActive}
                   className={cn(
-                    "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                    "w-full sm:w-auto sm:px-4",
                     isActive
                       ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -484,7 +489,7 @@ const OrdersView = () => {
                   >
                     {counts[status]}
                   </span>
-                </button>
+                </DashboardButton>
               );
             },
           )}
@@ -494,46 +499,46 @@ const OrdersView = () => {
       {filteredOrders.length > 0 && (
         <div className="mb-4">
           {activeTab === "NEW" && (
-            <button
+            <DashboardButton
               type="button"
               onClick={() => void handleBatchStatusChange("IN_PROGRESS")}
               disabled={filteredOrders.some((order) =>
                 isOrderUpdating(order.id),
               )}
-              className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-bold hover:bg-primary/15 transition-colors"
+              className="border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15"
             >
               <Play className="w-4 h-4" />
               {t("auto.markAllAsInProgress", "Mark all as In Progress (")}
               {filteredOrders.length})
-            </button>
+            </DashboardButton>
           )}
           {activeTab === "IN_PROGRESS" && (
-            <button
+            <DashboardButton
               type="button"
               onClick={() => void handleBatchStatusChange("SERVED")}
               disabled={filteredOrders.some((order) =>
                 isOrderUpdating(order.id),
               )}
-              className="flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold hover:bg-emerald-500/15 transition-colors"
+              className="border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15"
             >
               <Utensils className="w-4 h-4" />
               {t("auto.markAllAsServed", "Mark all as Served (")}
               {filteredOrders.length})
-            </button>
+            </DashboardButton>
           )}
           {activeTab === "SERVED" && (
-            <button
+            <DashboardButton
               type="button"
               onClick={() => void handleBatchStatusChange("COMPLETED")}
               disabled={filteredOrders.some((order) =>
                 isOrderUpdating(order.id),
               )}
-              className="flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-400 text-sm font-bold hover:bg-slate-500/15 transition-colors"
+              className="border border-slate-500/20 bg-slate-500/10 text-slate-400 hover:bg-slate-500/15"
             >
               <Check className="w-4 h-4" />
               {t("auto.markAllAsCompleted", "Mark all as Completed (")}
               {filteredOrders.length})
-            </button>
+            </DashboardButton>
           )}
         </div>
       )}
@@ -692,75 +697,75 @@ const OrdersView = () => {
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     {order.status === "NEW" && (
                       <>
-                        <button
+                        <DashboardButton
                           type="button"
                           disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleStatusChange(order.id, "IN_PROGRESS");
                           }}
-                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="min-w-0 bg-primary px-3 text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent"
                         >
                           <Play className="h-3.5 w-3.5 fill-current" />
                           {t("orders.startPreparing")}
-                        </button>
-                        <button
+                        </DashboardButton>
+                        <DashboardButton
                           type="button"
                           disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleStatusChange(order.id, "CANCELED");
                           }}
-                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                          className="border border-rose-200 bg-card px-3 text-rose-600 hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >
                           <X className="h-3.5 w-3.5" />
                           {t("orders.cancel")}
-                        </button>
+                        </DashboardButton>
                       </>
                     )}
 
                     {order.status === "IN_PROGRESS" && (
                       <>
-                        <button
+                        <DashboardButton
                           type="button"
                           disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleStatusChange(order.id, "SERVED");
                           }}
-                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="min-w-0 bg-primary px-3 text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent"
                         >
                           <ChefHat className="h-3.5 w-3.5" />
                           {t("orders.markServed")}
-                        </button>
-                        <button
+                        </DashboardButton>
+                        <DashboardButton
                           type="button"
                           disabled={isOrderUpdating(order.id)}
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleStatusChange(order.id, "CANCELED");
                           }}
-                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                          className="border border-rose-200 bg-card px-3 text-rose-600 hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >
                           <X className="h-3.5 w-3.5" />
                           {t("orders.cancel")}
-                        </button>
+                        </DashboardButton>
                       </>
                     )}
 
                     {order.status === "SERVED" && (
-                      <button
+                      <DashboardButton
                         type="button"
                         disabled={isOrderUpdating(order.id)}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleStatusChange(order.id, "COMPLETED");
                         }}
-                        className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="col-span-2 bg-primary px-3 text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent"
                       >
                         <Check className="h-3.5 w-3.5" />
                         {t("orders.markCompleted")}
-                      </button>
+                      </DashboardButton>
                     )}
                   </div>
                 </div>
@@ -769,7 +774,9 @@ const OrdersView = () => {
           })}
         </div>
       ) : (
-        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center shadow-sm">
+        <div
+          className={`flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center shadow-sm ${dashboardSurface.empty}`}
+        >
           <div>
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               {activeStatus ? (
@@ -804,11 +811,11 @@ const OrdersView = () => {
         hasMoreHistory &&
         !searchTerm && (
           <div className="mt-5 flex justify-center">
-            <button
+            <DashboardButton
               type="button"
               disabled={isLoadingMoreHistory}
               onClick={() => void loadMoreHistory()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="border border-border bg-card text-foreground hover:bg-muted"
             >
               <RefreshCw
                 className={cn(
@@ -817,7 +824,7 @@ const OrdersView = () => {
                 )}
               />
               {t("orders.loadOlder", "Load older orders")}
-            </button>
+            </DashboardButton>
           </div>
         )}
 

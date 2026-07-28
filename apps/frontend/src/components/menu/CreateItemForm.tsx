@@ -93,6 +93,7 @@ export const CreateItemForm: React.FC = () => {
     <>
       {ToastComponent}
       <Modal
+        dashboardUi
         open={open}
         onOpenChange={(open) => {
           setOpen(open);

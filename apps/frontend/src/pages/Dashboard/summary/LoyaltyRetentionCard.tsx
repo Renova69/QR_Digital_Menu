@@ -17,7 +17,7 @@ const LoyaltyRetentionCard = ({ data }: LoyaltyRetentionCardProps) => {
   const { t } = useTranslation();
 
   return (
-    <div className="glass-panel rounded-[1.5rem] p-5">
+    <div className="glass-panel rounded-[1.5rem] p-4 sm:p-5">
       <h3 className="text-sm font-display font-bold text-foreground mb-4">
         {t("dashboard.loyaltyRetention")}
       </h3>

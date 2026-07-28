@@ -64,6 +64,51 @@ describe("mobile-first dashboard UX contracts", () => {
     );
   });
 
+  it("scopes legacy dashboard buttons to the 14px control system", () => {
+    const dashboard = readSource("./pages/DashboardPage.tsx");
+    const menuEditor = readSource("./pages/MenuEditorPage.tsx");
+    const modal = readSource("./components/ui/Modal.tsx");
+    const styles = readSource("./index.css");
+
+    expect(dashboard).toContain("dashboard-ui");
+    expect(menuEditor).toContain("dashboard-ui");
+    expect(styles).toContain(".dashboard-ui button.text-base");
+    expect(styles).toContain(
+      ".dashboard-ui button.whitespace-nowrap.uppercase.tracking-wider",
+    );
+    expect(styles).toContain("font-size: 0.875rem");
+    expect(styles).toContain("min-height: 2.75rem");
+    expect(modal).toContain('dashboardUi && "dashboard-ui p-4 sm:p-8"');
+  });
+
+  it("keeps Menu Editor empty and loading states compact on mobile", () => {
+    const itemList = readSource("./components/menu/ItemList.tsx");
+    const searchResults = readSource("./components/menu/MenuSearchResults.tsx");
+    const categoryList = readSource("./components/menu/CategoryList.tsx");
+
+    expect(itemList).not.toMatch(/className="[^"]*\sp-12(?:\s|")/);
+    expect(searchResults).not.toMatch(/className="[^"]*\sp-12(?:\s|")/);
+    expect(categoryList).toContain("p-4 shadow-xl sm:p-6");
+  });
+
+  it("does not expand Menu Editor icon-only actions with text-button sizing", () => {
+    const itemList = readSource("./components/menu/ItemList.tsx");
+    const categoryList = readSource("./components/menu/CategoryList.tsx");
+    const button = readSource("./components/ui/button.tsx");
+    const styles = readSource("./index.css");
+
+    expect(itemList).toContain('<Edit className="h-4 w-4');
+    expect(categoryList).toContain('aria-label={t("menuAdmin.editCategory"');
+    expect(categoryList).toContain('aria-label={t("menuAdmin.categorySettings"');
+    expect(button).toContain('icon: "h-11 w-11 p-0"');
+    expect(styles).toContain(
+      "button.whitespace-nowrap.uppercase.tracking-wider:not(.p-0)",
+    );
+    expect(styles).not.toContain(
+      "button.whitespace-nowrap.uppercase.tracking-wider:not(.w-11)",
+    );
+  });
+
   it("exposes Menu Editor and the Analytics label in the mobile More sheet", () => {
     const dashboard = readSource("./pages/DashboardPage.tsx");
 

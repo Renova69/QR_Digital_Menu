@@ -872,11 +872,11 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             </div>
 
             {staffLoading ? (
-              <div className="p-6 text-sm text-muted-foreground">
+              <div className="p-4 text-sm text-muted-foreground sm:p-6">
                 {t("staff.loading")}
               </div>
             ) : staffOnlyMembers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 p-10 text-center">
+              <div className="flex flex-col items-center justify-center gap-3 p-4 text-center sm:p-10">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
                   <Users className="h-6 w-6 text-muted-foreground" />
                 </div>
@@ -899,7 +899,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                 </Button>
               </div>
             ) : filteredStaff.length === 0 ? (
-              <div className="p-6 text-sm text-muted-foreground">
+              <div className="p-4 text-sm text-muted-foreground sm:p-6">
                 {t("staff.noStaffMatchFilter")}
               </div>
             ) : (
@@ -1402,6 +1402,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       </div>
 
       <Modal
+        dashboardUi
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         title={t("staff.inviteNewStaff")}

@@ -12,6 +12,7 @@ import { ManualBookingForm } from "./ManualBookingForm";
 import { ReservationCard } from "./ReservationCard";
 import { UpcomingSummary } from "./UpcomingSummary";
 import { todayISO } from "./shared";
+import { DashboardButton } from "../dashboard/DashboardButton";
 
 export interface ReservationListProps {
   restaurantId: string;
@@ -109,14 +110,14 @@ export function ReservationList({
             ))}
           </select>
           {canCreate && (
-            <button
+            <DashboardButton
               onClick={() => setShowManual((v) => !v)}
-              className="ml-auto text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium"
+              className="ml-auto w-full bg-indigo-600 text-white sm:w-auto"
             >
               {showManual
                 ? t("reservations.close", "Close")
                 : t("reservations.newBooking", "+ New booking")}
-            </button>
+            </DashboardButton>
           )}
         </div>
 

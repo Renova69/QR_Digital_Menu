@@ -58,6 +58,7 @@ export function BulkPriceAdjustModal({
 
   return (
     <Modal
+      dashboardUi
       open={open}
       onOpenChange={onOpenChange}
       title={t("bulkEdit.priceAdjust.title", "Bulk price adjustment")}

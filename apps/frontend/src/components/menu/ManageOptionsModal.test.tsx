@@ -15,13 +15,18 @@ vi.mock("../ui/modal", () => ({
     open,
     children,
     contentClassName,
+    dashboardUi,
   }: {
     open?: boolean;
     children: React.ReactNode;
     contentClassName?: string;
+    dashboardUi?: boolean;
   }) =>
     open ? (
-      <div role="dialog" className={contentClassName}>
+      <div
+        role="dialog"
+        className={`${dashboardUi ? "dashboard-ui" : ""} ${contentClassName ?? ""}`}
+      >
         {children}
       </div>
     ) : null,
@@ -105,6 +110,7 @@ describe("ManageOptionsModal mobile browser compatibility", () => {
     );
 
     expect(screen.getByRole("dialog")).toHaveClass(
+      "dashboard-ui",
       "max-h-[calc(100dvh-1rem)]",
       "overflow-hidden",
       "p-4",

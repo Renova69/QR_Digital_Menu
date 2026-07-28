@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../ui/button";
+import { DashboardButton } from "../dashboard/DashboardButton";
 
 export interface CustomPreferencesEditorProps {
   initial: string[];
@@ -44,7 +44,7 @@ export function CustomPreferencesEditor({
             {l}
             <button
               onClick={() => setLabels((p) => p.filter((x) => x !== l))}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base text-indigo-400 transition hover:bg-indigo-100 hover:text-indigo-700"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm text-indigo-400 transition hover:bg-indigo-100 hover:text-indigo-700"
               aria-label="remove"
             >
               ×
@@ -66,20 +66,20 @@ export function CustomPreferencesEditor({
           placeholder={t("reservations.addChipPlaceholder", "Add a chip…")}
           className="h-12 min-h-12 min-w-0 w-full shrink-0 rounded-lg border border-border bg-background px-4 text-base text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 sm:flex-1 sm:text-sm"
         />
-        <button
+        <DashboardButton
           onClick={add}
-          className="h-12 min-h-12 w-full shrink-0 rounded-lg border border-border bg-card px-5 text-base font-semibold text-foreground transition hover:bg-muted sm:w-auto sm:text-sm"
+          className="h-12 min-h-12 w-full shrink-0 border border-border bg-card px-4 text-foreground hover:bg-muted sm:w-auto"
         >
           {t("reservations.add", "Add")}
-        </button>
+        </DashboardButton>
       </div>
-      <Button
+      <DashboardButton
         onClick={() => onSave(labels)}
         disabled={saving}
-        className="mt-1 h-12 w-full sm:w-auto"
+        className="brand-cta mt-1 h-12 min-h-12 w-full text-white shadow-lg sm:w-auto"
       >
         {t("reservations.savePrefs", "Save chips")}
-      </Button>
+      </DashboardButton>
     </div>
   );
 }

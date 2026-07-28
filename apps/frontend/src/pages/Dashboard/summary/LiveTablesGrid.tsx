@@ -86,7 +86,7 @@ const LiveTablesGrid = ({ tables }: LiveTablesGridProps) => {
   }, []);
 
   return (
-    <div className="glass-panel rounded-[1.5rem] p-5">
+    <div className="glass-panel rounded-[1.5rem] p-4 sm:p-5">
       <h3 className="mb-4 text-sm font-display font-bold text-foreground">
         {t("dashboard.liveTables")}
       </h3>

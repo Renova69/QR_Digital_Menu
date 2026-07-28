@@ -625,7 +625,7 @@ export const GuestSatisfaction = ({ feedbackData }: { feedbackData: any }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5">
-      <div className="rounded-lg border border-primary/20 bg-primary/5 p-5 text-center">
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-center sm:p-5">
         <p className="text-5xl font-display font-black text-primary">
           {feedbackData.averageRating}
         </p>

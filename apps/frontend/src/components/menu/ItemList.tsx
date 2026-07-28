@@ -55,7 +55,7 @@ export const ItemList: React.FC = () => {
 
   if (!selectedCategory) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-secondary/50">
+      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-secondary/50 p-4 text-center sm:p-12">
         <div className="bg-card p-3 rounded-full shadow-sm mb-4">
           <Plus className="h-8 w-8 text-muted-foreground" />
         </div>
@@ -74,7 +74,7 @@ export const ItemList: React.FC = () => {
 
   if (isLoadingItems) {
     return (
-      <div className="flex justify-center p-12">
+      <div className="flex justify-center p-4 sm:p-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -104,7 +104,7 @@ export const ItemList: React.FC = () => {
               </SortableItem>
             ))
           ) : (
-            <div className="text-center p-12 border-2 border-dashed rounded-lg">
+            <div className="rounded-lg border-2 border-dashed p-4 text-center sm:p-12">
               <p className="text-muted-foreground">
                 {t(
                   "menuAdmin.emptyCategory",

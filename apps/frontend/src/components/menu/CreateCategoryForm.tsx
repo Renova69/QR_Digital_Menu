@@ -22,6 +22,7 @@ export const CreateCategoryForm: React.FC = () => {
 
   return (
     <Modal
+      dashboardUi
       open={open}
       onOpenChange={setOpen}
       title={t("menuAdmin.addCategory", "Create Category")}

@@ -120,6 +120,7 @@ export function DashboardProfileModal({
 
   return (
     <Modal
+      dashboardUi
       open={open}
       onOpenChange={onOpenChange}
       title={t("profileDashboard.title")}

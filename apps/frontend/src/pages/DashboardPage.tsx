@@ -242,7 +242,7 @@ const DashboardPage = () => {
   if (restaurantsLoading) {
     return (
       <div className="min-h-screen">
-        <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+        <div className="mx-auto max-w-7xl space-y-5 px-3 py-3 sm:px-4 sm:py-6">
           <div className="h-8 w-40 rounded-lg bg-muted animate-pulse" />
           <div className="h-12 w-full rounded-xl bg-muted animate-pulse" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -258,7 +258,7 @@ const DashboardPage = () => {
 
   if (restaurantsError) {
     return (
-      <div className="p-8 text-muted-foreground">
+      <div className="p-4 text-muted-foreground sm:p-8">
         {t("auto.errorLoadingRestaurants", "Error loading restaurants.")}
       </div>
     );
@@ -627,7 +627,7 @@ const DashboardPage = () => {
         </header>
 
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border/60 shrink-0">
+        <header className="flex shrink-0 items-center justify-between border-b border-border/60 bg-card px-3 py-3 md:hidden">
           <RenovaBrand size="sm" showDomain={false} />
           <div className="flex items-center gap-2">
             <ThemeToggle size="sm" />
@@ -636,9 +636,9 @@ const DashboardPage = () => {
         </header>
 
         {/* Scrollable content area */}
-        <main className="flex-1 overflow-y-auto hide-scrollbar bg-background">
+        <main className="dashboard-ui flex-1 overflow-y-auto hide-scrollbar bg-background">
           <div
-            className="px-3 py-4 md:p-6 pb-24 md:pb-8"
+            className="px-3 py-3 pb-24 md:p-6 md:pb-8"
             style={{ minHeight: "100%" }}
           >
             {user ? (

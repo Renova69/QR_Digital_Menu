@@ -63,7 +63,7 @@ const QuickActionsRow = ({ restaurantId }: QuickActionsRowProps) => {
   ];
 
   return (
-    <div className="glass-panel rounded-[1.5rem] p-5">
+    <div className="glass-panel rounded-[1.5rem] p-4 sm:p-5">
       <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
         {t("dashboard.quickActions", "Quick Actions")}
       </h3>

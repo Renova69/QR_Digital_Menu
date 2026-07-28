@@ -30,6 +30,8 @@ import { useAuth } from "../context/AuthContext";
 import MenuImportExportView from "./Dashboard/MenuImportExportView";
 import BulkEditView from "./Dashboard/BulkEditView";
 import { MenuCheckWidget } from "../components/dashboard/MenuCheckWidget";
+import { DashboardButton } from "../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../components/dashboard/dashboardUi";
 import { searchMenuItems } from "../lib/menuSearch";
 
 type EditorTab = "editor" | "importExport" | "bulkEdit";
@@ -174,9 +176,9 @@ const MenuEditorPage: React.FC = () => {
     user?.name?.split(" ")[0] || user?.email?.split("@")[0] || "";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="dashboard-ui min-h-screen bg-background">
       <header className="bg-card border-b border-border/60">
-        <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-3 py-3 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
           <div className="min-w-0">
             <Link
               to="/dashboard"
@@ -219,7 +221,7 @@ const MenuEditorPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="py-6 sm:py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center gap-3 justify-between">
           <div
             className="inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-border/60 bg-card p-1"
@@ -245,11 +247,12 @@ const MenuEditorPage: React.FC = () => {
             ].map(({ id, label, icon: Icon }) => {
               const isActive = activeEditorTab === id;
               return (
-                <button
+                <DashboardButton
+                  density="tab"
                   key={id}
                   type="button"
                   onClick={() => setActiveEditorTab(id)}
-                  className={`flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${
+                  className={`${
                     isActive
                       ? "text-white"
                       : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
@@ -260,7 +263,7 @@ const MenuEditorPage: React.FC = () => {
                 >
                   <Icon className="h-4 w-4" />
                   {label}
-                </button>
+                </DashboardButton>
               );
             })}
           </div>
@@ -334,7 +337,9 @@ const MenuEditorPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="glass-panel p-6 sm:p-8 rounded-2xl min-h-[50vh] border-white/5">
+                <div
+                  className={`glass-panel ${dashboardSurface.roomy} min-h-[50vh] rounded-2xl border-white/5`}
+                >
                   <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-8">
                     {t("menuAdmin.categories")}
                   </h2>
@@ -357,7 +362,9 @@ const MenuEditorPage: React.FC = () => {
                 </div>
               </div>
               <div className="lg:col-span-2">
-                <div className="glass-panel p-6 sm:p-8 rounded-2xl min-h-[50vh] border-white/5 relative overflow-hidden">
+                <div
+                  className={`glass-panel ${dashboardSurface.roomy} relative min-h-[50vh] overflow-hidden rounded-2xl border-white/5`}
+                >
                   <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-8">
                     {selectedCategory
                       ? t("menuAdmin.itemsIn", {

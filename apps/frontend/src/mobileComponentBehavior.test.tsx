@@ -24,6 +24,10 @@ describe("mobile component behavior", () => {
     const field = screen.getByPlaceholderText("Add a chip…");
     expect(field).toHaveClass("h-12", "min-h-12", "text-base", "sm:flex-1");
     expect(field).not.toHaveClass("flex-1");
+
+    const addButton = screen.getByRole("button", { name: "Add" });
+    expect(addButton).toHaveClass("min-h-12", "text-sm", "font-semibold");
+    expect(addButton).not.toHaveClass("text-base");
   });
 
   it("renders a compact, non-interactive mobile demand map", () => {

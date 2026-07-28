@@ -49,6 +49,8 @@ import { useFeature, useTier, type FeatureFlag } from "../../hooks/useFeature";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
 import { copyToClipboard, normalizeTableName } from "../../lib/tableViewUtils";
+import { DashboardButton } from "../dashboard/DashboardButton";
+import { dashboardSurface } from "../dashboard/dashboardUi";
 
 const templateOptions: Array<{ value: PrintTemplate; label: string }> = [
   { value: "classic", label: "Classic" },
@@ -441,13 +443,20 @@ const TableView: React.FC = () => {
       </div>
 
       <div className="mb-6">
-        <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
+        <div
+          className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center"
+          role="tablist"
+          aria-label={t("tables.title")}
+        >
           {!isFree && (
-            <button
+            <DashboardButton
+              density="tab"
               type="button"
               onClick={() => setSubTab("live")}
+              role="tab"
+              aria-selected={subTab === "live"}
               className={cn(
-                "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                "w-full sm:w-auto sm:px-4",
                 subTab === "live"
                   ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -455,15 +464,18 @@ const TableView: React.FC = () => {
             >
               <Eye className="h-4 w-4" />
               {t("tables.liveView")}
-            </button>
+            </DashboardButton>
           )}
           {isManagerOrOwner && (
             <>
-              <button
+              <DashboardButton
+                density="tab"
                 type="button"
                 onClick={() => setSubTab("qr")}
+                role="tab"
+                aria-selected={subTab === "qr"}
                 className={cn(
-                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                  "w-full sm:w-auto sm:px-4",
                   subTab === "qr"
                     ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -471,12 +483,15 @@ const TableView: React.FC = () => {
               >
                 <QrCode className="h-4 w-4" />
                 {t("tables.qrManagement")}
-              </button>
-              <button
+              </DashboardButton>
+              <DashboardButton
+                density="tab"
                 type="button"
                 onClick={() => setSubTab("zones")}
+                role="tab"
+                aria-selected={subTab === "zones"}
                 className={cn(
-                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                  "w-full sm:w-auto sm:px-4",
                   subTab === "zones"
                     ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -484,13 +499,16 @@ const TableView: React.FC = () => {
               >
                 <MapPin className="h-4 w-4" />
                 {t("auto.zones", "Zones")}
-              </button>
+              </DashboardButton>
               {canManageServicePoints && (
-                <button
+                <DashboardButton
+                  density="tab"
                   type="button"
                   onClick={() => setSubTab("service-points")}
+                  role="tab"
+                  aria-selected={subTab === "service-points"}
                   className={cn(
-                    "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                    "w-full sm:w-auto sm:px-4",
                     subTab === "service-points"
                       ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -498,7 +516,7 @@ const TableView: React.FC = () => {
                 >
                   <Hotel className="h-4 w-4" />
                   {t("servicePoints.title", "Service Points")}
-                </button>
+                </DashboardButton>
               )}
             </>
           )}
@@ -560,18 +578,18 @@ const TableView: React.FC = () => {
                   className="h-12 w-full rounded-lg border border-border bg-background px-3 text-base font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:flex-1 sm:text-sm"
                 />
               )}
-              <button
+              <DashboardButton
                 type="submit"
                 disabled={
                   createZoneMutation.isPending ||
                   !newZoneKey ||
                   (newZoneKey === "__custom__" && !newZoneName.trim())
                 }
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-auto"
+                className="h-12 min-h-12 w-full bg-primary text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent sm:h-11 sm:min-h-11 sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 {t("auto.addZone", "Add Zone")}
-              </button>
+              </DashboardButton>
             </div>
           </form>
 
@@ -766,20 +784,20 @@ const TableView: React.FC = () => {
                       ))}
                   </select>
                 )}
-                <button
+                <DashboardButton
                   type="submit"
                   disabled={
                     createMutation.isPending ||
                     !newTableName.trim() ||
                     duplicateTable
                   }
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-auto"
+                  className="h-12 min-h-12 w-full bg-primary text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] hover:bg-accent sm:h-11 sm:min-h-11 sm:w-auto"
                 >
                   <Plus className="h-4 w-4" />
                   {createMutation.isPending
                     ? t("tables.adding")
                     : t("tables.addButton")}
-                </button>
+                </DashboardButton>
               </div>
               {duplicateTable && (
                 <p className="mt-2 text-xs font-bold text-red-600">
@@ -840,15 +858,15 @@ const TableView: React.FC = () => {
                 </select>
               </div>
 
-              <button
+              <DashboardButton
                 type="button"
                 onClick={() => window.print()}
                 disabled={!tables || tables.length === 0}
-                className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-xs font-black text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-3 w-full border border-border bg-muted text-foreground hover:bg-secondary"
               >
                 <Printer className="h-4 w-4" />
                 {t("tables.printAllQr")}
-              </button>
+              </DashboardButton>
             </div>
           </div>
 
@@ -880,7 +898,9 @@ const TableView: React.FC = () => {
               ))}
             </div>
           ) : filteredTables.length === 0 ? (
-            <div className="flex min-h-[260px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm font-medium text-muted-foreground">
+            <div
+              className={`flex min-h-[260px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center text-sm font-medium text-muted-foreground ${dashboardSurface.empty}`}
+            >
               {tables?.length === 0
                 ? t("tables.noTables")
                 : "No tables match your search."}
@@ -927,7 +947,8 @@ const TableView: React.FC = () => {
                       <span className="text-2xl font-black tracking-tight text-foreground">
                         {table.name}
                       </span>
-                      <button
+                      <DashboardButton
+                        density="compact"
                         type="button"
                         onClick={async () => {
                           const ok = await copyToClipboard(publicUrl);
@@ -936,7 +957,7 @@ const TableView: React.FC = () => {
                             setTimeout(() => setCopiedTableId(null), 2000);
                           }
                         }}
-                        className="flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px] font-black text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        className="shrink-0 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
                         title={publicUrl}
                       >
                         {copiedTableId === table.id ? (
@@ -947,7 +968,7 @@ const TableView: React.FC = () => {
                         {copiedTableId === table.id
                           ? t("auto.copied", "Copied!")
                           : t("auto.copyURL", "Copy URL")}
-                      </button>
+                      </DashboardButton>
                     </div>
 
                     {zones && zones.length > 0 && (
@@ -972,23 +993,24 @@ const TableView: React.FC = () => {
                     )}
 
                     <div className="flex items-center gap-2">
-                      <button
+                      <DashboardButton
                         type="button"
                         onClick={() => handleShowQr(table)}
-                        className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-black text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] transition hover:bg-accent"
+                        className="flex-1 bg-primary px-2 text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] hover:bg-accent"
                       >
                         <QrCode className="h-3.5 w-3.5" />
                         {t("auto.generateQR", "Generate QR")}
-                      </button>
-                      <button
+                      </DashboardButton>
+                      <DashboardButton
+                        density="icon"
                         type="button"
                         onClick={() => deleteMutation.mutate(table.id)}
                         disabled={deleteMutation.isPending}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-card text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                        className="border border-red-200 bg-card text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
                         aria-label={t("tables.delete")}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </DashboardButton>
                     </div>
                   </article>
                 );

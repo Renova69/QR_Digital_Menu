@@ -45,6 +45,8 @@ import {
 } from "./paymentsShared";
 import { PaymentDrawer } from "./PaymentDrawer";
 import { PaymentReconciliationQueue } from "./PaymentReconciliationQueue";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 type PaymentTab = "transactions" | "payouts" | "refunds" | "settings";
 
@@ -380,22 +382,24 @@ const PaymentsView = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
+            <DashboardButton
+              density="compact"
               type="button"
               onClick={() => openStripeAccount(account?.stripeAccountId)}
               disabled={!account?.stripeAccountId}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="border border-border bg-card text-foreground shadow-sm hover:bg-muted"
             >
               {t("payments.viewOnStripe")}
               <ExternalLink className="h-3 w-3" />
-            </button>
-            <button
+            </DashboardButton>
+            <DashboardButton
+              density="compact"
               type="button"
               onClick={() => setActiveTab("payouts")}
-              className="flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
+              className="border border-border bg-card text-foreground shadow-sm hover:bg-muted"
             >
               {t("payments.managePayouts")}
-            </button>
+            </DashboardButton>
           </div>
         </div>
 
@@ -469,13 +473,14 @@ const PaymentsView = () => {
               )}
             </div>
           </div>
-          <button
+          <DashboardButton
+            density="compact"
             type="button"
             onClick={() => navigate("?tab=settings&settingsTab=payments")}
-            className="mt-auto flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
+            className="mt-auto border border-border bg-background text-foreground shadow-sm hover:bg-muted"
           >
             {t("payments.configure", "Configure")}
-          </button>
+          </DashboardButton>
         </div>
 
         {/* BORICA */}
@@ -551,13 +556,14 @@ const PaymentsView = () => {
               )}
             </div>
           </div>
-          <button
+          <DashboardButton
+            density="compact"
             type="button"
             onClick={() => navigate("?tab=settings&settingsTab=payments")}
-            className="mt-auto flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
+            className="mt-auto border border-border bg-background text-foreground shadow-sm hover:bg-muted"
           >
             {t("payments.configure", "Configure")}
-          </button>
+          </DashboardButton>
         </div>
 
         {/* myPOS */}
@@ -632,13 +638,14 @@ const PaymentsView = () => {
               )}
             </div>
           </div>
-          <button
+          <DashboardButton
+            density="compact"
             type="button"
             onClick={() => navigate("?tab=settings&settingsTab=payments")}
-            className="mt-auto flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
+            className="mt-auto border border-border bg-background text-foreground shadow-sm hover:bg-muted"
           >
             {t("payments.configure", "Configure")}
-          </button>
+          </DashboardButton>
         </div>
       </div>
 
@@ -703,9 +710,14 @@ const PaymentsView = () => {
       </div>
 
       <div className="mb-5">
-        <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
+        <div
+          className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center"
+          role="tablist"
+          aria-label={t("payments.title")}
+        >
           {tabs.map((tab) => (
-            <button
+            <DashboardButton
+              density="tab"
               key={tab.id}
               type="button"
               onClick={() => {
@@ -713,15 +725,17 @@ const PaymentsView = () => {
                 setPage(1);
                 setSelectedPayment(null);
               }}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               className={cn(
-                "flex h-10 items-center justify-center rounded-md px-3 text-sm font-black transition active:scale-[0.98] sm:h-9 sm:px-5",
+                "w-full sm:w-auto sm:px-5",
                 activeTab === tab.id
                   ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                   : "text-foreground hover:bg-muted",
               )}
             >
               {tab.label}
-            </button>
+            </DashboardButton>
           ))}
         </div>
       </div>
@@ -771,7 +785,7 @@ const PaymentsView = () => {
                 </option>
               ))}
             </select>
-            <button
+            <DashboardButton
               type="button"
               onClick={() => void handleExportCsv()}
               disabled={
@@ -779,14 +793,14 @@ const PaymentsView = () => {
                 isExportingCsv ||
                 search.trim() !== deferredSearch
               }
-              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-black text-foreground shadow-sm transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              className="border border-border bg-muted text-foreground shadow-sm hover:bg-secondary"
             >
               <Download className="h-4 w-4" />
               {isExportingCsv
                 ? t("payments.exporting", "Exporting...")
                 : t("payments.exportCsv")}
-            </button>
-            <button
+            </DashboardButton>
+            <DashboardButton
               type="button"
               onClick={handleExportXlsx}
               disabled={
@@ -794,13 +808,13 @@ const PaymentsView = () => {
                 meta.total === 0 ||
                 search.trim() !== deferredSearch
               }
-              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-black text-foreground shadow-sm transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              className="border border-border bg-muted text-foreground shadow-sm hover:bg-secondary"
             >
               <FileSpreadsheet className="h-4 w-4" />
               {isExportingXlsx
                 ? t("payments.exporting", "Exporting…")
                 : t("payments.exportXlsx", "Export XLSX")}
-            </button>
+            </DashboardButton>
           </div>
 
           {exportError && (
@@ -826,28 +840,28 @@ const PaymentsView = () => {
 
           {meta.total > limit && (
             <div className="mt-5 flex items-center justify-between">
-              <button
+              <DashboardButton
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={page === 1}
-                className="h-10 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-40"
+                className="border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40"
               >
                 {t("payments.previous")}
-              </button>
+              </DashboardButton>
               <span className="text-sm font-bold text-muted-foreground">
                 {t("payments.pageOf", {
                   page,
                   total: Math.ceil(meta.total / limit),
                 })}
               </span>
-              <button
+              <DashboardButton
                 type="button"
                 onClick={() => setPage((current) => current + 1)}
                 disabled={page >= Math.ceil(meta.total / limit)}
-                className="h-10 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-40"
+                className="border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40"
               >
                 {t("payments.next")}
-              </button>
+              </DashboardButton>
             </div>
           )}
         </>
@@ -943,7 +957,9 @@ function PaymentTable({
 
   if (payments.length === 0) {
     return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+      <div
+        className={`flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card text-center ${dashboardSurface.empty}`}
+      >
         <CreditCard className="mb-3 h-10 w-10 text-muted-foreground/40" />
         <p className="text-sm font-black text-muted-foreground">{emptyLabel}</p>
       </div>
@@ -1078,7 +1094,7 @@ function PayoutsPanel({
   const { t } = useTranslation();
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
         <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
           {t("payments.payoutBalance")}
         </p>
@@ -1118,7 +1134,7 @@ function PayoutsPanel({
           )}
         </div>
       </div>
-      <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
         <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
           {t("payments.schedule")}
         </p>
@@ -1250,7 +1266,7 @@ function SettingCard({
   active: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </p>

@@ -12,6 +12,7 @@ interface ModalProps {
   trigger?: React.ReactNode;
   contentClassName?: string;
   titleClassName?: string;
+  dashboardUi?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -23,6 +24,7 @@ export const Modal: React.FC<ModalProps> = ({
   trigger,
   contentClassName,
   titleClassName,
+  dashboardUi = false,
 }) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -32,6 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
         <Dialog.Content
           className={cn(
             "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-lg glass-panel bg-background p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl z-[1001] border-white/5 animate-in zoom-in-95 fade-in duration-300",
+            dashboardUi && "dashboard-ui p-4 sm:p-8",
             contentClassName,
           )}
         >

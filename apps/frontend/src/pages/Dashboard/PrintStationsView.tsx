@@ -237,7 +237,8 @@ export default function PrintStationsView() {
     onError: () => showToast("Failed to revoke token", "error"),
   });
 
-  if (isLoading) return <div className="p-6 text-sm">Loading...</div>;
+  if (isLoading)
+    return <div className="p-4 text-sm sm:p-6">Loading...</div>;
 
   return (
     <div className="space-y-6">
@@ -285,7 +286,7 @@ export default function PrintStationsView() {
             >
               <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-                <Dialog.Content className="fixed left-1/2 top-1/2 z-[51] max-h-[90vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-xl outline-none">
+                <Dialog.Content className="fixed left-1/2 top-1/2 z-[51] max-h-[90vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg border bg-background p-4 shadow-xl outline-none sm:p-6">
                   <Dialog.Title className="text-lg font-semibold">
                     {tokenModal.station.name} — Agent Setup
                   </Dialog.Title>
@@ -347,7 +348,7 @@ export default function PrintStationsView() {
             >
               <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-                <Dialog.Content className="fixed left-1/2 top-1/2 z-[51] max-h-[90vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-xl outline-none">
+                <Dialog.Content className="fixed left-1/2 top-1/2 z-[51] max-h-[90vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg border bg-background p-4 shadow-xl outline-none sm:p-6">
                   <Dialog.Title className="text-lg font-semibold">
                     {templateModal.name} — {t("printStations.templateTitle")}
                   </Dialog.Title>

@@ -23,11 +23,14 @@ import PaymentsSummaryCard from "./summary/PaymentsSummaryCard";
 import DailyTargetCard from "./summary/DailyTargetCard";
 import LoyaltyRetentionCard from "./summary/LoyaltyRetentionCard";
 import QuickActionsRow from "./summary/QuickActionsRow";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 const UpgradeBanner = ({ feature }: { feature: string }) => {
   const { t } = useTranslation();
   return (
-    <div className="glass-panel rounded-[1.5rem] p-8 flex flex-col items-center justify-center gap-3 text-center">
+    <div
+      className={`glass-panel flex flex-col items-center justify-center gap-3 rounded-[1.5rem] text-center ${dashboardSurface.empty}`}
+    >
       <Lock className="w-8 h-8 text-muted-foreground/50" />
       <p className="text-sm font-bold text-muted-foreground">
         {t("dashboard.upgradeToAccess", { feature })}
@@ -225,7 +228,7 @@ const SummaryView = () => {
 
       {/* Upsell banner — FREE tier only */}
       {!canBasic && (
-        <div className="glass-panel rounded-[1.5rem] p-5 md:p-6 flex flex-col items-center gap-3 text-center border border-primary/20 bg-primary/5">
+        <div className="glass-panel flex flex-col items-center gap-3 rounded-[1.5rem] border border-primary/20 bg-primary/5 p-4 text-center sm:p-5 md:p-6">
           <p className="text-sm font-bold text-foreground">
             {t("dashboard.scanUpsellTitle")}
           </p>

@@ -15,6 +15,8 @@ import {
   Timer,
   Users,
 } from "lucide-react";
+import { DashboardButton } from "../../components/dashboard/DashboardButton";
+import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
 type FilterMode = "active" | "occupied" | "paid" | "all";
 
@@ -209,21 +211,23 @@ const LiveTablesView: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+      <div
+        className={`flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center ${dashboardSurface.empty}`}
+      >
         <div>
           <p className="mb-4 font-bold text-muted-foreground">
             {t("tables.failedLoadTables")}
           </p>
-          <button
+          <DashboardButton
             onClick={() =>
               queryClient.invalidateQueries({
                 queryKey: ["tableStatuses", restaurantId],
               })
             }
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-black text-white"
+            className="bg-primary text-white"
           >
             {t("tables.retry")}
-          </button>
+          </DashboardButton>
         </div>
       </div>
     );
@@ -231,7 +235,9 @@ const LiveTablesView: React.FC = () => {
 
   if (!tables || tables.length === 0) {
     return (
-      <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+      <div
+        className={`flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center ${dashboardSurface.empty}`}
+      >
         <div>
           <Grid3X3 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="font-bold text-muted-foreground">
@@ -278,12 +284,14 @@ const LiveTablesView: React.FC = () => {
             {filterConfig.map(({ id, labelKey, fallback, Icon }) => {
               const active = filter === id;
               return (
-                <button
+                <DashboardButton
+                  density="tab"
                   key={id}
                   type="button"
                   onClick={() => setFilter(id)}
+                  aria-pressed={active}
                   className={cn(
-                    "flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-sm font-bold shadow-sm transition active:scale-[0.98] sm:h-9 sm:w-auto sm:rounded-md sm:border-0 sm:px-4 sm:shadow-none",
+                    "w-full justify-start border shadow-sm sm:w-auto sm:justify-center sm:border-0 sm:px-4 sm:shadow-none",
                     active
                       ? "border-primary bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
                       : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground sm:bg-transparent",
@@ -301,7 +309,7 @@ const LiveTablesView: React.FC = () => {
                   >
                     {counts[id]}
                   </span>
-                </button>
+                </DashboardButton>
               );
             })}
           </div>
@@ -319,7 +327,9 @@ const LiveTablesView: React.FC = () => {
       </div>
 
       {filteredTables.length === 0 ? (
-        <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+        <div
+          className={`flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-center ${dashboardSurface.empty}`}
+        >
           <div>
             <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
             <p className="font-bold text-muted-foreground">

@@ -21,7 +21,7 @@ export const MenuSearchResults: React.FC<MenuSearchResultsProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center p-12">
+      <div className="flex justify-center p-4 sm:p-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
@@ -29,7 +29,7 @@ export const MenuSearchResults: React.FC<MenuSearchResultsProps> = ({
 
   if (results.length === 0) {
     return (
-      <div className="text-center p-12 border-2 border-dashed rounded-lg">
+      <div className="rounded-lg border-2 border-dashed p-4 text-center sm:p-12">
         <p className="text-muted-foreground">
           {t("menuAdmin.noSearchResults", {
             defaultValue: 'No items match "{{query}}".',
@@ -41,7 +41,7 @@ export const MenuSearchResults: React.FC<MenuSearchResultsProps> = ({
   }
 
   return (
-    <div className="glass-panel p-6 sm:p-8 rounded-2xl border-white/5">
+    <div className="glass-panel rounded-2xl border-white/5 p-4 sm:p-6">
       <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-6">
         {t("menuAdmin.searchResultsCount", {
           defaultValue: '{{count}} results for "{{query}}"',

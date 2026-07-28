@@ -109,7 +109,7 @@ describe("TableView service-point QR", () => {
       </RestaurantContext.Provider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Service Points" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Service Points" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Generate service-point QR" }),
     );

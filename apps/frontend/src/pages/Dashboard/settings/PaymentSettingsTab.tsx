@@ -11,6 +11,7 @@ import {
 import { useFeature } from "../../../hooks/useFeature";
 import ToggleSwitch from "../../../components/ui/ToggleSwitch";
 import { getApiError } from "../../../lib/apiError";
+import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -479,16 +480,16 @@ const PaymentSettingsTab: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              <button
+              <DashboardButton
                 type="button"
                 disabled={stripeLoading}
                 onClick={handleStripeConnect}
-                className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+                className="border border-border hover:bg-muted"
               >
                 {stripeLoading
                   ? t("payment.settings.connecting")
                   : t("payment.settings.connectStripe")}
-              </button>
+              </DashboardButton>
               {stripeError && (
                 <p className="text-xs text-red-500">{stripeError}</p>
               )}
@@ -1073,13 +1074,14 @@ const PaymentSettingsTab: React.FC = () => {
                   placeholder={t("auto.eG15", "e.g. 15")}
                   className="w-24 px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
-                <button
+                <DashboardButton
+                  density="compact"
                   type="button"
                   onClick={handleAddTip}
-                  className="px-3 py-1.5 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                  className="border border-border hover:bg-muted"
                 >
                   {t("payment.settings.addTipOption")}
-                </button>
+                </DashboardButton>
                 <button
                   type="button"
                   onClick={handleResetTips}
@@ -1124,13 +1126,13 @@ const PaymentSettingsTab: React.FC = () => {
 
       {/* Save */}
       <div className="flex justify-end pt-2">
-        <button
+        <DashboardButton
           type="submit"
           disabled={status.loading}
-          className="brand-cta text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="brand-cta w-full text-white sm:w-auto"
         >
           {status.loading ? t("settings.saving") : t("settings.saveSettings")}
-        </button>
+        </DashboardButton>
       </div>
     </form>
   );
