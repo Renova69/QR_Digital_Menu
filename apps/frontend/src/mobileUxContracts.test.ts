@@ -10,9 +10,11 @@ describe("mobile-first dashboard UX contracts", () => {
     const items = readSource("./components/menu/ItemList.tsx");
 
     expect(categories).toMatch(/whitespace-normal\s+break-words\s+sm:truncate/);
-    expect(items).toContain("line-clamp-2 sm:line-clamp-1");
+    expect(items).toMatch(
+      /line-clamp-2[^"]*sm:line-clamp-1|sm:line-clamp-1[^"]*line-clamp-2/,
+    );
     expect(items).toMatch(/flex-wrap[^"]*max-w-full|max-w-full[^"]*flex-wrap/);
-    expect(items).toMatch(/w-full[^"]*flex-wrap[^"]*justify-end/);
+    expect(items).toMatch(/w-full[^"]*flex-wrap[^"]*justify-between/);
   });
 
   it("removes the order sound-preview-only control", () => {
@@ -97,7 +99,7 @@ describe("mobile-first dashboard UX contracts", () => {
     const button = readSource("./components/ui/button.tsx");
     const styles = readSource("./index.css");
 
-    expect(itemList).toContain('<Edit className="h-4 w-4');
+    expect(itemList).toContain('<Edit className="h-5 w-5');
     expect(categoryList).toContain('aria-label={t("menuAdmin.editCategory"');
     expect(categoryList).toContain('aria-label={t("menuAdmin.categorySettings"');
     expect(button).toContain('icon: "h-11 w-11 p-0"');
