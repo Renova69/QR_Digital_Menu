@@ -248,7 +248,7 @@ const ItemRow = ({
       </div>
 
       {/* Action buttons - NOT inside drag target */}
-      <div className="flex w-full flex-wrap items-center justify-end gap-2 self-end sm:w-auto sm:self-auto">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 self-end sm:self-auto">
         {isConfirmingDelete ? (
           <>
             <span className="text-xs text-red-600 font-medium">
@@ -302,8 +302,8 @@ const ItemRow = ({
             <EditItemForm
               item={item}
               trigger={
-                <Button variant="outline" size="icon" className="h-8 w-8">
-                  <Edit className="h-4 w-4 text-muted-foreground" />
+                <Button variant="outline" size="icon" className="h-10 w-10">
+                  <Edit className="h-5 w-5 text-muted-foreground" />
                 </Button>
               }
             />
