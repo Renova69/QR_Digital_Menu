@@ -52,6 +52,11 @@ export class UpdatePlatformSettingsDto {
   @IsBoolean()
   retentionCronEnabled?: boolean;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  analyticsCookieEnabled?: boolean;
+
   @ApiPropertyOptional({ minimum: 0, maximum: 50 })
   @IsOptional()
   @IsInt()

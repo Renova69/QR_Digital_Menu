@@ -1,6 +1,7 @@
 import { Globe, MapPin, Phone, Youtube } from "lucide-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useConsent } from "../../context/ConsentContext";
 
 interface FooterProps {
   restaurantName: string;
@@ -125,6 +126,7 @@ export default function Footer({
   youtubeUrl,
 }: FooterProps) {
   const { t } = useTranslation();
+  const { categories, openPreferences } = useConsent();
   const hasSocials = !!(
     websiteUrl ||
     facebookUrl ||
@@ -232,6 +234,18 @@ export default function Footer({
         >
           WeatherAPI.com
         </a>
+        {categories.length > 0 && (
+          <>
+            {" · "}
+            <button
+              type="button"
+              onClick={openPreferences}
+              className="underline-offset-2 hover:underline"
+            >
+              {t("gdpr.cookieSettingsLink")}
+            </button>
+          </>
+        )}
       </p>
     </footer>
   );

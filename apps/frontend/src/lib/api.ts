@@ -1654,6 +1654,14 @@ export const getAdminLegalSettings = () =>
 export const updateAdminLegalSettings = (patch: Record<string, unknown>) =>
   api.patch("/super-admin/platform-settings", patch).then((r) => r.data);
 
+export const postConsent = (payload: {
+  restaurantId?: string;
+  visitorId: string;
+  category: "ANALYTICS" | "MARKETING";
+  granted: boolean;
+  policyVersion: number;
+}) => api.post("/consent", payload).then((r) => r.data);
+
 export const exportUserData = () =>
   api.get("/users/me/export").then((r) => r.data);
 

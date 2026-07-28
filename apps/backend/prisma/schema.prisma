@@ -647,6 +647,11 @@ enum OrderSource {
   POS
 }
 
+enum ConsentCategory {
+  ANALYTICS
+  MARKETING
+}
+
 enum OptionType {
   VARIATION
   ADDON
@@ -1117,8 +1122,10 @@ model PlatformSettings {
   erasureEndpointEnabled    Boolean  @default(false)
   dataExportEndpointEnabled Boolean  @default(false)
   retentionCronEnabled      Boolean  @default(false)
+  analyticsCookieEnabled    Boolean  @default(false)
   orderPiiRetentionYears    Int      @default(7)
   verificationTokenTtlDays  Int      @default(7)
+  policyVersion             Int      @default(1)
   cookieBannerText          Json?
   privacyPolicyContent      Json?
   termsContent              Json?
@@ -1133,6 +1140,20 @@ model PlatformSettings {
   updatedById               String?
 
   @@map("platform_settings")
+}
+
+model ConsentRecord {
+  id            String          @id @default(cuid())
+  restaurantId  String?
+  visitorId     String
+  category      ConsentCategory
+  granted       Boolean
+  policyVersion Int
+  ipHash        String
+  createdAt     DateTime        @default(now())
+
+  @@index([restaurantId, visitorId])
+  @@map("consent_record")
 }
 
 model HelpContent {

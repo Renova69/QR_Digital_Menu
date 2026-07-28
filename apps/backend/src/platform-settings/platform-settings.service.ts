@@ -8,6 +8,14 @@ export class PlatformSettingsService {
   private cache: PlatformSettings | null = null;
   private cacheExpiresAt = 0;
   private readonly CACHE_TTL_MS = 30_000;
+  // Changing any of these invalidates previously-given cookie consent —
+  // policyVersion bumps so the frontend re-prompts. Unrelated settings
+  // (retention windows, announcement banner) never force a re-prompt.
+  private readonly POLICY_VERSION_FIELDS = [
+    'cookieBannerEnabled',
+    'cookieBannerText',
+    'analyticsCookieEnabled',
+  ];
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -35,13 +43,20 @@ export class PlatformSettingsService {
     updatedById: string,
   ): Promise<PlatformSettings> {
     const changedKeys = Object.keys(dto);
+    const bumpPolicyVersion = changedKeys.some((key) =>
+      this.POLICY_VERSION_FIELDS.includes(key),
+    );
     let settings!: PlatformSettings;
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       settings = await tx.platformSettings.upsert({
         where: { id: 'singleton' },
         create: { id: 'singleton', ...dto, updatedById },
-        update: { ...dto, updatedById },
+        update: {
+          ...dto,
+          updatedById,
+          ...(bumpPolicyVersion ? { policyVersion: { increment: 1 } } : {}),
+        },
       });
       await tx.adminAuditLog.create({
         data: {
@@ -68,6 +83,8 @@ export class PlatformSettingsService {
       cookiePolicyEnabled: settings.cookiePolicyEnabled,
       erasureEndpointEnabled: settings.erasureEndpointEnabled,
       dataExportEndpointEnabled: settings.dataExportEndpointEnabled,
+      analyticsCookieEnabled: settings.analyticsCookieEnabled,
+      policyVersion: settings.policyVersion,
       cookieBannerText: settings.cookieBannerText,
       privacyPolicyContent: settings.privacyPolicyContent,
       termsContent: settings.termsContent,

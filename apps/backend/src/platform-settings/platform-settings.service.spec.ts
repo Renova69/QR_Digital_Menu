@@ -15,6 +15,8 @@ describe('PlatformSettingsService', () => {
     cookiePolicyEnabled: false,
     erasureEndpointEnabled: false,
     dataExportEndpointEnabled: false,
+    analyticsCookieEnabled: false,
+    policyVersion: 1,
     cookieBannerText: null,
     privacyPolicyContent: null,
     termsContent: null,
@@ -142,6 +144,47 @@ describe('PlatformSettingsService', () => {
       expect((service as any).cache).toEqual(updatedSettings);
       expect((service as any).cacheExpiresAt).toBeGreaterThan(Date.now());
     });
+
+    it('bumps policyVersion when a policy-relevant field changes', async () => {
+      const dto: UpdatePlatformSettingsDto = { cookieBannerEnabled: true };
+      const updatedSettings = { ...singletonSettings, ...dto };
+      mockPrisma.$transaction.mockImplementation(async (fn: Function) => {
+        mockTx.platformSettings.upsert.mockResolvedValue(updatedSettings);
+        return fn(mockTx);
+      });
+
+      await service.updateSettings(dto, 'user-1');
+
+      expect(mockTx.platformSettings.upsert).toHaveBeenCalledWith({
+        where: { id: 'singleton' },
+        create: { id: 'singleton', ...dto, updatedById: 'user-1' },
+        update: {
+          ...dto,
+          updatedById: 'user-1',
+          policyVersion: { increment: 1 },
+        },
+      });
+    });
+
+    it('does not bump policyVersion for unrelated settings', async () => {
+      const dto: UpdatePlatformSettingsDto = {
+        orderPiiRetentionYears: 10,
+        announcementBannerEnabled: true,
+      };
+      const updatedSettings = { ...singletonSettings, ...dto };
+      mockPrisma.$transaction.mockImplementation(async (fn: Function) => {
+        mockTx.platformSettings.upsert.mockResolvedValue(updatedSettings);
+        return fn(mockTx);
+      });
+
+      await service.updateSettings(dto, 'user-1');
+
+      expect(mockTx.platformSettings.upsert).toHaveBeenCalledWith({
+        where: { id: 'singleton' },
+        create: { id: 'singleton', ...dto, updatedById: 'user-1' },
+        update: { ...dto, updatedById: 'user-1' },
+      });
+    });
   });
 
   describe('getPublicPayload', () => {
@@ -156,6 +199,8 @@ describe('PlatformSettingsService', () => {
         cookiePolicyEnabled: false,
         erasureEndpointEnabled: false,
         dataExportEndpointEnabled: false,
+        analyticsCookieEnabled: false,
+        policyVersion: 1,
         cookieBannerText: null,
         privacyPolicyContent: null,
         termsContent: null,

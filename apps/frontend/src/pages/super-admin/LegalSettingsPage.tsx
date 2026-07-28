@@ -222,6 +222,12 @@ export default function LegalSettingsPage() {
             </span>
           )}
         </div>
+        <div className="px-5 pb-3">
+          <p className="text-[11px] text-slate-600">
+            {t("auto.policyVersion", "Policy version")}:{" "}
+            {(merged.policyVersion as number) ?? 1}
+          </p>
+        </div>
         <div className="px-5 pt-1 pb-1">
           <ToggleRow
             label={t("auto.gDPREnabled", "GDPR Enabled")}
@@ -249,6 +255,16 @@ export default function LegalSettingsPage() {
           )}
           checked={!!merged.cookieBannerEnabled}
           onChange={(v) => set("cookieBannerEnabled", v)}
+          disabled={!gdprOn}
+        />
+        <ToggleRow
+          label={t("auto.platformAnalyticsCookie", "Platform Analytics Cookie")}
+          description={t(
+            "auto.platformAnalyticsCookieDesc",
+            "Offers the Analytics category in the cookie banner. Enable only once an actual cookie-based analytics tool is wired in.",
+          )}
+          checked={!!merged.analyticsCookieEnabled}
+          onChange={(v) => set("analyticsCookieEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow

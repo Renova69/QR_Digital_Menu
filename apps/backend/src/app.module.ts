@@ -29,6 +29,7 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
 import { UsersDataModule } from './users-data/users-data.module';
 import { HelpContentModule } from './help-content/help-content.module';
 import { MenuViewModule } from './menu-views/menu-view.module';
+import { ConsentModule } from './consent/consent.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { PrintStationModule } from './print-station/print-station.module';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -69,6 +70,7 @@ import { PushModule } from './push/push.module';
     PaymentModule,
     MenuImportModule,
     MenuViewModule,
+    ConsentModule,
     ClientLogsModule,
     PrintStationModule,
     ReservationsModule,

@@ -27,6 +27,7 @@ import SuperAdminRoute from "./components/SuperAdminRoute";
 import { PosProvider } from "./context/PosContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import CookieConsentBanner from "./components/legal/CookieConsentBanner";
+import { ConsentProvider } from "./context/ConsentContext";
 import AnnouncementBanner from "./components/AnnouncementBanner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import RouteGroupErrorBoundary from "./components/RouteGroupErrorBoundary";
@@ -125,171 +126,176 @@ function App() {
         <ErrorBoundary>
           <Router>
             <AuthProvider>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  {/* App shell — header + container */}
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/pricing" element={<PricingPage />} />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
-                    <Route
-                      path="/auth/callback"
-                      element={<OAuthCallbackPage />}
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <ProtectedRoute>
-                          <CustomerProfilePage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute>
-                          <DashboardPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/dashboard/menu"
-                      element={
-                        <ProtectedRoute>
-                          <MenuProvider>
-                            <MenuEditorPage />
-                          </MenuProvider>
-                        </ProtectedRoute>
-                      }
-                    />
-                  </Route>
-
-                  {/* Staff POS — no chrome, full viewport */}
-                  <Route
-                    element={
-                      <SocketProvider>
-                        <RestaurantProvider>
-                          <OrderProvider>
-                            <NotificationProvider>
-                              <RouteGroupErrorBoundary>
-                                <PosLayout />
-                              </RouteGroupErrorBoundary>
-                            </NotificationProvider>
-                          </OrderProvider>
-                        </RestaurantProvider>
-                      </SocketProvider>
-                    }
-                  >
-                    <Route
-                      path="/staff/pos"
-                      element={
-                        <StaffRoute>
-                          <PosProvider>
-                            <PosPage />
-                          </PosProvider>
-                        </StaffRoute>
-                      }
-                    />
-                    <Route
-                      path="/staff/kitchen"
-                      element={
-                        <StaffRoute>
-                          <KitchenPage />
-                        </StaffRoute>
-                      }
-                    />
-                  </Route>
-
-                  {/* Onboarding — full-screen, no app chrome */}
-                  <Route path="/onboarding" element={<OnboardingPage />} />
-
-                  <Route path="/device-enroll" element={<DeviceEnrollPage />} />
-                  <Route path="/device-login" element={<DeviceLoginPage />} />
-
-                  {/* Super Admin — dark sidebar, platform-wide access */}
-                  <Route
-                    element={
-                      <SuperAdminRoute>
-                        <SuperAdminLayout />
-                      </SuperAdminRoute>
-                    }
-                  >
-                    <Route path="/super-admin" element={<OverviewPage />} />
-                    <Route
-                      path="/super-admin/tenants"
-                      element={<TenantsPage />}
-                    />
-                    <Route
-                      path="/super-admin/tenants/:id"
-                      element={<TenantDetailPage />}
-                    />
-                    <Route
-                      path="/super-admin/legal"
-                      element={<LegalSettingsPage />}
-                    />
-                    <Route
-                      path="/super-admin/help"
-                      element={<HelpCenterPage />}
-                    />
-                    <Route
-                      path="/super-admin/revenue"
-                      element={<RevenuePage />}
-                    />
-                    <Route
-                      path="/super-admin/data-requests"
-                      element={<DataRequestsPage />}
-                    />
-                  </Route>
-
-                  {/* Impersonation exchange — public, short-lived code */}
-                  <Route
-                    path="/impersonate/:code"
-                    element={<ImpersonationExchangePage />}
-                  />
-
-                  {/* Legal pages — public, no auth required */}
-                  <Route path="/privacy" element={<PrivacyPolicyPage />} />
-                  <Route path="/terms" element={<TermsPage />} />
-                  <Route path="/cookies" element={<CookiePolicyPage />} />
-
-                  {/* Customer-facing routes — no header, full viewport */}
-                  <Route element={<PublicLayout />}>
-                    <Route element={<RouteGroupErrorBoundary />}>
+              <ConsentProvider>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    {/* App shell — header + container */}
+                    <Route element={<AppLayout />}>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/pricing" element={<PricingPage />} />
+                      <Route path="/about" element={<AboutPage />} />
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/register" element={<RegisterPage />} />
                       <Route
-                        path="/menu/public/:restaurantId"
-                        element={<PublicMenuPage />}
+                        path="/auth/callback"
+                        element={<OAuthCallbackPage />}
                       />
-                      <Route path="/checkout" element={<CheckoutPage />} />
                       <Route
-                        path="/order-confirmation"
-                        element={<OrderConfirmationPage />}
+                        path="/profile"
+                        element={
+                          <ProtectedRoute>
+                            <CustomerProfilePage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/dashboard"
+                        element={
+                          <ProtectedRoute>
+                            <DashboardPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/dashboard/menu"
+                        element={
+                          <ProtectedRoute>
+                            <MenuProvider>
+                              <MenuEditorPage />
+                            </MenuProvider>
+                          </ProtectedRoute>
+                        }
                       />
                     </Route>
-                    <Route
-                      path="/feedback/:restaurantId"
-                      element={<FeedbackPage />}
-                    />
-                    <Route
-                      path="/book/:restaurantId"
-                      element={<BookingPage />}
-                    />
-                    <Route
-                      path="/booking/confirmation"
-                      element={<BookingConfirmationPage />}
-                    />
-                    <Route
-                      path="/booking/manage"
-                      element={<BookingManagePage />}
-                    />
-                  </Route>
 
-                  {/* L-FE-1: catch-all for unknown paths */}
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </Suspense>
-              <CookieConsentBanner />
+                    {/* Staff POS — no chrome, full viewport */}
+                    <Route
+                      element={
+                        <SocketProvider>
+                          <RestaurantProvider>
+                            <OrderProvider>
+                              <NotificationProvider>
+                                <RouteGroupErrorBoundary>
+                                  <PosLayout />
+                                </RouteGroupErrorBoundary>
+                              </NotificationProvider>
+                            </OrderProvider>
+                          </RestaurantProvider>
+                        </SocketProvider>
+                      }
+                    >
+                      <Route
+                        path="/staff/pos"
+                        element={
+                          <StaffRoute>
+                            <PosProvider>
+                              <PosPage />
+                            </PosProvider>
+                          </StaffRoute>
+                        }
+                      />
+                      <Route
+                        path="/staff/kitchen"
+                        element={
+                          <StaffRoute>
+                            <KitchenPage />
+                          </StaffRoute>
+                        }
+                      />
+                    </Route>
+
+                    {/* Onboarding — full-screen, no app chrome */}
+                    <Route path="/onboarding" element={<OnboardingPage />} />
+
+                    <Route
+                      path="/device-enroll"
+                      element={<DeviceEnrollPage />}
+                    />
+                    <Route path="/device-login" element={<DeviceLoginPage />} />
+
+                    {/* Super Admin — dark sidebar, platform-wide access */}
+                    <Route
+                      element={
+                        <SuperAdminRoute>
+                          <SuperAdminLayout />
+                        </SuperAdminRoute>
+                      }
+                    >
+                      <Route path="/super-admin" element={<OverviewPage />} />
+                      <Route
+                        path="/super-admin/tenants"
+                        element={<TenantsPage />}
+                      />
+                      <Route
+                        path="/super-admin/tenants/:id"
+                        element={<TenantDetailPage />}
+                      />
+                      <Route
+                        path="/super-admin/legal"
+                        element={<LegalSettingsPage />}
+                      />
+                      <Route
+                        path="/super-admin/help"
+                        element={<HelpCenterPage />}
+                      />
+                      <Route
+                        path="/super-admin/revenue"
+                        element={<RevenuePage />}
+                      />
+                      <Route
+                        path="/super-admin/data-requests"
+                        element={<DataRequestsPage />}
+                      />
+                    </Route>
+
+                    {/* Impersonation exchange — public, short-lived code */}
+                    <Route
+                      path="/impersonate/:code"
+                      element={<ImpersonationExchangePage />}
+                    />
+
+                    {/* Legal pages — public, no auth required */}
+                    <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/cookies" element={<CookiePolicyPage />} />
+
+                    {/* Customer-facing routes — no header, full viewport */}
+                    <Route element={<PublicLayout />}>
+                      <Route element={<RouteGroupErrorBoundary />}>
+                        <Route
+                          path="/menu/public/:restaurantId"
+                          element={<PublicMenuPage />}
+                        />
+                        <Route path="/checkout" element={<CheckoutPage />} />
+                        <Route
+                          path="/order-confirmation"
+                          element={<OrderConfirmationPage />}
+                        />
+                      </Route>
+                      <Route
+                        path="/feedback/:restaurantId"
+                        element={<FeedbackPage />}
+                      />
+                      <Route
+                        path="/book/:restaurantId"
+                        element={<BookingPage />}
+                      />
+                      <Route
+                        path="/booking/confirmation"
+                        element={<BookingConfirmationPage />}
+                      />
+                      <Route
+                        path="/booking/manage"
+                        element={<BookingManagePage />}
+                      />
+                    </Route>
+
+                    {/* L-FE-1: catch-all for unknown paths */}
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </Suspense>
+                <CookieConsentBanner />
+              </ConsentProvider>
             </AuthProvider>
           </Router>
         </ErrorBoundary>
