@@ -9,6 +9,7 @@ import { MyposCheckoutService } from './providers/mypos-checkout.service';
 import { BoricaCheckoutService } from './providers/borica-checkout.service';
 import { PaymentSessionService } from './session/payment-session.service';
 import { PaymentSettlementService } from './session/payment-settlement.service';
+import { PaymentNotificationFeedService } from './notifications/payment-notification-feed.service';
 
 import { StripeProvider } from './stripe.provider';
 import { EpayProvider } from './epay.provider';
@@ -278,6 +279,7 @@ function createHarness() {
     core,
     events as unknown as EventsGateway,
   );
+  const notifications = new PaymentNotificationFeedService(prisma, core);
   const stripeCheckout = new StripeCheckoutService(
     prisma,
     stripe as unknown as StripeProvider,
@@ -308,6 +310,7 @@ function createHarness() {
     sessions,
     settlement,
     reporting,
+    notifications,
     stripeCheckout,
     epayCheckout,
     myposCheckout,

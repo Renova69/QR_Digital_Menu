@@ -570,6 +570,50 @@ export const getPaymentHistory = (
     .get(`/payments/history/${restaurantId}`, { params })
     .then((res) => res.data);
 
+export type PaymentNotificationKind =
+  | "PAYMENT_SUCCEEDED"
+  | "PAYMENT_REFUNDED";
+
+export interface PaymentNotificationFeedItem {
+  id: string;
+  paymentId: string;
+  tableSessionId: string | null;
+  amount: number;
+  tipAmount: number;
+  currency: string;
+  tableNumber: string | null;
+  customerName: string | null;
+  provider: string;
+  status: string;
+  kind: PaymentNotificationKind;
+  occurredAt: string;
+  read: boolean;
+}
+
+export interface PaymentNotificationFeed {
+  data: PaymentNotificationFeedItem[];
+  unreadCount: number;
+  readThrough: string | null;
+}
+
+export const getPaymentNotificationFeed = (
+  restaurantId: string,
+  limit = 20,
+) =>
+  api
+    .get<PaymentNotificationFeed>(
+      `/payments/notifications/${restaurantId}`,
+      { params: { limit } },
+    )
+    .then((res) => res.data);
+
+export const markPaymentNotificationsRead = (restaurantId: string) =>
+  api
+    .post<{ readThrough: string }>(
+      `/payments/notifications/${restaurantId}/read`,
+    )
+    .then((res) => res.data);
+
 export type PaymentReconciliationProvider =
   "STRIPE" | "EPAY" | "BORICA" | "MYPOS" | "CASH";
 

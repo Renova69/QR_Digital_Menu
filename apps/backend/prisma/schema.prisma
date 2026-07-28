@@ -44,6 +44,7 @@ model User {
   processedDataRequests          DataRequest[]                @relation("DataRequestProcessor")
   pushSubscriptions              PushSubscription[]
   resolvedPaymentReconciliations PaymentReconciliationIssue[] @relation("PaymentReconciliationResolvedBy")
+  paymentNotificationCursors     PaymentNotificationCursor[]
 
   @@index([restaurantId])
   @@map("app_user")
@@ -163,6 +164,7 @@ model Restaurant {
   payments                    Payment[]
   paymentProviderEvents       PaymentProviderEvent[]
   paymentReconciliationIssues PaymentReconciliationIssue[]
+  paymentNotificationCursors  PaymentNotificationCursor[]
   printStations               PrintStation[]
   printAgentTokens            PrintAgentToken[]
   printJobs                   PrintJob[]
@@ -743,6 +745,20 @@ model Payment {
   @@index([tableSessionId])
   @@index([restaurantId])
   @@map("payment")
+}
+
+model PaymentNotificationCursor {
+  userId       String
+  restaurantId String
+  readThrough  DateTime
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@id([userId, restaurantId])
+  @@index([restaurantId, readThrough])
+  @@map("payment_notification_cursor")
 }
 
 // F-PAY-1: a refund's full lifecycle lives here, decoupled from the payment.

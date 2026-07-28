@@ -262,6 +262,33 @@ export class PaymentController {
     );
   }
 
+  @Get('notifications/:restaurantId')
+  @UseGuards(JwtAuthGuard)
+  getPaymentNotificationFeed(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentService.getPaymentNotificationFeed(
+      restaurantId,
+      req.user.id,
+      limit ? parseInt(limit, 10) : undefined,
+    );
+  }
+
+  @Post('notifications/:restaurantId/read')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  markPaymentNotificationsRead(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+  ) {
+    return this.paymentService.markPaymentNotificationsRead(
+      restaurantId,
+      req.user.id,
+    );
+  }
+
   @Get('reconciliation/:restaurantId')
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)

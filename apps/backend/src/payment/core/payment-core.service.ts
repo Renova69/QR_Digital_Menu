@@ -171,7 +171,13 @@ export class PaymentCoreService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { id: true, ownerId: true, isActive: true, deletedAt: true },
+        select: {
+          id: true,
+          ownerId: true,
+          isActive: true,
+          deletedAt: true,
+          notifyAllStaffOnPayment: true,
+        },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },

@@ -10,6 +10,7 @@ import { StripeCheckoutService } from './providers/stripe-checkout.service';
 import { EpayCheckoutService } from './providers/epay-checkout.service';
 import { MyposCheckoutService } from './providers/mypos-checkout.service';
 import { BoricaCheckoutService } from './providers/borica-checkout.service';
+import { PaymentNotificationFeedService } from './notifications/payment-notification-feed.service';
 
 @Injectable()
 export class PaymentService {
@@ -17,6 +18,7 @@ export class PaymentService {
     private readonly sessions: PaymentSessionService,
     private readonly settlement: PaymentSettlementService,
     private readonly reporting: PaymentReportingService,
+    private readonly notifications: PaymentNotificationFeedService,
     private readonly stripeCheckout: StripeCheckoutService,
     private readonly epayCheckout: EpayCheckoutService,
     private readonly myposCheckout: MyposCheckoutService,
@@ -202,6 +204,18 @@ export class PaymentService {
     userId: string,
   ) {
     return this.reporting.getPaymentHistory(restaurantId, query, userId);
+  }
+
+  getPaymentNotificationFeed(
+    restaurantId: string,
+    userId: string,
+    limit?: number,
+  ) {
+    return this.notifications.getFeed(restaurantId, userId, limit);
+  }
+
+  markPaymentNotificationsRead(restaurantId: string, userId: string) {
+    return this.notifications.markAllRead(restaurantId, userId);
   }
 
   getPaymentReconciliationIssues(

@@ -14,6 +14,7 @@ import { MyposCheckoutService } from './providers/mypos-checkout.service';
 import { BoricaCheckoutService } from './providers/borica-checkout.service';
 import { PaymentSessionService } from './session/payment-session.service';
 import { PaymentSettlementService } from './session/payment-settlement.service';
+import { PaymentNotificationFeedService } from './notifications/payment-notification-feed.service';
 
 @Module({
   controllers: [PaymentController],
@@ -28,6 +29,7 @@ import { PaymentSettlementService } from './session/payment-settlement.service';
     BoricaCheckoutService,
     PaymentSessionService,
     PaymentSettlementService,
+    PaymentNotificationFeedService,
     StripeProvider,
     EpayProvider,
     BoricaProvider,

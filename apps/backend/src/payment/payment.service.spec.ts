@@ -19,6 +19,7 @@ import { MyposCheckoutService } from './providers/mypos-checkout.service';
 import { BoricaCheckoutService } from './providers/borica-checkout.service';
 import { PaymentSessionService } from './session/payment-session.service';
 import { PaymentSettlementService } from './session/payment-settlement.service';
+import { PaymentNotificationFeedService } from './notifications/payment-notification-feed.service';
 import {
   BadRequestException,
   ConflictException,
@@ -68,6 +69,7 @@ describe('PaymentService', () => {
       sessions,
     );
     const reporting = new PaymentReportingService(_prisma, core, _events);
+    const notifications = new PaymentNotificationFeedService(_prisma, core);
     const stripeCheckout = new StripeCheckoutService(
       _prisma,
       _stripe as unknown as StripeProvider,
@@ -98,6 +100,7 @@ describe('PaymentService', () => {
       sessions,
       settlement,
       reporting,
+      notifications,
       stripeCheckout,
       epayCheckout,
       myposCheckout,

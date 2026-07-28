@@ -5,7 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -74,6 +74,7 @@ function getMethodLabel(
 const PaymentsView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const { socket } = useSocket();
@@ -86,6 +87,8 @@ const PaymentsView = () => {
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(
     null,
   );
+  const linkedPaymentId = searchParams.get("paymentId");
+  const selectedPaymentId = selectedPayment?.id ?? linkedPaymentId;
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [exportError, setExportError] = useState(false);
@@ -151,9 +154,9 @@ const PaymentsView = () => {
   });
 
   const { data: selectedPaymentDetail, isLoading: isDetailLoading } = useQuery({
-    queryKey: ["paymentDetail", selectedPayment?.id],
-    queryFn: () => getPaymentDetail(selectedPayment!.id),
-    enabled: !!selectedPayment?.id,
+    queryKey: ["paymentDetail", selectedPaymentId],
+    queryFn: () => getPaymentDetail(selectedPaymentId!),
+    enabled: !!selectedPaymentId,
   });
 
   const refundMutation = useMutation({
@@ -168,9 +171,9 @@ const PaymentsView = () => {
       queryClient.invalidateQueries({
         queryKey: ["paymentPayouts", activeRestaurant?.id],
       });
-      if (selectedPayment?.id) {
+      if (selectedPaymentId) {
         queryClient.invalidateQueries({
-          queryKey: ["paymentDetail", selectedPayment.id],
+          queryKey: ["paymentDetail", selectedPaymentId],
         });
       }
     },
@@ -885,7 +888,14 @@ const PaymentsView = () => {
         loading={isDetailLoading}
         refunding={refundMutation.isPending}
         onRefund={(payment) => refundMutation.mutate(payment.id)}
-        onClose={() => setSelectedPayment(null)}
+        onClose={() => {
+          setSelectedPayment(null);
+          if (linkedPaymentId) {
+            const nextSearchParams = new URLSearchParams(searchParams);
+            nextSearchParams.delete("paymentId");
+            setSearchParams(nextSearchParams, { replace: true });
+          }
+        }}
       />
     </section>
   );

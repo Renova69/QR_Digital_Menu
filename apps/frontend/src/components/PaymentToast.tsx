@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, RotateCcw, X } from "lucide-react";
 import { useNotifications } from "../context/NotificationContext";
 import { useTranslation } from "react-i18next";
 
@@ -15,36 +15,66 @@ const PaymentToast = () => {
 
   if (!showToast) return null;
 
-  const tableLabel = showToast.tableNumber
-    ? `Table ${showToast.tableNumber}`
-    : "A table";
+  const isRefund = showToast.kind === "PAYMENT_REFUNDED";
+  const tableLabel =
+    showToast.tableNumber ?? t("payments.unknownTable", "Unknown table");
   const customerLabel = showToast.customerName
     ? ` — ${showToast.customerName}`
     : "";
+  const amountLabel = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: showToast.currency,
+  }).format(showToast.amount);
+  const tipLabel = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: showToast.currency,
+  }).format(showToast.tipAmount);
 
   return (
     <div
       className="fixed bottom-6 right-6 z-50 max-w-sm animate-in slide-in-from-right-8 fade-in duration-300"
       role="alert"
     >
-      <div className="glass-panel border border-emerald-400/30 bg-emerald-400/10 p-4 rounded-2xl shadow-2xl">
+      <div
+        className={`glass-panel rounded-2xl border p-4 shadow-2xl ${
+          isRefund
+            ? "border-amber-400/30 bg-amber-400/10"
+            : "border-emerald-400/30 bg-emerald-400/10"
+        }`}
+      >
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-400/20 border border-emerald-400/30 flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          <div
+            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border ${
+              isRefund
+                ? "border-amber-400/30 bg-amber-400/20"
+                : "border-emerald-400/30 bg-emerald-400/20"
+            }`}
+          >
+            {isRefund ? (
+              <RotateCcw className="h-5 w-5 text-amber-400" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-black text-xs uppercase tracking-widest text-emerald-400 mb-0.5">
-              {t("auto.paymentReceived", "Payment Received")}
+            <p
+              className={`mb-0.5 text-xs font-black uppercase tracking-widest ${
+                isRefund ? "text-amber-400" : "text-emerald-400"
+              }`}
+            >
+              {isRefund
+                ? t("payments.refunded", "Refunded")
+                : t("auto.paymentReceived", "Payment Received")}
             </p>
             <p className="text-sm font-bold text-foreground">
               {tableLabel}
               {customerLabel}
             </p>
             <p className="text-lg font-black text-foreground mt-0.5">
-              €{showToast.amount.toFixed(2)}
+              {amountLabel}
               {showToast.tipAmount > 0 && (
                 <span className="text-xs text-muted-foreground font-normal ml-1">
-                  + €{showToast.tipAmount.toFixed(2)} {t("auto.tip", "tip")}
+                  + {tipLabel} {t("auto.tip", "tip")}
                 </span>
               )}
             </p>
