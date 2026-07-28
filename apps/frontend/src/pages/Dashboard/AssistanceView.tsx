@@ -13,7 +13,6 @@ import {
   Search,
   Sparkles,
   Timer,
-  Volume2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -360,10 +359,6 @@ const AssistanceView = () => {
     }
   };
 
-  const handleSoundPreview = () => {
-    new Audio("/notification.mp3").play().catch(() => {});
-  };
-
   const filters: Array<{
     id: RequestFilter;
     label: string;
@@ -420,15 +415,6 @@ const AssistanceView = () => {
               className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
-          <DashboardButton
-            density="icon"
-            type="button"
-            onClick={handleSoundPreview}
-            className="border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-            aria-label={t("orders.previewSound", "Preview request sound")}
-          >
-            <Volume2 className="h-4 w-4" />
-          </DashboardButton>
         </div>
       </div>
 
