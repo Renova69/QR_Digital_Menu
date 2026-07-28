@@ -115,7 +115,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
       >
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 max-h-[80vh] overflow-y-auto pr-2"
+          className="max-h-[65dvh] space-y-4 overflow-y-auto pr-2 sm:max-h-[80vh]"
         >
           <div className="space-y-2">
             <label className="text-sm font-medium">
