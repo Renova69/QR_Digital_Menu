@@ -537,7 +537,7 @@ const TableView: React.FC = () => {
               <select
                 value={newZoneKey}
                 onChange={(e) => setNewZoneKey(e.target.value)}
-                className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-12 w-full rounded-lg border border-border bg-background px-3 text-base font-medium text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:flex-1 sm:text-sm"
               >
                 <option value="">
                   {t("zonesPicker.choose", "Choose a zone…")}
@@ -557,7 +557,7 @@ const TableView: React.FC = () => {
                   value={newZoneName}
                   onChange={(e) => setNewZoneName(e.target.value)}
                   placeholder={t("auto.zoneName", "Zone name...")}
-                  className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  className="h-12 w-full rounded-lg border border-border bg-background px-3 text-base font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:flex-1 sm:text-sm"
                 />
               )}
               <button
@@ -567,7 +567,7 @@ const TableView: React.FC = () => {
                   !newZoneKey ||
                   (newZoneKey === "__custom__" && !newZoneName.trim())
                 }
-                className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 {t("auto.addZone", "Add Zone")}
@@ -749,13 +749,13 @@ const TableView: React.FC = () => {
                   value={newTableName}
                   onChange={(event) => setNewTableName(event.target.value)}
                   placeholder={t("tables.addPlaceholder")}
-                  className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  className="h-12 w-full rounded-lg border border-border bg-background px-3 text-base font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:flex-1 sm:text-sm"
                 />
                 {zones && zones.length > 1 && (
                   <select
                     value={newTableZoneId}
                     onChange={(e) => setNewTableZoneId(e.target.value)}
-                    className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    className="h-12 w-full rounded-lg border border-border bg-background px-3 text-base font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:w-auto sm:text-sm"
                   >
                     {[...zones]
                       .sort((a, b) => a.displayOrder - b.displayOrder)
@@ -773,7 +773,7 @@ const TableView: React.FC = () => {
                     !newTableName.trim() ||
                     duplicateTable
                   }
-                  className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-auto"
                 >
                   <Plus className="h-4 w-4" />
                   {createMutation.isPending

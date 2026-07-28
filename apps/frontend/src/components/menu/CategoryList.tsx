@@ -198,7 +198,7 @@ const CategoryRow = ({
   return (
     <li
       onClick={onSelect}
-      className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${
+      className={`group flex flex-wrap items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border sm:flex-nowrap ${
         isSelected
           ? "bg-primary text-white border-primary shadow-sm"
           : "hover:bg-secondary border-transparent text-foreground"
@@ -206,7 +206,7 @@ const CategoryRow = ({
     >
       <span
         {...dragHandleProps}
-        className={`cursor-grab active:cursor-grabbing ${isSelected ? "text-white/70" : "text-muted-foreground/30 hover:text-muted-foreground"}`}
+        className={`shrink-0 cursor-grab active:cursor-grabbing ${isSelected ? "text-white/70" : "text-muted-foreground/30 hover:text-muted-foreground"}`}
       >
         <GripVertical className="h-4 w-4 flex-shrink-0" />
       </span>
@@ -241,28 +241,29 @@ const CategoryRow = ({
         </div>
       ) : (
         <>
-          <div className="flex-1 truncate flex items-center gap-2 overflow-hidden">
-            <span className="font-semibold text-sm truncate">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
+            <span className="min-w-0 flex-1 font-semibold text-sm whitespace-normal break-words sm:truncate">
               {category.name}
             </span>
             {category.availabilityType === "HIDDEN" && (
-              <span className="bg-red-100 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">
                 <EyeOff className="h-2 w-2" /> {t("auto.hIDDEN", "HIDDEN")}
               </span>
             )}
             {category.availabilityType === "SCHEDULED" && (
-              <span className="bg-indigo-100 text-indigo-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600">
                 <Timer className="h-2 w-2" /> {t("auto.sCHEDULED", "SCHEDULED")}
               </span>
             )}
           </div>
 
-          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-0.5">
+          <div className="ml-6 flex basis-full items-center justify-end gap-0.5 opacity-100 transition-opacity sm:ml-0 sm:basis-auto sm:opacity-0 sm:group-hover:opacity-100">
             <Button
               variant="ghost"
               size="icon"
               className={`h-6 w-6 ${isSelected ? "hover:bg-white/20 text-white" : "hover:bg-muted text-muted-foreground"}`}
               onClick={onOpenSettings}
+              aria-label={t("menuAdmin.categorySettings", "Category settings")}
             >
               <Clock className="h-3 w-3" />
             </Button>
@@ -271,6 +272,7 @@ const CategoryRow = ({
               size="icon"
               className={`h-6 w-6 ${isSelected ? "hover:bg-white/20 text-white" : "hover:bg-muted text-muted-foreground"}`}
               onClick={(e) => onStartEdit(e, category.id, category.name)}
+              aria-label={t("menuAdmin.editCategory", "Edit category")}
             >
               <Pencil className="h-3 w-3" />
             </Button>
@@ -279,6 +281,7 @@ const CategoryRow = ({
               size="icon"
               className={`h-6 w-6 ${isSelected ? "hover:bg-red-500 text-white" : "hover:bg-red-50 dark:hover:bg-red-900/40 text-red-400"}`}
               onClick={(e) => onDelete(e, category.id, category.name)}
+              aria-label={t("menuAdmin.deleteCategory", "Delete category")}
             >
               <Trash2 className="h-3 w-3" />
             </Button>

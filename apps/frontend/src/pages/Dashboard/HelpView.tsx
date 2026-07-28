@@ -320,7 +320,7 @@ const HelpView = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Categories sidebar navigation */}
         <aside
-          className="lg:col-span-3 space-y-1.5 scrollbar-hide flex lg:flex-col overflow-x-auto pb-2 lg:pb-0 gap-2 lg:gap-0"
+          className="grid grid-cols-2 gap-2 lg:col-span-3 lg:flex lg:flex-col lg:gap-0 lg:space-y-1.5"
           aria-label={t("help.categoriesLabel", "Help categories")}
         >
           {DISPLAY_CATEGORIES.map((cat) => {
@@ -338,14 +338,16 @@ const HelpView = () => {
                   setSearchQuery("");
                   setExpandedFaq(null);
                 }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all border cursor-pointer shrink-0 ${
+                className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all cursor-pointer lg:gap-3 lg:px-4 ${
                   isActive
                     ? "bg-primary/10 text-primary border-primary/20"
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent"
                 }`}
               >
                 <CatIcon className="w-4 h-4 shrink-0" />
-                <span>{t(cat.labelKey, cat.defaultLabel)}</span>
+                <span className="min-w-0 break-words">
+                  {t(cat.labelKey, cat.defaultLabel)}
+                </span>
                 {isActive && (
                   <ChevronRight className="hidden lg:block ml-auto w-4 h-4" />
                 )}

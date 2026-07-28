@@ -86,7 +86,7 @@ const MOBILE_MORE_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
     Icon: CalendarCheck,
     labelKey: "dashboard.tabs.reservations",
   },
-  { id: "analytics", Icon: BarChart2, labelKey: "dashboard.tabs.stats" },
+  { id: "analytics", Icon: BarChart2, labelKey: "dashboard.tabs.analytics" },
   { id: "settings", Icon: Settings, labelKey: "dashboard.tabs.settings" },
   { id: "help", Icon: HelpCircle, labelKey: "dashboard.tabs.help" },
 ];
@@ -812,7 +812,7 @@ const DashboardPage = () => {
             onClick={() => setMobileMoreOpen(false)}
           />
           <div
-            className="absolute bottom-0 inset-x-0 bg-card border-t border-border rounded-t-2xl shadow-2xl p-4"
+            className="absolute bottom-0 inset-x-0 max-h-[85dvh] overflow-y-auto bg-card border-t border-border rounded-t-2xl shadow-2xl p-4"
             style={{
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
             }}
@@ -867,6 +867,17 @@ const DashboardPage = () => {
                 <Users className="w-[18px] h-[18px]" />
                 <span>{t("dashboard.viewPublicMenu", "View Menu")}</span>
               </a>
+            )}
+
+            {!isStaff && (
+              <Link
+                to="/dashboard/menu"
+                onClick={() => setMobileMoreOpen(false)}
+                className="mb-3 flex w-full items-center gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+              >
+                <Utensils className="h-[18px] w-[18px]" />
+                <span>{t("dashboard.tabs.menuEditor")}</span>
+              </Link>
             )}
 
             {/* Overflow tabs (dashboard roles only) */}

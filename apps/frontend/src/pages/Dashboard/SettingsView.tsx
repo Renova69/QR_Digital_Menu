@@ -131,7 +131,7 @@ const SettingsView = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`rounded-md px-4 py-2.5 text-center text-sm font-medium whitespace-nowrap transition-colors sm:rounded-none sm:py-2 sm:border-b-2 sm:-mb-px ${
                 activeTab === tab.id
-                  ? "bg-primary/10 text-primary sm:bg-transparent sm:border-primary"
+                  ? "bg-primary text-primary-foreground shadow-sm sm:bg-transparent sm:text-primary sm:border-primary sm:shadow-none"
                   : "text-muted-foreground hover:text-foreground sm:border-transparent"
               }`}
             >
@@ -141,7 +141,7 @@ const SettingsView = () => {
         </div>
 
         {/* Tab content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {activeTab === "general" && <GeneralSettingsTab />}
           {activeTab === "loyalty" && canLoyalty && <LoyaltySettingsTab />}
           {activeTab === "loyalty" && !canLoyalty && (

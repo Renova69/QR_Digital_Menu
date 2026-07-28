@@ -273,8 +273,8 @@ const LiveTablesView: React.FC = () => {
       </div>
 
       <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="overflow-x-auto hide-scrollbar">
-          <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+        <div className="grid grid-cols-2 gap-2 sm:block sm:overflow-x-auto sm:hide-scrollbar">
+          <div className="contents sm:inline-flex sm:min-w-max sm:items-center sm:gap-1 sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-1 sm:shadow-sm">
             {filterConfig.map(({ id, labelKey, fallback, Icon }) => {
               const active = filter === id;
               return (
@@ -283,10 +283,10 @@ const LiveTablesView: React.FC = () => {
                   type="button"
                   onClick={() => setFilter(id)}
                   className={cn(
-                    "flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]",
+                    "flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-sm font-bold shadow-sm transition active:scale-[0.98] sm:h-9 sm:w-auto sm:rounded-md sm:border-0 sm:px-4 sm:shadow-none",
                     active
-                      ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "border-primary bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground sm:bg-transparent",
                   )}
                 >
                   <Icon className="h-4 w-4" />

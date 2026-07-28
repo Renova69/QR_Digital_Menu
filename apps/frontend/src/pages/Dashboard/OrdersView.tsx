@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Search,
   Utensils,
-  Volume2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -341,10 +340,6 @@ const OrdersView = () => {
     }
   };
 
-  const handleSoundPreview = () => {
-    new Audio("/notification.mp3").play().catch(() => {});
-  };
-
   const activeStatus = ORDER_STATUSES.find(
     (status) => status.status === activeTab,
   );
@@ -436,14 +431,6 @@ const OrdersView = () => {
               className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
-          <button
-            type="button"
-            onClick={handleSoundPreview}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary transition hover:bg-primary/15"
-            aria-label={t("orders.previewSound", "Preview order sound")}
-          >
-            <Volume2 className="h-4 w-4" />
-          </button>
         </div>
       </div>
 

@@ -21,10 +21,21 @@ interface ChoiceInput {
   priceModifier: number;
 }
 
+let fallbackChoiceId = 0;
+
+const createClientId = (): string => {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  fallbackChoiceId += 1;
+  return `choice-${Date.now().toString(36)}-${fallbackChoiceId.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+};
+
 const createChoiceInput = (
   choice: Omit<ChoiceInput, "clientId"> = { name: "", priceModifier: 0 },
 ): ChoiceInput => ({
-  clientId: crypto.randomUUID(),
+  clientId: createClientId(),
   ...choice,
 });
 
@@ -89,7 +100,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
   const handleStartEdit = (option: MenuOption) => {
     const parsedChoices: ChoiceInput[] = (option.choices as any[]).map(
       (c: any) => ({
-        clientId: c.id ?? crypto.randomUUID(),
+        clientId: c.id ?? createClientId(),
         name: c.name,
         priceModifier: c.priceModifier ?? 0,
       }),
@@ -182,8 +193,8 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
       onOpenChange={onOpenChange}
       title={`${t("menu.options", "Options:")} ${item.name}`}
     >
-      <div className="max-w-2xl w-full">
-        <h2 className="text-2xl font-display font-bold mb-6">
+      <div className="max-h-[70vh] w-full max-w-2xl overflow-y-auto pr-1">
+        <h2 className="mb-6 text-xl font-display font-bold sm:text-2xl">
           {t("menu.options", "Options:")}{" "}
           <span className="text-primary">{item.name}</span>
         </h2>
@@ -306,7 +317,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
 
         {/* Add Option Form */}
         {isAdding ? (
-          <div className="bg-secondary/20 p-6 rounded-xl border border-border">
+          <div className="rounded-xl border border-border bg-secondary/20 p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">
                 {editingId ? "Edit Option" : "Create New Option"}
@@ -323,7 +334,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
                   {t("auto.optionName", "Option Name")}
@@ -372,8 +383,11 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
               </div>
 
               {choices.map((choice, index) => (
-                <div key={choice.clientId} className="flex items-center gap-3">
-                  <div className="flex-1">
+                <div
+                  key={choice.clientId}
+                  className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
+                >
+                  <div className="min-w-0 flex-1">
                     <Input
                       placeholder={t(
                         "auto.choiceNameEGSmallRare",
@@ -385,7 +399,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                       }
                     />
                   </div>
-                  <div className="w-32 relative">
+                  <div className="relative w-full sm:w-32">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                       +€
                     </span>
@@ -408,7 +422,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                     size="icon"
                     onClick={() => handleRemoveChoiceRow(index)}
                     disabled={choices.length === 1}
-                    className="text-muted-foreground hover:text-red-500"
+                    className="self-end text-muted-foreground hover:text-red-500 sm:self-auto"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

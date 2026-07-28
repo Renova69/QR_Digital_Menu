@@ -52,7 +52,7 @@ export function CustomPreferencesEditor({
           </span>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -64,11 +64,11 @@ export function CustomPreferencesEditor({
           }}
           maxLength={40}
           placeholder={t("reservations.addChipPlaceholder", "Add a chip…")}
-          className="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+          className="h-11 min-w-0 w-full flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
         />
         <button
           onClick={add}
-          className="text-sm px-3 py-1.5 rounded-lg bg-white border font-medium"
+          className="h-11 w-full shrink-0 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted sm:w-auto"
         >
           {t("reservations.add", "Add")}
         </button>

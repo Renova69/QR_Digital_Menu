@@ -158,8 +158,8 @@ const ItemRow = ({
   t: any;
 }) => {
   return (
-    <div className="p-4 bg-card border border-border rounded-lg shadow-sm hover:border-primary/30 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
-      <div className="flex items-start gap-3 flex-1">
+    <div className="group flex min-w-0 flex-col items-start justify-between gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 sm:flex-row sm:items-center">
+      <div className="flex w-full min-w-0 flex-1 items-start gap-3">
         {/* Drag handle - only this triggers drag */}
         <span
           {...dragHandleProps}
@@ -169,7 +169,7 @@ const ItemRow = ({
         </span>
 
         {item.imageUrl && (
-          <div className="h-16 w-16 min-w-[4rem] rounded-md overflow-hidden bg-secondary border border-border">
+          <div className="h-16 w-16 min-w-[4rem] shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
             <img
               src={
                 item.imageUrl.startsWith("http")
@@ -181,40 +181,42 @@ const ItemRow = ({
             />
           </div>
         )}
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h4 className="font-bold text-foreground">{item.name}</h4>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+            <h4 className="max-w-full break-words font-bold text-foreground">
+              {item.name}
+            </h4>
             {item.isOutOfStock && (
-              <span className="px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 text-[10px] font-bold uppercase tracking-wide border border-red-100">
+              <span className="shrink-0 rounded-full border border-red-100 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
                 {t("menuAdmin.outOfStock", "86'd")}
               </span>
             )}
-            <div className="flex gap-1">
+            <div className="flex flex-wrap max-w-full gap-1">
               {item.dietaryTags?.map((tag) => {
                 const preset = resolveTag(tag);
                 const label = preset ? t(preset.labelKey, tag) : tag;
                 return (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-medium border border-green-100"
+                    className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-green-100 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
                   >
-                    {preset && <preset.Icon className="h-2.5 w-2.5" />}
+                    {preset && <preset.Icon className="h-2.5 w-2.5 shrink-0" />}
                     {label}
                   </span>
                 );
               })}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+          <p className="mt-0.5 line-clamp-2 sm:line-clamp-1 break-words text-xs text-muted-foreground">
             {item.description}
           </p>
-          <div className="flex items-center gap-3 mt-2">
-            <span className="font-bold text-primary">
+          <div className="mt-2 flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <span className="shrink-0 font-bold text-primary">
               {item.currency === "BGN" ? "лв" : "€"}
               {item.price.toFixed(2)}
             </span>
             {item.allergens && item.allergens.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground/70">
+              <div className="flex flex-wrap max-w-full min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground/70">
                 <Info className="h-3 w-3 flex-shrink-0" />
                 <span>{t("publicMenu.contains", "Contains")}:</span>
                 {item.allergens.map((tag) => {
@@ -223,9 +225,11 @@ const ItemRow = ({
                   return (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100"
+                      className="inline-flex max-w-full items-center gap-1 whitespace-normal break-words rounded-full border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-amber-700"
                     >
-                      {preset && <preset.Icon className="h-2.5 w-2.5" />}
+                      {preset && (
+                        <preset.Icon className="h-2.5 w-2.5 shrink-0" />
+                      )}
                       {label}
                     </span>
                   );
@@ -237,7 +241,7 @@ const ItemRow = ({
       </div>
 
       {/* Action buttons - NOT inside drag target */}
-      <div className="flex items-center gap-2 self-end sm:self-auto">
+      <div className="flex w-full flex-wrap items-center justify-end gap-2 self-end sm:w-auto sm:self-auto">
         {isConfirmingDelete ? (
           <>
             <span className="text-xs text-red-600 font-medium">

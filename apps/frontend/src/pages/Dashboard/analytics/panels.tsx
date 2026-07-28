@@ -227,67 +227,126 @@ export const HourlyDemand = ({
         </div>
       </div>
 
-      <div className="relative h-[230px]">
-        <div className="absolute inset-x-0 top-4 bottom-10 flex flex-col justify-between pointer-events-none">
-          {[0, 1, 2, 3].map((line) => (
-            <div key={line} className="border-t border-dashed border-border" />
-          ))}
-        </div>
+      <div
+        data-testid="hourly-demand-mobile"
+        className="flex flex-col gap-2 sm:hidden"
+      >
+        {displayHours.map((hour) => {
+          const isPeak = hour.hour === peak?.hour && hour.orders > 0;
+          const isBusy = hour.orders >= averageOrders && hour.orders > 0;
+          const isActive = hour.hour === activeHour?.hour;
+          const width =
+            hour.orders > 0 ? Math.max(6, (hour.orders / maxOrders) * 100) : 2;
 
-        <div
-          className="relative flex h-full items-end gap-1 overflow-x-auto pb-10 sm:gap-1.5 md:overflow-hidden lg:gap-2"
-          onMouseLeave={() => setHoveredHour(null)}
-        >
-          {displayHours.map((hour) => {
-            const isPeak = hour.hour === peak?.hour && hour.orders > 0;
-            const isBusy = hour.orders >= averageOrders && hour.orders > 0;
-            const height =
-              hour.orders > 0
-                ? Math.max(18, (hour.orders / maxOrders) * 150)
-                : 8;
-            const isActive = hour.hour === activeHour?.hour;
-
-            return (
-              <div
-                key={hour.hour}
-                role="button"
-                tabIndex={0}
-                aria-label={t("analytics.hourBarLabel", {
-                  label: hour.label,
-                  orders: hour.orders,
-                })}
-                className={`relative flex h-full min-w-[24px] flex-1 cursor-pointer flex-col items-center justify-end rounded-md px-0 outline-none transition md:min-w-0 ${
-                  isActive
-                    ? "bg-primary/10 ring-1 ring-primary/20"
-                    : "hover:bg-secondary"
-                }`}
-                onMouseEnter={() => setHoveredHour(hour)}
-                onMouseMove={() => setHoveredHour(hour)}
-                onFocus={() => setHoveredHour(hour)}
-                onBlur={() => setHoveredHour(null)}
-              >
-                <div
-                  className={`w-2 rounded-t-lg transition-all duration-300 sm:w-2.5 lg:w-3 xl:w-3.5 ${
+          return (
+            <button
+              key={hour.hour}
+              type="button"
+              aria-label={t("analytics.hourBarLabel", {
+                label: hour.label,
+                orders: hour.orders,
+              })}
+              className={`rounded-lg border p-3 text-left outline-none transition ${
+                isActive
+                  ? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
+                  : "border-border bg-card"
+              }`}
+              onClick={() => setHoveredHour(hour)}
+              onFocus={() => setHoveredHour(hour)}
+            >
+              <span className="flex items-center justify-between gap-3">
+                <span
+                  className={`text-xs font-black ${isPeak ? "text-rose-500" : "text-foreground"}`}
+                >
+                  {hour.label}
+                </span>
+                <span className="text-xs font-bold text-muted-foreground">
+                  {t("analytics.peakOrdersCount", { count: hour.orders })}
+                </span>
+              </span>
+              <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-border">
+                <span
+                  className={`block h-full rounded-full transition-all ${
                     isPeak
-                      ? "bg-rose-500 shadow-lg shadow-rose-500/25"
+                      ? "bg-rose-500"
                       : isBusy
                         ? "bg-primary"
                         : "bg-primary/35"
                   }`}
-                  style={{ height }}
-                  title={t("analytics.hourBarTooltip", {
+                  style={{ width: `${width}%` }}
+                />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div data-testid="hourly-demand-chart" className="hidden sm:block">
+        <div className="relative h-[230px]">
+          <div className="absolute inset-x-0 top-4 bottom-10 flex flex-col justify-between pointer-events-none">
+            {[0, 1, 2, 3].map((line) => (
+              <div
+                key={line}
+                className="border-t border-dashed border-border"
+              />
+            ))}
+          </div>
+
+          <div
+            className="relative flex h-full items-end gap-1 overflow-x-auto pb-10 sm:gap-1.5 md:overflow-hidden lg:gap-2"
+            onMouseLeave={() => setHoveredHour(null)}
+          >
+            {displayHours.map((hour) => {
+              const isPeak = hour.hour === peak?.hour && hour.orders > 0;
+              const isBusy = hour.orders >= averageOrders && hour.orders > 0;
+              const height =
+                hour.orders > 0
+                  ? Math.max(18, (hour.orders / maxOrders) * 150)
+                  : 8;
+              const isActive = hour.hour === activeHour?.hour;
+
+              return (
+                <div
+                  key={hour.hour}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t("analytics.hourBarLabel", {
                     label: hour.label,
                     orders: hour.orders,
                   })}
-                />
-                <span
-                  className={`mt-2 text-[10px] font-bold ${isPeak ? "text-rose-500" : isActive ? "text-primary" : "text-muted-foreground"}`}
+                  className={`relative flex h-full min-w-[24px] flex-1 cursor-pointer flex-col items-center justify-end rounded-md px-0 outline-none transition md:min-w-0 ${
+                    isActive
+                      ? "bg-primary/10 ring-1 ring-primary/20"
+                      : "hover:bg-secondary"
+                  }`}
+                  onMouseEnter={() => setHoveredHour(hour)}
+                  onMouseMove={() => setHoveredHour(hour)}
+                  onFocus={() => setHoveredHour(hour)}
+                  onBlur={() => setHoveredHour(null)}
                 >
-                  {hour.hour}
-                </span>
-              </div>
-            );
-          })}
+                  <div
+                    className={`w-2 rounded-t-lg transition-all duration-300 sm:w-2.5 lg:w-3 xl:w-3.5 ${
+                      isPeak
+                        ? "bg-rose-500 shadow-lg shadow-rose-500/25"
+                        : isBusy
+                          ? "bg-primary"
+                          : "bg-primary/35"
+                    }`}
+                    style={{ height }}
+                    title={t("analytics.hourBarTooltip", {
+                      label: hour.label,
+                      orders: hour.orders,
+                    })}
+                  />
+                  <span
+                    className={`mt-2 text-[10px] font-bold ${isPeak ? "text-rose-500" : isActive ? "text-primary" : "text-muted-foreground"}`}
+                  >
+                    {hour.hour}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -498,8 +557,7 @@ export const TableYield = ({
         >
           {displayTables.map((table, index) => {
             const isPeak = table.revenue === maxRevenue && table.revenue > 0;
-            const isBusy =
-              table.revenue >= averageRevenue && table.revenue > 0;
+            const isBusy = table.revenue >= averageRevenue && table.revenue > 0;
             return (
               <Cell
                 key={`${table.table}-${index}`}
