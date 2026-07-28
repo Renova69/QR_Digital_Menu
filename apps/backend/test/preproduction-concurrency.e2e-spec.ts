@@ -904,8 +904,8 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         description: 'Hot soup',
         price: 5,
         currency: Currency.EUR,
-        allergens: ['milk'],
-        dietaryTags: ['vegetarian'],
+        allergens: ['house allergen'],
+        dietaryTags: ['chef recommendation'],
         categoryId: category.id,
         order: 1,
       },
@@ -925,6 +925,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       release = resolve;
     });
     const translator = {
+      maxBatchSize: 50,
       translateTexts: jest.fn(async (texts: string[], lang: string) => {
         arrivals += 1;
         if (arrivals === 2) release();
@@ -972,14 +973,18 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       de: {
         name: 'Soup-de',
         description: 'Hot soup-de',
-        allergens: { milk: 'milk-de' },
-        dietaryTags: { vegetarian: 'vegetarian-de' },
+        allergens: { 'house allergen': 'house allergen-de' },
+        dietaryTags: {
+          'chef recommendation': 'chef recommendation-de',
+        },
       },
       fr: {
         name: 'Soup-fr',
         description: 'Hot soup-fr',
-        allergens: { milk: 'milk-fr' },
-        dietaryTags: { vegetarian: 'vegetarian-fr' },
+        allergens: { 'house allergen': 'house allergen-fr' },
+        dietaryTags: {
+          'chef recommendation': 'chef recommendation-fr',
+        },
       },
     });
     expect(storedOption.translations).toMatchObject({
@@ -1033,6 +1038,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     });
 
     const lazyTranslator = {
+      maxBatchSize: 50,
       translateTexts: jest.fn(async (texts: string[], lang: string) =>
         texts.map((text) => `${text}-${lang}`),
       ),
@@ -1070,6 +1076,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       startEnqueue: () => Promise<unknown>,
       entityType: 'CATEGORY' | 'ITEM' | 'OPTION',
       entityId: string,
+      expectedFields: Array<'NAME' | 'DESCRIPTION' | 'CHOICES'>,
       lazyLanguage: string,
       readTranslations: () => Promise<unknown>,
     ) => {
@@ -1089,10 +1096,20 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
 
       // The edit must have queued STALE work for the restaurant's
       // configured target languages (de, fr — see createRestaurantFixture).
-      const queuedRows = await prisma.menuTranslationState.findMany({
-        where: { entityType, entityId, field: 'NAME' },
+      const expectedQueueKeys = expectedFields
+        .flatMap((field) => ['de', 'fr'].map((locale) => `${field}:${locale}`))
+        .sort();
+      await waitFor(async () => {
+        const rows = await prisma.menuTranslationState.findMany({
+          where: { entityType, entityId },
+        });
+        expect(rows.map((row) => `${row.field}:${row.locale}`).sort()).toEqual(
+          expectedQueueKeys,
+        );
       });
-      expect(queuedRows.map((r) => r.locale).sort()).toEqual(['de', 'fr']);
+      const queuedRows = await prisma.menuTranslationState.findMany({
+        where: { entityType, entityId },
+      });
       expect(queuedRows.every((r) => r.status === 'STALE')).toBe(true);
       expect(stubWorker.kick).toHaveBeenCalled();
     };
@@ -1106,6 +1123,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         ),
       'CATEGORY',
       category.id,
+      ['NAME'],
       'es',
       async () =>
         (
@@ -1119,6 +1137,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       () => crud.updateItem(item.id, { name: 'Updated soup' }, owner.id),
       'ITEM',
       item.id,
+      ['NAME', 'DESCRIPTION'],
       'it',
       async () =>
         (
@@ -1133,6 +1152,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         crud.updateMenuOption(option.id, { name: 'Updated size' }, owner.id),
       'OPTION',
       option.id,
+      ['NAME', 'CHOICES'],
       'ro',
       async () =>
         (
