@@ -2,6 +2,17 @@ const SESSION_FRAGMENT_KEY = "session";
 const MAX_TABLE_SESSION_TOKEN_LENGTH = 256;
 const HOSTED_CHECKOUT_STORAGE_PREFIX = "hosted-checkout:";
 
+export type HostedCheckoutMarker = {
+  token: string;
+  startedAt: number;
+  paymentId?: string;
+  provider?: "STRIPE" | "EPAY" | "BORICA" | "MYPOS";
+  total?: number;
+  restaurantId?: string;
+  tableNumber?: string;
+  menuReturnUrl?: string;
+};
+
 function isValidTableSessionToken(token: string): boolean {
   return token.length > 0 && token.length <= MAX_TABLE_SESSION_TOKEN_LENGTH;
 }
@@ -41,10 +52,10 @@ export function hostedCheckoutStorageKey(token: string): string {
  * Marker contents must agree with the key so malformed/stale storage cannot
  * substitute an unrelated credential.
  */
-export function findHostedCheckoutToken(
+export function findHostedCheckoutMarker(
   storage: Pick<Storage, "length" | "key" | "getItem">,
-): string | null {
-  let newest: { token: string; startedAt: number } | null = null;
+): HostedCheckoutMarker | null {
+  let newest: HostedCheckoutMarker | null = null;
 
   try {
     for (let index = 0; index < storage.length; index += 1) {
@@ -60,6 +71,12 @@ export function findHostedCheckoutToken(
       const marker = JSON.parse(raw) as {
         token?: unknown;
         startedAt?: unknown;
+        paymentId?: unknown;
+        provider?: unknown;
+        total?: unknown;
+        restaurantId?: unknown;
+        tableNumber?: unknown;
+        menuReturnUrl?: unknown;
       };
       if (
         marker.token !== token ||
@@ -70,14 +87,45 @@ export function findHostedCheckoutToken(
       }
 
       if (!newest || marker.startedAt > newest.startedAt) {
-        newest = { token, startedAt: marker.startedAt };
+        newest = {
+          token,
+          startedAt: marker.startedAt,
+          ...(typeof marker.paymentId === "string"
+            ? { paymentId: marker.paymentId }
+            : {}),
+          ...(["STRIPE", "EPAY", "BORICA", "MYPOS"].includes(
+            String(marker.provider),
+          )
+            ? {
+                provider: marker.provider as HostedCheckoutMarker["provider"],
+              }
+            : {}),
+          ...(typeof marker.total === "number" && Number.isFinite(marker.total)
+            ? { total: marker.total }
+            : {}),
+          ...(typeof marker.restaurantId === "string"
+            ? { restaurantId: marker.restaurantId }
+            : {}),
+          ...(typeof marker.tableNumber === "string"
+            ? { tableNumber: marker.tableNumber }
+            : {}),
+          ...(typeof marker.menuReturnUrl === "string"
+            ? { menuReturnUrl: marker.menuReturnUrl }
+            : {}),
+        };
       }
     }
   } catch {
     return null;
   }
 
-  return newest?.token ?? null;
+  return newest;
+}
+
+export function findHostedCheckoutToken(
+  storage: Pick<Storage, "length" | "key" | "getItem">,
+): string | null {
+  return findHostedCheckoutMarker(storage)?.token ?? null;
 }
 
 /** Keep client-only credentials out of URLs handed to payment providers. */

@@ -595,6 +595,10 @@
     "continue": "Passer au paiement",
     "pay": "Rémunération",
     "processing": "Traitement en cours...",
+    "confirmingPayment": "Confirmation du paiement",
+    "confirmingPaymentDesc": "Nous attendons la confirmation sécurisée. Ne payez pas une seconde fois.",
+    "verificationUnavailable": "Nous n'avons pas encore pu vérifier ce paiement",
+    "verificationUnavailableDesc": "Vérifiez votre connexion et réessayez. Si vous avez été débité, ne payez pas à nouveau.",
     "backToMenu": "Retour au menu",
     "loading": "Chargement en cours...",
     "paymentFailed": "Le paiement a échoué. Veuillez réessayer.",
@@ -969,9 +973,9 @@
     "loyaltyLocked": "Le programme de fidélité est inclus dans la formule « Professional »",
     "loyaltyLockedDesc": "Effectuez la mise à jour pour réactiver votre programme de fidélité. Vos paramètres actuels et les soldes de points de vos clients seront conservés et reprendront automatiquement.",
     "googleReview": "Appel à l'action pour les avis Google",
-    "googleReviewDesc": "Une fois le paiement effectué, les clients ayant attribué une note de 4 ou 5 étoiles sont redirigés vers votre page d'avis Google.",
+    "googleReviewDesc": "Après le paiement, chaque client peut choisir de partager son expérience sur votre page d'avis Google.",
     "googleReviewUrl": "URL de l'avis Google",
-    "googleReviewActive": "Redirection activée — les clients seront redirigés vers Google après le paiement",
+    "googleReviewActive": "Lien d'avis Google actif — proposé après le retour privé",
     "googleReviewPlaceholder": "https://g.page/r/YOUR_REVIEW_LINK",
     "addressPlaceholder": "123, boulevard Vitosha, Sofia"
   },
@@ -1084,10 +1088,10 @@
     "accentColor": "Couleur d'accent de la marque",
     "logo": "Logo de l'entreprise",
     "googleReview": "Lien vers les avis",
-    "googleReviewDesc": "Les clients qui attribuent une note de 4 à 5 étoiles seront redirigés vers la page permettant de laisser un avis sur Google.",
+    "googleReviewDesc": "Après le paiement, chaque client peut choisir de partager son expérience sur votre page d'avis Google.",
     "save": "Enregistrer les paramètres de la marque",
     "saving": "Enregistrement en cours...",
-    "redirectActive": "La redirection vers les avis est active",
+    "redirectActive": "Le lien d'avis Google est actif",
     "typography": "Typographie",
     "headingFont": "Police des titres",
     "bodyFont": "Police du corps du texte",
@@ -1981,7 +1985,7 @@
       },
       "feedback": {
         "title": "Avis des clients",
-        "desc": "Recueillez des avis après chaque visite, triez-les par note et redirigez les clients satisfaits vers votre page d'avis Google."
+        "desc": "Recueillez des retours privés après chaque visite et proposez à chaque client un lien facultatif vers votre page d'avis Google."
       },
       "menuImport": {
         "title": "Menu Importation et exportation",
@@ -2953,6 +2957,7 @@
     "tellUsDoBetter": "Nous sommes désolés. Dites-nous comment nous pouvons nous améliorer.",
     "whatDidYouEnjoy": "Qu'est-ce qui t'a le plus plu ? (facultatif)",
     "whatCouldImprove": "Que pourrions-nous améliorer ? (facultatif)",
+    "shareExperienceOptional": "Parlez-nous de votre expérience (facultatif)",
     "back": "Retour",
     "submit": "Envoyer",
     "submitting": "Envoi en cours...",

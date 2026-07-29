@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Star, ChefHat, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { ChefHat, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { useSocket } from "../context/SocketContext";
 import { useTranslation } from "react-i18next";
 import { buildMenuReturnUrl } from "../lib/menuUrl";
@@ -244,36 +244,6 @@ const OrderConfirmationPage = () => {
             <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5 text-primary" />
             </div>
-          </div>
-        )}
-
-        {/* Feedback CTA */}
-        {orderNumber && restaurantId && (
-          <div className="glass-panel rounded-[2rem] p-5 border border-amber-400/20 bg-amber-400/5">
-            <div className="flex items-center gap-1.5 mb-3">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className="h-4 w-4 fill-amber-400 text-amber-400"
-                />
-              ))}
-            </div>
-            <p className="font-bold text-foreground mb-1 text-sm">
-              {t("orderConfirmation.enjoyingVisit")}
-            </p>
-            <p className="text-xs text-muted-foreground mb-4">
-              {t("orderConfirmation.feedbackHelps")}
-            </p>
-            <button
-              onClick={() =>
-                navigate(
-                  `/feedback/${restaurantId}?orderId=${orderNumber}&returnUrl=${encodeURIComponent(menuReturnUrl)}`,
-                )
-              }
-              className="w-full py-3 px-4 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-600 dark:text-amber-400 font-black text-xs uppercase tracking-widest hover:bg-amber-400/25 transition-colors active:scale-95"
-            >
-              {t("orderConfirmation.rateExperience")}
-            </button>
           </div>
         )}
 

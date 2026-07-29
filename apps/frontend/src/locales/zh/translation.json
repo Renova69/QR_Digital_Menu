@@ -595,6 +595,10 @@
     "continue": "继续支付",
     "pay": "支付",
     "processing": "正在处理...",
+    "confirmingPayment": "正在确认付款",
+    "confirmingPaymentDesc": "我们正在等待安全确认，请勿重复付款。",
+    "verificationUnavailable": "暂时无法验证此付款",
+    "verificationUnavailableDesc": "请检查网络连接后重试。如果已经扣款，请勿再次付款。",
     "backToMenu": "返回菜单",
     "loading": "正在加载...",
     "paymentFailed": "支付失败。请重试。",
@@ -969,9 +973,9 @@
     "loyaltyLocked": "“忠诚度”是“专业版”计划的一部分",
     "loyaltyLockedDesc": "请升级以重新启用您的忠诚度计划。您的现有设置和客户积分余额将得以保留，并自动恢复。",
     "googleReview": "Google 评论 行动号召",
-    "googleReviewDesc": "结账后，给予4星或5星评分的顾客将被重定向至您的Google评论页面。",
+    "googleReviewDesc": "付款后，每位顾客都可以选择前往您的Google评价页面分享真实体验。",
     "googleReviewUrl": "Google 评论链接",
-    "googleReviewActive": "重定向已启用——结账后客户将被引导至 Google",
+    "googleReviewActive": "Google评价链接已启用——在私密反馈后提供",
     "googleReviewPlaceholder": "https://g.page/r/YOUR_REVIEW_LINK",
     "addressPlaceholder": "索非亚，维托沙大道123号"
   },
@@ -1084,10 +1088,10 @@
     "accentColor": "品牌点缀色",
     "logo": "公司标志",
     "googleReview": "评论 链接",
-    "googleReviewDesc": "给4-5星评分的顾客将被重定向至Google评论页面",
+    "googleReviewDesc": "付款后，每位顾客都可以选择前往您的Google评价页面分享真实体验",
     "save": "保存品牌设置",
     "saving": "正在保存...",
-    "redirectActive": "评论重定向已启用",
+    "redirectActive": "Google评价链接已启用",
     "typography": "排版",
     "headingFont": "标题字体",
     "bodyFont": "正文字体",
@@ -1981,7 +1985,7 @@
       },
       "feedback": {
         "title": "客户反馈",
-        "desc": "每次顾客光临后收集评价，按评分进行筛选，并将满意的顾客引导至您的 Google 评价页面。"
+        "desc": "每次顾客光临后收集私密反馈，并向每位顾客提供可选的 Google 评价页面链接。"
       },
       "menuImport": {
         "title": "菜单导入与导出",
@@ -2953,6 +2957,7 @@
     "tellUsDoBetter": "对此我们深表歉意。请告诉我们如何改进。",
     "whatDidYouEnjoy": "你最喜欢什么？（可选）",
     "whatCouldImprove": "我们还有哪些方面可以改进？（可选）",
+    "shareExperienceOptional": "请告诉我们更多关于您的体验（可选）",
     "back": "返回",
     "submit": "提交",
     "submitting": "正在提交...",

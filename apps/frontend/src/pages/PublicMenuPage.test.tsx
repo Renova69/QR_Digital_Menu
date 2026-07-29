@@ -142,6 +142,10 @@ function renderMenu(entry = "/menu/rest-1") {
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/menu/:restaurantId" element={<PublicMenuPage />} />
+        <Route
+          path="/payment-confirmation"
+          element={<div>payment confirmation</div>}
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -307,6 +311,65 @@ describe("PublicMenuPage", () => {
     expect(
       await screen.findByText("Payment received successfully"),
     ).toBeTruthy();
+  });
+
+  it("opens payment confirmation after a verified hosted-checkout return", async () => {
+    localStorage.setItem("session-rest-1-5", "tok-1");
+    sessionStorage.setItem(
+      "hosted-checkout:tok-1",
+      JSON.stringify({
+        token: "tok-1",
+        startedAt: Date.now(),
+        paymentId: "payment-1",
+        provider: "EPAY",
+        total: 20,
+      }),
+    );
+
+    renderMenu("/menu/rest-1?payment=epay-ok&table=5");
+
+    expect(await screen.findByText("payment confirmation")).toBeTruthy();
+    expect(
+      JSON.parse(sessionStorage.getItem("payment-confirmation") ?? "{}"),
+    ).toEqual(
+      expect.objectContaining({
+        paymentId: "payment-1",
+        sessionToken: "tok-1",
+        provider: "EPAY",
+        menuReturnUrl: "/menu/rest-1?table=5",
+      }),
+    );
+  });
+
+  it("opens payment confirmation after a Stripe 3DS return", async () => {
+    localStorage.setItem("session-rest-1-5", "tok-1");
+    sessionStorage.setItem(
+      "hosted-checkout:tok-1",
+      JSON.stringify({
+        token: "tok-1",
+        startedAt: Date.now(),
+        paymentId: "payment-stripe",
+        provider: "STRIPE",
+        total: 20,
+      }),
+    );
+
+    renderMenu(
+      "/menu/rest-1?table=5&payment_intent=pi_1&payment_intent_client_secret=secret&redirect_status=succeeded",
+    );
+
+    expect(await screen.findByText("payment confirmation")).toBeTruthy();
+    expect(
+      JSON.parse(sessionStorage.getItem("payment-confirmation") ?? "{}"),
+    ).toEqual(
+      expect.objectContaining({
+        paymentId: "payment-stripe",
+        sessionToken: "tok-1",
+        provider: "STRIPE",
+        menuReturnUrl: "/menu/rest-1?table=5",
+      }),
+    );
+    expect(apiMocks.abandonCheckout).not.toHaveBeenCalled();
   });
 
   it("abandons a pending hosted checkout on return when no payment param is present", async () => {

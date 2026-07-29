@@ -17,7 +17,7 @@ import {
 } from "../../lib/api";
 import { Button } from "../ui/button";
 import { useTranslation } from "react-i18next";
-import { Banknote, CheckCircle2, ReceiptText, Users, X } from "lucide-react";
+import { Banknote, ReceiptText, Users, X } from "lucide-react";
 import { formatEuro, formatBgn } from "../../lib/currency";
 import { getCustomerFacingOrderSourceLabel } from "../../lib/orderSourceLabel";
 import { useSocket } from "../../context/SocketContext";
@@ -26,6 +26,8 @@ import {
   stripUrlFragment,
 } from "../../lib/tableSessionCredential";
 import { getApiError } from "../../lib/apiError";
+import type { PaymentCompletionDetails } from "../../lib/paymentConfirmationContext";
+import { buildMenuReturnUrl } from "../../lib/menuUrl";
 
 const stripePublishableKey = (import.meta as any).env
   .VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
@@ -49,11 +51,11 @@ interface PaymentModalProps {
   ownedOrderIds?: string[];
   allowCashRequest?: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (completion: PaymentCompletionDetails) => void;
   onCashRequestCreated?: (requestId: string) => void;
 }
 
-type Step = "tip" | "pay" | "redirect" | "done";
+type Step = "tip" | "pay" | "redirect";
 
 interface BillItem {
   orderItemId: string;
@@ -95,9 +97,35 @@ interface BillData {
 type StripePaymentState = {
   provider: "STRIPE";
   clientSecret: string;
+  paymentId: string;
   total: number;
   tipAmount: number;
 };
+
+type PaymentMarkerContext = {
+  restaurantId?: string;
+  tableNumber?: string;
+  menuReturnUrl: string;
+};
+
+function buildPaymentMarkerContext(
+  bill: Pick<BillData, "restaurantId" | "tableName"> | null,
+): PaymentMarkerContext {
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.delete("payment");
+  currentUrl.searchParams.delete("payment_intent");
+  currentUrl.searchParams.delete("payment_intent_client_secret");
+  currentUrl.searchParams.delete("redirect_status");
+
+  return {
+    ...(bill?.restaurantId ? { restaurantId: bill.restaurantId } : {}),
+    ...(bill?.tableName ? { tableNumber: bill.tableName } : {}),
+    menuReturnUrl:
+      currentUrl.pathname === "/checkout"
+        ? buildMenuReturnUrl(bill?.restaurantId, bill?.tableName)
+        : `${currentUrl.pathname}${currentUrl.search}`,
+  };
+}
 
 type StripeConfirmationError = {
   code?: string;
@@ -260,16 +288,20 @@ function pendingPaymentOverlapsScope(
 
 function PaymentForm({
   clientSecret,
+  paymentId,
   sessionToken,
   total,
   tipAmount,
+  markerContext,
   onSuccess,
   onClose,
 }: {
   clientSecret: string;
+  paymentId: string;
   sessionToken: string;
   total: number;
   tipAmount: number;
+  markerContext: PaymentMarkerContext;
   onSuccess: () => void;
   onClose: () => void;
 }) {
@@ -302,6 +334,9 @@ function PaymentForm({
         JSON.stringify({
           token: sessionToken,
           provider: "STRIPE",
+          paymentId,
+          total,
+          ...markerContext,
           startedAt: Date.now(),
         }),
       );
@@ -425,6 +460,10 @@ export function PaymentModal({
   const { socket, isConnected } = useSocket();
   const [step, setStep] = useState<Step>("tip");
   const [bill, setBill] = useState<BillData | null>(null);
+  const paymentMarkerContext = useMemo(
+    () => buildPaymentMarkerContext(bill),
+    [bill],
+  );
   const [selectedTip, setSelectedTip] = useState(0);
   const [customTip, setCustomTip] = useState("");
   const [boricaCardholderName, setBoricaCardholderName] = useState("");
@@ -471,26 +510,38 @@ export function PaymentModal({
     setPendingBillPayment(null);
   }, [sessionToken]);
 
-  const completeFromLiveSettlement = useCallback(() => {
-    if (liveCompletionHandledRef.current) return;
-    liveCompletionHandledRef.current = true;
-    try {
-      sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
-    } catch {}
-    onSuccess();
-  }, [onSuccess, sessionToken]);
+  const completeFromLiveSettlement = useCallback(
+    (completion: PaymentCompletionDetails) => {
+      if (liveCompletionHandledRef.current) return;
+      liveCompletionHandledRef.current = true;
+      try {
+        sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
+      } catch {}
+      onSuccess(completion);
+    },
+    [onSuccess, sessionToken],
+  );
 
   useEffect(() => {
     if (!socket || !isConnected || !sessionToken) return;
 
     socket.emit("joinTableSessionRoom", { token: sessionToken });
 
-    const handlePaymentConfirmed = () => {
-      completeFromLiveSettlement();
+    const handlePaymentConfirmed = (payload: {
+      paymentId?: string;
+      amount?: number;
+    }) => {
+      if (!payload?.paymentId) return;
+      completeFromLiveSettlement({
+        paymentId: payload.paymentId,
+        amount: payload.amount,
+        provider: payment?.provider,
+      });
     };
 
     const handleBillUpdated = (payload: {
       tableSessionId?: string;
+      paymentId?: string;
       remaining?: number;
       sessionPaid?: boolean;
     }) => {
@@ -500,11 +551,24 @@ export function PaymentModal({
         payload.tableSessionId !== bill.sessionId
       )
         return;
-      if (payload?.sessionPaid) {
+      const settledCashRequest = settledCashRequestRef.current;
+      if (settledCashRequest && payload?.paymentId) {
         settledCashRequestRef.current = null;
-        completeFromLiveSettlement();
+        completeFromLiveSettlement({
+          paymentId: payload.paymentId,
+          amount: settledCashRequest.paidAmount,
+          provider: "CASH",
+          remaining: Math.max(0, payload?.remaining ?? 0),
+        });
+      } else if (payload?.sessionPaid && payload?.paymentId) {
+        settledCashRequestRef.current = null;
+        completeFromLiveSettlement({
+          paymentId: payload.paymentId,
+          amount: payment?.total,
+          provider: payment?.provider,
+          remaining: Math.max(0, payload?.remaining ?? 0),
+        });
       } else {
-        const settledCashRequest = settledCashRequestRef.current;
         if (settledCashRequest) {
           settledCashRequestRef.current = null;
           setPartialCashSuccess({
@@ -523,15 +587,25 @@ export function PaymentModal({
       id?: string;
       status?: string;
       requestedAmount?: number;
+      paymentId?: string | null;
     }) => {
       if (!cashRequestId || request?.id !== cashRequestId) return;
       if (request.status === "PAID") {
+        const paidAmount =
+          typeof request.requestedAmount === "number"
+            ? request.requestedAmount
+            : cashRequestAmountRef.current;
+        if (request.paymentId) {
+          completeFromLiveSettlement({
+            paymentId: request.paymentId,
+            amount: paidAmount,
+            provider: "CASH",
+          });
+          return;
+        }
         settledCashRequestRef.current = {
           id: cashRequestId,
-          paidAmount:
-            typeof request.requestedAmount === "number"
-              ? request.requestedAmount
-              : cashRequestAmountRef.current,
+          paidAmount,
         };
         return;
       }
@@ -594,6 +668,7 @@ export function PaymentModal({
     cashRequestId,
     completeFromLiveSettlement,
     isConnected,
+    payment,
     sessionToken,
     socket,
     t,
@@ -664,13 +739,15 @@ export function PaymentModal({
             provider: payment.provider,
             paymentId: payment.paymentId,
             startedAt: Date.now(),
+            total: payment.total,
+            ...paymentMarkerContext,
           }),
         );
       } catch {}
       epayFormRef.current?.submit();
     }, 150);
     return () => window.clearTimeout(timer);
-  }, [payment, sessionToken, step]);
+  }, [payment, paymentMarkerContext, sessionToken, step]);
 
   const retryBillFetch = () => {
     setBill(null);
@@ -929,11 +1006,9 @@ export function PaymentModal({
             {step === "tip" && t("payment.yourBill", "Your Bill")}
             {step === "pay" && t("payment.payment", "Payment")}
             {step === "redirect" && t("payment.redirecting", "Redirecting")}
-            {step === "done" && t("payment.thankYou", "Thank You")}
           </h2>
-          {/* When payment is done, X clears the session (same as "Back to Menu") */}
           <button
-            onClick={step === "done" ? completeFromLiveSettlement : handleClose}
+            onClick={handleClose}
             className="text-muted-foreground hover:text-foreground"
           >
             <X size={20} />
@@ -1313,10 +1388,18 @@ export function PaymentModal({
           >
             <PaymentForm
               clientSecret={payment.clientSecret}
+              paymentId={payment.paymentId}
               sessionToken={sessionToken}
               total={payment.total}
               tipAmount={payment.tipAmount}
-              onSuccess={() => setStep("done")}
+              markerContext={paymentMarkerContext}
+              onSuccess={() =>
+                completeFromLiveSettlement({
+                  paymentId: payment.paymentId,
+                  amount: payment.total,
+                  provider: "STRIPE",
+                })
+              }
               onClose={handleClose}
             />
           </Elements>
@@ -1367,6 +1450,8 @@ export function PaymentModal({
                         provider: payment.provider,
                         paymentId: payment.paymentId,
                         startedAt: Date.now(),
+                        total: payment.total,
+                        ...paymentMarkerContext,
                       }),
                     );
                   } catch {}
@@ -1385,26 +1470,6 @@ export function PaymentModal({
               </form>
             </div>
           )}
-
-        {step === "done" && (
-          <div className="flex flex-col items-center gap-4 py-4">
-            <CheckCircle2 size={48} className="text-green-500" />
-            <p className="text-lg font-medium">
-              {t("payment.paymentReceived", "Payment received successfully")}
-            </p>
-            <div>
-              <p className="text-2xl font-bold">
-                {formatEuro(payment?.total ?? 0)}
-              </p>
-              <span className="text-xs text-muted-foreground">
-                {formatBgn(payment?.total ?? 0)}
-              </span>
-            </div>
-            <Button className="w-full" onClick={completeFromLiveSettlement}>
-              {t("payment.backToMenu", "Back to Menu")}
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

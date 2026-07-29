@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import { useSocket } from "../context/SocketContext";
 import { getCategoryItems } from "../lib/api";
 import type { PaymentBanner } from "./usePaymentReturn";
+import type { PaymentCompletionDetails } from "../lib/paymentConfirmationContext";
 
 interface UseMenuSocketArgs {
   restaurantId: string | undefined;
   sessionToken: string | null;
-  clearPaidSession: (message?: string) => void;
+  clearPaidSession: (completion?: PaymentCompletionDetails) => void;
   pendingCashRequestId: string | null;
   setPendingCashRequestId: (id: string | null) => void;
   setIsPaymentModalOpen: (open: boolean) => void;
@@ -44,21 +45,54 @@ export function useMenuSocket({
 
     socket.emit("joinTableSessionRoom", { token: sessionToken });
 
-    const handlePaymentConfirmed = () => {
-      clearPaidSession();
+    const handlePaymentConfirmed = (payload: {
+      paymentId?: string;
+      amount?: number;
+    }) => {
+      clearPaidSession(
+        payload?.paymentId
+          ? {
+              paymentId: payload.paymentId,
+              amount: payload.amount,
+            }
+          : undefined,
+      );
     };
 
-    const handleBillUpdated = (payload: { sessionPaid?: boolean }) => {
-      if (payload?.sessionPaid) clearPaidSession();
+    const handleBillUpdated = (payload: {
+      paymentId?: string;
+      remaining?: number;
+      sessionPaid?: boolean;
+    }) => {
+      if (payload?.sessionPaid) {
+        clearPaidSession(
+          payload.paymentId
+            ? {
+                paymentId: payload.paymentId,
+                remaining: payload.remaining,
+              }
+            : undefined,
+        );
+      }
     };
 
     const handleCashRequestUpdated = (request: {
       id?: string;
       status?: string;
+      paymentId?: string | null;
+      requestedAmount?: number;
     }) => {
       if (!pendingCashRequestId || request?.id !== pendingCashRequestId) return;
       if (request.status === "PAID") {
-        clearPaidSession();
+        clearPaidSession(
+          request.paymentId
+            ? {
+                paymentId: request.paymentId,
+                amount: request.requestedAmount,
+                provider: "CASH",
+              }
+            : undefined,
+        );
         return;
       }
       if (request.status === "CANCELLED") {

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import api, {
   createOrder,
+  abandonCheckout,
   getMenu,
   getSessionBill,
   type FulfillmentMode,
@@ -14,7 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
-import { Zap, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Zap, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { PaymentModal } from "../components/payment/PaymentModal";
@@ -32,7 +33,9 @@ import {
 import { resolveInitialLanguage } from "../lib/menuLanguage";
 import {
   buildTableSessionCheckoutUrl,
+  findHostedCheckoutMarker,
   findHostedCheckoutToken,
+  hostedCheckoutStorageKey,
   readTableSessionTokenFromHash,
 } from "../lib/tableSessionCredential";
 import {
@@ -40,6 +43,7 @@ import {
   groupExpiringPointBatches,
 } from "../lib/loyaltyExpiry";
 import { cn } from "../lib/utils";
+import { storePaymentConfirmationContext } from "../lib/paymentConfirmationContext";
 
 type FieldState = "neutral" | "valid" | "invalid";
 
@@ -183,7 +187,6 @@ const CheckoutPage = () => {
   const [sessionBillLoading, setSessionBillLoading] = useState(false);
   const [sessionBillError, setSessionBillError] = useState<string | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [paymentComplete, setPaymentComplete] = useState(false);
   const [allowCashRequest, setAllowCashRequest] = useState(
     location.state?.autoOpenPayment !== true,
   );
@@ -194,6 +197,70 @@ const CheckoutPage = () => {
     autoOpenPaymentRef.current = false;
     setPaymentModalOpen(true);
   }, [sessionToken]);
+
+  useEffect(() => {
+    if (!sessionToken) return;
+    const hostedOutcome = searchParams.get("payment");
+    const stripeOutcome = searchParams.get("redirect_status");
+    const succeeded =
+      hostedOutcome === "borica-ok" ||
+      hostedOutcome === "epay-ok" ||
+      hostedOutcome === "mypos-ok" ||
+      stripeOutcome === "succeeded";
+    const failed =
+      hostedOutcome === "borica-cancel" ||
+      hostedOutcome === "epay-cancel" ||
+      hostedOutcome === "mypos-cancel" ||
+      stripeOutcome === "failed" ||
+      stripeOutcome === "requires_payment_method";
+
+    if (!succeeded && !failed) return;
+
+    const marker = findHostedCheckoutMarker(window.sessionStorage);
+    if (!marker || marker.token !== sessionToken) return;
+
+    try {
+      sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
+    } catch {}
+
+    if (succeeded && marker.paymentId) {
+      storePaymentConfirmationContext({
+        paymentId: marker.paymentId,
+        sessionToken,
+        ...(typeof marker.total === "number" ? { amount: marker.total } : {}),
+        ...(marker.provider ? { provider: marker.provider } : {}),
+        ...(marker.restaurantId ? { restaurantId: marker.restaurantId } : {}),
+        menuReturnUrl:
+          marker.menuReturnUrl ??
+          buildMenuReturnUrl(marker.restaurantId, marker.tableNumber),
+        ...(marker.tableNumber ? { tableNumber: marker.tableNumber } : {}),
+        completedAt: Date.now(),
+      });
+      navigate("/payment-confirmation", { replace: true });
+      return;
+    }
+
+    if (failed) {
+      void abandonCheckout(sessionToken).catch(() => {});
+      const cleanParams = new URLSearchParams(location.search);
+      cleanParams.delete("payment");
+      cleanParams.delete("payment_intent");
+      cleanParams.delete("payment_intent_client_secret");
+      cleanParams.delete("redirect_status");
+      navigate(
+        `${location.pathname}${
+          cleanParams.toString() ? `?${cleanParams.toString()}` : ""
+        }`,
+        { replace: true },
+      );
+    }
+  }, [
+    location.pathname,
+    location.search,
+    navigate,
+    searchParams,
+    sessionToken,
+  ]);
 
   useEffect(() => {
     if (!sessionToken) return;
@@ -431,13 +498,10 @@ const CheckoutPage = () => {
   const submitLabel = submitting
     ? t("checkout.submitting")
     : checkoutSavings > 0
-      ? t(
-          "checkout.placeOrderWithSavings",
-          {
-            defaultValue: "Place order — save {{amount}} on this bundle!",
-            amount: formatEuro(checkoutSavings),
-          },
-        )
+      ? t("checkout.placeOrderWithSavings", {
+          defaultValue: "Place order — save {{amount}} on this bundle!",
+          amount: formatEuro(checkoutSavings),
+        })
       : t("checkout.placeOrder", "Place my order now");
 
   useEffect(() => {
@@ -738,75 +802,45 @@ const CheckoutPage = () => {
           }}
         >
           <h1 className="text-base font-extrabold text-foreground mb-8">
-            {paymentComplete
-              ? t("checkout.paymentComplete", "Payment Complete")
-              : t("payment.yourBill", "Your Bill")}
+            {t("payment.yourBill", "Your Bill")}
           </h1>
 
-          {!paymentComplete &&
-            (sessionBill?.targetLanguages?.length ?? 0) > 1 && (
-              <div className="mb-6 flex flex-wrap gap-2">
-                {sessionBill!.targetLanguages!.map((code) => {
-                  const active = code.toLowerCase() === selectedLang;
-                  return (
-                    <button
-                      key={code}
-                      type="button"
-                      onClick={() => setBillLangOverride(code)}
-                      aria-pressed={active}
-                      className={`min-h-[44px] rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                        active
-                          ? "bg-primary text-white"
-                          : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
-                      }`}
-                    >
-                      {code.toUpperCase()}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-          {/* After a successful payment the session is PAID/closed — do NOT refetch
-            the bill (it would 404 "Session not found"). Show a thank-you state. */}
-          {paymentComplete && (
-            <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center gap-4">
-              <CheckCircle2 className="h-14 w-14 text-green-500" />
-              <p className="text-base font-semibold text-foreground">
-                {t(
-                  "checkout.paymentThanks",
-                  "Thank you! Your payment was received.",
-                )}
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    location.state?.menuReturnUrl
-                      ? location.state.menuReturnUrl
-                      : buildMenuReturnUrl(sessionBill?.restaurantId),
-                  )
-                }
-                className="w-full py-4 rounded-xl brand-cta text-white font-bold text-base min-h-[52px]"
-              >
-                {t("checkout.backToMenu", "Back to Menu")}
-              </button>
+          {(sessionBill?.targetLanguages?.length ?? 0) > 1 && (
+            <div className="mb-6 flex flex-wrap gap-2">
+              {sessionBill!.targetLanguages!.map((code) => {
+                const active = code.toLowerCase() === selectedLang;
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setBillLangOverride(code)}
+                    aria-pressed={active}
+                    className={`min-h-[44px] rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      active
+                        ? "bg-primary text-white"
+                        : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                    }`}
+                  >
+                    {code.toUpperCase()}
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {!paymentComplete && sessionBillLoading && (
+          {sessionBillLoading && (
             <div className="flex justify-center py-12">
               <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full" />
             </div>
           )}
 
-          {!paymentComplete && sessionBillError && (
+          {sessionBillError && (
             <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8">
               {sessionBillError}
             </div>
           )}
 
-          {!paymentComplete && sessionBill && !sessionBillLoading && (
+          {sessionBill && !sessionBillLoading && (
             <>
               <div className="glass-panel rounded-2xl p-5 mb-6">
                 <h2 className="text-sm font-semibold text-muted-foreground mb-3">
@@ -916,11 +950,33 @@ const CheckoutPage = () => {
               sessionToken={sessionToken}
               allowCashRequest={allowCashRequest}
               onClose={() => setPaymentModalOpen(false)}
-              onSuccess={() => {
-                // Session is now PAID — switch to the local success state instead
-                // of reloading (a refetch would 404 the closed session). Bug 2.
+              onSuccess={(completion) => {
                 setPaymentModalOpen(false);
-                setPaymentComplete(true);
+                const menuReturnUrl =
+                  location.state?.menuReturnUrl ??
+                  buildMenuReturnUrl(sessionBill?.restaurantId);
+                storePaymentConfirmationContext({
+                  paymentId: completion.paymentId,
+                  sessionToken,
+                  ...(typeof completion.amount === "number"
+                    ? { amount: completion.amount }
+                    : {}),
+                  ...(completion.provider
+                    ? { provider: completion.provider }
+                    : {}),
+                  ...(typeof completion.remaining === "number"
+                    ? { remaining: completion.remaining }
+                    : {}),
+                  ...(sessionBill?.restaurantId
+                    ? { restaurantId: sessionBill.restaurantId }
+                    : {}),
+                  menuReturnUrl,
+                  ...(sessionBill?.tableName
+                    ? { tableNumber: sessionBill.tableName }
+                    : {}),
+                  completedAt: Date.now(),
+                });
+                navigate("/payment-confirmation", { replace: true });
               }}
             />
           )}

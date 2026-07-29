@@ -595,6 +595,10 @@
     "continue": "Weiter zur Zahlung",
     "pay": "Bezahlung",
     "processing": "Wird verarbeitet...",
+    "confirmingPayment": "Zahlung wird bestätigt",
+    "confirmingPaymentDesc": "Wir warten auf die sichere Bestätigung. Bitte zahlen Sie nicht erneut.",
+    "verificationUnavailable": "Diese Zahlung konnte noch nicht bestätigt werden",
+    "verificationUnavailableDesc": "Prüfen Sie Ihre Verbindung und versuchen Sie es erneut. Wenn Sie belastet wurden, zahlen Sie nicht noch einmal.",
     "backToMenu": "Zurück zum Menü",
     "loading": "Wird geladen...",
     "paymentFailed": "Die Zahlung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
@@ -969,9 +973,9 @@
     "loyaltyLocked": "„Loyalty“ ist Teil des Professional-Tarifs",
     "loyaltyLockedDesc": "Führen Sie ein Upgrade durch, um Ihr Treueprogramm wieder zu aktivieren. Ihre bestehenden Einstellungen und die Punktestände Ihrer Kunden bleiben erhalten und werden automatisch wiederhergestellt.",
     "googleReview": "CTA für Google-Bewertungen",
-    "googleReviewDesc": "Nach dem Bezahlvorgang werden Kunden mit einer 4- oder 5-Sterne-Bewertung auf Ihre Google-Bewertungsseite weitergeleitet.",
+    "googleReviewDesc": "Nach der Zahlung kann jeder Gast seine Erfahrung optional auf Ihrer Google-Bewertungsseite teilen.",
     "googleReviewUrl": "URL der Google-Bewertung",
-    "googleReviewActive": "Weiterleitung aktiv – Kunden werden nach dem Bezahlvorgang zu Google weitergeleitet",
+    "googleReviewActive": "Google-Bewertungslink aktiv – wird nach dem privaten Feedback angeboten",
     "googleReviewPlaceholder": "https://g.page/r/YOUR_REVIEW_LINK",
     "addressPlaceholder": "Vitosha-Boulevard 123, Sofia"
   },
@@ -1084,10 +1088,10 @@
     "accentColor": "Marken-Akzentfarbe",
     "logo": "Firmenlogo",
     "googleReview": "Rezensionen Link",
-    "googleReviewDesc": "Kunden, die 4 bis 5 Sterne vergeben, werden weitergeleitet, um eine Google-Bewertung abzugeben",
+    "googleReviewDesc": "Nach der Zahlung kann jeder Gast seine Erfahrung optional auf Ihrer Google-Bewertungsseite teilen.",
     "save": "Markeneinstellungen speichern",
     "saving": "Wird gespeichert...",
-    "redirectActive": "Die Weiterleitung für Bewertungen ist aktiv",
+    "redirectActive": "Der Google-Bewertungslink ist aktiv",
     "typography": "Typografie",
     "headingFont": "Schriftart der Überschrift",
     "bodyFont": "Schriftart des Fließtextes",
@@ -1981,7 +1985,7 @@
       },
       "feedback": {
         "title": "Kundenfeedback",
-        "desc": "Sammeln Sie nach jedem Besuch Bewertungen, filtern Sie diese nach Bewertung und leiten Sie zufriedene Kunden auf Ihre Google-Bewertungsseite weiter."
+        "desc": "Sammeln Sie nach jedem Besuch privates Feedback und bieten Sie jedem Gast optional einen Link zu Ihrer Google-Bewertungsseite an."
       },
       "menuImport": {
         "title": "Menü „Import & Export“",
@@ -2953,6 +2957,7 @@
     "tellUsDoBetter": "Es tut uns leid. Sagen Sie uns bitte, wie wir es besser machen können.",
     "whatDidYouEnjoy": "Was hat dir am besten gefallen? (optional)",
     "whatCouldImprove": "Was könnten wir verbessern? (optional)",
+    "shareExperienceOptional": "Erzählen Sie uns mehr über Ihre Erfahrung (optional)",
     "back": "Zurück",
     "submit": "Absenden",
     "submitting": "Wird gesendet...",

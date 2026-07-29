@@ -47,6 +47,9 @@ const OrderConfirmationPage = lazy(
   () => import("./pages/OrderConfirmationPage"),
 );
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
+const PaymentConfirmationPage = lazy(
+  () => import("./pages/PaymentConfirmationPage"),
+);
 const DeviceLoginPage = lazy(() => import("./pages/DeviceLoginPage"));
 const DeviceEnrollPage = lazy(() => import("./pages/DeviceEnrollPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
@@ -270,6 +273,10 @@ function App() {
                         <Route
                           path="/order-confirmation"
                           element={<OrderConfirmationPage />}
+                        />
+                        <Route
+                          path="/payment-confirmation"
+                          element={<PaymentConfirmationPage />}
                         />
                       </Route>
                       <Route

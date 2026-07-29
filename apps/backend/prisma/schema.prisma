@@ -153,6 +153,7 @@ model Restaurant {
   staffDeviceBindings         StaffDeviceBinding[]
   orders                      Order[]
   feedbacks                   Feedback[]
+  feedbackInvitations         FeedbackInvitation[]
   loyaltyAccounts             LoyaltyAccount[]
   menuCategories              MenuCategory[]
   menuViews                   MenuView[]
@@ -562,18 +563,42 @@ model StaffPinLoginAudit {
 }
 
 model Feedback {
-  id                 String     @id @default(cuid())
-  rating             Int
-  comment            String?
-  redirectedToGoogle Boolean    @default(false)
-  orderId            String     @unique
-  restaurantId       String
-  createdAt          DateTime   @default(now())
-  order              Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  restaurant         Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                    String              @id @default(cuid())
+  rating                Int
+  comment               String?
+  redirectedToGoogle    Boolean             @default(false)
+  googleReviewClickedAt DateTime?
+  orderId               String?             @unique
+  invitationId          String?             @unique
+  restaurantId          String
+  createdAt             DateTime            @default(now())
+  order                 Order?              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  invitation            FeedbackInvitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId])
   @@map("feedback")
+}
+
+model FeedbackInvitation {
+  id             String       @id @default(cuid())
+  paymentId      String
+  tableSessionId String       @unique
+  restaurantId   String
+  expiresAt      DateTime
+  presentedAt    DateTime?
+  usedAt         DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  payment        Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  tableSession   TableSession @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  feedback       Feedback?
+
+  @@index([paymentId])
+  @@index([restaurantId, createdAt])
+  @@index([expiresAt])
+  @@map("feedback_invitation")
 }
 
 model LoyaltyAccount {
@@ -699,6 +724,7 @@ model TableSession {
   payments                    Payment[]
   cashPaymentRequests         CashPaymentRequest[]
   paymentReconciliationIssues PaymentReconciliationIssue[]
+  feedbackInvitations         FeedbackInvitation[]
   restaurant                  Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table                       RestaurantTable              @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
@@ -741,6 +767,7 @@ model Payment {
   reconciliationIssue   PaymentReconciliationIssue?
   refundAttempts        RefundAttempt[]
   cashPaymentRequest    CashPaymentRequest?
+  feedbackInvitations   FeedbackInvitation[]
 
   @@index([tableSessionId])
   @@index([restaurantId])

@@ -595,6 +595,10 @@
     "continue": "Procedi al pagamento",
     "pay": "Pagamento",
     "processing": "Elaborazione in corso...",
+    "confirmingPayment": "Conferma del pagamento",
+    "confirmingPaymentDesc": "Stiamo attendendo la conferma sicura. Non pagare di nuovo.",
+    "verificationUnavailable": "Non siamo ancora riusciti a verificare questo pagamento",
+    "verificationUnavailableDesc": "Controlla la connessione e riprova. Se hai già ricevuto l'addebito, non pagare di nuovo.",
     "backToMenu": "Torna al menu",
     "loading": "Caricamento in corso...",
     "paymentFailed": "Il pagamento non è andato a buon fine. Riprova.",
@@ -969,9 +973,9 @@
     "loyaltyLocked": "Il programma fedeltà è incluso nel piano Professional",
     "loyaltyLockedDesc": "Esegui l'aggiornamento per riattivare il tuo programma fedeltà. Le impostazioni attuali e i saldi dei punti dei clienti verranno mantenuti e ripristinati automaticamente.",
     "googleReview": "Invito all'azione per le recensioni su Google",
-    "googleReviewDesc": "Dopo aver completato l'acquisto, i clienti che hanno lasciato una valutazione a 4 o 5 stelle vengono reindirizzati alla tua pagina delle recensioni su Google.",
+    "googleReviewDesc": "Dopo il pagamento, ogni ospite può scegliere di condividere la propria esperienza sulla tua pagina Google.",
     "googleReviewUrl": "URL della recensione su Google",
-    "googleReviewActive": "Reindirizzamento attivo — i clienti verranno reindirizzati a Google dopo il completamento dell'ordine",
+    "googleReviewActive": "Link alle recensioni Google attivo — proposto dopo il feedback privato",
     "googleReviewPlaceholder": "https://g.page/r/YOUR_REVIEW_LINK",
     "addressPlaceholder": "Vitosha Blvd 123, Sofia"
   },
@@ -1084,10 +1088,10 @@
     "accentColor": "Colore di accento del marchio",
     "logo": "Logo aziendale",
     "googleReview": "Recensioni Link",
-    "googleReviewDesc": "I clienti che assegnano una valutazione di 4-5 stelle saranno reindirizzati alla pagina per lasciare una recensione su Google",
+    "googleReviewDesc": "Dopo il pagamento, ogni ospite può scegliere di condividere la propria esperienza sulla tua pagina Google.",
     "save": "Salva le impostazioni del marchio",
     "saving": "Salvataggio in corso...",
-    "redirectActive": "Il reindirizzamento delle recensioni è attivo",
+    "redirectActive": "Il link alle recensioni Google è attivo",
     "typography": "Tipografia",
     "headingFont": "Carattere del titolo",
     "bodyFont": "Carattere del corpo",
@@ -1981,7 +1985,7 @@
       },
       "feedback": {
         "title": "Feedback dei clienti",
-        "desc": "Raccogli le recensioni dopo ogni visita, filtrale in base al punteggio e reindirizza i clienti soddisfatti alla tua pagina delle recensioni su Google."
+        "desc": "Raccogli feedback privati dopo ogni visita e offri a ogni ospite un link facoltativo alla tua pagina delle recensioni su Google."
       },
       "menuImport": {
         "title": "Menu Importazione ed esportazione",
@@ -2953,6 +2957,7 @@
     "tellUsDoBetter": "Ci dispiace. Facci sapere come possiamo migliorare.",
     "whatDidYouEnjoy": "Cosa ti è piaciuto di più? (facoltativo)",
     "whatCouldImprove": "Cosa potremmo migliorare? (facoltativo)",
+    "shareExperienceOptional": "Raccontaci di più sulla tua esperienza (facoltativo)",
     "back": "Indietro",
     "submit": "Invia",
     "submitting": "Invio in corso...",

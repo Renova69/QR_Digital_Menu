@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { FeedbackService } from './feedback.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { createHmac } from 'crypto';
 
 const mockPrisma = {
   feedback: {
@@ -16,6 +17,16 @@ const mockPrisma = {
     count: jest.fn(),
     aggregate: jest.fn(),
     groupBy: jest.fn(),
+    update: jest.fn(),
+  },
+  feedbackInvitation: {
+    findUnique: jest.fn(),
+    upsert: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  payment: {
+    findFirst: jest.fn(),
   },
   order: {
     findUnique: jest.fn(),
@@ -26,7 +37,17 @@ const mockPrisma = {
   user: {
     findUnique: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
+
+function invitationToken(id: string, expiresAt: Date) {
+  const expiresAtSeconds = Math.floor(expiresAt.getTime() / 1000);
+  const unsigned = `${id}.${expiresAtSeconds}`;
+  const signature = createHmac('sha256', 'test-secret')
+    .update(`feedback-invitation.${unsigned}`)
+    .digest('base64url');
+  return `${unsigned}.${signature}`;
+}
 
 describe('FeedbackService', () => {
   let service: FeedbackService;
@@ -41,6 +62,276 @@ describe('FeedbackService', () => {
 
     service = module.get<FeedbackService>(FeedbackService);
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => unknown) =>
+        callback(mockPrisma),
+    );
+  });
+
+  describe('payment feedback invitations', () => {
+    const servedPayment = {
+      id: 'payment-1',
+      status: 'SUCCEEDED',
+      amount: 24.5,
+      currency: 'eur',
+      provider: 'STRIPE',
+      updatedAt: new Date(),
+      tableSessionId: 'session-1',
+      restaurantId: 'rest-1',
+      tableSession: {
+        id: 'session-1',
+        token: 'session-token',
+        status: 'OPEN',
+        orders: [{ id: 'order-1', status: 'SERVED' }],
+      },
+      allocations: [{ orderItem: { orderId: 'order-1' } }],
+      restaurant: {
+        id: 'rest-1',
+        name: 'Daffi',
+        googleReviewUrl: 'https://g.page/r/example/review',
+      },
+    };
+
+    it('issues a one-time invitation after a successful served payment', async () => {
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
+      mockPrisma.feedbackInvitation.upsert.mockResolvedValue({
+        id: 'invitation-1',
+        usedAt: null,
+        presentedAt: null,
+        expiresAt,
+      });
+
+      const result = await service.issueVisitInvitation(
+        'session-token',
+        'payment-1',
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          eligible: true,
+          submitted: false,
+          invitationToken: expect.any(String),
+          payment: expect.objectContaining({
+            id: 'payment-1',
+            amount: 24.5,
+            provider: 'STRIPE',
+          }),
+          restaurant: servedPayment.restaurant,
+        }),
+      );
+      expect(mockPrisma.feedbackInvitation.upsert).toHaveBeenCalledWith({
+        where: { tableSessionId: 'session-1' },
+        create: {
+          paymentId: 'payment-1',
+          tableSessionId: 'session-1',
+          restaurantId: 'rest-1',
+          expiresAt: expect.any(Date),
+        },
+        update: {},
+        select: {
+          id: true,
+          usedAt: true,
+          presentedAt: true,
+          expiresAt: true,
+        },
+      });
+      expect(mockPrisma.feedbackInvitation.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('does not invite a guest before the relevant order is served', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        ...servedPayment,
+        tableSession: {
+          ...servedPayment.tableSession,
+          orders: [{ id: 'order-1', status: 'IN_PROGRESS' }],
+        },
+      });
+
+      const result = await service.issueVisitInvitation(
+        'session-token',
+        'payment-1',
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          eligible: false,
+          reason: 'ORDERS_NOT_SERVED',
+        }),
+      );
+      expect(mockPrisma.feedbackInvitation.upsert).not.toHaveBeenCalled();
+    });
+
+    it('does not rewrite the payment linked to submitted visit feedback', async () => {
+      const usedAt = new Date();
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
+      mockPrisma.feedbackInvitation.upsert.mockResolvedValue({
+        id: 'invitation-1',
+        usedAt,
+        presentedAt: usedAt,
+        expiresAt,
+      });
+
+      const result = await service.issueVisitInvitation(
+        'session-token',
+        'payment-1',
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          eligible: true,
+          submitted: true,
+        }),
+      );
+      expect(mockPrisma.feedbackInvitation.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: {} }),
+      );
+      expect(mockPrisma.feedbackInvitation.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('returns the same valid prompt during concurrent retries', async () => {
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
+      mockPrisma.feedbackInvitation.upsert.mockResolvedValue({
+        id: 'invitation-1',
+        usedAt: null,
+        presentedAt: null,
+        expiresAt,
+      });
+
+      const results = await Promise.all([
+        service.issueVisitInvitation('session-token', 'payment-1'),
+        service.issueVisitInvitation('session-token', 'payment-1'),
+      ]);
+
+      expect(results).toEqual([
+        expect.objectContaining({
+          eligible: true,
+          invitationToken: invitationToken('invitation-1', expiresAt),
+        }),
+        expect.objectContaining({
+          eligible: true,
+          invitationToken: invitationToken('invitation-1', expiresAt),
+        }),
+      ]);
+    });
+
+    it('records presentation only after the browser acknowledges rendering', async () => {
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.feedbackInvitation.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        service.markVisitFeedbackPresented(
+          invitationToken('invitation-1', expiresAt),
+        ),
+      ).resolves.toEqual({ acknowledged: true });
+      expect(mockPrisma.feedbackInvitation.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'invitation-1',
+          presentedAt: null,
+          usedAt: null,
+          expiresAt: { gt: expect.any(Date) },
+        },
+        data: { presentedAt: expect.any(Date) },
+      });
+    });
+
+    it('does not reissue a prompt after the browser acknowledged it', async () => {
+      const presentedAt = new Date();
+      mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
+      mockPrisma.feedbackInvitation.upsert.mockResolvedValue({
+        id: 'invitation-1',
+        usedAt: null,
+        presentedAt,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      await expect(
+        service.issueVisitInvitation('session-token', 'payment-1'),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          eligible: false,
+          reason: 'ALREADY_PROMPTED',
+        }),
+      );
+    });
+
+    it('records one private feedback response against the invitation', async () => {
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.feedbackInvitation.findUnique.mockResolvedValue({
+        id: 'invitation-1',
+        restaurantId: 'rest-1',
+        usedAt: null,
+        expiresAt,
+        payment: { status: 'SUCCEEDED' },
+      });
+      mockPrisma.feedback.create.mockResolvedValue({
+        id: 'feedback-1',
+        rating: 3,
+      });
+      mockPrisma.feedbackInvitation.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.createVisitFeedback({
+        invitationToken: invitationToken('invitation-1', expiresAt),
+        rating: 3,
+        comment: 'Good food',
+      });
+
+      expect(result).toEqual(expect.objectContaining({ id: 'feedback-1' }));
+      expect(mockPrisma.feedback.create).toHaveBeenCalledWith({
+        data: {
+          rating: 3,
+          comment: 'Good food',
+          redirectedToGoogle: false,
+          invitationId: 'invitation-1',
+          restaurantId: 'rest-1',
+        },
+      });
+      expect(mockPrisma.feedbackInvitation.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'invitation-1',
+          usedAt: null,
+          expiresAt: { gt: expect.any(Date) },
+        },
+        data: { usedAt: expect.any(Date) },
+      });
+    });
+
+    it('counts a Google redirect only when the guest clicks the link', async () => {
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.feedbackInvitation.findUnique.mockResolvedValue({
+        id: 'invitation-1',
+        expiresAt,
+        feedback: { id: 'feedback-1' },
+      });
+      mockPrisma.feedback.update.mockResolvedValue({
+        id: 'feedback-1',
+        redirectedToGoogle: true,
+      });
+
+      await service.markGoogleReviewClick(
+        invitationToken('invitation-1', expiresAt),
+      );
+
+      expect(mockPrisma.feedback.update).toHaveBeenCalledWith({
+        where: { id: 'feedback-1' },
+        data: {
+          redirectedToGoogle: true,
+          googleReviewClickedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it('rejects a tampered server-signed invitation token', async () => {
+      await expect(
+        service.createVisitFeedback({
+          invitationToken: 'invitation-1.9999999999.invalid',
+          rating: 5,
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.feedbackInvitation.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe('create', () => {
@@ -87,7 +378,7 @@ describe('FeedbackService', () => {
       await expect(service.create(dto)).rejects.toThrow(NotFoundException);
     });
 
-    it('passes redirectedToGoogle when provided', async () => {
+    it('does not count a claimed Google redirect before an actual click', async () => {
       const dtoWithRedirect = { ...dto, redirectedToGoogle: true };
       mockPrisma.feedback.findUnique.mockResolvedValue(null);
       mockPrisma.order.findUnique.mockResolvedValue({
@@ -100,7 +391,7 @@ describe('FeedbackService', () => {
 
       expect(mockPrisma.feedback.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ redirectedToGoogle: true }),
+          data: expect.objectContaining({ redirectedToGoogle: false }),
         }),
       );
     });

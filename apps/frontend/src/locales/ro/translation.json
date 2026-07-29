@@ -295,9 +295,9 @@
     "loyaltyLocked": "Loialitatea este parte a planului Professional",
     "loyaltyLockedDesc": "Actualizează pentru a reactiva programul de loialitate. Setările tale și soldurile punctelor clienților sunt păstrate.",
     "googleReview": "Buton recenzie Google",
-    "googleReviewDesc": "După finalizarea comenzii, clienții cu recenzii de 4 sau 5 stele sunt redirecționați către pagina dvs. de recenzii Google.",
+    "googleReviewDesc": "După plată, fiecare oaspete poate alege să își împărtășească experiența pe pagina dvs. de recenzii Google.",
     "googleReviewUrl": "Link recenzie Google",
-    "googleReviewActive": "Redirecționare activă — clienții vor fi trimiși la Google după finalizarea comenzii",
+    "googleReviewActive": "Linkul pentru recenzii Google este activ — oferit după feedbackul privat",
     "googleReviewPlaceholder": "https://g.page/r/LINKUL_TAU",
     "addressPlaceholder": "Bulevardul Vitosha 123, Sofia"
   },
@@ -410,10 +410,10 @@
     "accentColor": "Culoare Accent Brand",
     "logo": "Logo Companie",
     "googleReview": "Link Recenzii Google",
-    "googleReviewDesc": "Clienții care acordă 4-5 stele vor fi redirecționați să lase o recenzie pe Google",
+    "googleReviewDesc": "După plată, fiecare oaspete poate alege să își împărtășească experiența pe Google",
     "save": "Salvează Setările de Brand",
     "saving": "Se salvează...",
-    "redirectActive": " Redirecționarea către Google Reviews este activă",
+    "redirectActive": "Linkul pentru recenzii Google este activ",
     "typography": "Tipografie",
     "headingFont": "Font Titlu",
     "bodyFont": "Font Corp",
@@ -1331,6 +1331,10 @@
     "continue": "Continuă la plată",
     "pay": "Plătește",
     "processing": "Se procesează...",
+    "confirmingPayment": "Confirmăm plata",
+    "confirmingPaymentDesc": "Așteptăm confirmarea securizată. Nu plăti din nou.",
+    "verificationUnavailable": "Nu am putut verifica încă această plată",
+    "verificationUnavailableDesc": "Verifică conexiunea și încearcă din nou. Dacă suma a fost debitată, nu plăti din nou.",
     "paymentReceived": "Plată primită",
     "paymentCancelled": "Plata a fost anulată — puteți încerca din nou.",
     "backToMenu": "Înapoi la meniu",
@@ -1656,7 +1660,7 @@
       },
       "feedback": {
         "title": "Feedback de la clienți",
-        "desc": "Colectează recenzii după fiecare vizită, filtrează după rating și redirecționează clienții mulțumiți către pagina ta de recenzii Google."
+        "desc": "Colectează feedback privat după fiecare vizită și oferă fiecărui oaspete un link opțional către pagina ta de recenzii Google."
       },
       "menuImport": {
         "title": "Import și export de meniu",
@@ -2767,6 +2771,7 @@
     "tellUsDoBetter": "Ne pare rau. Spuneti-ne cum putem face mai bine.",
     "whatDidYouEnjoy": "Ce v-a placut cel mai mult? (optional)",
     "whatCouldImprove": "Ce am putea imbunatati? (optional)",
+    "shareExperienceOptional": "Spune-ne mai multe despre experienta ta (optional)",
     "back": "Inapoi",
     "submit": "Trimite",
     "submitting": "Se trimite...",

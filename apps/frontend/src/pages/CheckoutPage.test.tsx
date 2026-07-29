@@ -83,6 +83,7 @@ vi.mock("../lib/api", () => ({
     get: vi.fn(() => Promise.resolve({ data: {} })),
   },
   createOrder: vi.fn(),
+  abandonCheckout: vi.fn(),
   getMenu: vi.fn(),
   getSessionBill: vi.fn(),
 }));
@@ -115,6 +116,7 @@ describe("CheckoutPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     i18nMock.resolvedLanguage = "en";
     // Most keys just echo back (existing tests assert on raw keys). The two
     // tier-progress keys carry interpolated variables the tier-progress
@@ -140,6 +142,8 @@ describe("CheckoutPage", () => {
     (useLocation as Mock).mockReturnValue({
       state: { restaurantId: "r1" },
       hash: "",
+      pathname: "/checkout",
+      search: "",
     });
     (useSearchParams as Mock).mockReturnValue([new URLSearchParams()]);
     (useAuth as Mock).mockReturnValue({ user: null });
@@ -179,6 +183,53 @@ describe("CheckoutPage", () => {
       paymentProviders: ["MYPOS"],
       pendingPayment: null,
     });
+  });
+
+  it("recovers a redirected Stripe payment into the confirmation page", async () => {
+    sessionStorage.setItem(
+      "hosted-checkout:session-token",
+      JSON.stringify({
+        token: "session-token",
+        startedAt: Date.now(),
+        paymentId: "payment-1",
+        provider: "STRIPE",
+        total: 24.5,
+        restaurantId: "r1",
+        tableNumber: "10",
+        menuReturnUrl: "/menu/public/r1?table=10",
+      }),
+    );
+    (useLocation as Mock).mockReturnValue({
+      state: null,
+      hash: "",
+      pathname: "/checkout",
+      search:
+        "?payment_intent=pi_1&payment_intent_client_secret=secret&redirect_status=succeeded",
+    });
+    (useSearchParams as Mock).mockReturnValue([
+      new URLSearchParams(
+        "payment_intent=pi_1&payment_intent_client_secret=secret&redirect_status=succeeded",
+      ),
+    ]);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/payment-confirmation", {
+        replace: true,
+      });
+    });
+    expect(
+      JSON.parse(sessionStorage.getItem("payment-confirmation") ?? "{}"),
+    ).toEqual(
+      expect.objectContaining({
+        paymentId: "payment-1",
+        sessionToken: "session-token",
+        provider: "STRIPE",
+        menuReturnUrl: "/menu/public/r1?table=10",
+      }),
+    );
+    expect(sessionStorage.getItem("hosted-checkout:session-token")).toBeNull();
   });
 
   it("renders Bulgarian checkout copy instead of English fallbacks", () => {
@@ -255,9 +306,7 @@ describe("CheckoutPage", () => {
 
     render(<CheckoutPage />);
 
-    expect(
-      await screen.findByText("4.00 € изтичат скоро"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("4.00 € изтичат скоро")).toBeInTheDocument();
     expect(
       screen.getByText("50 точки изтичат на 7 август 2026 г."),
     ).toBeInTheDocument();
