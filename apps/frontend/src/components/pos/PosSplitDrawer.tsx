@@ -24,10 +24,12 @@ type Mode = "ITEM" | "EVEN" | "CUSTOM";
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
 
-interface UnpaidUnit {
+interface BillUnit {
   orderItemId: string;
   name: string;
   unitPrice: number;
+  quantity: number;
+  paidQuantity: number;
   remainingQuantity: number;
 }
 
@@ -107,7 +109,7 @@ export default function PosSplitDrawer({
 
   const remaining = bill?.remaining ?? 0;
 
-  const unpaidUnits: UnpaidUnit[] = useMemo(() => {
+  const billUnits: BillUnit[] = useMemo(() => {
     if (!bill) return [];
     return bill.orders
       .flatMap((o) => o.items)
@@ -115,10 +117,16 @@ export default function PosSplitDrawer({
         orderItemId: it.orderItemId,
         name: it.name,
         unitPrice: it.unitPriceWithOptions,
+        quantity: it.quantity,
+        paidQuantity: it.paidQuantity,
         remainingQuantity: it.quantity - it.paidQuantity,
-      }))
-      .filter((u) => u.remainingQuantity > 0);
+      }));
   }, [bill]);
+
+  const unpaidUnits = useMemo(
+    () => billUnits.filter((unit) => unit.remainingQuantity > 0),
+    [billUnits],
+  );
 
   const itemSubtotal = useMemo(
     () =>
@@ -151,7 +159,7 @@ export default function PosSplitDrawer({
     remaining > 0 &&
     (mode !== "ITEM" || Object.values(selection).some((q) => q > 0));
 
-  const setUnitQty = (unit: UnpaidUnit, qty: number) => {
+  const setUnitQty = (unit: BillUnit, qty: number) => {
     const clamped = Math.max(0, Math.min(qty, unit.remainingQuantity));
     setSelection((prev) => ({ ...prev, [unit.orderItemId]: clamped }));
   };
@@ -284,90 +292,119 @@ export default function PosSplitDrawer({
                 {/* By item */}
                 {mode === "ITEM" && (
                   <div className="space-y-2">
-                    {unpaidUnits.length === 0 ? (
+                    {billUnits.length === 0 ? (
                       <p className="py-4 text-center text-sm text-muted-foreground">
-                        {t(
-                          "pos.split.allItemsPaid",
-                          "All items are already paid.",
-                        )}
+                        {t("pos.split.noBillItems", "There are no bill items.")}
                       </p>
                     ) : (
-                      unpaidUnits.map((u) => {
+                      billUnits.map((u) => {
                         const qty = selection[u.orderItemId] ?? 0;
                         const isSelected = qty > 0;
                         const atMax = qty >= u.remainingQuantity;
+                        const isPaid = u.remainingQuantity <= 0;
+                        const isPartiallyPaid = u.paidQuantity > 0 && !isPaid;
                         return (
                           <div
                             key={u.orderItemId}
                             className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
-                              isSelected
-                                ? "border-primary bg-primary/10"
-                                : "border-border"
+                              isPaid
+                                ? "border-success/30 bg-success/5"
+                                : isSelected
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border"
                             }`}
                           >
-                            {/* Selected-state dot so a long list is scannable at a glance. */}
                             <span
                               className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                                isSelected ? "bg-primary" : "bg-muted"
+                                isPaid
+                                  ? "bg-success"
+                                  : isSelected
+                                    ? "bg-primary"
+                                    : "bg-muted"
                               }`}
                               aria-hidden
                             />
                             <div className="min-w-0 flex-1">
                               <div
                                 className={`truncate text-sm font-medium ${
-                                  isSelected
-                                    ? "text-primary"
-                                    : "text-foreground"
+                                  isPaid
+                                    ? "text-muted-foreground line-through decoration-success/70"
+                                    : isSelected
+                                      ? "text-primary"
+                                      : "text-foreground"
                                 }`}
                               >
                                 {u.name}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {eur(u.unitPrice)} ·{" "}
-                                {/* Deduct what's selected for this payment so the
-                                    waiter sees the line draw down as they add. */}
-                                {t("pos.split.unitsLeft", "{{count}} left", {
-                                  count: u.remainingQuantity - qty,
-                                })}
+                                {isPaid
+                                  ? t("pos.paymentStatus.paid", "Paid")
+                                  : isPartiallyPaid
+                                    ? t(
+                                        "pos.paymentStatus.partiallyPaid",
+                                        "{{paid}}/{{total}} paid · {{remaining}} left",
+                                        {
+                                          paid: u.paidQuantity,
+                                          total: u.quantity,
+                                          remaining: u.remainingQuantity - qty,
+                                        },
+                                      )
+                                    : t(
+                                        "pos.split.unitsLeft",
+                                        "{{count}} left",
+                                        {
+                                          count: u.remainingQuantity - qty,
+                                        },
+                                      )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setUnitQty(u, qty - 1)}
-                                disabled={!isSelected}
-                                aria-label={`Remove one ${u.name}`}
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-lg leading-none transition-colors ${
-                                  isSelected
-                                    ? "border-destructive bg-destructive/10 text-destructive"
-                                    : "border-border text-muted-foreground opacity-40"
-                                }`}
-                              >
-                                −
-                              </button>
+                            {isPaid ? (
                               <span
-                                className={`w-6 text-center text-sm ${
-                                  isSelected
-                                    ? "font-bold text-primary"
-                                    : "text-muted-foreground"
-                                }`}
+                                aria-label={t("pos.paymentStatus.paid", "Paid")}
+                                className="rounded-full bg-success/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-success"
                               >
-                                {qty}
+                                {t("pos.paymentStatus.paid", "Paid")}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => setUnitQty(u, qty + 1)}
-                                disabled={atMax}
-                                aria-label={`Add one ${u.name}`}
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-lg leading-none transition-colors ${
-                                  atMax
-                                    ? "border-border text-muted-foreground opacity-40"
-                                    : "border-primary bg-primary text-primary-foreground"
-                                }`}
-                              >
-                                +
-                              </button>
-                            </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setUnitQty(u, qty - 1)}
+                                  disabled={!isSelected}
+                                  aria-label={`Remove one ${u.name}`}
+                                  className={`flex h-9 w-9 items-center justify-center rounded-full border text-lg leading-none transition-colors ${
+                                    isSelected
+                                      ? "border-destructive bg-destructive/10 text-destructive"
+                                      : "border-border text-muted-foreground opacity-40"
+                                  }`}
+                                >
+                                  −
+                                </button>
+                                <span
+                                  className={`w-6 text-center text-sm ${
+                                    isSelected
+                                      ? "font-bold text-primary"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {qty}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setUnitQty(u, qty + 1)}
+                                  disabled={atMax}
+                                  aria-label={`Add one ${u.name}`}
+                                  className={`flex h-9 w-9 items-center justify-center rounded-full border text-lg leading-none transition-colors ${
+                                    atMax
+                                      ? "border-border text-muted-foreground opacity-40"
+                                      : "border-primary bg-primary text-primary-foreground"
+                                  }`}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })

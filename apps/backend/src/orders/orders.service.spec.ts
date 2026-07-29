@@ -286,6 +286,7 @@ describe('OrdersService', () => {
 
     events = {
       emitToRestaurant: jest.fn(),
+      emitToTableSession: jest.fn(),
       emitOrderEventToRestaurant: jest.fn(),
       emitTableStatusChanged: jest.fn(),
       emitToOrder: jest.fn(),
@@ -1884,6 +1885,22 @@ describe('OrdersService', () => {
         'rest-1',
         'table-cuid-1',
         'sess-1',
+      );
+      const billUpdatedPayload = {
+        tableSessionId: 'sess-1',
+        tableId: 'table-cuid-1',
+        orderId: 'order-1',
+        sessionPaid: false,
+      };
+      expect(events.emitToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'bill:updated',
+        billUpdatedPayload,
+      );
+      expect(events.emitToTableSession).toHaveBeenCalledWith(
+        'sess-1',
+        'bill:updated',
+        billUpdatedPayload,
       );
     });
 

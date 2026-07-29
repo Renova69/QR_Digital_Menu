@@ -11,9 +11,12 @@ import {
   createPosLocalSessionId,
   type QueuedPosOrder,
 } from "../lib/posOfflineOrders";
+import type { SessionBill } from "../lib/api";
 
 const STORAGE_KEY = "posCartDraft";
 const MAX_SPECIAL_REQUESTS_LEN = 2000;
+const DEFAULT_ACTIVE_SEAT = "Shared";
+const RESTORABLE_ACTIVE_SEATS = new Set(["Seat 2", "Seat 3", "Shared"]);
 
 function generateId(): string {
   if (
@@ -43,6 +46,11 @@ function loadDraft(): {
         draft.session.localSessionId =
           draft.session.sessionId ?? createPosLocalSessionId();
       }
+      draft.activeSeat =
+        typeof draft.activeSeat === "string" &&
+        RESTORABLE_ACTIVE_SEATS.has(draft.activeSeat)
+          ? draft.activeSeat
+          : DEFAULT_ACTIVE_SEAT;
       return draft;
     }
     return null;
@@ -71,12 +79,15 @@ function clearDraft() {
   sessionStorage.removeItem(STORAGE_KEY);
 }
 
-interface PosCartItem {
+export interface PosCartItem {
   cartId: string;
   menuItemId: string;
+  serverOrderItemId?: string;
   name: string;
   price: number;
   quantity: number;
+  paidQuantity?: number;
+  remainingQuantity?: number;
   selectedOptions: Array<{
     optionId: string;
     optionName: string;
@@ -118,6 +129,8 @@ interface PosContextType {
   loadQueuedOrderForEdit: (order: QueuedPosOrder) => void;
   removeQueuedOrderItems: (clientOrderId: string) => void;
   setHistoryItems: (historyItems: PosCartItem[]) => void;
+  sessionBill: SessionBill | null;
+  setSessionBill: (bill: SessionBill | null) => void;
   session: PosSession | null;
   setSession: (s: PosSessionInput) => void;
   adoptServerSession: (
@@ -154,10 +167,11 @@ export function PosProvider({ children }: { children: ReactNode }) {
     () => loadDraft()?.session ?? null,
   );
   const [activeSeat, setActiveSeat] = useState(
-    () => loadDraft()?.activeSeat ?? "Seat 1",
+    () => loadDraft()?.activeSeat ?? DEFAULT_ACTIVE_SEAT,
   );
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [sessionBill, setSessionBill] = useState<SessionBill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
@@ -174,9 +188,10 @@ export function PosProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(() => {
     setSessionState(null);
     setItems([]);
-    setActiveSeat("Seat 1");
+    setActiveSeat(DEFAULT_ACTIVE_SEAT);
     setHistoryLoading(false);
     setHistoryError(null);
+    setSessionBill(null);
     clearDraft();
   }, []);
 
@@ -328,9 +343,10 @@ export function PosProvider({ children }: { children: ReactNode }) {
             : item,
         );
       });
-      setActiveSeat("Seat 1");
+      setActiveSeat(DEFAULT_ACTIVE_SEAT);
       setHistoryLoading(false);
       setHistoryError(null);
+      setSessionBill(null);
     },
     [session?.localSessionId],
   );
@@ -349,6 +365,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSession = useCallback((s: PosSessionInput) => {
+    setSessionBill(null);
     setSessionState({
       ...s,
       localSessionId:
@@ -362,6 +379,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
       sessionId: string,
       sessionToken: string | null,
     ) => {
+      setSessionBill(null);
       setSessionState((current) =>
         current?.localSessionId === localSessionId
           ? { ...current, sessionId, sessionToken }
@@ -434,6 +452,8 @@ export function PosProvider({ children }: { children: ReactNode }) {
       loadQueuedOrderForEdit,
       removeQueuedOrderItems,
       setHistoryItems,
+      sessionBill,
+      setSessionBill,
       session,
       setSession,
       adoptServerSession,
@@ -468,6 +488,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
       loadQueuedOrderForEdit,
       removeQueuedOrderItems,
       setHistoryItems,
+      sessionBill,
       session,
       setSession,
       adoptServerSession,

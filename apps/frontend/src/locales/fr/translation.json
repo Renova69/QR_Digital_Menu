@@ -571,6 +571,8 @@
     "myOrders": "Mes commandes",
     "fullTable": "Toute la table",
     "cashRequestSent": "Le personnel a été prévenu pour encaisser à votre table.",
+    "partialCashPaid": "Vos articles ont été payés : {{amount}}",
+    "remainingTableBalance": "Solde restant de la table : {{amount}}",
     "continueToMypos": "Payer par carte (myPOS)",
     "requestingCash": "Appel du personnel...",
     "cashRequested": "Demande de paiement en espèces envoyée",

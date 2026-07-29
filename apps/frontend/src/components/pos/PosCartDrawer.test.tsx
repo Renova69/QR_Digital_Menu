@@ -1,5 +1,11 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { vi, type Mock } from "vitest";
 import PosCartDrawer from "./PosCartDrawer";
@@ -21,11 +27,41 @@ vi.mock("../../context/PosThemeContext", () => ({
   usePosTheme: vi.fn(),
 }));
 
+const socketMocks = vi.hoisted(() => {
+  const handlers: Record<string, Array<(payload?: unknown) => void>> = {};
+  const socket: { on: Mock; off: Mock } = {
+    on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+      handlers[event] = [...(handlers[event] ?? []), handler];
+      return socket;
+    }),
+    off: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+      handlers[event] = (handlers[event] ?? []).filter(
+        (registered) => registered !== handler,
+      );
+      return socket;
+    }),
+  };
+
+  return {
+    handlers,
+    socket,
+    state: {
+      socket: null as { on: Mock; off: Mock } | null,
+      isConnected: false,
+    },
+  };
+});
+
+vi.mock("../../context/SocketContext", () => ({
+  useSocket: () => socketMocks.state,
+}));
+
 vi.mock("../../lib/api", () => ({
   createOrder: vi.fn(),
   closeSession: vi.fn(),
   closeSessionWithCard: vi.fn(),
   closeSessionWithCash: vi.fn(),
+  getSessionBill: vi.fn(),
   getOrCreateSession: vi.fn(),
 }));
 
@@ -61,6 +97,26 @@ vi.mock("./PaymentModal", () => ({
 describe("PosCartDrawer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.keys(socketMocks.handlers).forEach((event) => {
+      delete socketMocks.handlers[event];
+    });
+    socketMocks.state.socket = null;
+    socketMocks.state.isConnected = false;
+    (api.getSessionBill as Mock).mockResolvedValue({
+      sessionId: "session-1",
+      tableId: "t1",
+      tableName: "Table 1",
+      restaurantId: "r1",
+      orders: [],
+      subtotal: 0,
+      paidSubtotal: 0,
+      remaining: 0,
+      splitItemsAvailable: true,
+      tipsEnabled: false,
+      tipOptions: [],
+      paymentProviders: [],
+      pendingPayment: null,
+    });
     (usePosTheme as Mock).mockReturnValue({ theme: "light" });
     (usePos as Mock).mockReturnValue({
       items: [
@@ -81,6 +137,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       setSession: vi.fn(),
       removeItem: vi.fn(),
       updateQuantity: vi.fn(),
@@ -138,6 +196,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       updateQuantity: updateQuantityMock,
       getPendingTotal: () => 20,
       buildSpecialRequests: () => "",
@@ -176,6 +236,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       getPendingTotal: () => 10,
       buildSpecialRequests: () => "",
       markAsSubmitted: markAsSubmittedMock,
@@ -244,6 +306,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       getPendingTotal: () => 10,
       buildSpecialRequests: () => "",
       markAsSubmitted: vi.fn(),
@@ -297,6 +361,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       getPendingTotal: () => 10,
       buildSpecialRequests: () => "",
       markAsSubmitted: vi.fn(),
@@ -367,6 +433,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       getPendingTotal: () => 10,
       buildSpecialRequests: () => "",
       markAsSubmitted: markAsSubmittedMock,
@@ -414,6 +482,8 @@ describe("PosCartDrawer", () => {
         tableName: "Table 1",
         tableId: "t1",
       },
+      sessionBill: null,
+      setSessionBill: vi.fn(),
       getPendingTotal: () => 0,
       buildSpecialRequests: () => "",
       historyLoading: false,
@@ -432,5 +502,176 @@ describe("PosCartDrawer", () => {
     expect(
       screen.getByRole("button", { name: /pos.forceCloseNoPayment/i }),
     ).toBeDisabled();
+  });
+
+  it("renders the shared authoritative bill instead of a stale item sum", () => {
+    (usePos as Mock).mockReturnValue({
+      items: [
+        {
+          cartId: "old-order",
+          menuItemId: "m1",
+          name: "Previous items",
+          quantity: 1,
+          price: 62.62,
+          selectedOptions: [],
+          submitted: true,
+        },
+      ],
+      session: {
+        sessionToken: "token123",
+        sessionId: "session-1",
+        localSessionId: "local-session-1",
+        tableName: "Table 10",
+        tableId: "t10",
+      },
+      sessionBill: {
+        sessionId: "session-1",
+        tableId: "t10",
+        tableName: "Table 10",
+        restaurantId: "r1",
+        orders: [],
+        subtotal: 68.24,
+        paidSubtotal: 0,
+        remaining: 68.24,
+        splitItemsAvailable: true,
+        tipsEnabled: false,
+        tipOptions: [],
+        paymentProviders: [],
+        pendingPayment: null,
+      },
+      setSessionBill: vi.fn(),
+      getPendingTotal: () => 0,
+      buildSpecialRequests: () => "",
+      historyLoading: false,
+      historyError: null,
+    });
+
+    renderWithContext(<PosCartDrawer itemCount={1} total={62.62} />);
+    fireEvent.click(screen.getByRole("button", { name: /pos.allSent/i }));
+
+    expect(screen.getAllByText(/68\.24/).length).toBeGreaterThan(0);
+  });
+
+  it("marks item-scoped payments and charges only the authoritative remainder", async () => {
+    socketMocks.state.socket = socketMocks.socket;
+    socketMocks.state.isConnected = true;
+    const setHistoryItems = vi.fn();
+    const setHistoryLoading = vi.fn();
+    const setHistoryError = vi.fn();
+    const submittedItems = [
+      {
+        cartId: "order-old-oi-shopska",
+        serverOrderItemId: "oi-shopska",
+        menuItemId: "",
+        name: "Шопска салата",
+        quantity: 1,
+        paidQuantity: 0,
+        remainingQuantity: 1,
+        price: 5.63,
+        selectedOptions: [],
+        seatNumber: "Shared",
+        itemNote: "",
+        submitted: true,
+      },
+      {
+        cartId: "order-paid-oi-selska",
+        serverOrderItemId: "oi-selska",
+        menuItemId: "",
+        name: "Селска салата лятна",
+        quantity: 1,
+        paidQuantity: 1,
+        remainingQuantity: 0,
+        price: 5.62,
+        selectedOptions: [],
+        seatNumber: "Shared",
+        itemNote: "",
+        submitted: true,
+      },
+      {
+        cartId: "order-new-oi-lukanka",
+        serverOrderItemId: "oi-lukanka",
+        menuItemId: "",
+        name: "Луканка",
+        quantity: 1,
+        paidQuantity: 0,
+        remainingQuantity: 1,
+        price: 4.29,
+        selectedOptions: [],
+        seatNumber: "Shared",
+        itemNote: "",
+        submitted: true,
+      },
+    ];
+    const bill = {
+      sessionId: "session-1",
+      tableId: "t1",
+      tableName: "Table 1",
+      restaurantId: "r1",
+      orders: [],
+      subtotal: 29.61,
+      paidSubtotal: 16.11,
+      remaining: 13.5,
+      splitItemsAvailable: true,
+      tipsEnabled: false,
+      tipOptions: [],
+      paymentProviders: [],
+      pendingPayment: null,
+    };
+    (api.getSessionBill as Mock).mockResolvedValue(bill);
+    (usePos as Mock).mockImplementation(() => {
+      const [sessionBill, setSessionBill] = React.useState(null);
+      return {
+        items: submittedItems,
+        session: {
+          sessionToken: "token123",
+          sessionId: "session-1",
+          localSessionId: "local-session-1",
+          tableName: "Table 1",
+          tableId: "t1",
+        },
+        sessionBill,
+        setSessionBill,
+        setSession: vi.fn(),
+        setHistoryItems,
+        setHistoryLoading,
+        setHistoryError,
+        removeItem: vi.fn(),
+        updateQuantity: vi.fn(),
+        updateNote: vi.fn(),
+        markAsSubmitted: vi.fn(),
+        markAsQueued: vi.fn(),
+        clearSession: vi.fn(),
+        getPendingTotal: () => 0,
+        buildSpecialRequests: () => "",
+        historyLoading: false,
+        historyError: null,
+      };
+    });
+
+    renderWithContext(<PosCartDrawer itemCount={3} total={15.54} />);
+    fireEvent.click(screen.getByRole("button", { name: /pos.allSent/i }));
+
+    await waitFor(() => {
+      expect(api.getSessionBill).toHaveBeenCalledWith("token123");
+      expect(screen.getAllByText(/13\.50/).length).toBeGreaterThan(0);
+    });
+    expect(screen.getByLabelText("pos.paymentStatus.paid")).toBeInTheDocument();
+    expect(screen.queryByText(/29\.61/)).not.toBeInTheDocument();
+
+    (api.getSessionBill as Mock).mockResolvedValueOnce({
+      ...bill,
+      paidSubtotal: 20.29,
+      remaining: 9.32,
+    });
+    act(() => {
+      socketMocks.handlers["bill:updated"][0]({
+        tableSessionId: "session-1",
+      });
+    });
+
+    await waitFor(() => {
+      expect(api.getSessionBill).toHaveBeenCalledTimes(2);
+      expect(screen.getAllByText(/9\.32/).length).toBeGreaterThan(0);
+    });
   });
 });

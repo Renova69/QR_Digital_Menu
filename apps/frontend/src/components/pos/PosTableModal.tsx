@@ -14,6 +14,7 @@ import { useSocket } from "../../context/SocketContext";
 import { usePosTheme } from "../../context/PosThemeContext";
 import ZoneSelector from "./ZoneSelector";
 import PosServicePointList from "./PosServicePointList";
+import { mapSessionBillToPosHistoryItems } from "./posSessionBill";
 
 type TableStatus = PosTableStatus;
 
@@ -40,6 +41,7 @@ export default function PosTableModal() {
   const {
     session,
     setSession,
+    setSessionBill,
     setHistoryItems,
     resetCart,
     setHistoryLoading,
@@ -202,24 +204,8 @@ export default function PosTableModal() {
     setHistoryError(null);
     try {
       const bill = await getSessionBill(table.sessionToken);
-      const historyItems = bill.orders.flatMap((order: any) =>
-        (order.items ?? []).map((oi: any, idx: number) => ({
-          cartId: `${order.id}-${idx}`,
-          menuItemId: "",
-          name: oi.name ?? t("pos.unknownItem", "Unknown item"),
-          price: oi.unitPrice ?? 0,
-          quantity: oi.quantity,
-          selectedOptions: (oi.selectedOptions ?? []) as Array<{
-            optionId: string;
-            optionName: string;
-            choiceName: string;
-            priceModifier: number;
-          }>,
-          seatNumber: "Shared",
-          itemNote: "",
-          submitted: true,
-        })),
-      );
+      setSessionBill(bill);
+      const historyItems = mapSessionBillToPosHistoryItems(bill);
       if (historyItems.length > 0) {
         setHistoryItems(historyItems);
       }

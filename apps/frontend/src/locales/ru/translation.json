@@ -164,6 +164,8 @@
     "myOrders": "Мои заказы",
     "fullTable": "Весь стол",
     "cashRequestSent": "Сотрудник уведомлён о необходимости принять наличные за вашим столом.",
+    "partialCashPaid": "Ваши позиции оплачены: {{amount}}",
+    "remainingTableBalance": "Остаток по счёту стола: {{amount}}",
     "continueToMypos": "Оплатить картой (myPOS)",
     "requestingCash": "Вызываем сотрудника...",
     "cashRequested": "Запрос на оплату наличными отправлен",

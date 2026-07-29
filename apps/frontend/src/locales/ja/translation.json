@@ -164,6 +164,8 @@
     "myOrders": "自分の注文",
     "fullTable": "テーブル全体",
     "cashRequestSent": "テーブルで現金を受け取るようスタッフに通知しました。",
+    "partialCashPaid": "商品の支払いが完了しました：{{amount}}",
+    "remainingTableBalance": "テーブルの残額：{{amount}}",
     "continueToMypos": "カードで支払う（myPOS）",
     "requestingCash": "スタッフに連絡中...",
     "cashRequested": "現金支払いリクエストを送信しました",

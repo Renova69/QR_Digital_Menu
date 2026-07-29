@@ -171,6 +171,20 @@ describe("PosSplitDrawer", () => {
     );
   });
 
+  it("keeps item-scoped settled lines visible and marks them as paid", async () => {
+    const partiallyPaidBill = structuredClone(bill);
+    partiallyPaidBill.paidSubtotal = 5;
+    partiallyPaidBill.remaining = 25;
+    partiallyPaidBill.orders[0].items[0].paidQuantity = 1;
+    apiMock.getSessionBill.mockResolvedValueOnce(partiallyPaidBill);
+
+    renderDrawer();
+
+    expect(await screen.findByText("Beer")).toBeTruthy();
+    expect(screen.getByLabelText("Paid")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add one Beer" })).toBeNull();
+  });
+
   it("even split charges one share of the remaining balance", async () => {
     apiMock.settlePartial.mockResolvedValue({
       amount: 10,

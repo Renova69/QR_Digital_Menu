@@ -571,6 +571,8 @@
     "myOrders": "我的订单",
     "fullTable": "整桌",
     "cashRequestSent": "已通知工作人员到您的桌边收取现金。",
+    "partialCashPaid": "您的餐品已付款：{{amount}}",
+    "remainingTableBalance": "餐桌剩余金额：{{amount}}",
     "continueToMypos": "银行卡支付（myPOS）",
     "requestingCash": "正在通知工作人员...",
     "cashRequested": "现金支付请求已发送",

@@ -1309,6 +1309,8 @@
     "myOrders": "My orders",
     "fullTable": "Full table",
     "cashRequestSent": "Staff has been asked to collect cash at your table.",
+    "partialCashPaid": "Your items were paid: {{amount}}",
+    "remainingTableBalance": "Remaining table balance: {{amount}}",
     "continueToMypos": "Pay by card (myPOS)",
     "requestingCash": "Asking staff...",
     "cashRequested": "Cash request sent",
@@ -3685,11 +3687,16 @@
       "evenLocked": "Locked after the first payment — counts down as each person pays.",
       "amount": "Amount",
       "unitsLeft": "{{count}} left",
+      "noBillItems": "There are no bill items.",
       "allItemsPaid": "All items are already paid.",
       "payCash": "Cash",
       "payCard": "Card",
       "loadError": "Could not load the bill. Try again.",
       "settleError": "Could not record the payment. Try again."
+    },
+    "paymentStatus": {
+      "paid": "Paid",
+      "partiallyPaid": "{{paid}}/{{total}} paid · {{remaining}} left"
     },
     "perPerson": "/ person",
     "unknownItem": "Unknown item",

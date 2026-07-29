@@ -1309,6 +1309,8 @@
     "myOrders": "Comenzile mele",
     "fullTable": "Toată masa",
     "cashRequestSent": "Personalul a fost anunțat să încaseze numerarul la masa dvs.",
+    "partialCashPaid": "Articolele dvs. au fost plătite: {{amount}}",
+    "remainingTableBalance": "Soldul rămas al mesei: {{amount}}",
     "continueToMypos": "Plătește cu cardul (myPOS)",
     "requestingCash": "Se anunță personalul...",
     "cashRequested": "Solicitarea de numerar a fost trimisă",
@@ -3772,11 +3774,16 @@
       "evenLocked": "Blocat după prima plată — scade pe măsură ce fiecare plătește.",
       "amount": "Sumă",
       "unitsLeft": "{{count}} rămase",
+      "noBillItems": "Nu există produse în notă.",
       "allItemsPaid": "Toate produsele sunt deja plătite.",
       "payCash": "Numerar",
       "payCard": "Card",
       "loadError": "Nu s-a putut încărca nota. Încercați din nou.",
       "settleError": "Plata nu a putut fi înregistrată. Încercați din nou."
+    },
+    "paymentStatus": {
+      "paid": "Plătit",
+      "partiallyPaid": "{{paid}}/{{total}} plătite · {{remaining}} rămase"
     },
     "perPerson": "/ persoană",
     "unknownItem": "Articol necunoscut",

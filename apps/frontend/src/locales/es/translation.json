@@ -571,6 +571,8 @@
     "myOrders": "Mis pedidos",
     "fullTable": "Mesa completa",
     "cashRequestSent": "Se ha avisado al personal para que cobre en efectivo en su mesa.",
+    "partialCashPaid": "Tus artículos se han pagado: {{amount}}",
+    "remainingTableBalance": "Saldo restante de la mesa: {{amount}}",
     "continueToMypos": "Pagar con tarjeta (myPOS)",
     "requestingCash": "Avisando al personal...",
     "cashRequested": "Solicitud de efectivo enviada",

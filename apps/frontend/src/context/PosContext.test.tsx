@@ -29,6 +29,33 @@ describe("PosContext", () => {
     sessionStorage.clear();
   });
 
+  it("defaults new POS orders to the shared seat bucket", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    expect(result.current.activeSeat).toBe("Shared");
+  });
+
+  it("normalizes old Seat 1 drafts to the shared seat bucket", () => {
+    sessionStorage.setItem(
+      "posCartDraft",
+      JSON.stringify({
+        items: [],
+        session: {
+          tableId: "t1",
+          tableName: "1",
+          sessionToken: null,
+          sessionId: null,
+          localSessionId: "local-session-1",
+        },
+        activeSeat: "Seat 1",
+      }),
+    );
+
+    const { result } = renderHook(() => usePos(), { wrapper });
+
+    expect(result.current.activeSeat).toBe("Shared");
+  });
+
   it("addItem appends a non-submitted item with a generated cartId", () => {
     const { result } = renderHook(() => usePos(), { wrapper });
 
@@ -351,7 +378,42 @@ describe("PosContext", () => {
     expect(result.current.buildSpecialRequests()).toBe("");
   });
 
-  it("clearSession resets items, session, and active seat", () => {
+  it("stores one authoritative session bill and clears it with the session", () => {
+    const { result } = renderHook(() => usePos(), { wrapper });
+    const bill = {
+      sessionId: "s1",
+      tableId: "t1",
+      tableName: "1",
+      restaurantId: "r1",
+      orders: [],
+      subtotal: 68.24,
+      paidSubtotal: 0,
+      remaining: 68.24,
+      splitItemsAvailable: true,
+      tipsEnabled: false,
+      tipOptions: [],
+      paymentProviders: [],
+      pendingPayment: null,
+    };
+
+    act(() => {
+      result.current.setSession({
+        tableId: "t1",
+        tableName: "1",
+        sessionToken: "tok",
+        sessionId: "s1",
+      });
+      result.current.setSessionBill(bill);
+    });
+
+    expect(result.current.sessionBill).toEqual(bill);
+
+    act(() => result.current.clearSession());
+
+    expect(result.current.sessionBill).toBeNull();
+  });
+
+  it("clearSession resets items, session, and active seat to shared", () => {
     const { result } = renderHook(() => usePos(), { wrapper });
 
     act(() => {
@@ -369,6 +431,6 @@ describe("PosContext", () => {
 
     expect(result.current.session).toBeNull();
     expect(result.current.items).toHaveLength(0);
-    expect(result.current.activeSeat).toBe("Seat 1");
+    expect(result.current.activeSeat).toBe("Shared");
   });
 });

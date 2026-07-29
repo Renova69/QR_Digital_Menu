@@ -209,6 +209,8 @@
     "myOrders": "طلباتي",
     "fullTable": "الطاولة كاملة",
     "cashRequestSent": "تم إبلاغ الموظفين بتحصيل المبلغ النقدي من طاولتك.",
+    "partialCashPaid": "تم دفع ثمن أصنافك: {{amount}}",
+    "remainingTableBalance": "الرصيد المتبقي للطاولة: {{amount}}",
     "continueToMypos": "الدفع بالبطاقة (myPOS)",
     "requestingCash": "جاري إبلاغ الموظفين...",
     "cashRequested": "تم إرسال طلب الدفع النقدي",

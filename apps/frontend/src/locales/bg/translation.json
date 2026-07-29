@@ -1371,11 +1371,16 @@
       "evenLocked": "Заключено след първото плащане — намалява с всяко плащане.",
       "amount": "Сума",
       "unitsLeft": "остават {{count}}",
+      "noBillItems": "Няма артикули в сметката.",
       "allItemsPaid": "Всички артикули вече са платени.",
       "payCash": "В брой",
       "payCard": "Карта",
       "loadError": "Сметката не може да се зареди. Опитайте отново.",
       "settleError": "Плащането не може да се запише. Опитайте отново."
+    },
+    "paymentStatus": {
+      "paid": "Платено",
+      "partiallyPaid": "платени {{paid}}/{{total}} · остават {{remaining}}"
     },
     "perPerson": "/ човек",
     "unknownItem": "Неизвестен артикул",
@@ -1418,6 +1423,8 @@
     "myOrders": "Моите поръчки",
     "fullTable": "Цялата маса",
     "cashRequestSent": "Персоналът е уведомен да вземе плащането в брой от масата ви.",
+    "partialCashPaid": "Вашите артикули са платени: {{amount}}",
+    "remainingTableBalance": "Остатък по сметката на масата: {{amount}}",
     "continueToMypos": "Плащане с карта (myPOS)",
     "requestingCash": "Уведомяване на персонала...",
     "cashRequested": "Заявката за плащане в брой е изпратена",

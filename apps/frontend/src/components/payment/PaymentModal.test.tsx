@@ -419,7 +419,7 @@ describe("PaymentModal hosted provider choices", () => {
     ).toBeNull();
   });
 
-  it("completes the modal when staff marks its cash request paid over the session socket", async () => {
+  it("completes the modal when a cash request fully pays the session", async () => {
     socketMocks.state.socket = socketMocks.socket;
     socketMocks.state.isConnected = true;
     apiMocks.getSessionBill.mockResolvedValueOnce(
@@ -451,6 +451,12 @@ describe("PaymentModal hosted provider choices", () => {
       socketMocks.handlers["cashPaymentRequest:updated"][0]({
         id: "cash-1",
         status: "PAID",
+        requestedAmount: 20,
+      });
+      socketMocks.handlers["bill:updated"][0]({
+        tableSessionId: "s1",
+        remaining: 0,
+        sessionPaid: true,
       });
     });
 
@@ -461,6 +467,71 @@ describe("PaymentModal hosted provider choices", () => {
         token: "tok1",
       },
     );
+  });
+
+  it("keeps the public table session after an item-scoped cash payment", async () => {
+    socketMocks.state.socket = socketMocks.socket;
+    socketMocks.state.isConnected = true;
+    const initialBill = twoOrderBill();
+    const refreshedBill = {
+      ...initialBill,
+      paidSubtotal: 20,
+      remaining: 12,
+      orders: initialBill.orders.map((order) =>
+        order.id === "order1"
+          ? {
+              ...order,
+              items: order.items.map((item) => ({
+                ...item,
+                paidQuantity: item.quantity,
+              })),
+            }
+          : order,
+      ),
+    };
+    apiMocks.getSessionBill
+      .mockResolvedValueOnce(initialBill)
+      .mockResolvedValueOnce(refreshedBill);
+    apiMocks.createCashPaymentRequest.mockResolvedValueOnce({
+      id: "cash-owned",
+    });
+    const onSuccess = vi.fn();
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        ownedOrderIds={["order1"]}
+        onClose={vi.fn()}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Pay cash to waiter/i }),
+    );
+    await screen.findByText("Cash request sent");
+
+    act(() => {
+      socketMocks.handlers["cashPaymentRequest:updated"][0]({
+        id: "cash-owned",
+        status: "PAID",
+        requestedAmount: 20,
+      });
+      socketMocks.handlers["bill:updated"][0]({
+        tableSessionId: "s1",
+        remaining: 12,
+        sessionPaid: false,
+      });
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Your items were paid:.*20\.00/),
+    ).toBeTruthy();
+    expect(screen.getByText(/Remaining table balance:.*12\.00/)).toBeTruthy();
+    await waitFor(() => {
+      expect(apiMocks.getSessionBill).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("blocks payment actions when the loaded bill already has a full-table payment pending", async () => {

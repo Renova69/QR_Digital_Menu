@@ -1260,6 +1260,22 @@ export class OrdersService {
     );
 
     if (finalOrder.tableSessionId && resolvedTableCuid) {
+      const billUpdatedPayload = {
+        tableSessionId: finalOrder.tableSessionId,
+        tableId: resolvedTableCuid,
+        orderId: finalOrder.id,
+        sessionPaid: false,
+      };
+      this.eventsGateway.emitToRestaurant(
+        finalOrder.restaurantId,
+        'bill:updated',
+        billUpdatedPayload,
+      );
+      this.eventsGateway.emitToTableSession(
+        finalOrder.tableSessionId,
+        'bill:updated',
+        billUpdatedPayload,
+      );
       this.eventsGateway.emitTableStatusChanged(
         finalOrder.restaurantId,
         resolvedTableCuid,

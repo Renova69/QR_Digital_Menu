@@ -571,6 +571,8 @@
     "myOrders": "Meine Bestellungen",
     "fullTable": "Ganzer Tisch",
     "cashRequestSent": "Das Personal wurde gebeten, das Bargeld an Ihrem Tisch abzuholen.",
+    "partialCashPaid": "Ihre Artikel wurden bezahlt: {{amount}}",
+    "remainingTableBalance": "Verbleibender Tischbetrag: {{amount}}",
     "continueToMypos": "Mit Karte bezahlen (myPOS)",
     "requestingCash": "Personal wird gerufen...",
     "cashRequested": "Barzahlungsanfrage gesendet",

@@ -1,4 +1,10 @@
-import React, { useState, useContext, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useContext,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
@@ -19,6 +25,7 @@ import {
   closeSession,
   closeSessionWithCard,
   closeSessionWithCash,
+  getSessionBill,
 } from "../../lib/api";
 import { getApiError } from "../../lib/apiError";
 import {
@@ -34,6 +41,8 @@ import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitDrawer from "./PosSplitDrawer";
 import PosQRBill from "./PosQRBill";
 import { usePosTheme } from "../../context/PosThemeContext";
+import { useSocket } from "../../context/SocketContext";
+import { mapSessionBillToPosHistoryItems } from "./posSessionBill";
 
 interface PosCartDrawerProps {
   itemCount: number;
@@ -60,6 +69,7 @@ export default function PosCartDrawer({
 }: PosCartDrawerProps) {
   const { t } = useTranslation();
   const { theme } = usePosTheme();
+  const { socket } = useSocket();
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const {
@@ -76,6 +86,11 @@ export default function PosCartDrawer({
     buildSpecialRequests,
     historyLoading,
     historyError,
+    sessionBill,
+    setSessionBill,
+    setHistoryItems,
+    setHistoryLoading,
+    setHistoryError,
   } = usePos();
 
   // Sheet state
@@ -89,6 +104,7 @@ export default function PosCartDrawer({
   const [closing, setClosing] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [splitOpen, setSplitOpen] = useState(false);
+  const billRequestVersion = useRef(0);
 
   // Note editing
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -134,11 +150,19 @@ export default function PosCartDrawer({
         0,
       )) *
     item.quantity;
-  const submittedTotal = serverSubmittedItems.reduce(
+  const submittedGrossTotal = serverSubmittedItems.reduce(
     (sum, item) => sum + itemTotal(item),
     0,
   );
-  const lockedTotal = total - pendingTotal;
+  const hasAuthoritativeBill =
+    !!sessionBill &&
+    (!session?.sessionId || sessionBill.sessionId === session.sessionId);
+  const submittedTotal = hasAuthoritativeBill
+    ? Math.max(0, sessionBill.remaining)
+    : submittedGrossTotal;
+  const lockedTotal = hasAuthoritativeBill
+    ? submittedTotal
+    : total - pendingTotal;
   const hasPending = pendingItems.length > 0;
   const hasUnsynced = unsyncedItems.length > 0;
   const hasServerSubmitted = serverSubmittedItems.length > 0;
@@ -159,6 +183,53 @@ export default function PosCartDrawer({
     const key = SEAT_LABEL_KEYS[seat];
     return key ? t(key, seat) : seat;
   };
+
+  const refreshSessionBill = useCallback(
+    async (token: string) => {
+      const requestVersion = ++billRequestVersion.current;
+      setHistoryLoading?.(true);
+      setHistoryError?.(null);
+      try {
+        const nextBill = await getSessionBill(token);
+        if (requestVersion !== billRequestVersion.current) return;
+        setSessionBill(nextBill);
+        setHistoryItems?.(mapSessionBillToPosHistoryItems(nextBill));
+      } catch {
+        if (requestVersion !== billRequestVersion.current) return;
+        setSessionBill(null);
+        setHistoryError?.(
+          "Could not refresh the current bill. Reconnect before taking payment.",
+        );
+      } finally {
+        if (requestVersion === billRequestVersion.current) {
+          setHistoryLoading?.(false);
+        }
+      }
+    },
+    [setHistoryError, setHistoryItems, setHistoryLoading, setSessionBill],
+  );
+
+  useEffect(() => {
+    if (!session?.sessionToken) {
+      billRequestVersion.current += 1;
+      setSessionBill(null);
+      return;
+    }
+    setSessionBill(null);
+    void refreshSessionBill(session.sessionToken);
+  }, [refreshSessionBill, session?.sessionToken]);
+
+  useEffect(() => {
+    if (!socket || !session?.sessionId || !session.sessionToken) return;
+    const handleBillUpdated = (payload: { tableSessionId?: string }) => {
+      if (payload?.tableSessionId !== session.sessionId) return;
+      void refreshSessionBill(session.sessionToken as string);
+    };
+    socket.on("bill:updated", handleBillUpdated);
+    return () => {
+      socket.off("bill:updated", handleBillUpdated);
+    };
+  }, [refreshSessionBill, session?.sessionId, session?.sessionToken, socket]);
 
   // Sheet animation: mount → next frame → transition in
   const openSheet = () => {
@@ -224,12 +295,16 @@ export default function PosCartDrawer({
     try {
       const result = await createOrder(payload);
       if (result.tableSessionId) {
+        const nextSessionToken = result.sessionToken ?? session.sessionToken;
         setSession({
           ...session,
           localSessionId,
-          sessionToken: result.sessionToken ?? session.sessionToken,
+          sessionToken: nextSessionToken,
           sessionId: result.tableSessionId,
         });
+        if (nextSessionToken) {
+          void refreshSessionBill(nextSessionToken);
+        }
       }
       markAsSubmitted(cartIds);
     } catch (err: unknown) {
@@ -676,65 +751,117 @@ export default function PosCartDrawer({
                     </button>
                     {!submittedCollapsed && (
                       <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
-                        {submittedItems.map((item) => (
-                          <div
-                            key={item.cartId}
-                            className="flex items-center gap-3 px-3 py-2.5 bg-card/60"
-                          >
-                            {item.syncState === "conflict" ? (
-                              <TriangleAlert
-                                size={14}
-                                className="shrink-0 text-destructive"
-                              />
-                            ) : item.syncState === "queued" ? (
-                              <CloudUpload
-                                size={14}
-                                className="shrink-0 text-warning-foreground"
-                              />
-                            ) : (
-                              <CheckCircle2
-                                size={14}
-                                className="shrink-0 text-success"
-                              />
-                            )}
-                            <span className="flex-1 text-sm text-muted-foreground">
-                              {item.name}
-                              {item.selectedOptions.length > 0 && (
-                                <span className="text-xs ml-1 opacity-70">
-                                  (
-                                  {item.selectedOptions
-                                    .map((o) => o.choiceName)
-                                    .join(", ")}
-                                  )
+                        {submittedItems.map((item) => {
+                          const paidQuantity = Math.max(
+                            0,
+                            Math.min(item.quantity, item.paidQuantity ?? 0),
+                          );
+                          const fullyPaid =
+                            !!item.serverOrderItemId &&
+                            paidQuantity === item.quantity;
+                          const partiallyPaid =
+                            !!item.serverOrderItemId &&
+                            paidQuantity > 0 &&
+                            paidQuantity < item.quantity;
+
+                          return (
+                            <div
+                              key={item.cartId}
+                              className={`flex items-center gap-3 px-3 py-2.5 ${
+                                fullyPaid
+                                  ? "bg-success/5 opacity-70"
+                                  : "bg-card/60"
+                              }`}
+                            >
+                              {item.syncState === "conflict" ? (
+                                <TriangleAlert
+                                  size={14}
+                                  className="shrink-0 text-destructive"
+                                />
+                              ) : item.syncState === "queued" ? (
+                                <CloudUpload
+                                  size={14}
+                                  className="shrink-0 text-warning-foreground"
+                                />
+                              ) : (
+                                <CheckCircle2
+                                  size={14}
+                                  className={`shrink-0 ${
+                                    fullyPaid
+                                      ? "text-success"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                              )}
+                              <span
+                                className={`flex-1 text-sm text-muted-foreground ${
+                                  fullyPaid
+                                    ? "line-through decoration-success/70"
+                                    : ""
+                                }`}
+                              >
+                                {item.name}
+                                {item.selectedOptions.length > 0 && (
+                                  <span className="text-xs ml-1 opacity-70">
+                                    (
+                                    {item.selectedOptions
+                                      .map((option) => option.choiceName)
+                                      .join(", ")}
+                                    )
+                                  </span>
+                                )}
+                                {item.syncState === "queued" && (
+                                  <span className="ml-1 text-xs text-warning-foreground">
+                                    {t("pos.queued", "Queued")}
+                                  </span>
+                                )}
+                                {item.syncState === "conflict" && (
+                                  <span className="ml-1 text-xs text-destructive">
+                                    {t("pos.review", "Review")}
+                                  </span>
+                                )}
+                              </span>
+                              {fullyPaid && (
+                                <span
+                                  aria-label={t(
+                                    "pos.paymentStatus.paid",
+                                    "Paid",
+                                  )}
+                                  className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success"
+                                >
+                                  {t("pos.paymentStatus.paid", "Paid")}
                                 </span>
                               )}
-                              {item.syncState === "queued" && (
-                                <span className="ml-1 text-xs text-warning-foreground">
-                                  {t("pos.queued", "Queued")}
+                              {partiallyPaid && (
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                  {t(
+                                    "pos.paymentStatus.partiallyPaid",
+                                    "{{paid}}/{{total}} paid",
+                                    {
+                                      paid: paidQuantity,
+                                      total: item.quantity,
+                                    },
+                                  )}
                                 </span>
                               )}
-                              {item.syncState === "conflict" && (
-                                <span className="ml-1 text-xs text-destructive">
-                                  {t("pos.review", "Review")}
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              ×{item.quantity}
-                            </span>
-                            <span className="text-sm text-muted-foreground tabular-nums">
-                              €
-                              {(
-                                (item.price +
-                                  item.selectedOptions.reduce(
-                                    (s, o) => s + o.priceModifier,
-                                    0,
-                                  )) *
-                                item.quantity
-                              ).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                ×{item.quantity}
+                              </span>
+                              <span className="text-sm text-muted-foreground tabular-nums">
+                                €
+                                {(
+                                  (item.price +
+                                    item.selectedOptions.reduce(
+                                      (sum, option) =>
+                                        sum + option.priceModifier,
+                                      0,
+                                    )) *
+                                  item.quantity
+                                ).toFixed(2)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -839,6 +966,8 @@ export default function PosCartDrawer({
                       disabled={
                         closing ||
                         !hasServerSubmitted ||
+                        !hasAuthoritativeBill ||
+                        submittedTotal <= 0 ||
                         hasPending ||
                         hasUnsynced
                       }
@@ -892,6 +1021,8 @@ export default function PosCartDrawer({
                     disabled={
                       closing ||
                       !hasServerSubmitted ||
+                      !hasAuthoritativeBill ||
+                      submittedTotal <= 0 ||
                       hasPending ||
                       hasUnsynced
                     }

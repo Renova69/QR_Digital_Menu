@@ -571,6 +571,8 @@
     "myOrders": "I miei ordini",
     "fullTable": "Intero tavolo",
     "cashRequestSent": "Il personale è stato avvisato di riscuotere i contanti al tuo tavolo.",
+    "partialCashPaid": "I tuoi articoli sono stati pagati: {{amount}}",
+    "remainingTableBalance": "Saldo restante del tavolo: {{amount}}",
     "continueToMypos": "Paga con carta (myPOS)",
     "requestingCash": "Avviso del personale...",
     "cashRequested": "Richiesta di contanti inviata",

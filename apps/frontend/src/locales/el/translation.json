@@ -571,6 +571,8 @@
     "myOrders": "Οι παραγγελίες μου",
     "fullTable": "Ολόκληρο το τραπέζι",
     "cashRequestSent": "Το προσωπικό ειδοποιήθηκε να παραλάβει τα μετρητά από το τραπέζι σας.",
+    "partialCashPaid": "Τα είδη σας πληρώθηκαν: {{amount}}",
+    "remainingTableBalance": "Υπόλοιπο τραπεζιού: {{amount}}",
     "continueToMypos": "Πληρωμή με κάρτα (myPOS)",
     "requestingCash": "Ειδοποίηση προσωπικού...",
     "cashRequested": "Το αίτημα μετρητών στάλθηκε",

@@ -444,6 +444,10 @@ export function PaymentModal({
   const [cashRequested, setCashRequested] = useState(false);
   const [cashRequestId, setCashRequestId] = useState<string | null>(null);
   const [cashError, setCashError] = useState<string | null>(null);
+  const [partialCashSuccess, setPartialCashSuccess] = useState<{
+    paidAmount: number;
+    remaining: number;
+  } | null>(null);
   const [pendingBillPayment, setPendingBillPayment] =
     useState<PendingBillPayment | null>(null);
   // Fix H-8 — a failed bill load must show an error with retry, not silently close.
@@ -451,10 +455,19 @@ export function PaymentModal({
   const [billReloadKey, setBillReloadKey] = useState(0);
   const epayFormRef = useRef<HTMLFormElement | null>(null);
   const liveCompletionHandledRef = useRef(false);
+  const cashRequestAmountRef = useRef(0);
+  const settledCashRequestRef = useRef<{
+    id: string;
+    paidAmount: number;
+  } | null>(null);
 
   useEffect(() => {
     liveCompletionHandledRef.current = false;
+    cashRequestAmountRef.current = 0;
+    settledCashRequestRef.current = null;
     setCashRequestId(null);
+    setCashRequested(false);
+    setPartialCashSuccess(null);
     setPendingBillPayment(null);
   }, [sessionToken]);
 
@@ -476,10 +489,32 @@ export function PaymentModal({
       completeFromLiveSettlement();
     };
 
-    const handleBillUpdated = (payload: { sessionPaid?: boolean }) => {
+    const handleBillUpdated = (payload: {
+      tableSessionId?: string;
+      remaining?: number;
+      sessionPaid?: boolean;
+    }) => {
+      if (
+        payload?.tableSessionId &&
+        bill?.sessionId &&
+        payload.tableSessionId !== bill.sessionId
+      )
+        return;
       if (payload?.sessionPaid) {
+        settledCashRequestRef.current = null;
         completeFromLiveSettlement();
       } else {
+        const settledCashRequest = settledCashRequestRef.current;
+        if (settledCashRequest) {
+          settledCashRequestRef.current = null;
+          setPartialCashSuccess({
+            paidAmount: settledCashRequest.paidAmount,
+            remaining: Math.max(0, payload?.remaining ?? 0),
+          });
+          setCashRequested(false);
+          setCashRequestId(null);
+          setPendingBillPayment(null);
+        }
         setBillReloadKey((k) => k + 1);
       }
     };
@@ -487,13 +522,21 @@ export function PaymentModal({
     const handleCashRequestUpdated = (request: {
       id?: string;
       status?: string;
+      requestedAmount?: number;
     }) => {
       if (!cashRequestId || request?.id !== cashRequestId) return;
       if (request.status === "PAID") {
-        completeFromLiveSettlement();
+        settledCashRequestRef.current = {
+          id: cashRequestId,
+          paidAmount:
+            typeof request.requestedAmount === "number"
+              ? request.requestedAmount
+              : cashRequestAmountRef.current,
+        };
         return;
       }
       if (request.status === "CANCELLED") {
+        settledCashRequestRef.current = null;
         setCashRequested(false);
         setCashRequestId(null);
         setCashError(
@@ -846,6 +889,7 @@ export function PaymentModal({
 
     setCashRequesting(true);
     setCashError(null);
+    setPartialCashSuccess(null);
     try {
       const request = await createCashPaymentRequest(sessionToken, {
         restaurantId: bill.restaurantId,
@@ -853,6 +897,10 @@ export function PaymentModal({
           ? { orderIds: activeCheckoutOrderIds }
           : {}),
       });
+      cashRequestAmountRef.current =
+        typeof request.requestedAmount === "number"
+          ? request.requestedAmount
+          : activeSubtotal;
       setCashRequestId(request.id);
       onCashRequestCreated?.(request.id);
       setCashRequested(true);
@@ -916,6 +964,32 @@ export function PaymentModal({
         {step === "tip" && bill && (
           <>
             <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+              {partialCashSuccess && (
+                <div
+                  role="status"
+                  className="space-y-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                >
+                  <p>
+                    {t(
+                      "payment.partialCashPaid",
+                      "Your items were paid: {{amount}}",
+                      {
+                        amount: formatEuro(partialCashSuccess.paidAmount),
+                      },
+                    )}
+                  </p>
+                  <p>
+                    {t(
+                      "payment.remainingTableBalance",
+                      "Remaining table balance: {{amount}}",
+                      {
+                        amount: formatEuro(partialCashSuccess.remaining),
+                      },
+                    )}
+                  </p>
+                </div>
+              )}
+
               {canPayOwnedOrders && (
                 <div className="grid grid-cols-2 gap-2">
                   <button
