@@ -823,6 +823,13 @@ export default function PosCartDrawer({
                   {activeRestaurant?.paymentsEnabled && (
                     <button
                       type="button"
+                      aria-label={
+                        closing
+                          ? t("pos.closing", "Closing...")
+                          : t("pos.closeCardTotal", {
+                              total: submittedTotal.toFixed(2),
+                            })
+                      }
                       onClick={() =>
                         setConfirmAction({
                           type: "card",
@@ -848,18 +855,37 @@ export default function PosCartDrawer({
                               )
                             : undefined
                       }
-                      className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-warning text-warning-foreground font-semibold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
+                      className="flex min-h-[56px] min-w-0 items-center justify-center gap-2 rounded-xl bg-warning px-2 py-2.5 text-warning-foreground transition-all active:scale-[0.98] disabled:opacity-40"
                     >
-                      <CreditCard size={15} />
-                      {closing
-                        ? t("pos.closing", "Closing...")
-                        : t("pos.closeCardTotal", {
-                            total: submittedTotal.toFixed(2),
-                          })}
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning-foreground/10">
+                        <CreditCard
+                          aria-hidden="true"
+                          className="h-[22px] w-[22px]"
+                        />
+                      </span>
+                      <span className="flex min-w-0 flex-col items-start text-left">
+                        <span className="text-xs font-semibold leading-tight">
+                          {closing
+                            ? t("pos.closing", "Closing...")
+                            : t("pos.split.payCard", "Card")}
+                        </span>
+                        {!closing && (
+                          <span className="mt-0.5 text-sm font-bold leading-tight tabular-nums">
+                            €{submittedTotal.toFixed(2)}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   )}
                   <button
                     type="button"
+                    aria-label={
+                      closing
+                        ? t("pos.closing", "Closing...")
+                        : t("pos.closeCashTotal", {
+                            total: submittedTotal.toFixed(2),
+                          })
+                    }
                     onClick={() =>
                       setConfirmAction({ type: "cash", total: submittedTotal })
                     }
@@ -882,14 +908,26 @@ export default function PosCartDrawer({
                             )
                           : undefined
                     }
-                    className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-success text-success-foreground font-semibold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
+                    className="flex min-h-[56px] min-w-0 items-center justify-center gap-2 rounded-xl bg-success px-2 py-2.5 text-success-foreground transition-all active:scale-[0.98] disabled:opacity-40"
                   >
-                    <Banknote size={15} />
-                    {closing
-                      ? t("pos.closing", "Closing...")
-                      : t("pos.closeCashTotal", {
-                          total: submittedTotal.toFixed(2),
-                        })}
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-foreground/10">
+                      <Banknote
+                        aria-hidden="true"
+                        className="h-[22px] w-[22px]"
+                      />
+                    </span>
+                    <span className="flex min-w-0 flex-col items-start text-left">
+                      <span className="text-xs font-semibold leading-tight">
+                        {closing
+                          ? t("pos.closing", "Closing...")
+                          : t("pos.split.payCash", "Cash")}
+                      </span>
+                      {!closing && (
+                        <span className="mt-0.5 text-sm font-bold leading-tight tabular-nums">
+                          €{submittedTotal.toFixed(2)}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </div>
 
