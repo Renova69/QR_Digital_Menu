@@ -9,10 +9,11 @@ import {
   ReactNode,
 } from "react";
 import {
+  MAX_BULK_ORDER_STATUS_UPDATES,
+  bulkUpdateOrderStatus as apiBulkUpdateOrderStatus,
   getOrdersPage,
   updateOrderStatus as apiUpdateOrderStatus,
 } from "../lib/api";
-import { revertFailedOrders } from "../lib/orderStatus";
 import { useSocket } from "./SocketContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./AuthContext";
@@ -81,6 +82,33 @@ interface Order {
   };
 }
 
+type OrderStatusUpdate = {
+  id: string;
+  status: OrderStatus;
+  updatedAt?: string;
+};
+
+const TERMINAL_ORDER_STATUSES = new Set<OrderStatus>(["COMPLETED", "CANCELED"]);
+const ORDER_HISTORY_PAGE_SIZE = 50;
+
+const applyOrderStatusUpdate = (
+  order: Order,
+  update: OrderStatusUpdate,
+): Order => {
+  if (update.updatedAt) {
+    const currentUpdatedAt = Date.parse(order.updatedAt);
+    const nextUpdatedAt = Date.parse(update.updatedAt);
+    if (
+      Number.isFinite(currentUpdatedAt) &&
+      Number.isFinite(nextUpdatedAt) &&
+      nextUpdatedAt < currentUpdatedAt
+    ) {
+      return order;
+    }
+  }
+  return { ...order, ...update };
+};
+
 // Define context type
 interface OrderContextType {
   orders: Order[];
@@ -88,6 +116,7 @@ interface OrderContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   batchUpdateOrderStatus: (
     orderIds: string[],
+    fromStatus: OrderStatus,
     status: OrderStatus,
   ) => Promise<void>;
   loadMoreHistory: () => Promise<void>;
@@ -113,9 +142,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const [historyTotalPages, setHistoryTotalPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const ordersRef = useRef<Order[]>([]);
+  const historyPageRef = useRef(0);
   const refreshVersion = useRef(0);
   const mutationVersions = useRef(new Map<string, number>());
   const { socket, isConnected } = useSocket();
+  const needsSocketCatchup = useRef(!isConnected);
   const { user, isAuthenticated } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
   const canReceiveOrders = useFeature("orders:receive");
@@ -152,6 +183,51 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const syncHistoryWindowFromLoadedOrders = useCallback(() => {
+    const loadedHistory = ordersRef.current
+      .filter((order) => TERMINAL_ORDER_STATUSES.has(order.status))
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    const loadedHistoryCount = loadedHistory.length;
+    setHistoryTotalPages((totalPages) =>
+      Math.max(
+        totalPages,
+        Math.ceil(loadedHistoryCount / ORDER_HISTORY_PAGE_SIZE),
+      ),
+    );
+
+    const loadedHistoryLimit = historyPageRef.current * ORDER_HISTORY_PAGE_SIZE;
+    if (loadedHistoryLimit === 0 || loadedHistoryCount <= loadedHistoryLimit) {
+      return;
+    }
+
+    const retainedHistoryIds = new Set(
+      loadedHistory.slice(0, loadedHistoryLimit).map((order) => order.id),
+    );
+    updateOrders((current) =>
+      current.filter(
+        (order) =>
+          !TERMINAL_ORDER_STATUSES.has(order.status) ||
+          retainedHistoryIds.has(order.id),
+      ),
+    );
+  }, [updateOrders]);
+
+  const mergeOrderStatusUpdates = useCallback(
+    (updates: OrderStatusUpdate[]) => {
+      const byId = new Map(updates.map((update) => [update.id, update]));
+      updateOrders((current) =>
+        current.map((order) => {
+          const update = byId.get(order.id);
+          return update ? applyOrderStatusUpdate(order, update) : order;
+        }),
+      );
+    },
+    [updateOrders],
+  );
+
   // Function to refresh orders from API
   const refreshOrders = useCallback(async () => {
     const restaurantId = activeRestaurant?.id;
@@ -161,6 +237,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       setError(null);
       setIsLoading(false);
       setIsLoadingMoreHistory(false);
+      historyPageRef.current = 0;
       setHistoryPage(0);
       setHistoryTotalPages(0);
       return;
@@ -188,7 +265,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         restaurantId,
         statuses: ["COMPLETED", "CANCELED"],
         page: 1,
-        limit: 50,
+        limit: ORDER_HISTORY_PAGE_SIZE,
       });
 
       if (refreshVersion.current !== version) return;
@@ -198,6 +275,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         ),
       );
+      historyPageRef.current = history.page;
       setHistoryPage(history.page);
       setHistoryTotalPages(history.totalPages);
     } catch (error) {
@@ -228,7 +306,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         restaurantId,
         statuses: ["COMPLETED", "CANCELED"],
         page: nextPage,
-        limit: 50,
+        limit: ORDER_HISTORY_PAGE_SIZE,
       });
       if (refreshVersion.current !== version) return;
       updateOrders((current) => {
@@ -239,6 +317,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
       });
+      historyPageRef.current = response.page;
       setHistoryPage(response.page);
       setHistoryTotalPages(response.totalPages);
     } catch (loadError) {
@@ -256,9 +335,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     updateOrders,
   ]);
 
-  // Optimistic update — mutate local state immediately, revert on error.
-  // The socket `orderStatusChanged` event triggers refreshOrders() as
-  // authoritative sync, so no manual refetch is needed here.
+  // Optimistic update — reconcile from the response/socket timestamp and
+  // revert only when no newer authoritative update arrived in the meantime.
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus) => {
       const version = (mutationVersions.current.get(orderId) ?? 0) + 1;
@@ -273,25 +351,51 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         ),
       );
       try {
-        await apiUpdateOrderStatus(orderId, status);
+        const updated = (await apiUpdateOrderStatus(orderId, status)) as {
+          id: string;
+          status: OrderStatus;
+          updatedAt?: string;
+        };
         if (mutationVersions.current.get(orderId) === version) {
-          await refreshOrders();
+          const addsTerminalOrder =
+            previousOrder &&
+            !TERMINAL_ORDER_STATUSES.has(previousOrder.status) &&
+            TERMINAL_ORDER_STATUSES.has(updated.status);
+          updateOrders((current) =>
+            current.map((order) =>
+              order.id === orderId
+                ? applyOrderStatusUpdate(order, updated)
+                : order,
+            ),
+          );
+          if (
+            addsTerminalOrder &&
+            ordersRef.current.some(
+              (order) =>
+                order.id === orderId &&
+                TERMINAL_ORDER_STATUSES.has(order.status),
+            )
+          ) {
+            syncHistoryWindowFromLoadedOrders();
+          }
         }
       } catch (error) {
         // M-FE-2: revert only this order via a functional update, not the
         // whole captured snapshot — a blind `setOrders(previous)` would erase
         // any intervening socket updates to other orders.
-        if (
-          mutationVersions.current.get(orderId) === version &&
-          previousOrder
-        ) {
-          updateOrders((current) =>
-            current.map((order) =>
-              order.id === orderId
-                ? { ...order, status: previousOrder.status }
-                : order,
-            ),
-          );
+        if (mutationVersions.current.get(orderId) === version) {
+          if (previousOrder) {
+            updateOrders((current) =>
+              current.map((order) =>
+                order.id === orderId &&
+                order.updatedAt === previousOrder.updatedAt
+                  ? { ...order, status: previousOrder.status }
+                  : order,
+              ),
+            );
+          }
+          // A transport error does not prove that the server rejected the
+          // mutation; it may have committed before the response was lost.
           await refreshOrders();
         }
         console.error("Failed to update order status:", error);
@@ -303,14 +407,24 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [refreshOrders, setOrdersPending, updateOrders],
+    [
+      refreshOrders,
+      setOrdersPending,
+      syncHistoryWindowFromLoadedOrders,
+      updateOrders,
+    ],
   );
 
   const batchUpdateOrderStatus = useCallback(
-    async (orderIds: string[], status: OrderStatus) => {
+    async (
+      orderIds: string[],
+      fromStatus: OrderStatus,
+      status: OrderStatus,
+    ) => {
       // M-FE-6: matches the guard `refreshOrders` already applies — UI-layer
       // consistency only; the server remains the real authorization boundary.
-      if (!canAccessOrders) return;
+      const restaurantId = activeRestaurant?.id;
+      if (!canAccessOrders || !restaurantId || orderIds.length === 0) return;
 
       const previous = ordersRef.current;
       const idSet = new Set(orderIds);
@@ -328,67 +442,171 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         ),
       );
 
-      // Settle every call independently — a single failure must not roll back the
-      // orders that the server accepted (the old Promise.all reverted ALL of them
-      // even though some had already changed server-side).
-      const results = await Promise.allSettled(
-        orderIds.map((id) => apiUpdateOrderStatus(id, status)),
-      );
-      const failedIds = orderIds.filter(
-        (orderId, index) =>
-          results[index].status === "rejected" &&
-          mutationVersions.current.get(orderId) === versions.get(orderId),
-      );
+      const chunks: string[][] = [];
+      for (
+        let index = 0;
+        index < orderIds.length;
+        index += MAX_BULK_ORDER_STATUS_UPDATES
+      ) {
+        chunks.push(
+          orderIds.slice(index, index + MAX_BULK_ORDER_STATUS_UPDATES),
+        );
+      }
 
-      if (failedIds.length > 0) {
-        // Revert only the orders that failed; keep the successful ones updated.
+      let partialFailure: unknown = null;
+      let needsReconciliation = false;
+      try {
+        const results = await Promise.allSettled(
+          chunks.map((chunk) =>
+            apiBulkUpdateOrderStatus(restaurantId, chunk, fromStatus, status),
+          ),
+        );
+        const updatedById = new Map<
+          string,
+          { status: OrderStatus; updatedAt: string }
+        >();
+        const failedById = new Map<
+          string,
+          { currentStatus: OrderStatus; updatedAt: string }
+        >();
+        const requestFailedIds = new Set<string>();
+
+        results.forEach((result, index) => {
+          const chunk = chunks[index];
+          if (result.status === "rejected") {
+            needsReconciliation = true;
+            partialFailure ??=
+              result.reason ?? new Error("Bulk order request failed");
+            chunk.forEach((id) => requestFailedIds.add(id));
+            return;
+          }
+
+          const reportedIds = new Set<string>();
+          let missingReport = false;
+          result.value.updated.forEach((order) => {
+            reportedIds.add(order.id);
+            updatedById.set(order.id, {
+              status: order.status as OrderStatus,
+              updatedAt: order.updatedAt,
+            });
+          });
+          result.value.failed.forEach((failure) => {
+            reportedIds.add(failure.id);
+            failedById.set(failure.id, {
+              currentStatus: failure.currentStatus as OrderStatus,
+              updatedAt: failure.updatedAt,
+            });
+          });
+          chunk.forEach((id) => {
+            if (!reportedIds.has(id)) {
+              needsReconciliation = true;
+              missingReport = true;
+              requestFailedIds.add(id);
+            }
+          });
+          if (result.value.failed.length > 0 || missingReport) {
+            partialFailure ??= new Error(
+              "Some orders changed before the bulk move completed",
+            );
+          }
+        });
+
+        const previousById = new Map(
+          previous.map((order) => [order.id, order]),
+        );
         updateOrders((current) =>
-          revertFailedOrders(current, previous, failedIds),
+          current.map((order) => {
+            if (
+              !idSet.has(order.id) ||
+              mutationVersions.current.get(order.id) !== versions.get(order.id)
+            ) {
+              return order;
+            }
+            const updated = updatedById.get(order.id);
+            if (updated) {
+              return applyOrderStatusUpdate(order, {
+                id: order.id,
+                ...updated,
+              });
+            }
+            const failure = failedById.get(order.id);
+            if (failure) {
+              return applyOrderStatusUpdate(order, {
+                id: order.id,
+                status: failure.currentStatus,
+                updatedAt: failure.updatedAt,
+              });
+            }
+            if (requestFailedIds.has(order.id)) {
+              const previousOrder = previousById.get(order.id);
+              return previousOrder &&
+                order.updatedAt === previousOrder.updatedAt
+                ? { ...order, status: previousOrder.status }
+                : order;
+            }
+            return order;
+          }),
         );
-      }
-
-      await refreshOrders();
-      const completedIds: string[] = [];
-      for (const orderId of orderIds) {
-        if (mutationVersions.current.get(orderId) === versions.get(orderId)) {
-          mutationVersions.current.delete(orderId);
-          completedIds.push(orderId);
+        if (
+          updatedById.size > 0 &&
+          !TERMINAL_ORDER_STATUSES.has(fromStatus) &&
+          TERMINAL_ORDER_STATUSES.has(status)
+        ) {
+          syncHistoryWindowFromLoadedOrders();
         }
+      } finally {
+        const completedIds: string[] = [];
+        for (const orderId of orderIds) {
+          if (mutationVersions.current.get(orderId) === versions.get(orderId)) {
+            mutationVersions.current.delete(orderId);
+            completedIds.push(orderId);
+          }
+        }
+        setOrdersPending(completedIds, false);
       }
-      setOrdersPending(completedIds, false);
-
-      if (failedIds.length > 0) {
-        const firstRejection = results.find(
-          (r): r is PromiseRejectedResult => r.status === "rejected",
-        );
-        console.error(
-          "Failed to batch update order status:",
-          firstRejection?.reason,
-        );
-        throw firstRejection?.reason ?? new Error("Batch order update failed");
+      if (needsReconciliation) {
+        await refreshOrders();
+      }
+      if (partialFailure) {
+        console.error("Failed to batch update order status:", partialFailure);
+        throw partialFailure instanceof Error
+          ? partialFailure
+          : new Error("Batch order update failed");
       }
     },
-    [canAccessOrders, refreshOrders, setOrdersPending, updateOrders],
+    [
+      activeRestaurant?.id,
+      canAccessOrders,
+      refreshOrders,
+      setOrdersPending,
+      syncHistoryWindowFromLoadedOrders,
+      updateOrders,
+    ],
   );
 
   // Initial load when a staff/owner session becomes available.
   useEffect(() => {
     replaceOrders([]);
+    historyPageRef.current = 0;
     setHistoryPage(0);
     setHistoryTotalPages(0);
     void refreshOrders();
   }, [activeRestaurant?.id, refreshOrders, replaceOrders]);
 
-  // Socket listeners only refresh in response to order events.
+  useEffect(() => {
+    if (!isConnected) needsSocketCatchup.current = true;
+  }, [isConnected]);
+
   useEffect(() => {
     const restaurantId = activeRestaurant?.id;
     if (!canAccessOrders || !socket || !isConnected || !restaurantId) return;
     socket.emit("joinRestaurantOrdersRoom", restaurantId);
-    // Catch up on every (re)connect: a socket drop (network blip, laptop sleep)
-    // otherwise misses orders created while disconnected until the next live
-    // event — a live KDS/dashboard could silently skip a ticket. This effect
-    // re-runs when isConnected flips true, so a fresh fetch closes that gap.
-    void refreshOrders();
+    if (needsSocketCatchup.current) {
+      // Catch up after a delayed first connection or reconnect. An already
+      // connected initial render is covered by the normal initial load above.
+      needsSocketCatchup.current = false;
+      void refreshOrders();
+    }
 
     const handleNewOrder = () => {
       // Small chime for new UI event
@@ -400,18 +618,51 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ["analytics"] });
     };
 
-    const handleOrderStatusChanged = () => {
-      // Refresh or perfectly mutate state
-      refreshOrders();
+    const handleOrderStatusChanged = (update: OrderStatusUpdate) => {
+      if (update?.id) {
+        const current = ordersRef.current.find(
+          (order) => order.id === update.id,
+        );
+        const addsTerminalOrder =
+          current &&
+          !TERMINAL_ORDER_STATUSES.has(current.status) &&
+          TERMINAL_ORDER_STATUSES.has(update.status);
+        mergeOrderStatusUpdates([update]);
+        if (addsTerminalOrder) {
+          syncHistoryWindowFromLoadedOrders();
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    };
+
+    const handleOrderStatusesChanged = (updates: OrderStatusUpdate[]) => {
+      if (Array.isArray(updates) && updates.length > 0) {
+        const addsTerminalOrder = updates.some((update) => {
+          const current = ordersRef.current.find(
+            (order) => order.id === update.id,
+          );
+          return (
+            current &&
+            !TERMINAL_ORDER_STATUSES.has(current.status) &&
+            TERMINAL_ORDER_STATUSES.has(update.status)
+          );
+        });
+        mergeOrderStatusUpdates(updates);
+        if (addsTerminalOrder) {
+          syncHistoryWindowFromLoadedOrders();
+        }
+      }
       void queryClient.invalidateQueries({ queryKey: ["analytics"] });
     };
 
     socket.on("newOrder", handleNewOrder);
     socket.on("orderStatusChanged", handleOrderStatusChanged);
+    socket.on("orderStatusesChanged", handleOrderStatusesChanged);
 
     return () => {
       socket.off("newOrder", handleNewOrder);
       socket.off("orderStatusChanged", handleOrderStatusChanged);
+      socket.off("orderStatusesChanged", handleOrderStatusesChanged);
       socket.emit("leaveRestaurantOrdersRoom", restaurantId);
     };
   }, [
@@ -419,7 +670,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     canAccessOrders,
     socket,
     isConnected,
+    mergeOrderStatusUpdates,
     refreshOrders,
+    syncHistoryWindowFromLoadedOrders,
     queryClient,
   ]);
 

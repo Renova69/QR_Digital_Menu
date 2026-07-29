@@ -20,6 +20,7 @@ describe('OrdersController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateStatus: jest.fn(),
+    bulkUpdateStatus: jest.fn(),
   };
 
   const mockFeatureService = {
@@ -61,7 +62,7 @@ describe('OrdersController', () => {
     expect(controller).toBeDefined();
   });
 
-  it.each(['findAll', 'findOne', 'update'] as const)(
+  it.each(['findAll', 'findOne', 'update', 'bulkUpdate'] as const)(
     'requires orders:receive for %s',
     (method) => {
       expect(
@@ -144,6 +145,28 @@ describe('OrdersController', () => {
         'user1',
       );
       expect(result).toBe('updatedOrder');
+    });
+  });
+
+  describe('bulkUpdate', () => {
+    it('updates the selected restaurant orders through one service call', async () => {
+      const dto = {
+        restaurantId: 'r1',
+        orderIds: ['o1', 'o2', 'o3', 'o4'],
+        fromStatus: OrderStatus.NEW,
+        status: OrderStatus.IN_PROGRESS,
+      };
+      const req = { user: { id: 'user1' } };
+      const response = { updated: dto.orderIds, failed: [] };
+      mockOrdersService.bulkUpdateStatus.mockResolvedValue(response);
+
+      const result = await controller.bulkUpdate(dto, req);
+
+      expect(mockOrdersService.bulkUpdateStatus).toHaveBeenCalledWith(
+        dto,
+        'user1',
+      );
+      expect(result).toBe(response);
     });
   });
 });

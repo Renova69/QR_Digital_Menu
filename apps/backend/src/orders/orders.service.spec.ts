@@ -9,6 +9,7 @@ import {
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { BulkUpdateOrderStatusDto } from './dto/bulk-update-order-status.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
@@ -268,6 +269,7 @@ describe('OrdersService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateManyAndReturn: jest.fn().mockResolvedValue([]),
         findUniqueOrThrow: jest.fn(),
         create: jest.fn().mockResolvedValue(makeOrder()),
       },
@@ -3157,6 +3159,207 @@ describe('OrdersService', () => {
   });
 
   // ── #2 underpay protection + #24 option normalization ─────────────────────
+  describe('bulkUpdateStatus', () => {
+    it('updates four eligible orders with one guarded write and one restaurant event', async () => {
+      const existing = Array.from({ length: 4 }, (_, index) =>
+        makeOrder({
+          id: `order-${index + 1}`,
+          tableId: index < 2 ? 'table-1' : `table-${index}`,
+          tableSessionId: index < 2 ? 'session-1' : `session-${index}`,
+          status: 'NEW',
+        }),
+      );
+      const changed = existing.map((order) => ({
+        ...order,
+        status: 'IN_PROGRESS',
+        updatedAt: new Date('2026-07-29T07:00:00.000Z'),
+      }));
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      prisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-1',
+      });
+      prisma.order.findMany
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(changed);
+      prisma.order.updateManyAndReturn.mockResolvedValue(changed);
+
+      const dto: BulkUpdateOrderStatusDto = {
+        restaurantId: 'rest-1',
+        orderIds: existing.map((order) => order.id),
+        fromStatus: 'NEW',
+        status: 'IN_PROGRESS',
+      };
+
+      const result = await service.bulkUpdateStatus(dto, 'staff-1');
+
+      expect(prisma.order.updateManyAndReturn).toHaveBeenCalledTimes(1);
+      expect(prisma.order.updateManyAndReturn).toHaveBeenCalledWith({
+        where: {
+          id: { in: dto.orderIds },
+          restaurantId: 'rest-1',
+          status: 'NEW',
+        },
+        data: { status: 'IN_PROGRESS' },
+        select: {
+          id: true,
+          restaurantId: true,
+          status: true,
+          tableId: true,
+          tableSessionId: true,
+          updatedAt: true,
+        },
+      });
+      expect(result).toEqual({ updated: changed, failed: [] });
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledTimes(1);
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'orderStatusesChanged',
+        changed,
+      );
+      expect(events.emitToOrder).toHaveBeenCalledTimes(4);
+      expect(events.emitTableStatusChanged).toHaveBeenCalledTimes(3);
+    });
+
+    it('returns an authoritative partial failure when one order changed concurrently', async () => {
+      const existing = Array.from({ length: 4 }, (_, index) =>
+        makeOrder({ id: `order-${index + 1}`, status: 'NEW' }),
+      );
+      const changed = existing.slice(0, 3).map((order) => ({
+        ...order,
+        status: 'IN_PROGRESS',
+        updatedAt: new Date('2026-07-29T07:00:00.000Z'),
+      }));
+      const concurrent = {
+        ...existing[3],
+        status: 'SERVED',
+        updatedAt: new Date('2026-07-29T07:00:01.000Z'),
+      };
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      prisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-1',
+      });
+      prisma.order.findMany
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce([...changed, concurrent]);
+      prisma.order.updateManyAndReturn.mockResolvedValue(changed);
+
+      const result = await service.bulkUpdateStatus(
+        {
+          restaurantId: 'rest-1',
+          orderIds: existing.map((order) => order.id),
+          fromStatus: 'NEW',
+          status: 'IN_PROGRESS',
+        },
+        'staff-1',
+      );
+
+      expect(result).toEqual({
+        updated: changed,
+        failed: [
+          {
+            id: 'order-4',
+            reason: 'STATUS_CHANGED',
+            currentStatus: 'SERVED',
+            updatedAt: concurrent.updatedAt,
+          },
+        ],
+      });
+      expect(events.emitToOrder).toHaveBeenCalledTimes(3);
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'orderStatusesChanged',
+        changed,
+      );
+    });
+
+    it('publishes the authoritative status when an order advances after the guarded write', async () => {
+      const existing = Array.from({ length: 4 }, (_, index) =>
+        makeOrder({ id: `order-${index + 1}`, status: 'NEW' }),
+      );
+      const changed = existing.map((order) => ({
+        ...order,
+        status: 'IN_PROGRESS',
+        updatedAt: new Date('2026-07-29T07:00:00.000Z'),
+      }));
+      const authoritative = changed.map((order, index) =>
+        index === 3
+          ? {
+              ...order,
+              status: 'SERVED',
+              updatedAt: new Date('2026-07-29T07:00:01.000Z'),
+            }
+          : order,
+      );
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      prisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-1',
+      });
+      prisma.order.findMany
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(authoritative);
+      prisma.order.updateManyAndReturn.mockResolvedValue(changed);
+
+      await service.bulkUpdateStatus(
+        {
+          restaurantId: 'rest-1',
+          orderIds: existing.map((order) => order.id),
+          fromStatus: 'NEW',
+          status: 'IN_PROGRESS',
+        },
+        'staff-1',
+      );
+
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'orderStatusesChanged',
+        authoritative,
+      );
+      expect(events.emitToOrder).toHaveBeenCalledWith(
+        'order-4',
+        'orderStatusChanged',
+        authoritative[3],
+      );
+    });
+
+    it('rejects cancellation so bulk moves cannot bypass loyalty reversal rules', async () => {
+      await expect(
+        service.bulkUpdateStatus(
+          {
+            restaurantId: 'rest-1',
+            orderIds: ['order-1'],
+            fromStatus: 'NEW',
+            status: 'CANCELED',
+          },
+          'owner-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.order.findMany).not.toHaveBeenCalled();
+      expect(prisma.order.updateManyAndReturn).not.toHaveBeenCalled();
+      expect(events.emitOrderEventToRestaurant).not.toHaveBeenCalled();
+    });
+
+    it('rejects skipped workflow stages in the bulk interface', async () => {
+      await expect(
+        service.bulkUpdateStatus(
+          {
+            restaurantId: 'rest-1',
+            orderIds: ['order-1'],
+            fromStatus: 'NEW',
+            status: 'COMPLETED',
+          },
+          'owner-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.order.findMany).not.toHaveBeenCalled();
+      expect(prisma.order.updateManyAndReturn).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create — payment-in-flight + option integrity', () => {
     it('rejects a new order while a PENDING payment is in flight (#2)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);

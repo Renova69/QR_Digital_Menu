@@ -179,6 +179,45 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
   return response.data;
 };
 
+export interface BulkOrderStatusUpdate {
+  id: string;
+  restaurantId: string;
+  status: string;
+  tableId: string | null;
+  tableSessionId: string | null;
+  updatedAt: string;
+}
+
+export const MAX_BULK_ORDER_STATUS_UPDATES = 100;
+
+export interface BulkOrderStatusResult {
+  updated: BulkOrderStatusUpdate[];
+  failed: Array<{
+    id: string;
+    reason: "STATUS_CHANGED";
+    currentStatus: string;
+    updatedAt: string;
+  }>;
+}
+
+export const bulkUpdateOrderStatus = async (
+  restaurantId: string,
+  orderIds: string[],
+  fromStatus: string,
+  status: string,
+) => {
+  const response = await api.patch<BulkOrderStatusResult>(
+    "/orders/status/bulk",
+    {
+      restaurantId,
+      orderIds,
+      fromStatus,
+      status,
+    },
+  );
+  return response.data;
+};
+
 export interface AssistanceRequestQuery {
   restaurantId: string;
   isResolved?: boolean;

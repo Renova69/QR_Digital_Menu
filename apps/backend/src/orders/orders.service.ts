@@ -16,6 +16,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { BulkUpdateOrderStatusDto } from './dto/bulk-update-order-status.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { OrderQueryDto } from './dto/order-query.dto';
 import {
@@ -86,6 +87,22 @@ const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.COMPLETED]: [OrderStatus.CANCELED],
   [OrderStatus.CANCELED]: [],
 };
+
+const BULK_ORDER_STATUS_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus>> =
+  {
+    [OrderStatus.NEW]: OrderStatus.IN_PROGRESS,
+    [OrderStatus.IN_PROGRESS]: OrderStatus.SERVED,
+    [OrderStatus.SERVED]: OrderStatus.COMPLETED,
+  };
+
+const BULK_ORDER_STATUS_SELECT = {
+  id: true,
+  restaurantId: true,
+  status: true,
+  tableId: true,
+  tableSessionId: true,
+  updatedAt: true,
+} satisfies Prisma.OrderSelect;
 
 const ORDER_CREATE_RESTAURANT_FIELDS = {
   id: true,
@@ -1749,6 +1766,123 @@ export class OrdersService {
     }
 
     return updatedOrder;
+  }
+
+  async bulkUpdateStatus(dto: BulkUpdateOrderStatusDto, userId: string) {
+    if (BULK_ORDER_STATUS_TRANSITIONS[dto.fromStatus] !== dto.status) {
+      throw new BadRequestException(
+        `Cannot bulk transition orders from ${dto.fromStatus} to ${dto.status}.`,
+      );
+    }
+
+    const [actor, restaurant] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true },
+      }),
+      this.prisma.restaurant.findUnique({
+        where: { id: dto.restaurantId },
+        select: { id: true, ownerId: true },
+      }),
+    ]);
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+    if (
+      restaurant.ownerId !== userId &&
+      actor?.restaurantId !== dto.restaurantId
+    ) {
+      throw new ForbiddenException('Forbidden access');
+    }
+
+    const existing = await this.prisma.order.findMany({
+      where: {
+        id: { in: dto.orderIds },
+        restaurantId: dto.restaurantId,
+      },
+      select: BULK_ORDER_STATUS_SELECT,
+    });
+    if (existing.length !== dto.orderIds.length) {
+      throw new NotFoundException('One or more orders were not found');
+    }
+
+    const eligibleIds = existing
+      .filter((order) => order.status === dto.fromStatus)
+      .map((order) => order.id);
+    const changed =
+      eligibleIds.length > 0
+        ? await this.prisma.order.updateManyAndReturn({
+            where: {
+              id: { in: eligibleIds },
+              restaurantId: dto.restaurantId,
+              status: dto.fromStatus,
+            },
+            data: { status: dto.status },
+            select: BULK_ORDER_STATUS_SELECT,
+          })
+        : [];
+
+    // Re-read once so a concurrent status change is reported accurately instead
+    // of reverting the initiating dashboard to a stale captured status.
+    const authoritative = await this.prisma.order.findMany({
+      where: {
+        id: { in: dto.orderIds },
+        restaurantId: dto.restaurantId,
+      },
+      select: BULK_ORDER_STATUS_SELECT,
+    });
+    const updated = authoritative.filter(
+      (order) => order.status === dto.status,
+    );
+    const failed = authoritative
+      .filter((order) => order.status !== dto.status)
+      .map((order) => ({
+        id: order.id,
+        reason: 'STATUS_CHANGED' as const,
+        currentStatus: order.status,
+        updatedAt: order.updatedAt,
+      }));
+
+    const changedIds = new Set(changed.map((order) => order.id));
+    const authoritativeChanges = authoritative.filter((order) =>
+      changedIds.has(order.id),
+    );
+
+    if (authoritativeChanges.length > 0) {
+      this.eventsGateway.emitOrderEventToRestaurant(
+        dto.restaurantId,
+        'orderStatusesChanged',
+        authoritativeChanges,
+      );
+    }
+    for (const order of authoritativeChanges) {
+      this.eventsGateway.emitToOrder(order.id, 'orderStatusChanged', order);
+    }
+
+    const changedTables = new Map<
+      string,
+      (typeof authoritativeChanges)[number] & {
+        tableId: string;
+        tableSessionId: string;
+      }
+    >();
+    for (const order of authoritativeChanges) {
+      if (!order.tableId || !order.tableSessionId) continue;
+      changedTables.set(`${order.tableId}:${order.tableSessionId}`, {
+        ...order,
+        tableId: order.tableId,
+        tableSessionId: order.tableSessionId,
+      });
+    }
+    for (const order of changedTables.values()) {
+      this.eventsGateway.emitTableStatusChanged(
+        dto.restaurantId,
+        order.tableId,
+        order.tableSessionId,
+      );
+    }
+
+    return { updated, failed };
   }
 
   /**

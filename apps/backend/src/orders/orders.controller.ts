@@ -13,12 +13,17 @@ import {
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { BulkUpdateOrderStatusDto } from './dto/bulk-update-order-status.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+
+type AuthenticatedOrderRequest = {
+  user: { id: string };
+};
 
 @Controller('orders')
 export class OrdersController {
@@ -46,6 +51,19 @@ export class OrdersController {
   @Get(':orderId')
   findOne(@Param('orderId') id: string, @Request() req: any) {
     return this.ordersService.findOne(id, req.user.id);
+  }
+
+  @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @Patch('status/bulk')
+  bulkUpdate(
+    @Body() bulkUpdateOrderStatusDto: BulkUpdateOrderStatusDto,
+    @Request() req: AuthenticatedOrderRequest,
+  ) {
+    return this.ordersService.bulkUpdateStatus(
+      bulkUpdateOrderStatusDto,
+      req.user.id,
+    );
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)

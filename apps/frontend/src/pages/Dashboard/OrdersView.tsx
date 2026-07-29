@@ -334,6 +334,7 @@ const OrdersView = () => {
       setActionError(false);
       await batchUpdateOrderStatus(
         filteredOrders.map((order) => order.id),
+        activeTab,
         newStatus,
       );
     } catch (error) {
