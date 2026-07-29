@@ -131,6 +131,10 @@ export default function PosServiceRequests() {
   const pendingCount =
     activeAssistanceRequests.length + pendingCashRequests.length;
   const title = t("assistance.title", "Assistance Requests");
+  const formatTableLabel = (tableName?: string | null) =>
+    t("orders.table", "Table {{id}}", {
+      id: tableName?.trim() || "—",
+    });
 
   const handleResolve = async (requestId: string) => {
     setActionId(requestId);
@@ -282,9 +286,9 @@ export default function PosServiceRequests() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-black">
-                                {request.tableName ??
-                                  request.tableId ??
-                                  t("orders.table", { id: "—" })}
+                                {formatTableLabel(
+                                  request.tableName ?? request.tableId,
+                                )}
                               </p>
                               <p className="mt-0.5 text-xs font-semibold text-emerald-600">
                                 {t(
@@ -358,7 +362,7 @@ export default function PosServiceRequests() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="truncate text-sm font-black">
-                              {request.tableId}
+                              {formatTableLabel(request.tableId)}
                             </p>
                             {request.type === "URGENT" && (
                               <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-black uppercase text-destructive-foreground">

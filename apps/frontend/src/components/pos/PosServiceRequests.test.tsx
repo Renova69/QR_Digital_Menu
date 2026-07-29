@@ -7,7 +7,7 @@ const testState = vi.hoisted(() => ({
   assistanceRequests: [
     {
       id: "assistance-1",
-      tableId: "Table 6",
+      tableId: "1",
       isResolved: false,
       type: "STANDARD" as const,
       createdAt: "2026-07-29T10:00:00.000Z",
@@ -84,7 +84,7 @@ const cashRequest = {
   restaurantId: "rest-1",
   tableSessionId: "session-7",
   tableId: "table-7",
-  tableName: "Table 7",
+  tableName: "7",
   status: "PENDING" as const,
   scope: "FULL_TABLE" as const,
   orderIds: [],
@@ -117,7 +117,7 @@ describe("PosServiceRequests", () => {
     });
     await user.click(trigger);
 
-    expect(screen.getByText("Table 6")).toBeDefined();
+    expect(screen.getByText("Table 1")).toBeDefined();
     expect(screen.getByText("Guest needs staff")).toBeDefined();
     expect(screen.getByText("Table 7")).toBeDefined();
     expect(screen.getByText(/42/)).toBeDefined();
