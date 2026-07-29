@@ -64,6 +64,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
   const { socket, isConnected } = useSocket();
+  const wasConnected = useRef(isConnected);
   const { user, isAuthenticated } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
   const role = user?.role?.toUpperCase();
@@ -204,6 +205,14 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
     setRequests([]);
     void refreshRequests();
   }, [activeRestaurant?.id, refreshRequests]);
+
+  // Socket events emitted while this device was offline cannot be replayed.
+  // Reconcile on reconnect so the POS badge cannot silently miss a waiter call.
+  useEffect(() => {
+    const reconnected = isConnected && !wasConnected.current;
+    wasConnected.current = isConnected;
+    if (reconnected) void refreshRequests();
+  }, [isConnected, refreshRequests]);
 
   // Socket listeners only refresh in response to assistance events.
   useEffect(() => {
