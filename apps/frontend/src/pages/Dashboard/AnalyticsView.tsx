@@ -40,6 +40,7 @@ import { formatEuro } from "../../lib/currency";
 import { DashboardButton } from "../../components/dashboard/DashboardButton";
 import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 import { Panel } from "./analytics/Panel";
+import { ReviewInbox } from "./analytics/ReviewInbox";
 import MenuProfitabilityPanel from "./analytics/MenuProfitabilityPanel";
 import AnalyticsSkeleton from "./analytics/AnalyticsSkeleton";
 import { computeInsights } from "./analytics/insights";
@@ -556,6 +557,9 @@ const AnalyticsView = () => {
             eyebrow={t("analytics.guestSatisfaction", "Guest satisfaction")}
           >
             <GuestSatisfaction feedbackData={feedbackData} />
+            {activeRestaurant?.id && (
+              <ReviewInbox restaurantId={activeRestaurant.id} />
+            )}
           </Panel>
         </section>
       )}

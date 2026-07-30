@@ -42,6 +42,10 @@ import { useMenuSocket } from "../hooks/useMenuSocket";
 import { usePublicMenuData } from "../hooks/usePublicMenuData";
 import { normalizeRestaurantId } from "../lib/menuUrl";
 import NotFoundPage from "./NotFoundPage";
+import {
+  storePaymentConfirmationContext,
+  type PaymentCompletionDetails,
+} from "../lib/paymentConfirmationContext";
 
 const DEFAULT_PUBLIC_LIGHT: BrandPalette = {
   bg: "#FFFFFF",
@@ -228,7 +232,7 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
     (!orderLocation || orderLocation.paymentMethods.includes("ONLINE"));
 
   const clearPaidSession = useCallback(
-    (message?: string) => {
+    (completion?: PaymentCompletionDetails) => {
       const tokenToClear = sessionToken;
       setIsPaymentModalOpen(false);
       if (restaurantId && sessionLocationKey && tokenToClear) {
@@ -238,14 +242,41 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
       setSessionToken(null);
       setOwnedOrderIds([]);
       setPendingCashRequestId(null);
-      setPaymentBanner({
-        ok: true,
-        text:
-          message ??
-          t("payment.paymentReceived", "Payment received successfully"),
-      });
+      if (completion?.paymentId && tokenToClear) {
+        storePaymentConfirmationContext({
+          paymentId: completion.paymentId,
+          sessionToken: tokenToClear,
+          ...(typeof completion.amount === "number"
+            ? { amount: completion.amount }
+            : {}),
+          ...(completion.provider ? { provider: completion.provider } : {}),
+          ...(typeof completion.remaining === "number"
+            ? { remaining: completion.remaining }
+            : {}),
+          ...(restaurantId ? { restaurantId } : {}),
+          menuReturnUrl: `${location.pathname}${location.search}`,
+          ...(tableNumber ? { tableNumber } : {}),
+          completedAt: Date.now(),
+        });
+        navigate("/payment-confirmation", { replace: true });
+      } else {
+        setPaymentBanner({
+          ok: true,
+          text: t("payment.paymentReceived", "Payment received successfully"),
+        });
+      }
     },
-    [restaurantId, sessionLocationKey, sessionStorageKey, sessionToken, t],
+    [
+      location.pathname,
+      location.search,
+      navigate,
+      restaurantId,
+      sessionLocationKey,
+      sessionStorageKey,
+      sessionToken,
+      t,
+      tableNumber,
+    ],
   );
 
   const toggleDietTag = (tag: string) => {
@@ -1305,7 +1336,7 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
             sessionToken={sessionToken}
             ownedOrderIds={ownedOrderIds}
             onClose={() => setIsPaymentModalOpen(false)}
-            onSuccess={() => clearPaidSession()}
+            onSuccess={clearPaidSession}
             onCashRequestCreated={setPendingCashRequestId}
           />
         )}

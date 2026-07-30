@@ -156,6 +156,10 @@ const ItemRow = ({
   dragHandleProps?: any;
   t: any;
 }) => {
+  const hasMenuTags = Boolean(
+    item.dietaryTags?.length || item.allergens?.length,
+  );
+
   return (
     <div className="group flex min-w-0 flex-col items-start justify-between gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 sm:flex-row sm:items-center">
       <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
@@ -169,7 +173,7 @@ const ItemRow = ({
           </span>
         </div>
 
-        <div className="flex min-w-0 items-start gap-3">
+        <div className="flex w-full min-w-0 items-start gap-3">
           {item.imageUrl && (
             <div className="h-24 w-24 min-w-[6rem] shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
               <img
@@ -194,7 +198,7 @@ const ItemRow = ({
                 </span>
               )}
             </div>
-            {(item.dietaryTags?.length || item.allergens?.length) && (
+            {hasMenuTags && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
                 <div className="flex max-w-full flex-wrap gap-1">
                   {item.dietaryTags?.map((tag) => {
@@ -248,7 +252,7 @@ const ItemRow = ({
       </div>
 
       {/* Action buttons - NOT inside drag target */}
-      <div className="flex w-full flex-wrap items-center justify-between gap-2 self-end sm:self-auto">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 self-end sm:w-auto sm:justify-end sm:self-auto">
         {isConfirmingDelete ? (
           <>
             <span className="text-xs text-red-600 font-medium">

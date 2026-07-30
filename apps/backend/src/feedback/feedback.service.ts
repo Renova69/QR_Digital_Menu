@@ -5,17 +5,323 @@ import {
   Logger,
   BadRequestException,
   ForbiddenException,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { CreateVisitFeedbackDto } from './dto/create-visit-feedback.dto';
+import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
 import { buildRestaurantDateRange } from '../common/restaurant-date-range';
+
+const FEEDBACK_WINDOW_MS = 48 * 60 * 60 * 1000;
+const EXPERIENCE_COMPLETE_STATUSES = new Set([
+  'SERVED',
+  'COMPLETED',
+  'CANCELED',
+]);
+const INVITATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const TOKEN_SIGNATURE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+function getInvitationSigningSecret(): string {
+  if (process.env.NODE_ENV === 'test') return 'test-secret';
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new InternalServerErrorException(
+      'JWT_SECRET must be set before issuing feedback invitations',
+    );
+  }
+  return secret;
+}
+
+function signInvitationToken(id: string, expiresAt: Date): string {
+  const expiresAtSeconds = Math.floor(expiresAt.getTime() / 1000);
+  const unsigned = `${id}.${expiresAtSeconds}`;
+  const signature = createHmac('sha256', getInvitationSigningSecret())
+    .update(`feedback-invitation.${unsigned}`)
+    .digest('base64url');
+  return `${unsigned}.${signature}`;
+}
+
+function readInvitationId(token: string): string | null {
+  const [id, expiresAtRaw, signature, ...extra] = token.split('.');
+  if (
+    extra.length > 0 ||
+    !INVITATION_ID_PATTERN.test(id ?? '') ||
+    !/^\d{1,12}$/.test(expiresAtRaw ?? '') ||
+    !TOKEN_SIGNATURE_PATTERN.test(signature ?? '')
+  ) {
+    return null;
+  }
+
+  const expiresAtSeconds = Number(expiresAtRaw);
+  if (
+    !Number.isSafeInteger(expiresAtSeconds) ||
+    expiresAtSeconds * 1000 <= Date.now()
+  ) {
+    return null;
+  }
+
+  const unsigned = `${id}.${expiresAtRaw}`;
+  const expected = createHmac('sha256', getInvitationSigningSecret())
+    .update(`feedback-invitation.${unsigned}`)
+    .digest();
+  const actual = Buffer.from(signature, 'base64url');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    return null;
+  }
+  return id;
+}
 
 @Injectable()
 export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async issueVisitInvitation(tableSessionToken: string, paymentId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        tableSession: { token: tableSessionToken },
+      },
+      include: {
+        tableSession: {
+          include: {
+            orders: {
+              select: { id: true, status: true },
+            },
+          },
+        },
+        allocations: {
+          include: {
+            orderItem: {
+              select: { orderId: true },
+            },
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            googleReviewUrl: true,
+          },
+        },
+      },
+    });
+
+    if (!payment || !payment.tableSessionId || !payment.tableSession) {
+      throw new NotFoundException('Payment confirmation not found');
+    }
+
+    const paymentDetails = {
+      id: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      provider: payment.provider,
+    };
+    const baseResponse = {
+      submitted: false,
+      payment: paymentDetails,
+      restaurant: payment.restaurant,
+    };
+
+    if (payment.status !== 'SUCCEEDED') {
+      return {
+        ...baseResponse,
+        eligible: false,
+        reason: 'PAYMENT_PENDING',
+      };
+    }
+
+    if (Date.now() - payment.updatedAt.getTime() > FEEDBACK_WINDOW_MS) {
+      return {
+        ...baseResponse,
+        eligible: false,
+        reason: 'PAYMENT_EXPIRED',
+      };
+    }
+
+    const allocatedOrderIds = new Set(
+      payment.allocations.map((allocation) => allocation.orderItem.orderId),
+    );
+    const relevantOrders =
+      allocatedOrderIds.size > 0
+        ? payment.tableSession.orders.filter((order) =>
+            allocatedOrderIds.has(order.id),
+          )
+        : payment.tableSession.orders;
+    const hasExperiencedOrder = relevantOrders.some((order) =>
+      ['SERVED', 'COMPLETED'].includes(order.status),
+    );
+    const allRelevantOrdersComplete =
+      relevantOrders.length > 0 &&
+      relevantOrders.every((order) =>
+        EXPERIENCE_COMPLETE_STATUSES.has(order.status),
+      );
+
+    if (!hasExperiencedOrder || !allRelevantOrdersComplete) {
+      return {
+        ...baseResponse,
+        eligible: false,
+        reason: 'ORDERS_NOT_SERVED',
+      };
+    }
+
+    const expiresAt = new Date(Date.now() + FEEDBACK_WINDOW_MS);
+    // The table session is the server-owned visit boundary. The no-op update
+    // preserves the first eligible payment as an audit fact, while concurrent
+    // retries all receive the same signed credential for the same invitation.
+    const invitation = await this.prisma.feedbackInvitation.upsert({
+      where: {
+        tableSessionId: payment.tableSessionId,
+      },
+      create: {
+        paymentId: payment.id,
+        tableSessionId: payment.tableSessionId,
+        restaurantId: payment.restaurantId,
+        expiresAt,
+      },
+      update: {},
+      select: {
+        id: true,
+        usedAt: true,
+        presentedAt: true,
+        expiresAt: true,
+      },
+    });
+    const invitationToken = signInvitationToken(
+      invitation.id,
+      invitation.expiresAt,
+    );
+
+    if (invitation.usedAt) {
+      return {
+        ...baseResponse,
+        eligible: true,
+        submitted: true,
+        invitationToken,
+      };
+    }
+
+    if (invitation.presentedAt) {
+      return {
+        ...baseResponse,
+        eligible: false,
+        reason: 'ALREADY_PROMPTED',
+      };
+    }
+
+    return {
+      ...baseResponse,
+      eligible: true,
+      invitationToken,
+    };
+  }
+
+  async markVisitFeedbackPresented(invitationToken: string) {
+    const invitationId = readInvitationId(invitationToken);
+    if (!invitationId) {
+      throw new NotFoundException('Feedback invitation expired or not found');
+    }
+
+    const now = new Date();
+    const presented = await this.prisma.feedbackInvitation.updateMany({
+      where: {
+        id: invitationId,
+        presentedAt: null,
+        usedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { presentedAt: now },
+    });
+    return { acknowledged: presented.count > 0 };
+  }
+
+  async createVisitFeedback(dto: CreateVisitFeedbackDto) {
+    const now = new Date();
+    const invitationId = readInvitationId(dto.invitationToken);
+    if (!invitationId) {
+      throw new NotFoundException('Feedback invitation expired or not found');
+    }
+    const invitation = await this.prisma.feedbackInvitation.findUnique({
+      where: { id: invitationId },
+      include: {
+        payment: {
+          select: { status: true },
+        },
+      },
+    });
+
+    if (!invitation || invitation.expiresAt <= now) {
+      throw new NotFoundException('Feedback invitation expired or not found');
+    }
+    if (invitation.usedAt) {
+      throw new ConflictException('Feedback already submitted for this visit');
+    }
+    if (invitation.payment.status !== 'SUCCEEDED') {
+      throw new BadRequestException(
+        'Payment is no longer eligible for feedback',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.feedbackInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          usedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { usedAt: now },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException(
+          'Feedback already submitted for this visit',
+        );
+      }
+
+      return tx.feedback.create({
+        data: {
+          rating: dto.rating,
+          comment: dto.comment?.trim() || undefined,
+          redirectedToGoogle: false,
+          invitationId: invitation.id,
+          restaurantId: invitation.restaurantId,
+        },
+      });
+    });
+  }
+
+  async markGoogleReviewClick(invitationToken: string) {
+    const invitationId = readInvitationId(invitationToken);
+    if (!invitationId) {
+      throw new NotFoundException('Submitted feedback invitation not found');
+    }
+    const invitation = await this.prisma.feedbackInvitation.findUnique({
+      where: { id: invitationId },
+      include: {
+        feedback: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (
+      !invitation ||
+      invitation.expiresAt <= new Date() ||
+      !invitation.feedback
+    ) {
+      throw new NotFoundException('Submitted feedback invitation not found');
+    }
+
+    return this.prisma.feedback.update({
+      where: { id: invitation.feedback.id },
+      data: {
+        redirectedToGoogle: true,
+        googleReviewClickedAt: new Date(),
+      },
+    });
+  }
 
   private async verifyRestaurantAccess(restaurantId: string, userId: string) {
     const [restaurant, user] = await Promise.all([
@@ -64,7 +370,9 @@ export class FeedbackService {
       data: {
         rating: createFeedbackDto.rating,
         comment: createFeedbackDto.comment,
-        redirectedToGoogle: createFeedbackDto.redirectedToGoogle || false,
+        // A Google click is recorded only by the dedicated click endpoint.
+        // Never trust a submission-time claim or infer a redirect from rating.
+        redirectedToGoogle: false,
         orderId: createFeedbackDto.orderId,
         restaurantId: order.restaurantId,
       },
@@ -89,37 +397,89 @@ export class FeedbackService {
   // Get all feedback for a restaurant (owner-only)
   async findAll(
     restaurantId: string,
-    pagination: PaginationDto,
+    query: FeedbackListQueryDto,
     userId: string,
   ) {
-    await this.verifyRestaurantAccess(restaurantId, userId);
-    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
-    const limit = Number.isFinite(pagination.limit)
-      ? (pagination.limit ?? 50)
-      : 50;
+    const restaurant = await this.verifyRestaurantAccess(restaurantId, userId);
+    const page = Number.isFinite(query.page) ? (query.page ?? 1) : 1;
+    const limit = Number.isFinite(query.limit) ? (query.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
+    const createdAt = buildRestaurantDateRange(
+      query.startDate,
+      query.endDate,
+      restaurant.timezone ?? 'UTC',
+    );
+    const where = {
+      restaurantId,
+      ...(query.rating ? { rating: query.rating } : {}),
+      ...(query.hasComment === true ? { comment: { not: null } } : {}),
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    };
 
-    const [data, total] = await Promise.all([
+    const [feedbackRows, total] = await Promise.all([
       this.prisma.feedback.findMany({
-        where: { restaurantId },
-        include: {
+        where,
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          googleReviewClickedAt: true,
           order: {
             select: {
               customerName: true,
-              tableId: true,
+              tableName: true,
               totalPrice: true,
-              createdAt: true,
+            },
+          },
+          invitation: {
+            select: {
+              payment: {
+                select: {
+                  provider: true,
+                  amount: true,
+                  currency: true,
+                },
+              },
+              tableSession: {
+                select: {
+                  table: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: query.sort === 'OLDEST' ? 'asc' : 'desc' },
         skip,
         take: limit,
       }),
       this.prisma.feedback.count({
-        where: { restaurantId },
+        where,
       }),
     ]);
+    const data = feedbackRows.map((feedback) => ({
+      id: feedback.id,
+      source: 'LOCAL' as const,
+      rating: feedback.rating,
+      comment: feedback.comment,
+      createdAt: feedback.createdAt,
+      // Invitation tokens represent a table visit, not a verified individual.
+      // Only legacy order-bound feedback can safely inherit the entered name.
+      authorName: feedback.invitation
+        ? null
+        : (feedback.order?.customerName ?? null),
+      tableName:
+        feedback.invitation?.tableSession.table.name ??
+        feedback.order?.tableName ??
+        null,
+      orderTotal: feedback.order?.totalPrice ?? null,
+      payment: feedback.invitation?.payment ?? null,
+      googleReviewClickedAt: feedback.googleReviewClickedAt,
+    }));
 
     return {
       data,

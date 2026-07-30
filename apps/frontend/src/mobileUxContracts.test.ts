@@ -15,6 +15,10 @@ describe("mobile-first dashboard UX contracts", () => {
     );
     expect(items).toMatch(/flex-wrap[^"]*max-w-full|max-w-full[^"]*flex-wrap/);
     expect(items).toMatch(/w-full[^"]*flex-wrap[^"]*justify-between/);
+    expect(items).toMatch(/w-full[^"]*sm:w-auto[^"]*sm:justify-end/);
+    expect(items).not.toContain(
+      "{(item.dietaryTags?.length || item.allergens?.length) && (",
+    );
   });
 
   it("removes the order sound-preview-only control", () => {

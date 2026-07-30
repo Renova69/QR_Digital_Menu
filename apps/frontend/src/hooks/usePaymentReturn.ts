@@ -4,9 +4,11 @@ import { useTranslation } from "react-i18next";
 import { abandonCheckout } from "../lib/api";
 import { clearOwnedOrderIds } from "../lib/publicOrderOwnership";
 import {
+  findHostedCheckoutMarker,
   findHostedCheckoutToken,
   hostedCheckoutStorageKey,
 } from "../lib/tableSessionCredential";
+import { storePaymentConfirmationContext } from "../lib/paymentConfirmationContext";
 
 export interface PaymentBanner {
   ok: boolean;
@@ -38,11 +40,10 @@ interface UsePaymentReturnArgs {
 }
 
 /**
- * Owns the hosted-checkout (ePay / BORICA / myPOS) return handling on the public
- * menu:
- *  - reads the `?payment=<provider>-ok|-cancel` param a provider redirects back
- *    with, shows the success/cancel banner, clears the session on success,
- *    abandons the PENDING payment on cancel, then strips the param;
+ * Owns the hosted-checkout (Stripe / ePay / BORICA / myPOS) return handling on
+ * the public menu:
+ *  - reads the provider return params, clears the session on success, abandons
+ *    the PENDING payment on cancel, then strips the params;
  *  - on `pageshow` (incl. bfcache restore) with no payment param but a live
  *    hosted-checkout marker, abandons the stranded PENDING payment.
  *
@@ -63,11 +64,12 @@ export function usePaymentReturn({
   const { t } = useTranslation();
 
   // Handle hosted-checkout return params. Runs once on mount and on URL change.
-  // Strips the param to keep the URL clean.
+  // Strips provider params to keep the URL clean.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const paymentOutcome = params.get("payment");
-    if (!paymentOutcome) return;
+    const stripeOutcome = params.get("redirect_status");
+    if (!paymentOutcome && !stripeOutcome) return;
 
     const tableParam = params.get("table");
     const sessionKey =
@@ -79,12 +81,21 @@ export function usePaymentReturn({
     const storedToken =
       (sessionKey ? localStorage.getItem(sessionKey) : null) ??
       findHostedCheckoutToken(sessionStorage);
+    const hostedMarker = findHostedCheckoutMarker(sessionStorage);
 
-    if (
+    const succeeded =
       paymentOutcome === "borica-ok" ||
       paymentOutcome === "epay-ok" ||
-      paymentOutcome === "mypos-ok"
-    ) {
+      paymentOutcome === "mypos-ok" ||
+      stripeOutcome === "succeeded";
+    const failed =
+      paymentOutcome === "borica-cancel" ||
+      paymentOutcome === "epay-cancel" ||
+      paymentOutcome === "mypos-cancel" ||
+      stripeOutcome === "failed" ||
+      stripeOutcome === "requires_payment_method";
+
+    if (succeeded) {
       // Clear the stored session token so a new one is created on the next order.
       clearHostedCheckoutMarker(storedToken);
       if (restaurantId && tableParam && storedToken) {
@@ -93,21 +104,40 @@ export function usePaymentReturn({
       if (sessionKey) localStorage.removeItem(sessionKey);
       setSessionToken(null);
       setIsPaymentModalOpen(false);
-      setPaymentBanner({
-        ok: true,
-        text: t("payment.paymentReceived", "Payment received successfully"),
-      });
-      // Strip the outcome param from the URL without triggering a navigation.
       params.delete("payment");
-      const next = params.toString()
-        ? `?${params.toString()}`
-        : location.pathname;
-      navigate(next, { replace: true });
-    } else if (
-      paymentOutcome === "borica-cancel" ||
-      paymentOutcome === "epay-cancel" ||
-      paymentOutcome === "mypos-cancel"
-    ) {
+      params.delete("payment_intent");
+      params.delete("payment_intent_client_secret");
+      params.delete("redirect_status");
+      const menuReturnUrl = `${location.pathname}${
+        params.toString() ? `?${params.toString()}` : ""
+      }`;
+
+      if (
+        storedToken &&
+        hostedMarker?.token === storedToken &&
+        hostedMarker.paymentId
+      ) {
+        storePaymentConfirmationContext({
+          paymentId: hostedMarker.paymentId,
+          sessionToken: storedToken,
+          ...(typeof hostedMarker.total === "number"
+            ? { amount: hostedMarker.total }
+            : {}),
+          ...(hostedMarker.provider ? { provider: hostedMarker.provider } : {}),
+          ...(restaurantId ? { restaurantId } : {}),
+          menuReturnUrl,
+          ...(tableParam ? { tableNumber: tableParam } : {}),
+          completedAt: Date.now(),
+        });
+        navigate("/payment-confirmation", { replace: true });
+      } else {
+        setPaymentBanner({
+          ok: true,
+          text: t("payment.paymentReceived", "Payment received successfully"),
+        });
+        navigate(menuReturnUrl, { replace: true });
+      }
+    } else if (failed) {
       // Payment was cancelled — abandon any PENDING payment row so the customer
       // can choose a different provider without hitting the "already processing" guard.
       if (storedToken) {
@@ -123,9 +153,12 @@ export function usePaymentReturn({
         ),
       });
       params.delete("payment");
-      const next = params.toString()
-        ? `?${params.toString()}`
-        : location.pathname;
+      params.delete("payment_intent");
+      params.delete("payment_intent_client_secret");
+      params.delete("redirect_status");
+      const next = `${location.pathname}${
+        params.toString() ? `?${params.toString()}` : ""
+      }`;
       navigate(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,7 +167,7 @@ export function usePaymentReturn({
   useEffect(() => {
     const abandonHostedCheckoutIfReturned = () => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("payment")) return;
+      if (params.get("payment") || params.get("redirect_status")) return;
 
       const tableParam = params.get("table");
       const storedToken =

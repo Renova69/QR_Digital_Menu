@@ -246,6 +246,10 @@
     "paymentMethod": "طريقة الدفع",
     "paymentReceived": "تم استلام المبلغ",
     "processing": "جاري المعالجة...",
+    "confirmingPayment": "جارٍ تأكيد الدفع",
+    "confirmingPaymentDesc": "ننتظر التأكيد الآمن. يُرجى عدم الدفع مرة أخرى.",
+    "verificationUnavailable": "تعذر التحقق من هذا الدفع حتى الآن",
+    "verificationUnavailableDesc": "تحقق من الاتصال وحاول مجددًا. إذا تم الخصم منك، فلا تدفع مرة أخرى.",
     "redirecting": "جاري التحويل",
     "redirectingToBorica": "جاري فتح صفحة الدفع الآمنة من BORICA...",
     "redirectingToEpay": "جاري فتح صفحة الدفع الآمنة من ePay.bg...",
@@ -437,6 +441,7 @@
     "tellUsDoBetter": "نأسف لذلك. أخبرنا كيف يمكننا التحسين.",
     "whatDidYouEnjoy": "ما الذي أعجبك أكثر؟ (اختياري)",
     "whatCouldImprove": "ما الذي يمكن تحسينه؟ (اختياري)",
+    "shareExperienceOptional": "أخبرنا المزيد عن تجربتك (اختياري)",
     "back": "رجوع",
     "submit": "إرسال",
     "submitting": "جارٍ الإرسال...",
@@ -780,6 +785,34 @@
   "subscription": {
     "banner": {
       "active": "خطتك نشطة"
+    }
+  },
+  "analytics": {
+    "reviewInbox": {
+      "rating": "{{rating}} من 5 نجوم",
+      "local": "محلي",
+      "noComment": "لا يوجد تعليق مكتوب",
+      "anonymous": "ضيف مجهول",
+      "googleLinkOpened": "تم فتح رابط Google",
+      "order": "طلب",
+      "loading": "جارٍ تحميل التقييمات",
+      "loadFailed": "تعذر تحميل التقييمات.",
+      "recent": "أحدث التقييمات",
+      "viewAll": "عرض الكل",
+      "allReviews": "كل التقييمات",
+      "allReviewsDescription": "ملاحظات خاصة جُمعت بعد زيارات مكتملة.",
+      "previous": "السابق",
+      "page": "الصفحة {{page}} من {{totalPages}}",
+      "next": "التالي",
+      "ratingFilter": "التقييم",
+      "allRatings": "كل التقييمات",
+      "starFilter": "{{count}} نجوم",
+      "commentsOnly": "بتعليق فقط",
+      "localReviews": "التقييمات المحلية",
+      "noMatches": "لا توجد تقييمات تطابق هذه الفلاتر.",
+      "sort": "الترتيب",
+      "newest": "الأحدث أولاً",
+      "oldest": "الأقدم أولاً"
     }
   },
   "apiErrors": {

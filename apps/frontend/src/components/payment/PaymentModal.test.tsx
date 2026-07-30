@@ -261,6 +261,7 @@ describe("PaymentModal hosted provider choices", () => {
     );
     apiMocks.createCheckout.mockResolvedValueOnce({
       provider: "STRIPE",
+      paymentId: "pay-stripe",
       clientSecret: "secret",
       total: 20,
       tipAmount: 0,
@@ -290,15 +291,12 @@ describe("PaymentModal hosted provider choices", () => {
     const call = stripeMocks.confirmPayment.mock.calls[0][0];
     expect(new URL(call.confirmParams.return_url).hash).toBe("");
     expect(call.confirmParams.return_url).not.toContain("tok1");
-    expect(sessionStorage.getItem("hosted-checkout:tok1")).toContain(
-      '"token":"tok1"',
-    );
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Back to Menu" }),
-    );
     expect(sessionStorage.getItem("hosted-checkout:tok1")).toBeNull();
-    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith({
+      paymentId: "pay-stripe",
+      amount: 20,
+      provider: "STRIPE",
+    });
   });
 
   it("shows an actionable insufficient-funds message from Stripe", async () => {
@@ -452,15 +450,15 @@ describe("PaymentModal hosted provider choices", () => {
         id: "cash-1",
         status: "PAID",
         requestedAmount: 20,
-      });
-      socketMocks.handlers["bill:updated"][0]({
-        tableSessionId: "s1",
-        remaining: 0,
-        sessionPaid: true,
+        paymentId: "pay-cash",
       });
     });
 
-    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith({
+      paymentId: "pay-cash",
+      amount: 20,
+      provider: "CASH",
+    });
     expect(socketMocks.socket.emit).toHaveBeenCalledWith(
       "joinTableSessionRoom",
       {
@@ -469,7 +467,7 @@ describe("PaymentModal hosted provider choices", () => {
     );
   });
 
-  it("keeps the public table session after an item-scoped cash payment", async () => {
+  it("opens payment confirmation after an item-scoped cash payment", async () => {
     socketMocks.state.socket = socketMocks.socket;
     socketMocks.state.isConnected = true;
     const initialBill = twoOrderBill();
@@ -516,21 +514,14 @@ describe("PaymentModal hosted provider choices", () => {
         id: "cash-owned",
         status: "PAID",
         requestedAmount: 20,
-      });
-      socketMocks.handlers["bill:updated"][0]({
-        tableSessionId: "s1",
-        remaining: 12,
-        sessionPaid: false,
+        paymentId: "pay-cash-owned",
       });
     });
 
-    expect(onSuccess).not.toHaveBeenCalled();
-    expect(
-      await screen.findByText(/Your items were paid:.*20\.00/),
-    ).toBeTruthy();
-    expect(screen.getByText(/Remaining table balance:.*12\.00/)).toBeTruthy();
-    await waitFor(() => {
-      expect(apiMocks.getSessionBill).toHaveBeenCalledTimes(2);
+    expect(onSuccess).toHaveBeenCalledWith({
+      paymentId: "pay-cash-owned",
+      amount: 20,
+      provider: "CASH",
     });
   });
 

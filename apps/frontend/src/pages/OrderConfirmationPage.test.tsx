@@ -33,6 +33,9 @@ describe("OrderConfirmationPage service-point navigation", () => {
     });
 
     render(<OrderConfirmationPage />);
+    expect(
+      screen.queryByText("orderConfirmation.enjoyingVisit"),
+    ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
         name: "orderConfirmation.continueBrowsing",

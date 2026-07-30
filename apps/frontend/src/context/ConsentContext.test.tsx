@@ -73,14 +73,26 @@ function renderAt(
 
 // ── ConsentContext ───────────────────────────────────────────────────────────
 
+type ConsentSnapshot = ReturnType<typeof useConsent>;
+
+function requireConsent(
+  value: ConsentSnapshot | undefined,
+): ConsentSnapshot {
+  if (!value) {
+    throw new Error("Expected consent context to render");
+  }
+  return value;
+}
+
 describe("ConsentContext", () => {
   it("shows no categories and no banner when the cookie banner is disabled", () => {
     mockSettings = { cookieBannerEnabled: false, policyVersion: 1 };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/", (v) => (captured = v));
 
-    expect(captured.categories).toEqual([]);
-    expect(captured.isBannerVisible).toBe(false);
+    const consent = requireConsent(captured);
+    expect(consent.categories).toEqual([]);
+    expect(consent.isBannerVisible).toBe(false);
   });
 
   it("offers the analytics category on platform pages once enabled", () => {
@@ -89,11 +101,12 @@ describe("ConsentContext", () => {
       analyticsCookieEnabled: true,
       policyVersion: 1,
     };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/pricing", (v) => (captured = v));
 
-    expect(captured.categories).toEqual(["analytics"]);
-    expect(captured.isBannerVisible).toBe(true);
+    const consent = requireConsent(captured);
+    expect(consent.categories).toEqual(["analytics"]);
+    expect(consent.isBannerVisible).toBe(true);
   });
 
   it("offers nothing on a restaurant's public menu (marketing gating is sub-project B)", () => {
@@ -102,12 +115,13 @@ describe("ConsentContext", () => {
       analyticsCookieEnabled: true,
       policyVersion: 1,
     };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/menu/public/rest-1", (v) => (captured = v));
 
-    expect(captured.restaurantId).toBe("rest-1");
-    expect(captured.categories).toEqual([]);
-    expect(captured.isBannerVisible).toBe(false);
+    const consent = requireConsent(captured);
+    expect(consent.restaurantId).toBe("rest-1");
+    expect(consent.categories).toEqual([]);
+    expect(consent.isBannerVisible).toBe(false);
   });
 
   it("accept() persists granted state under the platform storage key and logs each category", async () => {
@@ -116,10 +130,10 @@ describe("ConsentContext", () => {
       analyticsCookieEnabled: true,
       policyVersion: 1,
     };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/", (v) => (captured = v));
 
-    await act(async () => captured.accept());
+    await act(async () => requireConsent(captured).accept());
 
     expect(JSON.parse(store["consent:platform"])).toMatchObject({
       analytics: true,
@@ -140,16 +154,16 @@ describe("ConsentContext", () => {
       analyticsCookieEnabled: true,
       policyVersion: 1,
     };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/", (v) => (captured = v));
 
-    await act(async () => captured.reject());
+    await act(async () => requireConsent(captured).reject());
 
     expect(JSON.parse(store["consent:platform"])).toMatchObject({
       analytics: false,
       policyVersion: 1,
     });
-    expect(captured.isBannerVisible).toBe(false);
+    expect(requireConsent(captured).isBannerVisible).toBe(false);
   });
 
   it("re-shows the banner when the stored policy version is stale", () => {
@@ -163,20 +177,20 @@ describe("ConsentContext", () => {
       analyticsCookieEnabled: true,
       policyVersion: 2,
     };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/", (v) => (captured = v));
 
-    expect(captured.isBannerVisible).toBe(true);
+    expect(requireConsent(captured).isBannerVisible).toBe(true);
   });
 
   it("scopes storage keys per restaurant so consent never leaks across restaurants", async () => {
     // Marketing isn't wired yet, so simulate directly via save() to prove the
     // storage key itself is restaurant-scoped.
     mockSettings = { cookieBannerEnabled: true, policyVersion: 1 };
-    let captured: any;
+    let captured: ConsentSnapshot | undefined;
     renderAt("/menu/public/rest-1", (v) => (captured = v));
 
-    await act(async () => captured.save({ marketing: true }));
+    await act(async () => requireConsent(captured).save({ marketing: true }));
 
     expect(store["consent:restaurant:rest-1"]).toBeDefined();
     expect(store["consent:platform"]).toBeUndefined();

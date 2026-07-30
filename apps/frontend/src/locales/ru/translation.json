@@ -201,6 +201,10 @@
     "paymentMethod": "Способ оплаты",
     "paymentReceived": "Оплата получена",
     "processing": "Обработка...",
+    "confirmingPayment": "Подтверждаем оплату",
+    "confirmingPaymentDesc": "Ожидаем защищённое подтверждение. Не оплачивайте повторно.",
+    "verificationUnavailable": "Пока не удалось подтвердить этот платёж",
+    "verificationUnavailableDesc": "Проверьте соединение и повторите попытку. Если деньги уже списаны, не платите снова.",
     "redirecting": "Перенаправление",
     "redirectingToBorica": "Открываем защищённую страницу оплаты BORICA...",
     "redirectingToEpay": "Открываем защищённую страницу оплаты ePay.bg...",
@@ -437,6 +441,7 @@
     "tellUsDoBetter": "Нам жаль. Расскажите, как мы можем стать лучше.",
     "whatDidYouEnjoy": "Что понравилось больше всего? (необязательно)",
     "whatCouldImprove": "Что можно улучшить? (необязательно)",
+    "shareExperienceOptional": "Расскажите подробнее о вашем опыте (необязательно)",
     "back": "Назад",
     "submit": "Отправить",
     "submitting": "Отправка...",
@@ -795,6 +800,34 @@
   "subscription": {
     "banner": {
       "active": "Ваш план активен"
+    }
+  },
+  "analytics": {
+    "reviewInbox": {
+      "rating": "{{rating}} из 5 звёзд",
+      "local": "Локальный",
+      "noComment": "Нет письменного комментария",
+      "anonymous": "Анонимный гость",
+      "googleLinkOpened": "Ссылка Google открыта",
+      "order": "Заказ",
+      "loading": "Загрузка отзывов",
+      "loadFailed": "Не удалось загрузить отзывы.",
+      "recent": "Последние отзывы",
+      "viewAll": "Показать все",
+      "allReviews": "Все отзывы",
+      "allReviewsDescription": "Личные отзывы, собранные после завершённых посещений.",
+      "previous": "Назад",
+      "page": "Страница {{page}} из {{totalPages}}",
+      "next": "Вперёд",
+      "ratingFilter": "Оценка",
+      "allRatings": "Все оценки",
+      "starFilter": "{{count}} звёзд",
+      "commentsOnly": "Только с комментарием",
+      "localReviews": "Локальные отзывы",
+      "noMatches": "Нет отзывов, соответствующих этим фильтрам.",
+      "sort": "Сортировка",
+      "newest": "Сначала новые",
+      "oldest": "Сначала старые"
     }
   },
   "apiErrors": {

@@ -296,7 +296,10 @@ export const getTranslationStatus = async (
 export type ServicePointType = "TABLE" | "ROOM" | "PICKUP" | "OTHER";
 export type FulfillmentMode = "DINE_IN" | "ROOM_DELIVERY" | "PICKUP";
 export type ServicePointPaymentMethod =
-  "ONLINE" | "CASH" | "PAY_ON_DELIVERY" | "PAY_AT_PICKUP";
+  | "ONLINE"
+  | "CASH"
+  | "PAY_ON_DELIVERY"
+  | "PAY_AT_PICKUP";
 
 export interface ServicePoint {
   id: string;
@@ -609,9 +612,7 @@ export const getPaymentHistory = (
     .get(`/payments/history/${restaurantId}`, { params })
     .then((res) => res.data);
 
-export type PaymentNotificationKind =
-  | "PAYMENT_SUCCEEDED"
-  | "PAYMENT_REFUNDED";
+export type PaymentNotificationKind = "PAYMENT_SUCCEEDED" | "PAYMENT_REFUNDED";
 
 export interface PaymentNotificationFeedItem {
   id: string;
@@ -635,26 +636,26 @@ export interface PaymentNotificationFeed {
   readThrough: string | null;
 }
 
-export const getPaymentNotificationFeed = (
-  restaurantId: string,
-  limit = 20,
-) =>
+export const getPaymentNotificationFeed = (restaurantId: string, limit = 20) =>
   api
-    .get<PaymentNotificationFeed>(
-      `/payments/notifications/${restaurantId}`,
-      { params: { limit } },
-    )
+    .get<PaymentNotificationFeed>(`/payments/notifications/${restaurantId}`, {
+      params: { limit },
+    })
     .then((res) => res.data);
 
 export const markPaymentNotificationsRead = (restaurantId: string) =>
   api
-    .post<{ readThrough: string }>(
-      `/payments/notifications/${restaurantId}/read`,
-    )
+    .post<{
+      readThrough: string;
+    }>(`/payments/notifications/${restaurantId}/read`)
     .then((res) => res.data);
 
 export type PaymentReconciliationProvider =
-  "STRIPE" | "EPAY" | "BORICA" | "MYPOS" | "CASH";
+  | "STRIPE"
+  | "EPAY"
+  | "BORICA"
+  | "MYPOS"
+  | "CASH";
 
 export type PaymentReconciliationReason =
   | "SESSION_NOT_OPEN"
@@ -846,6 +847,65 @@ export const submitFeedback = async (data: {
   return response.data;
 };
 
+export type FeedbackInvitationResponse = {
+  eligible: boolean;
+  submitted: boolean;
+  reason?:
+    | "PAYMENT_PENDING"
+    | "PAYMENT_EXPIRED"
+    | "ORDERS_NOT_SERVED"
+    | "ALREADY_PROMPTED";
+  invitationToken?: string;
+  payment: {
+    id: string;
+    amount: number;
+    currency: string;
+    provider: string;
+  };
+  restaurant: {
+    id: string;
+    name: string;
+    googleReviewUrl: string | null;
+  };
+};
+
+export const createFeedbackInvitation = async (
+  sessionToken: string,
+  data: { paymentId: string },
+) => {
+  const response = await api.post(
+    "/feedback/invitations",
+    data,
+    withTableSessionToken(sessionToken),
+  );
+  return response.data as FeedbackInvitationResponse;
+};
+
+export const submitVisitFeedback = async (data: {
+  invitationToken: string;
+  rating: number;
+  comment?: string;
+}) => {
+  const response = await api.post("/feedback/visit", data);
+  return response.data;
+};
+
+export const markFeedbackInvitationPresented = async (
+  invitationToken: string,
+) => {
+  const response = await api.post("/feedback/visit/presented", {
+    invitationToken,
+  });
+  return response.data;
+};
+
+export const markGoogleReviewClick = async (invitationToken: string) => {
+  const response = await api.post("/feedback/visit/google-click", {
+    invitationToken,
+  });
+  return response.data;
+};
+
 export const getGoogleReviewUrl = async (restaurantId: string) => {
   const response = await api.get(`/feedback/google-review-url/${restaurantId}`);
   return response.data;
@@ -859,6 +919,48 @@ export const getFeedbackSummary = async (
   const response = await api.get("/feedback/summary", {
     params: { restaurantId, startDate, endDate },
   });
+  return response.data;
+};
+
+export type FeedbackReview = {
+  id: string;
+  source: "LOCAL" | "GOOGLE";
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  authorName: string | null;
+  tableName: string | null;
+  orderTotal: number | null;
+  payment: {
+    provider: string;
+    amount: number;
+    currency: string;
+  } | null;
+  googleReviewClickedAt: string | null;
+};
+
+export type FeedbackReviewPage = {
+  data: FeedbackReview[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+export type FeedbackReviewQuery = {
+  restaurantId: string;
+  page?: number;
+  limit?: number;
+  rating?: number;
+  hasComment?: boolean;
+  sort?: "NEWEST" | "OLDEST";
+  startDate?: string;
+  endDate?: string;
+};
+
+export const getFeedbackReviews = async (
+  params: FeedbackReviewQuery,
+): Promise<FeedbackReviewPage> => {
+  const response = await api.get("/feedback", { params });
   return response.data;
 };
 

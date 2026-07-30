@@ -59,17 +59,17 @@ const FeedbackPage = () => {
       setSubmitting(true);
       setError(null);
 
-      const shouldRedirect = rating >= 4 && googleReviewUrl;
+      const shouldOfferGoogle = !!googleReviewUrl;
 
       await submitFeedback({
         rating,
         comment: comment.trim() || undefined,
         orderId,
         restaurantId,
-        redirectedToGoogle: !!shouldRedirect,
+        redirectedToGoogle: false,
       });
 
-      if (shouldRedirect) {
+      if (shouldOfferGoogle) {
         setStep("redirect");
       } else {
         setStep("thankyou");

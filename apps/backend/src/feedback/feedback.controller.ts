@@ -13,8 +13,12 @@ import { Throttle } from '@nestjs/throttler';
 import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import { FeedbackSummaryQueryDto } from './dto/feedback-summary-query.dto';
+import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
+import { CreateFeedbackInvitationDto } from './dto/create-feedback-invitation.dto';
+import { CreateVisitFeedbackDto } from './dto/create-visit-feedback.dto';
+import { FeedbackInvitationTokenDto } from './dto/feedback-invitation-token.dto';
+import { TableSessionToken } from '../payment/table-session-token.decorator';
 
 @Controller('feedback')
 export class FeedbackController {
@@ -28,6 +32,39 @@ export class FeedbackController {
     return this.feedbackService.create(createFeedbackDto);
   }
 
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Post('invitations')
+  issueVisitInvitation(
+    @TableSessionToken() token: string,
+    @Body(ValidationPipe) body: CreateFeedbackInvitationDto,
+  ) {
+    return this.feedbackService.issueVisitInvitation(token, body.paymentId);
+  }
+
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Post('visit')
+  createVisitFeedback(@Body(ValidationPipe) body: CreateVisitFeedbackDto) {
+    return this.feedbackService.createVisitFeedback(body);
+  }
+
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Post('visit/presented')
+  markVisitFeedbackPresented(
+    @Body(ValidationPipe) body: FeedbackInvitationTokenDto,
+  ) {
+    return this.feedbackService.markVisitFeedbackPresented(
+      body.invitationToken,
+    );
+  }
+
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Post('visit/google-click')
+  markGoogleReviewClick(
+    @Body(ValidationPipe) body: FeedbackInvitationTokenDto,
+  ) {
+    return this.feedbackService.markGoogleReviewClick(body.invitationToken);
+  }
+
   // Public — get Google Review URL for redirect
   @Get('google-review-url/:restaurantId')
   getGoogleReviewUrl(@Param('restaurantId') restaurantId: string) {
@@ -39,10 +76,10 @@ export class FeedbackController {
   @Get()
   findAll(
     @Query('restaurantId') restaurantId: string,
-    @Query() pagination: PaginationDto,
+    @Query() query: FeedbackListQueryDto,
     @Request() req: any,
   ) {
-    return this.feedbackService.findAll(restaurantId, pagination, req.user.id);
+    return this.feedbackService.findAll(restaurantId, query, req.user.id);
   }
 
   // Protected — owner views feedback summary/stats

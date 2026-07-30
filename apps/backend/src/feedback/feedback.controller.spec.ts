@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FeedbackController } from './feedback.controller';
 import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import { FeedbackSummaryQueryDto } from './dto/feedback-summary-query.dto';
+import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
 
 describe('FeedbackController', () => {
   let controller: FeedbackController;
@@ -70,37 +70,43 @@ describe('FeedbackController', () => {
   });
 
   describe('findAll', () => {
-    it('should call feedbackService.findAll with restaurantId, pagination, and userId', async () => {
-      const pagination: PaginationDto = { page: 0, limit: 10 };
+    it('should call feedbackService.findAll with restaurantId, filters, and userId', async () => {
+      const query: FeedbackListQueryDto = {
+        page: 1,
+        limit: 10,
+        rating: 4,
+        hasComment: true,
+        sort: 'OLDEST',
+      };
       const req = { user: { id: 'user-1' } };
       mockFeedbackService.findAll.mockResolvedValue({
         data: [],
         total: 0,
       });
 
-      const result = await controller.findAll('rest-1', pagination, req);
+      const result = await controller.findAll('rest-1', query, req);
 
       expect(mockFeedbackService.findAll).toHaveBeenCalledWith(
         'rest-1',
-        pagination,
+        query,
         'user-1',
       );
       expect(result).toEqual({ data: [], total: 0 });
     });
 
     it('should handle missing restaurantId', async () => {
-      const pagination: PaginationDto = { page: 0, limit: 10 };
+      const query: FeedbackListQueryDto = { page: 1, limit: 10 };
       const req = { user: { id: 'user-1' } };
       mockFeedbackService.findAll.mockResolvedValue({
         data: [],
         total: 0,
       });
 
-      await controller.findAll(undefined as any, pagination, req);
+      await controller.findAll(undefined as any, query, req);
 
       expect(mockFeedbackService.findAll).toHaveBeenCalledWith(
         undefined,
-        pagination,
+        query,
         'user-1',
       );
     });

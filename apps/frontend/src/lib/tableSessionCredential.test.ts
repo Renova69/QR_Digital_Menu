@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTableSessionCheckoutUrl,
+  findHostedCheckoutMarker,
   findHostedCheckoutToken,
   hostedCheckoutStorageKey,
   isPublicTableSessionCheckout,
@@ -64,7 +65,13 @@ describe("table-session checkout credential", () => {
       ],
       [
         hostedCheckoutStorageKey("newer-token"),
-        JSON.stringify({ token: "newer-token", startedAt: 200 }),
+        JSON.stringify({
+          token: "newer-token",
+          startedAt: 200,
+          paymentId: "payment-2",
+          provider: "BORICA",
+          total: 42.5,
+        }),
       ],
       [
         hostedCheckoutStorageKey("mismatched-token"),
@@ -78,5 +85,12 @@ describe("table-session checkout credential", () => {
     };
 
     expect(findHostedCheckoutToken(storage)).toBe("newer-token");
+    expect(findHostedCheckoutMarker(storage)).toEqual({
+      token: "newer-token",
+      startedAt: 200,
+      paymentId: "payment-2",
+      provider: "BORICA",
+      total: 42.5,
+    });
   });
 });
