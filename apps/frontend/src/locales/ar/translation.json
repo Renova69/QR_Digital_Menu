@@ -787,6 +787,34 @@
       "active": "خطتك نشطة"
     }
   },
+  "analytics": {
+    "reviewInbox": {
+      "rating": "{{rating}} من 5 نجوم",
+      "local": "محلي",
+      "noComment": "لا يوجد تعليق مكتوب",
+      "anonymous": "ضيف مجهول",
+      "googleLinkOpened": "تم فتح رابط Google",
+      "order": "طلب",
+      "loading": "جارٍ تحميل التقييمات",
+      "loadFailed": "تعذر تحميل التقييمات.",
+      "recent": "أحدث التقييمات",
+      "viewAll": "عرض الكل",
+      "allReviews": "كل التقييمات",
+      "allReviewsDescription": "ملاحظات خاصة جُمعت بعد زيارات مكتملة.",
+      "previous": "السابق",
+      "page": "الصفحة {{page}} من {{totalPages}}",
+      "next": "التالي",
+      "ratingFilter": "التقييم",
+      "allRatings": "كل التقييمات",
+      "starFilter": "{{count}} نجوم",
+      "commentsOnly": "بتعليق فقط",
+      "localReviews": "التقييمات المحلية",
+      "noMatches": "لا توجد تقييمات تطابق هذه الفلاتر.",
+      "sort": "الترتيب",
+      "newest": "الأحدث أولاً",
+      "oldest": "الأقدم أولاً"
+    }
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

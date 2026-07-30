@@ -454,6 +454,140 @@ describe('FeedbackService', () => {
       expect(result.totalPages).toBe(1);
     });
 
+    it('returns visit context without inventing an author for invitation feedback', async () => {
+      const createdAt = new Date('2026-07-30T10:15:00.000Z');
+      mockPrisma.feedback.findMany.mockResolvedValue([
+        {
+          id: 'fb-visit-1',
+          rating: 5,
+          comment: 'Excellent service',
+          createdAt,
+          redirectedToGoogle: true,
+          googleReviewClickedAt: new Date('2026-07-30T10:16:00.000Z'),
+          order: null,
+          invitation: {
+            payment: {
+              provider: 'STRIPE',
+              amount: 24.5,
+              currency: 'EUR',
+            },
+            tableSession: {
+              table: {
+                name: 'Table 4',
+              },
+            },
+          },
+        },
+      ]);
+
+      const result = await service.findAll(
+        'rest-1',
+        { page: 1, limit: 10 },
+        'owner-1',
+      );
+
+      expect(result.data[0]).toEqual({
+        id: 'fb-visit-1',
+        source: 'LOCAL',
+        rating: 5,
+        comment: 'Excellent service',
+        createdAt,
+        authorName: null,
+        tableName: 'Table 4',
+        orderTotal: null,
+        payment: {
+          provider: 'STRIPE',
+          amount: 24.5,
+          currency: 'EUR',
+        },
+        googleReviewClickedAt: new Date('2026-07-30T10:16:00.000Z'),
+      });
+    });
+
+    it('applies rating, comment, and restaurant-local date filters', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner-1',
+        timezone: 'UTC',
+      });
+
+      await service.findAll(
+        'rest-1',
+        {
+          page: 2,
+          limit: 10,
+          rating: 4,
+          hasComment: true,
+          startDate: '2026-07-01',
+          endDate: '2026-07-31',
+        },
+        'owner-1',
+      );
+
+      expect(mockPrisma.feedback.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            restaurantId: 'rest-1',
+            rating: 4,
+            comment: { not: null },
+            createdAt: {
+              gte: new Date('2026-07-01T00:00:00.000Z'),
+              lte: new Date('2026-07-31T23:59:59.999Z'),
+            },
+          },
+          skip: 10,
+          take: 10,
+        }),
+      );
+    });
+
+    it('sorts the review inbox from oldest to newest when requested', async () => {
+      await service.findAll(
+        'rest-1',
+        { page: 1, limit: 10, sort: 'OLDEST' },
+        'owner-1',
+      );
+
+      expect(mockPrisma.feedback.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { createdAt: 'asc' },
+        }),
+      );
+    });
+
+    it('shows the entered guest name only for legacy order-bound feedback', async () => {
+      const createdAt = new Date('2026-07-29T17:30:00.000Z');
+      mockPrisma.feedback.findMany.mockResolvedValue([
+        {
+          id: 'fb-order-1',
+          rating: 4,
+          comment: null,
+          createdAt,
+          googleReviewClickedAt: null,
+          order: {
+            customerName: 'Maria',
+            tableName: 'Garden 2',
+            totalPrice: 38.2,
+          },
+          invitation: null,
+        },
+      ]);
+
+      const result = await service.findAll(
+        'rest-1',
+        { page: 1, limit: 10 },
+        'owner-1',
+      );
+
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({
+          authorName: 'Maria',
+          tableName: 'Garden 2',
+          orderTotal: 38.2,
+          payment: null,
+        }),
+      );
+    });
+
     it('uses default page/limit for undefined pagination', async () => {
       const result = await service.findAll('rest-1', {}, 'owner-1');
 

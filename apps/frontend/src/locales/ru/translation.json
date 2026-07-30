@@ -802,6 +802,34 @@
       "active": "Ваш план активен"
     }
   },
+  "analytics": {
+    "reviewInbox": {
+      "rating": "{{rating}} из 5 звёзд",
+      "local": "Локальный",
+      "noComment": "Нет письменного комментария",
+      "anonymous": "Анонимный гость",
+      "googleLinkOpened": "Ссылка Google открыта",
+      "order": "Заказ",
+      "loading": "Загрузка отзывов",
+      "loadFailed": "Не удалось загрузить отзывы.",
+      "recent": "Последние отзывы",
+      "viewAll": "Показать все",
+      "allReviews": "Все отзывы",
+      "allReviewsDescription": "Личные отзывы, собранные после завершённых посещений.",
+      "previous": "Назад",
+      "page": "Страница {{page}} из {{totalPages}}",
+      "next": "Вперёд",
+      "ratingFilter": "Оценка",
+      "allRatings": "Все оценки",
+      "starFilter": "{{count}} звёзд",
+      "commentsOnly": "Только с комментарием",
+      "localReviews": "Локальные отзывы",
+      "noMatches": "Нет отзывов, соответствующих этим фильтрам.",
+      "sort": "Сортировка",
+      "newest": "Сначала новые",
+      "oldest": "Сначала старые"
+    }
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

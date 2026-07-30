@@ -11,7 +11,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { CreateVisitFeedbackDto } from './dto/create-visit-feedback.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
 import { buildRestaurantDateRange } from '../common/restaurant-date-range';
 
 const FEEDBACK_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -397,37 +397,89 @@ export class FeedbackService {
   // Get all feedback for a restaurant (owner-only)
   async findAll(
     restaurantId: string,
-    pagination: PaginationDto,
+    query: FeedbackListQueryDto,
     userId: string,
   ) {
-    await this.verifyRestaurantAccess(restaurantId, userId);
-    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
-    const limit = Number.isFinite(pagination.limit)
-      ? (pagination.limit ?? 50)
-      : 50;
+    const restaurant = await this.verifyRestaurantAccess(restaurantId, userId);
+    const page = Number.isFinite(query.page) ? (query.page ?? 1) : 1;
+    const limit = Number.isFinite(query.limit) ? (query.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
+    const createdAt = buildRestaurantDateRange(
+      query.startDate,
+      query.endDate,
+      restaurant.timezone ?? 'UTC',
+    );
+    const where = {
+      restaurantId,
+      ...(query.rating ? { rating: query.rating } : {}),
+      ...(query.hasComment === true ? { comment: { not: null } } : {}),
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    };
 
-    const [data, total] = await Promise.all([
+    const [feedbackRows, total] = await Promise.all([
       this.prisma.feedback.findMany({
-        where: { restaurantId },
-        include: {
+        where,
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          googleReviewClickedAt: true,
           order: {
             select: {
               customerName: true,
-              tableId: true,
+              tableName: true,
               totalPrice: true,
-              createdAt: true,
+            },
+          },
+          invitation: {
+            select: {
+              payment: {
+                select: {
+                  provider: true,
+                  amount: true,
+                  currency: true,
+                },
+              },
+              tableSession: {
+                select: {
+                  table: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: query.sort === 'OLDEST' ? 'asc' : 'desc' },
         skip,
         take: limit,
       }),
       this.prisma.feedback.count({
-        where: { restaurantId },
+        where,
       }),
     ]);
+    const data = feedbackRows.map((feedback) => ({
+      id: feedback.id,
+      source: 'LOCAL' as const,
+      rating: feedback.rating,
+      comment: feedback.comment,
+      createdAt: feedback.createdAt,
+      // Invitation tokens represent a table visit, not a verified individual.
+      // Only legacy order-bound feedback can safely inherit the entered name.
+      authorName: feedback.invitation
+        ? null
+        : (feedback.order?.customerName ?? null),
+      tableName:
+        feedback.invitation?.tableSession.table.name ??
+        feedback.order?.tableName ??
+        null,
+      orderTotal: feedback.order?.totalPrice ?? null,
+      payment: feedback.invitation?.payment ?? null,
+      googleReviewClickedAt: feedback.googleReviewClickedAt,
+    }));
 
     return {
       data,

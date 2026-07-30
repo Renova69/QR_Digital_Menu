@@ -13,8 +13,8 @@ import { Throttle } from '@nestjs/throttler';
 import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import { FeedbackSummaryQueryDto } from './dto/feedback-summary-query.dto';
+import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
 import { CreateFeedbackInvitationDto } from './dto/create-feedback-invitation.dto';
 import { CreateVisitFeedbackDto } from './dto/create-visit-feedback.dto';
 import { FeedbackInvitationTokenDto } from './dto/feedback-invitation-token.dto';
@@ -76,10 +76,10 @@ export class FeedbackController {
   @Get()
   findAll(
     @Query('restaurantId') restaurantId: string,
-    @Query() pagination: PaginationDto,
+    @Query() query: FeedbackListQueryDto,
     @Request() req: any,
   ) {
-    return this.feedbackService.findAll(restaurantId, pagination, req.user.id);
+    return this.feedbackService.findAll(restaurantId, query, req.user.id);
   }
 
   // Protected — owner views feedback summary/stats

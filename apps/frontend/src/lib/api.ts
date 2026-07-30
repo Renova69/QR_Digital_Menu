@@ -922,6 +922,48 @@ export const getFeedbackSummary = async (
   return response.data;
 };
 
+export type FeedbackReview = {
+  id: string;
+  source: "LOCAL" | "GOOGLE";
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  authorName: string | null;
+  tableName: string | null;
+  orderTotal: number | null;
+  payment: {
+    provider: string;
+    amount: number;
+    currency: string;
+  } | null;
+  googleReviewClickedAt: string | null;
+};
+
+export type FeedbackReviewPage = {
+  data: FeedbackReview[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+export type FeedbackReviewQuery = {
+  restaurantId: string;
+  page?: number;
+  limit?: number;
+  rating?: number;
+  hasComment?: boolean;
+  sort?: "NEWEST" | "OLDEST";
+  startDate?: string;
+  endDate?: string;
+};
+
+export const getFeedbackReviews = async (
+  params: FeedbackReviewQuery,
+): Promise<FeedbackReviewPage> => {
+  const response = await api.get("/feedback", { params });
+  return response.data;
+};
+
 // Module-level CSRF token — fetched once from /auth/csrf-token endpoint.
 // Cannot use document.cookie cross-origin (backend on different host than frontend in dev).
 let csrfToken: string | null = null;
