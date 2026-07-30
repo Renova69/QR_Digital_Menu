@@ -17,8 +17,6 @@ import { getFeedbackReviews, type FeedbackReview } from "../../../lib/api";
 
 type ReviewInboxProps = {
   restaurantId: string;
-  startDate?: string;
-  endDate?: string;
 };
 
 const formatPaymentAmount = (
@@ -85,7 +83,9 @@ const ReviewCard = ({ review }: { review: FeedbackReview }) => {
         <ReviewStars rating={review.rating} />
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
-            {t("analytics.reviewInbox.local", { defaultValue: "Local" })}
+            {review.source === "GOOGLE"
+              ? "Google"
+              : t("analytics.reviewInbox.local", { defaultValue: "Local" })}
           </span>
           <time
             dateTime={review.createdAt}
@@ -150,11 +150,7 @@ const ReviewCard = ({ review }: { review: FeedbackReview }) => {
   );
 };
 
-export const ReviewInbox = ({
-  restaurantId,
-  startDate,
-  endDate,
-}: ReviewInboxProps) => {
+export const ReviewInbox = ({ restaurantId }: ReviewInboxProps) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -162,14 +158,12 @@ export const ReviewInbox = ({
   const [commentsOnly, setCommentsOnly] = useState(false);
   const [sort, setSort] = useState<"NEWEST" | "OLDEST">("NEWEST");
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["feedbackReviews", "preview", restaurantId, startDate, endDate],
+    queryKey: ["feedbackReviews", "preview", restaurantId],
     queryFn: () =>
       getFeedbackReviews({
         restaurantId,
         page: 1,
         limit: 3,
-        startDate,
-        endDate,
       }),
     enabled: Boolean(restaurantId),
     staleTime: 60_000,
@@ -187,8 +181,6 @@ export const ReviewInbox = ({
       rating,
       commentsOnly,
       sort,
-      startDate,
-      endDate,
     ],
     queryFn: () =>
       getFeedbackReviews({
@@ -198,8 +190,6 @@ export const ReviewInbox = ({
         ...(rating ? { rating } : {}),
         ...(commentsOnly ? { hasComment: true } : {}),
         ...(sort === "OLDEST" ? { sort } : {}),
-        startDate,
-        endDate,
       }),
     enabled: open && Boolean(restaurantId),
     staleTime: 60_000,
@@ -236,7 +226,7 @@ export const ReviewInbox = ({
   if (!data || data.data.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="mt-5 space-y-3 border-t border-border/70 pt-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <MessageSquareText

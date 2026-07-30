@@ -557,14 +557,8 @@ const AnalyticsView = () => {
             eyebrow={t("analytics.guestSatisfaction", "Guest satisfaction")}
           >
             <GuestSatisfaction feedbackData={feedbackData} />
-            {activeRestaurant?.id && feedbackData?.totalFeedbacks > 0 && (
-              <div className="mt-5 border-t border-border/70 pt-5">
-                <ReviewInbox
-                  restaurantId={activeRestaurant.id}
-                  startDate={data.periodStart}
-                  endDate={data.periodEnd}
-                />
-              </div>
+            {activeRestaurant?.id && (
+              <ReviewInbox restaurantId={activeRestaurant.id} />
             )}
           </Panel>
         </section>

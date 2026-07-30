@@ -26,11 +26,7 @@ function renderInbox() {
 
   return render(
     <QueryClientProvider client={client}>
-      <ReviewInbox
-        restaurantId="restaurant-1"
-        startDate="2026-07-01"
-        endDate="2026-07-31"
-      />
+      <ReviewInbox restaurantId="restaurant-1" />
     </QueryClientProvider>,
   );
 }
@@ -76,8 +72,6 @@ describe("ReviewInbox", () => {
       restaurantId: "restaurant-1",
       page: 1,
       limit: 3,
-      startDate: "2026-07-01",
-      endDate: "2026-07-31",
     });
   });
 
@@ -114,8 +108,6 @@ describe("ReviewInbox", () => {
         restaurantId: "restaurant-1",
         page: 1,
         limit: 10,
-        startDate: "2026-07-01",
-        endDate: "2026-07-31",
       }),
     );
   });
@@ -188,9 +180,54 @@ describe("ReviewInbox", () => {
         rating: 4,
         hasComment: true,
         sort: "OLDEST",
-        startDate: "2026-07-01",
-        endDate: "2026-07-31",
       }),
     );
+  });
+
+  it("labels a future imported Google review by its source", async () => {
+    api.getFeedbackReviews.mockResolvedValue({
+      data: [
+        {
+          id: "google-review-1",
+          source: "GOOGLE",
+          rating: 5,
+          comment: "Wonderful",
+          createdAt: "2026-07-30T10:15:00.000Z",
+          authorName: "Alex",
+          tableName: null,
+          orderTotal: null,
+          payment: null,
+          googleReviewClickedAt: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      totalPages: 1,
+    });
+
+    renderInbox();
+
+    expect(await screen.findByText("Google")).toBeTruthy();
+    expect(screen.queryByText("Local")).toBeNull();
+  });
+
+  it("leaves no empty divider when the restaurant has no reviews", async () => {
+    api.getFeedbackReviews.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      totalPages: 0,
+    });
+
+    const view = renderInbox();
+
+    await waitFor(() =>
+      expect(api.getFeedbackReviews).toHaveBeenCalledWith({
+        restaurantId: "restaurant-1",
+        page: 1,
+        limit: 3,
+      }),
+    );
+    await waitFor(() => expect(view.container.innerHTML).toBe(""));
   });
 });
