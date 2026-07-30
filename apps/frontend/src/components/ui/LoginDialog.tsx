@@ -61,10 +61,11 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
   };
 
   const handleGoogleLogin = () => {
-    const backendBase = import.meta.env.VITE_API_URL
-      ? `${import.meta.env.VITE_API_URL}/v1`
-      : "http://localhost:3000/api/v1";
-    window.location.href = `${backendBase}/auth/google`;
+    // Relative path so the OAuth flow shares the same origin as every other
+    // auth cookie (dev: Vite proxy, prod: vercel.json rewrite) — see api.ts.
+    // Using an absolute VITE_API_URL here would set the session cookie on
+    // the backend's own domain instead of the frontend's, breaking /auth/me.
+    window.location.href = "/api/v1/auth/google";
   };
 
   return (
