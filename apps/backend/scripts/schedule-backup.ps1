@@ -1,5 +1,5 @@
 # schedule-backup.ps1 — Creates a daily Windows Task Scheduler job
-# that runs db-backup.js at 3:00 AM every day.
+# that runs db-backup.js at 8:00 AM every day.
 #
 # Run once (as Administrator):
 #   powershell -ExecutionPolicy Bypass -File scripts/schedule-backup.ps1
@@ -21,7 +21,7 @@ $action = New-ScheduledTaskAction -Execute $nodeExe `
   -Argument "`"$backupScript`"" `
   -WorkingDirectory $workingDir
 
-# Daily at 3:00 AM, start even if missed (e.g., PC was off)
+# Daily at 8:00 AM, start even if missed (e.g., PC was off)
 $trigger = New-ScheduledTaskTrigger -Daily -At 8:00AM
 
 # Settings: don't run indefinitely, allow on battery
@@ -41,7 +41,7 @@ try {
     -Description "QR Digital Menu — Daily Neon PostgreSQL backup" `
     -RunLevel Limited `
     -Force
-  Write-Host "✅ Scheduled task '$taskName' created — runs daily at 3:00 AM."
+  Write-Host "✅ Scheduled task '$taskName' created — runs daily at 8:00 AM."
   Write-Host "   Backup location: $projectDir\backups\"
   Write-Host ""
   Write-Host "   Test run now:"

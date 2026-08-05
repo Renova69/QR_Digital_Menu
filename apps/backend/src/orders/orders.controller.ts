@@ -9,6 +9,8 @@ import {
   UseGuards,
   Request,
   Logger,
+  Headers,
+  BadRequestException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -33,9 +35,36 @@ export class OrdersController {
 
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
-  create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
+  create(
+    @Body() createOrderDto: CreateOrderDto,
+    @Request() req: any,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
     this.logger.log('POST /orders');
-    return this.ordersService.create(createOrderDto, req.user?.id ?? null);
+    const normalizedKey = idempotencyKey?.trim();
+    // `source` is a client-supplied DTO field — any authenticated caller can
+    // set `source: 'POS'` without providing `posSubmission`. Only a real POS
+    // submission carries its own durable clientOrderId (validated below in
+    // OrdersService), which is what actually stands in for the idempotency
+    // key. Gate on `posSubmission` presence, not the self-reported `source`
+    // string, or public/customer orders can skip idempotency entirely.
+    if (!createOrderDto.posSubmission && !normalizedKey) {
+      throw new BadRequestException({
+        code: 'IDEMPOTENCY_KEY_REQUIRED',
+        message: 'Idempotency-Key is required for customer orders.',
+      });
+    }
+    if (normalizedKey && normalizedKey.length > 128) {
+      throw new BadRequestException({
+        code: 'IDEMPOTENCY_KEY_INVALID',
+        message: 'Idempotency-Key must be at most 128 characters.',
+      });
+    }
+    return this.ordersService.create(
+      createOrderDto,
+      req.user?.id ?? null,
+      normalizedKey ?? null,
+    );
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)

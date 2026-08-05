@@ -63,6 +63,69 @@ describe('EventsGateway — room authorization', () => {
     );
   });
 
+  describe('print delivery', () => {
+    it('selects exactly one cluster-visible agent and includes the lease token', async () => {
+      const first = {
+        id: 'agent-a',
+        data: { agentTokenId: 'agent-token-a' },
+        emit: jest.fn(),
+      };
+      const second = {
+        id: 'agent-b',
+        data: { agentTokenId: 'agent-token-b' },
+        emit: jest.fn(),
+      };
+      const fetchSockets = jest.fn().mockResolvedValue([second, first]);
+      const inRoom = jest.fn().mockReturnValue({ fetchSockets });
+      (
+        gateway as unknown as {
+          server: { in: typeof inRoom };
+        }
+      ).server = { in: inRoom };
+
+      await expect(
+        gateway.findPrintAgentToken('restaurant-1', 'station-1'),
+      ).resolves.toBe('agent-token-a');
+      await expect(
+        gateway.emitPrintJob(
+          'restaurant-1',
+          'station-1',
+          'job-1',
+          'ticket-base64',
+          'delivery-token-1',
+          'agent-token-a',
+        ),
+      ).resolves.toBe(true);
+
+      expect(inRoom).toHaveBeenCalledWith('print:restaurant-1:station-1');
+      expect(first.emit).toHaveBeenCalledWith('print:job', {
+        jobId: 'job-1',
+        ticket: 'ticket-base64',
+        deliveryToken: 'delivery-token-1',
+      });
+      expect(second.emit).not.toHaveBeenCalled();
+    });
+
+    it('rejects acknowledgements without the matching delivery identity', async () => {
+      const client = makeClient({
+        agentStationId: 'station-1',
+        agentRestaurantId: 'restaurant-1',
+        agentTokenId: 'agent-token-1',
+      });
+
+      await gateway.handlePrintAck(
+        {
+          jobId: 'job-1',
+          deliveryToken: '',
+          success: true,
+        },
+        client,
+      );
+
+      expect(mockPrintStationService.handlePrintAck).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── handleConnection: handshake auth ────────────────────────────────────
 
   describe('handleConnection', () => {

@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { writeAppLog } from '../logging/app-logger';
 import { redactSensitivePath } from '../logging/redact-path';
 
@@ -51,6 +52,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const requestId = req?.requestId;
     const level = statusCode >= 500 ? 'error' : 'warn';
     const error = exception instanceof Error ? exception : undefined;
+
+    // Only genuine server errors go to Sentry — routine 4xx (validation
+    // failures, not-found, unauthorized) are normal client-driven traffic,
+    // not bugs, and would be pure noise against the alert budget. Nest's
+    // automatic Sentry instrumentation doesn't see this at all once a
+    // custom global exception filter is registered, so this is the only
+    // capture point.
+    if (level === 'error') {
+      Sentry.captureException(exception);
+    }
 
     try {
       writeAppLog(level, getMessage(responseBody), 'ExceptionFilter', {

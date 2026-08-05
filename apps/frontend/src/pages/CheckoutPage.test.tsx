@@ -402,6 +402,7 @@ describe("CheckoutPage", () => {
             },
           ],
         }),
+        expect.any(String),
       );
       expect(clearCartMock).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith(
@@ -520,6 +521,7 @@ describe("CheckoutPage", () => {
           usePoints: true,
           redeemPoints: 2301,
         }),
+        expect.any(String),
       ),
     );
   });
@@ -756,6 +758,7 @@ describe("CheckoutPage", () => {
           redeemPoints: 1500,
           paymentPreference: "ONLINE",
         }),
+        expect.any(String),
       );
       expect(mockNavigate).toHaveBeenCalledWith(
         "/order-confirmation",

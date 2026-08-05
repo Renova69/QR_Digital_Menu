@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { withTranslation, WithTranslation } from "react-i18next";
+import * as Sentry from "@sentry/react";
 import { logClientError } from "../lib/clientLogger";
 
 interface Props extends WithTranslation {
@@ -26,6 +27,9 @@ class ErrorBoundary extends Component<Props, State> {
     logClientError(error, {
       type: "react_error_boundary",
       componentStack: errorInfo.componentStack,
+    });
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack } },
     });
   }
 

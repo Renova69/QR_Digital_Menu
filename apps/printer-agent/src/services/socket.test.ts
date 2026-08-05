@@ -7,6 +7,7 @@ import {
   type StatusUpdate,
 } from "./socket";
 import { acquireWakeLock, releaseWakeLock } from "./wakeLock";
+import { durablePrintLedger } from "../store/print-ledger";
 
 jest.mock("socket.io-client", () => ({
   io: jest.fn(),
@@ -17,6 +18,12 @@ jest.mock("./printer", () => ({
 jest.mock("./wakeLock", () => ({
   acquireWakeLock: jest.fn(),
   releaseWakeLock: jest.fn(),
+}));
+jest.mock("../store/print-ledger", () => ({
+  durablePrintLedger: {
+    read: jest.fn(),
+    write: jest.fn(),
+  },
 }));
 
 type SocketHandler = (...args: never[]) => void;
@@ -46,11 +53,18 @@ const CONFIG: AgentConfig = {
   stationName: "Kitchen",
 };
 
+async function flushAsyncWork(): Promise<void> {
+  for (let index = 0; index < 10; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 describe("printer socket service", () => {
   const ioMock = jest.mocked(io);
   const sendToPrinterMock = jest.mocked(sendToPrinter);
   const acquireWakeLockMock = jest.mocked(acquireWakeLock);
   const releaseWakeLockMock = jest.mocked(releaseWakeLock);
+  const printLedger = jest.mocked(durablePrintLedger);
 
   beforeEach(() => {
     stopSocketService();
@@ -58,6 +72,8 @@ describe("printer socket service", () => {
     jest.spyOn(console, "log").mockImplementation(() => undefined);
     jest.spyOn(console, "error").mockImplementation(() => undefined);
     jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    printLedger.read.mockResolvedValue(null);
+    printLedger.write.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -108,9 +124,9 @@ describe("printer socket service", () => {
     handlers["print:job"]({
       jobId: "job-12345678",
       ticket: "VElDS0VU",
+      deliveryToken: "attempt-1",
     } as never);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncWork();
 
     expect(sendToPrinterMock).toHaveBeenCalledWith(
       CONFIG.printerIp,
@@ -119,6 +135,7 @@ describe("printer socket service", () => {
     );
     expect(socket.emit).toHaveBeenCalledWith("print:ack", {
       jobId: "job-12345678",
+      deliveryToken: "attempt-1",
       success: true,
     });
     expect(statuses.at(-1)).toEqual({
@@ -138,19 +155,21 @@ describe("printer socket service", () => {
     handlers["print:job"]({
       jobId: "job-12345678",
       ticket: "VElDS0VU",
+      deliveryToken: "attempt-1",
     } as never);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncWork();
 
     expect(socket.emit).toHaveBeenCalledWith("print:ack", {
       jobId: "job-12345678",
+      deliveryToken: "attempt-1",
       success: false,
-      error: "Paper out",
+      retryable: false,
+      error: expect.stringMatching(/may have started/i),
     });
     expect(statuses.at(-1)).toEqual({
       status: "connected",
       message: "Print failed",
-      hint: "Paper out. Check printer IP 192.168.1.50:9100.",
+      hint: expect.stringMatching(/may have started/i),
     });
   });
 
@@ -181,9 +200,8 @@ describe("printer socket service", () => {
     const secondStatuses: StatusUpdate[] = [];
 
     startSocketService(CONFIG, (status) => firstStatuses.push(status));
-    startSocketService(
-      { ...CONFIG, stationName: "Bar" },
-      (status) => secondStatuses.push(status),
+    startSocketService({ ...CONFIG, stationName: "Bar" }, (status) =>
+      secondStatuses.push(status),
     );
 
     first.handlers.connect();

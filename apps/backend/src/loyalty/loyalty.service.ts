@@ -1,5 +1,5 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { NotificationChannel, Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -9,7 +9,6 @@ import {
   getExpiringPointBatches,
   getFirstRewardProgress,
   getRewardValue,
-  markRemindersSent,
   lockLoyaltyAccountRow,
   MAX_SIGNUP_BONUS,
 } from './loyalty-ledger.utils';
@@ -21,6 +20,7 @@ import {
 import { FeatureService } from '../subscription/feature.service';
 import { isLoyaltyAvailable } from './loyalty-availability.util';
 import { LoyaltyHistoryQueryDto } from './dto/loyalty-history-query.dto';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 
 const EXPIRY_BATCH_SIZE = 50;
 
@@ -73,6 +73,7 @@ export class LoyaltyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
+    private readonly deliveries: NotificationDeliveryService,
   ) {}
 
   private buildRewardSummary(
@@ -357,9 +358,40 @@ export class LoyaltyService {
 
   /**
    * Returns customers with points expiring within the reminder window
-   * (only those not yet notified) and stamps reminderSentAt on their batches
-   * so they won't appear again on subsequent calls.
+   * (only those not yet accepted) and enqueues a durable delivery. The delivery
+   * transaction stamps `reminderSentAt` only after provider acceptance.
    */
+  private enqueueExpiryReminder(
+    restaurant: { id: string; name: string },
+    account: {
+      id: string;
+      user?: { email?: string | null; name?: string | null } | null;
+    },
+    batches: Array<{ id: string; remainingPoints: number }>,
+  ) {
+    const email = account.user?.email;
+    if (!email || batches.length === 0) return null;
+    const points = batches.reduce(
+      (sum, batch) => sum + batch.remainingPoints,
+      0,
+    );
+    const name = account.user?.name || 'there';
+    return this.deliveries.enqueue({
+      restaurantId: restaurant.id,
+      sourceType: 'LOYALTY_EXPIRY_REMINDER',
+      sourceId: account.id,
+      deduplicationKey: `loyalty-expiry:${account.id}:${batches[0].id}`,
+      channel: NotificationChannel.EMAIL,
+      payload: {
+        to: email,
+        subject: `Your loyalty points at ${restaurant.name} are expiring soon`,
+        text: `Hi ${name},\n\nYou have ${points} loyalty points at ${restaurant.name} that will expire soon.\n\nVisit us before they expire to redeem them!\n\nThe ${restaurant.name} team`,
+        html: `<p style="font-family:sans-serif">Hi ${escapeHtml(name)},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${escapeHtml(restaurant.name)}</strong> that will expire soon.</p><p style="font-family:sans-serif">Visit us before they expire to redeem them!</p><p style="font-family:sans-serif">The ${escapeHtml(restaurant.name)} team</p>`,
+        ledgerBatchIds: batches.map((batch) => batch.id),
+      },
+    });
+  }
+
   async notifyExpiryReminders(restaurantId: string, ownerId: string) {
     const restaurant = await this.prisma.restaurant.findFirst({
       where: { id: restaurantId, ownerId },
@@ -381,8 +413,6 @@ export class LoyaltyService {
       reminderDays,
     );
     const redeemRate = restaurant.loyaltyRedeemRate || 150;
-    const resendKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
     const notified: any[] = [];
 
     for (const account of accounts) {
@@ -404,50 +434,21 @@ export class LoyaltyService {
       const points = batches.reduce((s, b) => s + b.remainingPoints, 0);
       const value = getRewardValue(points, redeemRate);
 
-      // Send first; only mark sent if delivery succeeds (Issue 14)
-      let sent = true;
-      if (resendKey) {
-        try {
-          const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${resendKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: fromEmail,
-              to: [account.user.email],
-              subject: `Your loyalty points at ${restaurantName} are expiring soon`,
-              text: `Hi ${account.user.name || 'there'},\n\nYou have ${points} loyalty points at ${restaurantName} expiring soon.\n\nVisit us to redeem them!\n\nThe ${restaurantName} team`,
-              html: `<p style="font-family:sans-serif">Hi ${escapeHtml(account.user.name || 'there')},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${escapeHtml(restaurantName)}</strong> expiring soon.</p><p style="font-family:sans-serif">Visit us to redeem them!</p><p style="font-family:sans-serif">The ${escapeHtml(restaurantName)} team</p>`,
-            }),
-          });
-          if (!res.ok) {
-            this.logger.error(
-              `Expiry reminder HTTP ${res.status} for ${account.user.email}`,
-            );
-            sent = false;
-          }
-        } catch (emailErr) {
-          this.logger.error(
-            `Failed to send expiry reminder to ${account.user.email}`,
-            emailErr,
-          );
-          sent = false;
-        }
-      } else {
-        this.logger.log(
-          `[DEV] Expiry reminder for ${account.user.email}: ${points} pts at ${restaurantName}`,
+      // Same isolation as runDailyExpiryReminders: a single account's
+      // enqueue conflict (409 on a stale dedup-key/payload mismatch) must
+      // not 500 this owner-triggered "notify now" call for every other
+      // account in the list.
+      let queued: Awaited<ReturnType<typeof this.enqueueExpiryReminder>>;
+      try {
+        queued = await this.enqueueExpiryReminder(restaurant, account, batches);
+      } catch (accountErr) {
+        this.logger.error(
+          `Expiry reminder enqueue failed for account ${account.id} at restaurant ${restaurantId}`,
+          accountErr,
         );
+        continue;
       }
-
-      if (sent) {
-        await this.prisma.$transaction(async (tx) =>
-          markRemindersSent(
-            tx,
-            batches.map((b) => b.id),
-          ),
-        );
+      if (queued) {
         notified.push({
           user: account.user,
           loyaltyAccountId: account.id,
@@ -455,6 +456,7 @@ export class LoyaltyService {
           value,
           nextExpirationAt: batches[0]?.expiresAt ?? null,
           message: `You have €${value.toFixed(2)} in rewards expiring soon at ${restaurantName}!`,
+          deliveryStatus: queued.status,
         });
       }
     }
@@ -598,16 +600,13 @@ export class LoyaltyService {
       },
     });
 
-    const resendKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
-
     for (const restaurant of restaurants) {
       // #5: a downgraded tenant keeps isLoyaltyEnabled=true but loses the
       // LOYALTY feature — don't email reminders for an unentitled restaurant.
       if (!isLoyaltyAvailable(restaurant, this.featureService)) continue;
       try {
         let cursor: string | undefined;
-        let totalSent = 0;
+        let totalQueued = 0;
         const reminderDays = restaurant.loyaltyExpiryReminderDays || 15;
 
         // Cursor-paginated: process EXPIRY_BATCH_SIZE accounts per iteration (Issue 13)
@@ -637,53 +636,20 @@ export class LoyaltyService {
 
             if (batches.length === 0 || !account.user?.email) continue;
 
-            const points = batches.reduce((s, b) => s + b.remainingPoints, 0);
-
-            // Send first; only mark sent on confirmed delivery (Issue 14)
-            let sent = true;
-            if (resendKey) {
-              try {
-                const res = await fetch('https://api.resend.com/emails', {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${resendKey}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    from: fromEmail,
-                    to: [account.user.email],
-                    subject: `Your loyalty points at ${restaurant.name} are expiring soon`,
-                    text: `Hi ${account.user.name || 'there'},\n\nYou have ${points} loyalty points at ${restaurant.name} that will expire soon.\n\nVisit us before they expire to redeem them!\n\nThe ${restaurant.name} team`,
-                    html: `<p style="font-family:sans-serif">Hi ${escapeHtml(account.user.name || 'there')},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${escapeHtml(restaurant.name)}</strong> that will expire soon.</p><p style="font-family:sans-serif">Visit us before they expire to redeem them!</p><p style="font-family:sans-serif">The ${escapeHtml(restaurant.name)} team</p>`,
-                  }),
-                });
-                if (!res.ok) {
-                  this.logger.error(
-                    `Expiry reminder HTTP ${res.status} for ${account.user.email}`,
-                  );
-                  sent = false;
-                }
-              } catch (emailErr) {
-                this.logger.error(
-                  `Failed to send expiry reminder to ${account.user.email}`,
-                  emailErr,
-                );
-                sent = false;
-              }
-            } else {
-              this.logger.log(
-                `[DEV] Expiry reminder for ${account.user.email}: ${points} pts at ${restaurant.name}`,
+            // Isolate one account's failure (e.g. a stale delivery still
+            // PENDING/RETRY_SCHEDULED under the same dedup key with a
+            // payload that no longer hashes the same, which
+            // deliveries.enqueue() rejects as a 409 conflict) from the rest
+            // of this restaurant's sweep — a single bad account must not
+            // abort every remaining account and page for this tenant.
+            try {
+              await this.enqueueExpiryReminder(restaurant, account, batches);
+              totalQueued++;
+            } catch (accountErr) {
+              this.logger.error(
+                `Expiry reminder enqueue failed for account ${account.id} at restaurant ${restaurant.id}`,
+                accountErr,
               );
-            }
-
-            if (sent) {
-              await this.prisma.$transaction(async (tx) =>
-                markRemindersSent(
-                  tx,
-                  batches.map((b) => b.id),
-                ),
-              );
-              totalSent++;
             }
           }
 
@@ -693,9 +659,9 @@ export class LoyaltyService {
               : undefined;
         } while (cursor);
 
-        if (totalSent > 0) {
+        if (totalQueued > 0) {
           this.logger.log(
-            `[${restaurant.name}] ${totalSent} expiry reminders sent`,
+            `[${restaurant.name}] ${totalQueued} expiry reminders queued`,
           );
         }
       } catch (err) {

@@ -84,9 +84,13 @@ describe('OrdersController', () => {
       const req = { user: { id: 'user1' } };
       mockOrdersService.create.mockResolvedValue('order1');
 
-      const result = await controller.create(dto, req);
+      const result = await controller.create(dto, req, 'checkout-1');
 
-      expect(mockOrdersService.create).toHaveBeenCalledWith(dto, 'user1');
+      expect(mockOrdersService.create).toHaveBeenCalledWith(
+        dto,
+        'user1',
+        'checkout-1',
+      );
       expect(result).toBe('order1');
     });
 
@@ -99,10 +103,66 @@ describe('OrdersController', () => {
       const req = {}; // no user
       mockOrdersService.create.mockResolvedValue('order2');
 
-      const result = await controller.create(dto, req);
+      const result = await controller.create(dto, req, 'checkout-2');
 
-      expect(mockOrdersService.create).toHaveBeenCalledWith(dto, null);
+      expect(mockOrdersService.create).toHaveBeenCalledWith(
+        dto,
+        null,
+        'checkout-2',
+      );
       expect(result).toBe('order2');
+    });
+
+    it('rejects a customer order without an idempotency key', () => {
+      const dto = { items: [] } as unknown as CreateOrderDto;
+
+      expect(() => controller.create(dto, {})).toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            code: 'IDEMPOTENCY_KEY_REQUIRED',
+          }),
+        }),
+      );
+      expect(mockOrdersService.create).not.toHaveBeenCalled();
+    });
+
+    it('uses the POS submission identity without requiring a header', async () => {
+      const dto = {
+        source: 'POS',
+        items: [],
+        posSubmission: { clientOrderId: 'pos-1' },
+      } as unknown as CreateOrderDto;
+      mockOrdersService.create.mockResolvedValue('order3');
+
+      await controller.create(dto, { user: { id: 'staff-1' } });
+
+      expect(mockOrdersService.create).toHaveBeenCalledWith(
+        dto,
+        'staff-1',
+        null,
+      );
+    });
+
+    it('still requires an idempotency key when source claims POS but posSubmission is absent', () => {
+      // Regression test: `source` is a client-supplied field. A caller
+      // cannot bypass idempotency by merely claiming source: 'POS' without
+      // providing the actual posSubmission payload — the real POS identity
+      // (clientOrderId) is what stands in for the idempotency key.
+      const dto = {
+        source: 'POS',
+        items: [],
+      } as unknown as CreateOrderDto;
+
+      expect(() =>
+        controller.create(dto, { user: { id: 'customer-1' } }),
+      ).toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            code: 'IDEMPOTENCY_KEY_REQUIRED',
+          }),
+        }),
+      );
+      expect(mockOrdersService.create).not.toHaveBeenCalled();
     });
   });
 

@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DateTime } from 'luxon';
+import { NotificationChannel } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { DeliveryPayload } from '../notifications/notification-provider';
 import {
   smsProvider,
   smsGatewayConfigured,
@@ -14,6 +16,11 @@ import {
   type ReservationNotificationKind,
   type ReservationDetailLabels,
 } from './reservation-notification-copy';
+
+// Bounds Resend/Twilio requests so a stalled provider connection can't hold
+// a reminder-sweep worker open indefinitely (mirrors the SIM SMS gateway's
+// own timeout in ../common/sms/sms-gateway.ts and the DeepL provider).
+const NOTIFICATION_HTTP_TIMEOUT_MS = 10_000;
 
 // Kinds where the private manage link is still actionable for the guest.
 const MANAGEABLE_KINDS = new Set<ReservationNotificationKind>([
@@ -46,7 +53,7 @@ interface BookingDetailFields {
   allergyNotes?: string | null;
 }
 
-interface NotifyInput extends BookingDetailFields {
+export interface NotifyInput extends BookingDetailFields {
   restaurantId: string;
   guestEmail?: string | null;
   guestPhone?: string | null;
@@ -61,6 +68,11 @@ interface NotifyInput extends BookingDetailFields {
   // Feature 2: token for the guest's private manage link (view/modify/cancel).
   manageToken?: string | null;
 }
+
+export type PreparedReservationNotification = {
+  channel: NotificationChannel;
+  payload: DeliveryPayload;
+};
 
 interface OwnerNotifyInput extends BookingDetailFields {
   restaurantId: string;
@@ -112,19 +124,45 @@ export class ReservationNotificationsService {
     kind: ReservationNotificationKind,
     input: NotifyInput,
   ): Promise<void> {
+    const prepared = await this.prepare(kind, input);
+    for (const delivery of prepared) {
+      if (delivery.channel === NotificationChannel.EMAIL) {
+        await this.sendEmail(
+          delivery.payload.to,
+          delivery.payload.subject!,
+          delivery.payload.html!,
+          delivery.payload.text!,
+          `guest ${kind}`,
+        );
+      } else {
+        await this.sendSms(
+          delivery.payload.to,
+          delivery.payload.body!,
+          `guest ${kind}`,
+        );
+      }
+    }
+  }
+
+  async prepare(
+    kind: ReservationNotificationKind,
+    input: NotifyInput,
+  ): Promise<PreparedReservationNotification[]> {
     // Default to email when the caller didn't express a preference, preserving
     // the original behaviour for staff/manual paths.
     const wantEmail = input.notifyByEmail ?? true;
     const wantSms = input.notifyBySms ?? false;
     const to = input.guestEmail?.trim();
     const phone = input.guestPhone?.trim();
-    if (!(wantEmail && to) && !(wantSms && phone)) return;
+    if (!(wantEmail && to) && !(wantSms && phone)) return [];
 
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: input.restaurantId },
       select: { name: true, timezone: true, contactInfo: true },
     });
-    if (!restaurant) return;
+    if (!restaurant) return [];
+
+    const prepared: PreparedReservationNotification[] = [];
 
     const notificationLocale = normalizeReservationNotificationLocale(
       input.notificationLocale,
@@ -219,7 +257,10 @@ export class ReservationNotificationsService {
       const text = `${introText}\n\n${when}\n${copy.reference}: ${input.referenceCode}${detailsText}${
         manageLink ? `\n\n${copy.manage}: ${manageLink}` : ''
       }`;
-      await this.sendEmail(to, subject, html, text, `guest ${kind}`);
+      prepared.push({
+        channel: NotificationChannel.EMAIL,
+        payload: { to, subject, html, text },
+      });
     }
 
     if (wantSms && phone) {
@@ -230,8 +271,12 @@ export class ReservationNotificationsService {
       const body = `${restaurant.name}: ${status}. ${when}${guests}. ${copy.refShort} ${input.referenceCode}${
         shortManageLink ? ` ${shortManageLink}` : ''
       }`;
-      await this.sendSms(phone, body, `guest ${kind}`);
+      prepared.push({
+        channel: NotificationChannel.SMS,
+        payload: { to: phone, body },
+      });
     }
+    return prepared;
   }
 
   /** Public guest-facing manage URL. FRONTEND_URL drives cross-origin prod. */
@@ -351,25 +396,42 @@ export class ReservationNotificationsService {
       this.logger.log(`[dev] Reservation ${context} email suppressed`);
       return;
     }
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-        to: [to],
-        subject,
-        text,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      this.logger.error(
-        `Resend reservation email failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
-      );
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      NOTIFICATION_HTTP_TIMEOUT_MS,
+    );
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+          to: [to],
+          subject,
+          text,
+          html,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        this.logger.error(
+          `Resend reservation email failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
+        );
+      }
+    } catch (error) {
+      const detail = controller.signal.aborted
+        ? `Resend request timed out after ${NOTIFICATION_HTTP_TIMEOUT_MS}ms`
+        : error instanceof Error
+          ? error.message
+          : 'Unknown Resend network error';
+      this.logger.error(`Resend reservation email failed: ${detail}`);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -440,22 +502,39 @@ export class ReservationNotificationsService {
       form.set('From', from!);
     }
 
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: form.toString(),
-      },
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      NOTIFICATION_HTTP_TIMEOUT_MS,
     );
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      this.logger.error(
-        `Twilio reservation SMS failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
+    try {
+      const res = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: form.toString(),
+          signal: controller.signal,
+        },
       );
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        this.logger.error(
+          `Twilio reservation SMS failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
+        );
+      }
+    } catch (error) {
+      const detail = controller.signal.aborted
+        ? `Twilio request timed out after ${NOTIFICATION_HTTP_TIMEOUT_MS}ms`
+        : error instanceof Error
+          ? error.message
+          : 'Unknown Twilio network error';
+      this.logger.error(`Twilio reservation SMS failed: ${detail}`);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

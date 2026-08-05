@@ -133,8 +133,12 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
-export const createOrder = async (orderData: any) => {
-  const response = await api.post("/orders", orderData);
+export const createOrder = async (orderData: any, idempotencyKey?: string) => {
+  const submissionKey =
+    idempotencyKey ?? orderData.posSubmission?.clientOrderId;
+  const response = await api.post("/orders", orderData, {
+    headers: submissionKey ? { "Idempotency-Key": submissionKey } : undefined,
+  });
   return response.data;
 };
 

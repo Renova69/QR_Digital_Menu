@@ -3,6 +3,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { LoyaltyService } from './loyalty.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 
 const mockTx = {
   loyaltyAccount: {
@@ -28,7 +29,11 @@ const mockTransaction = jest.fn(
 
 const mockPrisma = {
   $transaction: mockTransaction,
-  restaurant: { findFirst: jest.fn(), findUnique: jest.fn() },
+  restaurant: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+  },
   loyaltyAccount: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -46,6 +51,10 @@ const mockFeatureService = {
   hasFeature: jest.fn().mockReturnValue(true),
 };
 
+const mockDeliveries = {
+  enqueue: jest.fn().mockResolvedValue({ status: 'PENDING' }),
+};
+
 describe('LoyaltyService', () => {
   let service: LoyaltyService;
 
@@ -56,6 +65,7 @@ describe('LoyaltyService', () => {
         LoyaltyService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: FeatureService, useValue: mockFeatureService },
+        { provide: NotificationDeliveryService, useValue: mockDeliveries },
       ],
     }).compile();
     service = module.get(LoyaltyService);
@@ -313,51 +323,51 @@ describe('LoyaltyService', () => {
       mockTx.loyaltyPointLedger.updateMany.mockResolvedValue({ count: 1 });
     });
 
-    it('does NOT mark batches when email returns non-ok status', async () => {
-      process.env.RESEND_API_KEY = 'test-key';
-      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
-
+    it('enqueues a durable delivery without marking provider acceptance', async () => {
       const result = await service.notifyExpiryReminders('r1', 'owner1');
 
       // Only the expire+read transaction — no markRemindersSent transaction
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(result).toHaveLength(0);
-
-      delete process.env.RESEND_API_KEY;
+      expect(mockDeliveries.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: 'r1',
+          sourceType: 'LOYALTY_EXPIRY_REMINDER',
+          sourceId: 'a1',
+          deduplicationKey: 'loyalty-expiry:a1:b1',
+          channel: 'EMAIL',
+          payload: expect.objectContaining({ ledgerBatchIds: ['b1'] }),
+        }),
+      );
+      expect(mockTx.loyaltyPointLedger.updateMany).not.toHaveBeenCalled();
+      expect(result[0].deliveryStatus).toBe('PENDING');
     });
 
-    it('does NOT mark batches when fetch throws a network error', async () => {
-      process.env.RESEND_API_KEY = 'test-key';
-      global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+    it('skips the failing account instead of failing the whole call when durable enqueue fails', async () => {
+      // A single account's enqueue failure (e.g. a stale delivery row under
+      // the same dedup key with a payload that no longer hashes the same)
+      // must not 500 this owner-triggered "notify now" call for every other
+      // account being processed in the same request.
+      mockDeliveries.enqueue.mockRejectedValueOnce(new Error('database down'));
 
       const result = await service.notifyExpiryReminders('r1', 'owner1');
 
+      expect(result).toEqual([]);
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(result).toHaveLength(0);
-
-      delete process.env.RESEND_API_KEY;
+      expect(mockTx.loyaltyPointLedger.updateMany).not.toHaveBeenCalled();
     });
 
-    it('marks batches only after successful email send', async () => {
-      process.env.RESEND_API_KEY = 'test-key';
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
-
+    it('returns the queued reminder summary', async () => {
       const result = await service.notifyExpiryReminders('r1', 'owner1');
 
       // expire+read txn + markRemindersSent txn
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(result).toHaveLength(1);
       expect(result[0].points).toBe(100);
-
-      delete process.env.RESEND_API_KEY;
     });
 
     // M-ORDER-4: customer/restaurant names are user-controlled and must not
     // be interpolated raw into the HTML email body.
-    it('escapes HTML in customer and restaurant names before sending', async () => {
-      process.env.RESEND_API_KEY = 'test-key';
-      const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-      global.fetch = fetchMock;
+    it('escapes HTML in customer and restaurant names before enqueueing', async () => {
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
         {
           id: 'a1',
@@ -372,20 +382,88 @@ describe('LoyaltyService', () => {
 
       await service.notifyExpiryReminders('r1', 'owner1');
 
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-      expect(body.html).not.toContain('<script>');
-      expect(body.html).toContain('&lt;script&gt;');
-
-      delete process.env.RESEND_API_KEY;
+      const queuedPayload = mockDeliveries.enqueue.mock.calls[0][0].payload;
+      expect(queuedPayload.html).not.toContain('<script>');
+      expect(queuedPayload.html).toContain('&lt;script&gt;');
     });
 
-    it('marks batches in dev mode (no RESEND_API_KEY)', async () => {
+    it('does not report provider acceptance in dev mode', async () => {
       delete process.env.RESEND_API_KEY;
 
       const result = await service.notifyExpiryReminders('r1', 'owner1');
 
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockTx.loyaltyPointLedger.updateMany).not.toHaveBeenCalled();
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('runDailyExpiryReminders — per-account isolation', () => {
+    const restaurant = {
+      id: 'r1',
+      name: 'TestRest',
+      isActive: true,
+      isLoyaltyEnabled: true,
+      loyaltyRedeemRate: 150,
+      loyaltyExpiryReminderDays: 15,
+    };
+    const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+
+    it('does not let one account enqueue failure abort the rest of the restaurant sweep', async () => {
+      // Regression: enqueueExpiryReminder's ConflictException (stale
+      // dedup-key/payload mismatch) used to propagate out of the account
+      // loop and abort every remaining account for this tenant.
+      mockPrisma.restaurant.findMany.mockResolvedValue([restaurant]);
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
+        {
+          id: 'a1',
+          points: 100,
+          user: { id: 'u1', email: 'a1@example.com', name: 'A1' },
+        },
+        {
+          id: 'a2',
+          points: 50,
+          user: { id: 'u2', email: 'a2@example.com', name: 'A2' },
+        },
+      ]);
+      mockTx.loyaltyPointLedger.findMany
+        .mockResolvedValueOnce([]) // a1 expireAccountPoints
+        .mockResolvedValueOnce([
+          {
+            id: 'b1',
+            remainingPoints: 100,
+            expiresAt,
+            reminderSentAt: null,
+            type: 'EARN',
+          },
+        ]) // a1 getExpiringPointBatches
+        .mockResolvedValueOnce([]) // a2 expireAccountPoints
+        .mockResolvedValueOnce([
+          {
+            id: 'b2',
+            remainingPoints: 50,
+            expiresAt,
+            reminderSentAt: null,
+            type: 'EARN',
+          },
+        ]); // a2 getExpiringPointBatches
+      mockDeliveries.enqueue
+        .mockRejectedValueOnce(new Error('conflict for a1'))
+        .mockResolvedValueOnce({ status: 'PENDING' });
+
+      await service.runDailyExpiryReminders();
+
+      // Both accounts must have been attempted — a1's failure did not
+      // stop a2 from being processed.
+      expect(mockDeliveries.enqueue).toHaveBeenCalledTimes(2);
+      expect(mockDeliveries.enqueue).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ sourceId: 'a1' }),
+      );
+      expect(mockDeliveries.enqueue).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ sourceId: 'a2' }),
+      );
     });
   });
 

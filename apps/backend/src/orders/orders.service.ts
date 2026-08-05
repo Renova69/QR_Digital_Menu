@@ -171,6 +171,7 @@ export class OrdersService {
   async create(
     createOrderDto: CreateOrderDto,
     authenticatedUserId: string | null = null,
+    idempotencyKey: string | null = null,
   ) {
     // POS intent is accepted only with a verified restaurant staff identity;
     // every other request is persisted as customer checkout.
@@ -198,7 +199,7 @@ export class OrdersService {
     let posRestaurant: any = null;
     let posStaffUserId: string | null = null;
     if (posSubmission) {
-      posPayloadHash = this.hashPosOrderIntent(createOrderDto);
+      posPayloadHash = this.hashOrderIntent(createOrderDto);
       posRestaurant = await this.prisma.restaurant.findUnique({
         where: { id: posSubmission.restaurantId },
         select: ORDER_CREATE_RESTAURANT_FIELDS,
@@ -218,7 +219,7 @@ export class OrdersService {
         );
       }
 
-      const replay = await this.findPosOrderByClientId(
+      const replay = await this.findOrderByClientId(
         posSubmission.restaurantId,
         posSubmission.clientOrderId,
       );
@@ -261,6 +262,34 @@ export class OrdersService {
       throw new BadRequestException(
         'POS submission restaurant does not match the ordered items.',
       );
+    }
+
+    // Establish the tenant-scoped idempotency identity before any stateful
+    // checkout work. POS supplies its durable offline clientOrderId; public
+    // checkout supplies the Idempotency-Key header through the controller.
+    for (const item of createOrderDto.items) {
+      const dbItem = itemsMap.get(item.menuItemId);
+      if (!dbItem) {
+        throw new NotFoundException(`Menu item ${item.menuItemId} not found`);
+      }
+      if (dbItem.category.restaurantId !== restaurantId) {
+        throw new BadRequestException(
+          'All items must belong to the same restaurant',
+        );
+      }
+    }
+    const submissionKey = posSubmission?.clientOrderId ?? idempotencyKey;
+    const submissionPayloadHash =
+      posPayloadHash ??
+      (submissionKey ? this.hashOrderIntent(createOrderDto) : null);
+    if (!posSubmission && submissionKey && submissionPayloadHash) {
+      const replay = await this.findOrderByClientId(
+        restaurantId,
+        submissionKey,
+      );
+      if (replay) {
+        return this.buildOrderCreateResponse(replay, submissionPayloadHash);
+      }
     }
 
     const changedItemPrices: Array<{
@@ -1169,8 +1198,8 @@ export class OrdersService {
 
           const order = await tx.order.create({
             data: {
-              clientOrderId: posSubmission?.clientOrderId,
-              clientPayloadHash: posPayloadHash ?? undefined,
+              clientOrderId: submissionKey ?? undefined,
+              clientPayloadHash: submissionPayloadHash ?? undefined,
               expectedTableSessionId:
                 posSubmission?.expectedTableSessionId ?? undefined,
               customerName: createOrderDto.customerName,
@@ -1235,17 +1264,24 @@ export class OrdersService {
             );
           }
 
+          if (order.status !== OrderStatus.PENDING_PAYMENT) {
+            await this.printStationService.createPrintJobsForOrder(
+              order.id,
+              tx,
+            );
+          }
+
           return order;
         },
       );
     } catch (error) {
-      if (posSubmission && posPayloadHash) {
-        const replay = await this.findPosOrderByClientId(
-          posSubmission.restaurantId,
-          posSubmission.clientOrderId,
+      if (submissionKey && submissionPayloadHash) {
+        const replay = await this.findOrderByClientId(
+          restaurantId,
+          submissionKey,
         );
         if (replay) {
-          return this.buildOrderCreateResponse(replay, posPayloadHash);
+          return this.buildOrderCreateResponse(replay, submissionPayloadHash);
         }
       }
       throw error;
@@ -1253,33 +1289,40 @@ export class OrdersService {
 
     const isAwaitingPayment = finalOrder.status === OrderStatus.PENDING_PAYMENT;
 
-    this.eventsGateway.emitOrderEventToRestaurant(
-      finalOrder.restaurantId,
-      'newOrder',
-      finalOrder,
-    );
+    try {
+      this.eventsGateway.emitOrderEventToRestaurant(
+        finalOrder.restaurantId,
+        'newOrder',
+        finalOrder,
+      );
 
-    if (finalOrder.tableSessionId && resolvedTableCuid) {
-      const billUpdatedPayload = {
-        tableSessionId: finalOrder.tableSessionId,
-        tableId: resolvedTableCuid,
-        orderId: finalOrder.id,
-        sessionPaid: false,
-      };
-      this.eventsGateway.emitToRestaurant(
-        finalOrder.restaurantId,
-        'bill:updated',
-        billUpdatedPayload,
-      );
-      this.eventsGateway.emitToTableSession(
-        finalOrder.tableSessionId,
-        'bill:updated',
-        billUpdatedPayload,
-      );
-      this.eventsGateway.emitTableStatusChanged(
-        finalOrder.restaurantId,
-        resolvedTableCuid,
-        finalOrder.tableSessionId,
+      if (finalOrder.tableSessionId && resolvedTableCuid) {
+        const billUpdatedPayload = {
+          tableSessionId: finalOrder.tableSessionId,
+          tableId: resolvedTableCuid,
+          orderId: finalOrder.id,
+          sessionPaid: false,
+        };
+        this.eventsGateway.emitToRestaurant(
+          finalOrder.restaurantId,
+          'bill:updated',
+          billUpdatedPayload,
+        );
+        this.eventsGateway.emitToTableSession(
+          finalOrder.tableSessionId,
+          'bill:updated',
+          billUpdatedPayload,
+        );
+        this.eventsGateway.emitTableStatusChanged(
+          finalOrder.restaurantId,
+          resolvedTableCuid,
+          finalOrder.tableSessionId,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Post-commit realtime notification failed for order ${finalOrder.id}`,
+        error instanceof Error ? error.stack : String(error),
       );
     }
 
@@ -1300,7 +1343,7 @@ export class OrdersService {
     return { ...finalOrder, sessionToken, orderTrackToken };
   }
 
-  private hashPosOrderIntent(createOrderDto: CreateOrderDto): string {
+  private hashOrderIntent(createOrderDto: CreateOrderDto): string {
     const semanticIntent = {
       customerName: createOrderDto.customerName,
       customerPhone: createOrderDto.customerPhone ?? null,
@@ -1310,6 +1353,12 @@ export class OrdersService {
       redeemPoints: createOrderDto.redeemPoints ?? null,
       redeemItemIds: createOrderDto.redeemItemIds ?? [],
       redeemCartIds: createOrderDto.redeemCartIds ?? [],
+      tableId: createOrderDto.tableId ?? null,
+      servicePointToken: createOrderDto.servicePointToken ?? null,
+      fulfillmentType: createOrderDto.fulfillmentType ?? null,
+      paymentPreference: createOrderDto.paymentPreference ?? null,
+      sessionToken: createOrderDto.sessionToken ?? null,
+      source: createOrderDto.source ?? 'CUSTOMER',
       posSubmission: createOrderDto.posSubmission,
       items: createOrderDto.items.map((item) => ({
         menuItemId: item.menuItemId,
@@ -1333,7 +1382,7 @@ export class OrdersService {
       .digest('hex');
   }
 
-  private findPosOrderByClientId(restaurantId: string, clientOrderId: string) {
+  private findOrderByClientId(restaurantId: string, clientOrderId: string) {
     return this.prisma.order.findUnique({
       where: {
         restaurantId_clientOrderId: { restaurantId, clientOrderId },

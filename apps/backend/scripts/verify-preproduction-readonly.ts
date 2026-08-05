@@ -6,7 +6,7 @@ import { join } from 'path';
 
 type CountRow = { count: bigint };
 type CurrencyRow = { currency: string; count: bigint };
-type MigrationRow = {
+export type MigrationRow = {
   migration_name: string;
   checksum: string;
   finished_at: Date | null;
@@ -14,24 +14,81 @@ type MigrationRow = {
 };
 type VersionRow = { server_version: string };
 
+export type MigrationIntegrityIssue =
+  | 'MISSING'
+  | 'UNFINISHED'
+  | 'ROLLED_BACK'
+  | 'CHECKSUM_MISMATCH';
+
+export type MigrationIntegrityResult = {
+  name: string;
+  applied: boolean;
+  checksumMatchesFile: boolean;
+  issues: MigrationIntegrityIssue[];
+};
+
+const RELEVANT_MIGRATIONS = [
+  '20260620120000_architecture_todo_fixes',
+  '20260701120000_add_refund_pending_status',
+  '20260702090000_add_refund_attempt',
+] as const;
+
 const prisma = new PrismaClient();
 const asNumber = (rows: CountRow[]): number => Number(rows[0]?.count ?? 0n);
 
+export function sha256Migration(contents: Buffer): string {
+  return createHash('sha256').update(contents).digest('hex');
+}
+
+export function assessMigrationIntegrity(
+  expectedChecksums: ReadonlyMap<string, string>,
+  rows: readonly MigrationRow[],
+): MigrationIntegrityResult[] {
+  const rowsByName = new Map(rows.map((row) => [row.migration_name, row]));
+
+  return Array.from(expectedChecksums, ([name, expectedChecksum]) => {
+    const row = rowsByName.get(name);
+    if (!row) {
+      return {
+        name,
+        applied: false,
+        checksumMatchesFile: false,
+        issues: ['MISSING'],
+      };
+    }
+
+    const issues: MigrationIntegrityIssue[] = [];
+    if (row.rolled_back_at !== null) {
+      issues.push('ROLLED_BACK');
+    } else if (row.finished_at === null) {
+      issues.push('UNFINISHED');
+    }
+    if (row.checksum !== expectedChecksum) {
+      issues.push('CHECKSUM_MISMATCH');
+    }
+
+    return {
+      name,
+      applied: row.finished_at !== null && row.rolled_back_at === null,
+      checksumMatchesFile: row.checksum === expectedChecksum,
+      issues,
+    };
+  });
+}
+
+export function countMigrationIntegrityBlockers(
+  migrations: readonly MigrationIntegrityResult[],
+): number {
+  return migrations.filter((migration) => migration.issues.length > 0).length;
+}
+
 async function main(): Promise<void> {
   const migrationChecksums = new Map<string, string>();
-  for (const name of [
-    '20260620120000_architecture_todo_fixes',
-    '20260701120000_add_refund_pending_status',
-    '20260702090000_add_refund_attempt',
-  ]) {
+  for (const name of RELEVANT_MIGRATIONS) {
     const sql = await readFile(
       join(process.cwd(), 'prisma', 'migrations', name, 'migration.sql'),
-      'utf8',
     );
-    migrationChecksums.set(
-      name,
-      createHash('sha256').update(sql.replace(/\r\n/g, '\n')).digest('hex'),
-    );
+    migrationChecksums.set(name, sha256Migration(sql));
   }
 
   const result = await prisma.$transaction(
@@ -107,14 +164,10 @@ async function main(): Promise<void> {
         optionsWithEmbeddedBgnCurrency: asNumber(embeddedBgnOptionCurrency),
         nonEurPayments: asNumber(nonEurPayments),
         legacyRefundPendingPayments: asNumber(legacyRefundPending),
-        relevantMigrations: relevantMigrations.map((migration) => ({
-          name: migration.migration_name,
-          applied:
-            migration.finished_at !== null && migration.rolled_back_at === null,
-          checksumMatchesFile:
-            migration.checksum ===
-            migrationChecksums.get(migration.migration_name),
-        })),
+        relevantMigrations: assessMigrationIntegrity(
+          migrationChecksums,
+          relevantMigrations,
+        ),
         databaseVersion: databaseVersion[0]?.server_version ?? 'unknown',
       };
     },
@@ -123,26 +176,32 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify(result, null, 2));
 
-  const blockers =
+  const authoritativeDataBlockers =
     result.bgnMenuItems +
     result.optionsUnderBgnItems +
     result.optionsWithEmbeddedBgnCurrency +
     result.nonEurPayments +
     result.legacyRefundPendingPayments;
+  const migrationIntegrityBlockers = countMigrationIntegrityBlockers(
+    result.relevantMigrations,
+  );
+  const blockers = authoritativeDataBlockers + migrationIntegrityBlockers;
   if (blockers > 0) {
     throw new Error(
-      `Pre-production read-only audit found ${blockers} authoritative currency/refund blocker(s)`,
+      `Pre-production read-only audit found ${authoritativeDataBlockers} authoritative currency/refund blocker(s) and ${migrationIntegrityBlockers} migration integrity blocker(s)`,
     );
   }
 }
 
-main()
-  .catch((error) => {
-    console.error(
-      error instanceof Error ? error.message : 'Read-only audit failed',
-    );
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  void main()
+    .catch((error) => {
+      console.error(
+        error instanceof Error ? error.message : 'Read-only audit failed',
+      );
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

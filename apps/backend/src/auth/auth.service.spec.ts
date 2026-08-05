@@ -774,7 +774,7 @@ describe('AuthService', () => {
       const prevKey = process.env.RESEND_API_KEY;
       process.env.NODE_ENV = 'production';
       process.env.RESEND_API_KEY = 'test-resend-key';
-      global.fetch = jest.fn().mockResolvedValue({ ok: true }) as jest.Mock;
+      global.fetch = jest.fn().mockResolvedValue({ ok: true });
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
       mockHash.mockResolvedValue('hashed-code');
 
@@ -801,7 +801,7 @@ describe('AuthService', () => {
         ok: false,
         status: 422,
         text: async () => 'Invalid `to` field',
-      }) as jest.Mock;
+      });
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
       mockHash.mockResolvedValue('hashed-code');
 
@@ -829,7 +829,7 @@ describe('AuthService', () => {
         ok: false,
         status: 503,
         text: async () => '',
-      }) as jest.Mock;
+      });
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
       mockHash.mockResolvedValue('hashed-code');
 

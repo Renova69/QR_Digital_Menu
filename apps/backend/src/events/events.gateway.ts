@@ -741,27 +741,52 @@ export class EventsGateway
   }
 
   /**
-   * Emit a print job to the station room.
-   * Returns true if at least one agent socket is present (job delivered),
-   * false if room is empty (job stays PENDING for retry on reconnect).
+   * Select the durable agent identity before a job is emitted. The print job
+   * persists this identity so a lost ACK can never move an ambiguous retry to
+   * another physical device.
    *
    * Issue 37+D-8: use fetchSockets() which is cluster-aware when a
    * distributed adapter (e.g. Redis) is configured; adapter.rooms.get()
    * is local-only and misses agents on other Cloud Run replicas.
    */
+  async findPrintAgentToken(
+    restaurantId: string,
+    stationId: string,
+    assignedAgentTokenId?: string | null,
+  ): Promise<string | null> {
+    const room = `print:${restaurantId}:${stationId}`;
+    const sockets = await this.server.in(room).fetchSockets();
+    const candidates = assignedAgentTokenId
+      ? sockets.filter(
+          (socket) => socket.data.agentTokenId === assignedAgentTokenId,
+        )
+      : sockets;
+    const recipient = candidates.sort((left, right) =>
+      left.id.localeCompare(right.id),
+    )[0];
+    return (recipient?.data.agentTokenId as string | undefined) ?? null;
+  }
+
   async emitPrintJob(
     restaurantId: string,
     stationId: string,
     jobId: string,
     ticketBase64: string,
+    deliveryToken: string,
+    assignedAgentTokenId: string,
   ): Promise<boolean> {
     const room = `print:${restaurantId}:${stationId}`;
     const sockets = await this.server.in(room).fetchSockets();
-    const hasAgents = sockets.length > 0;
-    if (hasAgents) {
-      this.server.to(room).emit('print:job', { jobId, ticket: ticketBase64 });
-    }
-    return hasAgents;
+    const recipient = sockets
+      .filter((socket) => socket.data.agentTokenId === assignedAgentTokenId)
+      .sort((left, right) => left.id.localeCompare(right.id))[0];
+    if (!recipient) return false;
+    recipient.emit('print:job', {
+      jobId,
+      ticket: ticketBase64,
+      deliveryToken,
+    });
+    return true;
   }
 
   /**
@@ -785,7 +810,14 @@ export class EventsGateway
 
   @SubscribeMessage('print:ack')
   async handlePrintAck(
-    @MessageBody() body: { jobId: string; success: boolean; error?: string },
+    @MessageBody()
+    body: {
+      jobId: string;
+      deliveryToken: string;
+      success: boolean;
+      retryable?: boolean;
+      error?: string;
+    },
     @ConnectedSocket() client: Socket,
   ) {
     const stationId = client.data.agentStationId as string | undefined;
@@ -793,6 +825,7 @@ export class EventsGateway
     const agentTokenId = client.data.agentTokenId as string | undefined;
     if (!stationId || !restaurantId) return;
     if (typeof body?.jobId !== 'string' || !body.jobId) return;
+    if (typeof body?.deliveryToken !== 'string' || !body.deliveryToken) return;
     await this.printStationService
       .handlePrintAck(
         body.jobId,
@@ -801,6 +834,8 @@ export class EventsGateway
         stationId,
         restaurantId,
         agentTokenId,
+        body.deliveryToken,
+        body.retryable !== false,
       )
       .catch((err: Error) =>
         this.logger.error(

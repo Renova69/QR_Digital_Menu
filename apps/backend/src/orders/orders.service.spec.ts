@@ -305,6 +305,7 @@ describe('OrdersService', () => {
     };
 
     printStationService = {
+      createPrintJobsForOrder: jest.fn().mockResolvedValue([]),
       routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
     };
     paymentProviderConfig = {
@@ -435,6 +436,9 @@ describe('OrdersService', () => {
       // price computed inside tx.order.create arg; we check the call arg
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.totalPrice).toBe(25); // 10*2 + 5*1
+      expect(
+        printStationService.createPrintJobsForOrder,
+      ).toHaveBeenCalledWith(result.id, tx);
       expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
         result.restaurantId,
         'newOrder',

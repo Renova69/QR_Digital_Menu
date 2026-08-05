@@ -1,11 +1,18 @@
+import { NotificationChannel } from '@prisma/client';
 import { ReservationReminderService } from './reservation-reminder.service';
 
 function build() {
   const findMany = jest.fn();
-  const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-  const prisma = { reservation: { findMany, updateMany } };
-  const notify = jest.fn();
-  const notifications = { notify };
+  const prisma = { reservation: { findMany } };
+  const prepare = jest.fn().mockResolvedValue([
+    {
+      channel: NotificationChannel.EMAIL,
+      payload: { to: 'g@example.com', subject: 'Reminder', text: 'Reminder' },
+    },
+  ]);
+  const notifications = { prepare };
+  const enqueueMany = jest.fn().mockResolvedValue([]);
+  const deliveries = { enqueueMany };
   const service = new ReservationReminderService(
     prisma as unknown as ConstructorParameters<
       typeof ReservationReminderService
@@ -13,8 +20,11 @@ function build() {
     notifications as unknown as ConstructorParameters<
       typeof ReservationReminderService
     >[1],
+    deliveries as unknown as ConstructorParameters<
+      typeof ReservationReminderService
+    >[2],
   );
-  return { service, findMany, updateMany, notify };
+  return { service, findMany, prepare, enqueueMany };
 }
 
 const dueRow = {
@@ -31,27 +41,20 @@ const dueRow = {
 };
 
 describe('ReservationReminderService.sweep', () => {
-  it('claims each due row and dispatches a REMINDER over the guest channels', async () => {
-    const { service, findMany, updateMany, notify } = build();
+  it('durably enqueues each requested REMINDER channel', async () => {
+    const { service, findMany, prepare, enqueueMany } = build();
     findMany.mockResolvedValue([dueRow]);
 
     const count = await service.sweep();
 
     expect(count).toBe(1);
-    // Only confirmed, not-yet-reminded, inside the 24h window are selected.
     const where = findMany.mock.calls[0][0].where;
     expect(where.status).toBe('CONFIRMED');
     expect(where.reminderSentAt).toBeNull();
     expect(where.startsAt.gt).toBeInstanceOf(Date);
     expect(where.startsAt.lte).toBeInstanceOf(Date);
     expect(where.restaurant).toEqual({ isActive: true });
-    // Compare-and-swap claim keyed on reminderSentAt still null.
-    expect(updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'res1', reminderSentAt: null },
-      }),
-    );
-    expect(notify).toHaveBeenCalledWith(
+    expect(prepare).toHaveBeenCalledWith(
       'REMINDER',
       expect.objectContaining({
         referenceCode: 'ABC123',
@@ -60,76 +63,65 @@ describe('ReservationReminderService.sweep', () => {
         notificationLocale: 'bg',
       }),
     );
-    expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
-      notify.mock.invocationCallOrder[0],
-    );
-  });
-
-  it('continues with later reservations when one notification fails', async () => {
-    const { service, findMany, updateMany, notify } = build();
-    findMany.mockResolvedValue([
-      dueRow,
-      { ...dueRow, id: 'res2', referenceCode: 'DEF456' },
-    ]);
-    notify
-      .mockRejectedValueOnce(new Error('mail provider unavailable'))
-      .mockResolvedValueOnce(undefined);
-
-    const count = await service.sweep();
-
-    expect(count).toBe(1);
-    expect(updateMany).toHaveBeenCalledTimes(2);
-    expect(notify).toHaveBeenCalledTimes(2);
-    expect(notify).toHaveBeenLastCalledWith(
-      'REMINDER',
-      expect.objectContaining({ referenceCode: 'DEF456' }),
-    );
-    expect(updateMany).not.toHaveBeenCalledWith(
+    expect(enqueueMany).toHaveBeenCalledWith([
       expect.objectContaining({
-        data: { reminderSentAt: null },
+        restaurantId: 'rest1',
+        sourceType: 'RESERVATION_REMINDER',
+        sourceId: 'res1',
+        deduplicationKey: 'res1:reservation-reminder',
+        channel: NotificationChannel.EMAIL,
       }),
-    );
+    ]);
   });
 
-  it('continues with later reservations when one claim fails', async () => {
-    const { service, findMany, updateMany, notify } = build();
+  it('continues with later reservations when one enqueue fails', async () => {
+    const { service, findMany, enqueueMany } = build();
     findMany.mockResolvedValue([
       dueRow,
       { ...dueRow, id: 'res2', referenceCode: 'DEF456' },
     ]);
-    updateMany
-      .mockRejectedValueOnce(new Error('database timeout'))
-      .mockResolvedValueOnce({ count: 1 });
+    enqueueMany
+      .mockRejectedValueOnce(new Error('database unavailable'))
+      .mockResolvedValueOnce([]);
 
-    const count = await service.sweep();
-
-    expect(count).toBe(1);
-    expect(updateMany).toHaveBeenCalledTimes(2);
-    expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(
-      'REMINDER',
-      expect.objectContaining({ referenceCode: 'DEF456' }),
-    );
+    await expect(service.sweep()).resolves.toBe(1);
+    expect(enqueueMany).toHaveBeenCalledTimes(2);
   });
 
-  it('does not dispatch when another worker already claimed the row', async () => {
-    const { service, findMany, updateMany, notify } = build();
+  it('does not report success when no deliverable channel can be prepared', async () => {
+    const { service, findMany, prepare, enqueueMany } = build();
     findMany.mockResolvedValue([dueRow]);
-    updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+    prepare.mockResolvedValue([]);
 
-    await service.sweep();
+    await expect(service.sweep()).resolves.toBe(0);
+    expect(enqueueMany).not.toHaveBeenCalled();
+  });
 
-    expect(notify).not.toHaveBeenCalled();
+  it('continues with later reservations when one prepare step fails', async () => {
+    const { service, findMany, prepare, enqueueMany } = build();
+    findMany.mockResolvedValue([
+      dueRow,
+      { ...dueRow, id: 'res2', referenceCode: 'DEF456' },
+    ]);
+    prepare
+      .mockRejectedValueOnce(new Error('restaurant lookup unavailable'))
+      .mockResolvedValueOnce([
+        {
+          channel: NotificationChannel.EMAIL,
+          payload: { to: 'g@example.com' },
+        },
+      ]);
+
+    await expect(service.sweep()).resolves.toBe(1);
+    expect(enqueueMany).toHaveBeenCalledTimes(1);
   });
 
   it('no-ops on an empty window', async () => {
-    const { service, findMany, updateMany, notify } = build();
+    const { service, findMany, prepare, enqueueMany } = build();
     findMany.mockResolvedValue([]);
 
-    const count = await service.sweep();
-
-    expect(count).toBe(0);
-    expect(updateMany).not.toHaveBeenCalled();
-    expect(notify).not.toHaveBeenCalled();
+    await expect(service.sweep()).resolves.toBe(0);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(enqueueMany).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
 
 // A booking becomes "due for reminder" once it is confirmed and its start is
@@ -11,12 +12,9 @@ const REMINDER_WINDOW_HOURS = 24;
 const REMINDER_BATCH = 200;
 
 /**
- * Feature 1: fires a one-time 24-hour reminder for confirmed reservations over
- * the guest's chosen channels. `reminderSentAt` is claimed with a compare-and-
- * swap BEFORE dispatch, so a booking is reminded at most once even if the cron
- * overlaps or a delivery is redelivered — deliberately at-most-once, because a
- * duplicate SMS costs money and a missed reminder is low-harm. A transient send
- * failure is therefore NOT retried; a durable outbox is the Phase-1.5 upgrade.
+ * Queues a 24-hour reminder for each requested channel. Tenant-scoped durable
+ * identities make overlapping sweeps idempotent; delivery workers claim rows
+ * with leases and only provider acceptance advances `reminderSentAt`.
  */
 @Injectable()
 export class ReservationReminderService {
@@ -25,6 +23,7 @@ export class ReservationReminderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: ReservationNotificationsService,
+    private readonly deliveries: NotificationDeliveryService,
   ) {}
 
   @Cron(CronExpression.EVERY_30_MINUTES)
@@ -32,7 +31,7 @@ export class ReservationReminderService {
     await this.sweep();
   }
 
-  /** Extracted for direct unit invocation. Returns how many were reminded. */
+  /** Extracted for direct unit invocation. Returns how many were queued. */
   async sweep(now: Date = new Date()): Promise<number> {
     const windowEnd = new Date(
       now.getTime() + REMINDER_WINDOW_HOURS * 60 * 60 * 1000,
@@ -72,15 +71,7 @@ export class ReservationReminderService {
     let dispatched = 0;
     for (const r of due) {
       try {
-        // Claim the row first (CAS on reminderSentAt still null) so a concurrent
-        // run or a redelivery can't double-send. Only the winner dispatches.
-        const { count } = await this.prisma.reservation.updateMany({
-          where: { id: r.id, reminderSentAt: null },
-          data: { reminderSentAt: now },
-        });
-        if (count === 0) continue;
-
-        await this.notifications.notify('REMINDER', {
+        const prepared = await this.notifications.prepare('REMINDER', {
           restaurantId: r.restaurantId,
           guestEmail: r.guestEmail,
           guestPhone: r.guestPhone,
@@ -99,6 +90,22 @@ export class ReservationReminderService {
           preferredZone: r.preferredZone,
           allergyNotes: r.allergyNotes,
         });
+        if (prepared.length === 0) {
+          this.logger.error(
+            `Reservation reminder has no deliverable channel for ${r.id}`,
+          );
+          continue;
+        }
+        await this.deliveries.enqueueMany(
+          prepared.map((delivery) => ({
+            restaurantId: r.restaurantId,
+            sourceType: 'RESERVATION_REMINDER',
+            sourceId: r.id,
+            deduplicationKey: `${r.id}:reservation-reminder`,
+            channel: delivery.channel,
+            payload: delivery.payload,
+          })),
+        );
         dispatched += 1;
       } catch (error) {
         this.logger.error(
@@ -109,7 +116,7 @@ export class ReservationReminderService {
     }
 
     if (dispatched > 0) {
-      this.logger.log(`Sent ${dispatched} reservation reminder(s)`);
+      this.logger.log(`Queued ${dispatched} reservation reminder(s)`);
     }
     return dispatched;
   }

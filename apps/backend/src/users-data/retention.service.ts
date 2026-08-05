@@ -8,7 +8,9 @@ const TENANT_BATCH_SIZE = 100;
 const FAILURE_DETAIL_LIMIT = 100;
 
 type RetentionDuty =
-  'verificationTokens' | 'orderPiiAnonymization' | 'menuViewPruning';
+  | 'verificationTokens'
+  | 'orderPiiAnonymization'
+  | 'menuViewPruning';
 type RetentionFailureDuty = RetentionDuty | 'settings';
 type RetentionFailureScope = 'global' | 'tenant-enumeration' | 'tenant';
 

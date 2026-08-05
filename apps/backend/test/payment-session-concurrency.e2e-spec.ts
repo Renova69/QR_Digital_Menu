@@ -187,6 +187,7 @@ describeWithDatabase(
         events as never,
         featureService,
         {
+          createPrintJobsForOrder: jest.fn().mockResolvedValue([]),
           routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
         } as never,
         config,

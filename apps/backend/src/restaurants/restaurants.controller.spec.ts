@@ -21,6 +21,7 @@ describe('RestaurantsController', () => {
     update: jest.fn(),
     remove: jest.fn(),
     findOneForManagement: jest.fn(),
+    updateLogo: jest.fn(),
     enqueueTranslateAll: jest.fn(),
     getTranslationStatus: jest.fn(),
     generateConnectLink: jest.fn(),
@@ -167,6 +168,7 @@ describe('RestaurantsController', () => {
         url: 'https://r2.example.com/logo.webp',
         thumbnailUrl: 'https://r2.example.com/logo-thumb.webp',
       });
+      mockRestaurantsService.updateLogo.mockResolvedValue({ id: 'rest-1' });
 
       const result = await controller.uploadLogo('rest-1', file, req);
 
@@ -179,6 +181,62 @@ describe('RestaurantsController', () => {
         file.originalname,
         file.mimetype,
       );
+      expect(result).toEqual({
+        logoUrl: 'https://r2.example.com/logo.webp',
+        logoThumbnailUrl: 'https://r2.example.com/logo-thumb.webp',
+      });
+    });
+
+    it('persists the logo reference immediately so an abandoned follow-up PATCH does not orphan the R2 object', async () => {
+      // Regression: previously the DB write happened only in the client's
+      // separate PATCH /restaurants/:id call. If that request never
+      // arrived (closed tab, dropped network), the uploaded R2 objects had
+      // no record referencing them and leaked forever.
+      const file = {
+        buffer: Buffer.from('fake-image'),
+        originalname: 'logo.png',
+        mimetype: 'image/png',
+      } as Express.Multer.File;
+      const req = { user: { id: 'user-1' } };
+      mockRestaurantsService.findOneForManagement.mockResolvedValue({
+        id: 'rest-1',
+      });
+      mockStorageService.uploadWithThumbnail.mockResolvedValue({
+        url: 'https://r2.example.com/logo.webp',
+        thumbnailUrl: 'https://r2.example.com/logo-thumb.webp',
+      });
+      mockRestaurantsService.updateLogo.mockResolvedValue({ id: 'rest-1' });
+
+      await controller.uploadLogo('rest-1', file, req);
+
+      expect(mockRestaurantsService.updateLogo).toHaveBeenCalledWith(
+        'rest-1',
+        'https://r2.example.com/logo.webp',
+        'https://r2.example.com/logo-thumb.webp',
+        'user-1',
+      );
+    });
+
+    it('still returns the uploaded URLs when the immediate persist fails (the follow-up PATCH can still write them)', async () => {
+      const file = {
+        buffer: Buffer.from('fake-image'),
+        originalname: 'logo.png',
+        mimetype: 'image/png',
+      } as Express.Multer.File;
+      const req = { user: { id: 'user-1' } };
+      mockRestaurantsService.findOneForManagement.mockResolvedValue({
+        id: 'rest-1',
+      });
+      mockStorageService.uploadWithThumbnail.mockResolvedValue({
+        url: 'https://r2.example.com/logo.webp',
+        thumbnailUrl: 'https://r2.example.com/logo-thumb.webp',
+      });
+      mockRestaurantsService.updateLogo.mockRejectedValue(
+        new Error('db unavailable'),
+      );
+
+      const result = await controller.uploadLogo('rest-1', file, req);
+
       expect(result).toEqual({
         logoUrl: 'https://r2.example.com/logo.webp',
         logoThumbnailUrl: 'https://r2.example.com/logo-thumb.webp',

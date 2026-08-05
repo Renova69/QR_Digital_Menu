@@ -2,6 +2,8 @@ import { ConflictException } from '@nestjs/common';
 import {
   Currency,
   LoyaltyPointTransactionType,
+  NotificationChannel,
+  NotificationDeliveryStatus,
   OptionType,
   OrderStatus,
   PrismaClient,
@@ -23,6 +25,8 @@ import { ReservationAvailabilityService } from '../src/reservations/reservation-
 import { ReservationsService } from '../src/reservations/reservations.service';
 import { FeatureService } from '../src/subscription/feature.service';
 import { SuperAdminService } from '../src/super-admin/super-admin.service';
+import { NotificationDeliveryService } from '../src/notifications/notification-delivery.service';
+import { PrintStationService } from '../src/print-station/print-station.service';
 
 const concurrencyDatabaseUrl = process.env.CONCURRENCY_DATABASE_URL;
 const describeWithDatabase = concurrencyDatabaseUrl ? describe : describe.skip;
@@ -157,11 +161,29 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       {
         emitOrderEventToRestaurant: jest.fn(),
         emitTableStatusChanged: jest.fn(),
+        emitToRestaurant: jest.fn(),
+        emitToTableSession: jest.fn(),
         signOrderToken: jest.fn((orderId: string) => `track-${orderId}`),
       } as never,
       featureService,
-      { routeOrderToPrinters: jest.fn().mockResolvedValue(undefined) } as never,
+      {
+        createPrintJobsForOrder: jest.fn().mockResolvedValue([]),
+        routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
+      } as never,
       new PaymentProviderConfigService(featureService),
+    );
+  }
+
+  function buildPrintService(client: PrismaClient, emitPrintJob: jest.Mock) {
+    return new PrintStationService(
+      client as never,
+      {
+        emitPrintJob,
+        findPrintAgentToken: jest
+          .fn()
+          .mockResolvedValue('agent-token-concurrency'),
+      } as never,
+      new FeatureService(),
     );
   }
 
@@ -377,6 +399,269 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     ).resolves.toBe(1);
   });
 
+  it('lets only one backend worker deliver a print job', async () => {
+    const { restaurant, menuItem, session } =
+      await createOrderSessionFixture('print-worker-lease');
+    const order = await buildOrderService(prisma).create(
+      {
+        customerName: 'Print lease order',
+        sessionToken: session.token,
+        items: [{ menuItemId: menuItem.id, quantity: 1 }],
+      },
+      null,
+      `${runPrefix}-print-order`,
+    );
+    const station = await prisma.printStation.create({
+      data: {
+        restaurantId: restaurant.id,
+        name: 'Kitchen',
+        printerIp: '127.0.0.1',
+      },
+    });
+    const job = await prisma.printJob.create({
+      data: {
+        restaurantId: restaurant.id,
+        printStationId: station.id,
+        orderId: order.id,
+        ticketBase64: Buffer.from('ticket').toString('base64'),
+        deduplicationKey: `${order.id}:${station.id}`,
+      },
+    });
+    const firstClient = createDedicatedPrisma('print-worker-1');
+    const secondClient = createDedicatedPrisma('print-worker-2');
+    const emitPrintJob = jest.fn().mockResolvedValue(true);
+    try {
+      const [first, second] = await Promise.all([
+        buildPrintService(firstClient, emitPrintJob)['claimAndEmitJob'](job),
+        buildPrintService(secondClient, emitPrintJob)['claimAndEmitJob'](job),
+      ]);
+
+      expect([first, second].filter(Boolean)).toHaveLength(1);
+      expect(emitPrintJob).toHaveBeenCalledTimes(1);
+      await expect(
+        prisma.printJob.findUniqueOrThrow({ where: { id: job.id } }),
+      ).resolves.toMatchObject({ status: 'SENT', attempts: 1 });
+    } finally {
+      await Promise.all([
+        firstClient.$disconnect(),
+        secondClient.$disconnect(),
+      ]);
+    }
+  });
+
+  it('claims one durable notification across two workers and records acceptance', async () => {
+    const { restaurant } = await createRestaurantFixture('notification-lease');
+    const provider = {
+      send: jest.fn().mockResolvedValue({
+        accepted: true,
+        providerMessageId: 'provider-accepted-1',
+      }),
+    };
+    const enqueueService = new NotificationDeliveryService(
+      prisma as never,
+      provider,
+    );
+    const queued = await enqueueService.enqueue({
+      restaurantId: restaurant.id,
+      sourceType: 'CONCURRENCY_TEST',
+      sourceId: 'source-1',
+      deduplicationKey: 'same-delivery',
+      channel: NotificationChannel.EMAIL,
+      payload: {
+        to: 'guest@example.test',
+        subject: 'Test',
+        text: 'Test',
+      },
+    });
+    const firstClient = createDedicatedPrisma('notification-worker-1');
+    const secondClient = createDedicatedPrisma('notification-worker-2');
+    try {
+      const [first, second] = await Promise.all([
+        new NotificationDeliveryService(
+          firstClient as never,
+          provider as never,
+        ).processNext(),
+        new NotificationDeliveryService(
+          secondClient as never,
+          provider as never,
+        ).processNext(),
+      ]);
+
+      expect([first, second].filter(Boolean)).toHaveLength(1);
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      await expect(
+        prisma.notificationDelivery.findUniqueOrThrow({
+          where: { id: queued.id },
+        }),
+      ).resolves.toMatchObject({
+        status: NotificationDeliveryStatus.ACCEPTED,
+        attempts: 1,
+        providerMessageId: 'provider-accepted-1',
+      });
+    } finally {
+      await Promise.all([
+        firstClient.$disconnect(),
+        secondClient.$disconnect(),
+      ]);
+    }
+  });
+
+  it('surfaces an interrupted SMS as a permanent unknown outcome', async () => {
+    const { restaurant } = await createRestaurantFixture('sms-recovery');
+    const stuck = await prisma.notificationDelivery.create({
+      data: {
+        restaurantId: restaurant.id,
+        sourceType: 'CONCURRENCY_TEST',
+        sourceId: 'sms-source',
+        deduplicationKey: 'stuck-sms',
+        channel: NotificationChannel.SMS,
+        payload: { to: '+359000000000', body: 'Reminder' },
+        payloadHash: 'test-hash',
+        status: NotificationDeliveryStatus.PROCESSING,
+        attempts: 1,
+        leaseToken: 'dead-worker',
+        leaseExpiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+    const provider = { send: jest.fn() };
+
+    await new NotificationDeliveryService(
+      prisma as never,
+      provider,
+    ).processNext();
+
+    expect(provider.send).not.toHaveBeenCalled();
+    await expect(
+      prisma.notificationDelivery.findUniqueOrThrow({
+        where: { id: stuck.id },
+      }),
+    ).resolves.toMatchObject({
+      status: NotificationDeliveryStatus.FAILED,
+      lastError: expect.stringContaining('unknown'),
+    });
+  });
+
+  it('deduplicates public checkout concurrently and rejects payload collisions', async () => {
+    const { restaurant, menuItem, session } =
+      await createOrderSessionFixture('public-idempotency');
+    const key = `${runPrefix}-public-checkout`;
+    const input = {
+      customerName: 'Retrying customer',
+      sessionToken: session.token,
+      items: [{ menuItemId: menuItem.id, quantity: 1 }],
+    };
+    const firstClient = createDedicatedPrisma('public-order-1');
+    const secondClient = createDedicatedPrisma('public-order-2');
+    try {
+      const [first, second] = await Promise.all([
+        buildOrderService(firstClient).create(input, null, key),
+        buildOrderService(secondClient).create(input, null, key),
+      ]);
+
+      expect(first.id).toBe(second.id);
+      await expect(
+        prisma.order.count({
+          where: { restaurantId: restaurant.id, clientOrderId: key },
+        }),
+      ).resolves.toBe(1);
+      await expect(
+        buildOrderService(prisma).create(
+          { ...input, specialRequests: 'different payload' },
+          null,
+          key,
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'IDEMPOTENCY_MISMATCH' }),
+      });
+    } finally {
+      await Promise.all([
+        firstClient.$disconnect(),
+        secondClient.$disconnect(),
+      ]);
+    }
+  });
+
+  it('scopes the same public idempotency key to each tenant', async () => {
+    const first = await createOrderSessionFixture('tenant-key-1');
+    const second = await createOrderSessionFixture('tenant-key-2');
+    const key = `${runPrefix}-shared-tenant-key`;
+
+    const [firstOrder, secondOrder] = await Promise.all([
+      buildOrderService(prisma).create(
+        {
+          customerName: 'Tenant one',
+          sessionToken: first.session.token,
+          items: [{ menuItemId: first.menuItem.id, quantity: 1 }],
+        },
+        null,
+        key,
+      ),
+      buildOrderService(prisma).create(
+        {
+          customerName: 'Tenant two',
+          sessionToken: second.session.token,
+          items: [{ menuItemId: second.menuItem.id, quantity: 1 }],
+        },
+        null,
+        key,
+      ),
+    ]);
+
+    expect(firstOrder.id).not.toBe(secondOrder.id);
+    await expect(
+      prisma.order.count({ where: { clientOrderId: key } }),
+    ).resolves.toBe(2);
+  });
+
+  it('returns a committed public order when post-commit realtime delivery fails', async () => {
+    const { restaurant, menuItem, session } = await createOrderSessionFixture(
+      'postcommit-realtime',
+    );
+    const featureService = new FeatureService();
+    const service = new OrdersService(
+      prisma as never,
+      {
+        emitOrderEventToRestaurant: jest.fn(() => {
+          throw new Error('socket adapter unavailable');
+        }),
+        emitTableStatusChanged: jest.fn(),
+        emitToRestaurant: jest.fn(),
+        emitToTableSession: jest.fn(),
+        signOrderToken: jest.fn((orderId: string) => `track-${orderId}`),
+      } as never,
+      featureService,
+      {
+        createPrintJobsForOrder: jest.fn().mockResolvedValue([]),
+        routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      new PaymentProviderConfigService(featureService),
+    );
+    const key = `${runPrefix}-postcommit-realtime`;
+
+    const result = await service.create(
+      {
+        customerName: 'Committed customer',
+        sessionToken: session.token,
+        items: [{ menuItemId: menuItem.id, quantity: 1 }],
+      },
+      null,
+      key,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        restaurantId: restaurant.id,
+        orderTrackToken: expect.any(String),
+      }),
+    );
+    await expect(
+      prisma.order.count({
+        where: { restaurantId: restaurant.id, clientOrderId: key },
+      }),
+    ).resolves.toBe(1);
+  });
+
   it('keeps an order on its open session when it wins a race with force-open', async () => {
     const { owner, restaurant, table, menuItem, session } =
       await createOrderSessionFixture('order-force-open');
@@ -410,6 +695,9 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         ),
     );
 
+    if (orderResult.status === 'rejected') {
+      throw orderResult.reason;
+    }
     expect(orderResult.status).toBe('fulfilled');
     expect(mutationResult.status).toBe('rejected');
     if (mutationResult.status === 'rejected') {

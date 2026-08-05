@@ -4,8 +4,13 @@
 // generated client.  All other errors propagate as a non-zero exit code.
 const { spawnSync } = require('child_process');
 
+// stdio: 'inherit' on all three streams means the child's stderr goes
+// straight to the terminal and `result.stderr` comes back null — the EPERM
+// regex below could never match. Pipe stderr so we can inspect it, but
+// still forward stdout live so `prisma generate`'s normal progress output
+// isn't hidden.
 const result = spawnSync('npx', ['prisma', 'generate'], {
-  stdio: 'inherit',
+  stdio: ['inherit', 'inherit', 'pipe'],
   // shell required on Windows because npx is a .cmd wrapper
   shell: process.platform === 'win32',
 });
@@ -18,7 +23,14 @@ if (result.status !== 0) {
       'Existing generated client will be used.',
     );
   } else {
-    console.error('[build:safe] prisma generate failed (exit', result.status, ')');
+    // Print the captured stderr — it was piped, not inherited, so this is
+    // the only place it becomes visible.
+    if (stderr) process.stderr.write(stderr);
+    console.error(
+      '[build:safe] prisma generate failed (exit',
+      result.status,
+      ')',
+    );
     process.exit(result.status ?? 1);
   }
 }

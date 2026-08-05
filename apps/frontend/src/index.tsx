@@ -7,11 +7,17 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import reportWebVitals from "./reportWebVitals";
 import "./i18n";
+import { initSentry } from "./lib/sentry";
 import { installGlobalErrorLogging } from "./lib/clientLogger";
 import { reloadOnceForStaleChunk } from "./lib/lazyWithReload";
 import { configureServiceWorker } from "./lib/serviceWorkerRegistration";
 
 import { registerSW } from "virtual:pwa-register";
+
+// All statically imported modules above are already fully evaluated by this
+// point (ES module evaluation order), so this only needs to run before the
+// app actually renders/fetches anything below — which it does.
+initSentry();
 
 void configureServiceWorker({
   serviceWorker:

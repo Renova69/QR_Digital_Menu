@@ -4,6 +4,22 @@ import { ServerOptions } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 
+/**
+ * Strips credentials from a Redis connection URL before it is logged.
+ * Never log a raw REDIS_URL — it typically embeds the auth password
+ * (e.g. rediss://default:<password>@host:port) and logs are not a secret store.
+ */
+const REDIS_CONNECT_TIMEOUT_MS = 10_000;
+
+function redactRedisUrl(redisUrl: string): string {
+  try {
+    const parsed = new URL(redisUrl);
+    return `${parsed.protocol}//${parsed.hostname}:${parsed.port || '6379'}`;
+  } catch {
+    return '[unparseable REDIS_URL]';
+  }
+}
+
 export class RedisIoAdapter extends IoAdapter {
   private readonly logger = new Logger(RedisIoAdapter.name);
   private adapterConstructor: ReturnType<typeof createAdapter> | null = null;
@@ -23,7 +39,14 @@ export class RedisIoAdapter extends IoAdapter {
     }
 
     try {
-      const pubClient = new Redis(redisUrl, { lazyConnect: false });
+      // Bounded connect timeout so a blackholed/firewalled host fails
+      // promptly instead of hanging boot indefinitely (ioredis's default
+      // retry loop would otherwise keep trying with no 'ready'/'error'
+      // ever firing for a connection that neither succeeds nor is refused).
+      const pubClient = new Redis(redisUrl, {
+        lazyConnect: false,
+        connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
+      });
       const subClient = pubClient.duplicate();
 
       await Promise.all([
@@ -38,12 +61,30 @@ export class RedisIoAdapter extends IoAdapter {
       ]);
 
       this.adapterConstructor = createAdapter(pubClient, subClient);
-      this.logger.log(`Socket.IO Redis adapter connected to ${redisUrl}`);
+      this.logger.log(
+        `Socket.IO Redis adapter connected to ${redactRedisUrl(redisUrl)}`,
+      );
     } catch (err) {
+      this.adapterConstructor = null;
+      // REDIS_URL being set is an explicit operator signal that this
+      // deployment is meant to run multi-instance with shared realtime
+      // state and distributed rate limiting (see app.module.ts). Silently
+      // falling back to in-memory here would mean production quietly loses
+      // cross-instance correctness with no operator-visible failure — the
+      // exact "silent degrade" this class exists to avoid. Fail boot
+      // instead so a misconfigured/unreachable Redis is caught at deploy
+      // time (readiness never goes green) rather than discovered later via
+      // missed orders/reservations/print jobs on the "wrong" instance.
+      // Outside production (dev/test), keep the softer fallback so a local
+      // developer without Redis running isn't blocked.
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          `REDIS_URL is set but the Socket.IO Redis adapter failed to connect: ${(err as Error).message}`,
+        );
+      }
       this.logger.error(
         `Failed to connect Socket.IO Redis adapter — falling back to in-memory: ${(err as Error).message}`,
       );
-      this.adapterConstructor = null;
     }
   }
 

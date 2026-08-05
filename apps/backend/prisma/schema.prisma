@@ -169,6 +169,7 @@ model Restaurant {
   printStations               PrintStation[]
   printAgentTokens            PrintAgentToken[]
   printJobs                   PrintJob[]
+  notificationDeliveries      NotificationDelivery[]
   dailyTargets                DailyTarget[]
   reservations                Reservation[]
   reservationSettings         ReservationSettings?
@@ -256,25 +257,63 @@ model PrintAgentToken {
 }
 
 model PrintJob {
-  id             String         @id @default(cuid())
-  restaurantId   String
-  printStationId String?
-  orderId        String
-  ticketBase64   String
-  status         PrintJobStatus @default(PENDING)
-  attempts       Int            @default(0)
-  errorMessage   String?
-  lastAttemptAt  DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  printStation   PrintStation?  @relation(fields: [printStationId], references: [id], onDelete: SetNull)
-  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                   String         @id @default(cuid())
+  deduplicationKey     String?        @unique
+  restaurantId         String
+  printStationId       String?
+  orderId              String
+  ticketBase64         String
+  status               PrintJobStatus @default(PENDING)
+  attempts             Int            @default(0)
+  errorMessage         String?
+  lastAttemptAt        DateTime?
+  claimToken           String?
+  claimExpiresAt       DateTime?
+  assignedAgentTokenId String?
+  outcomeUncertain     Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  restaurant           Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  printStation         PrintStation?  @relation(fields: [printStationId], references: [id], onDelete: SetNull)
+  order                Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([printStationId, status])
   @@index([restaurantId, status])
   @@index([status, createdAt])
+  @@index([claimExpiresAt])
+  @@index([assignedAgentTokenId])
   @@map("print_job")
+}
+
+model NotificationDelivery {
+  id                String                     @id @default(cuid())
+  restaurantId      String
+  sourceType        String
+  sourceId          String
+  deduplicationKey  String
+  channel           NotificationChannel
+  payload           Json
+  payloadHash       String
+  status            NotificationDeliveryStatus @default(PENDING)
+  attempts          Int                        @default(0)
+  maxAttempts       Int                        @default(5)
+  nextAttemptAt     DateTime                   @default(now())
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  providerMessageId String?
+  outcomeUncertain  Boolean                    @default(false)
+  lastError         String?
+  acceptedAt        DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  restaurant        Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, deduplicationKey, channel])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@index([restaurantId, status, createdAt])
+  @@index([sourceType, sourceId])
+  @@map("notification_delivery")
 }
 
 model RestaurantTable {
@@ -1137,6 +1176,19 @@ enum PrintJobStatus {
   PENDING
   SENT
   PRINTED
+  FAILED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  PROCESSING
+  RETRY_SCHEDULED
+  ACCEPTED
   FAILED
 }
 

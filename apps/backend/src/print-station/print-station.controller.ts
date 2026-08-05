@@ -148,6 +148,21 @@ export class PrintStationController {
     return this.service.getJobs(resolvedId, id, status);
   }
 
+  @Post(':id/jobs/:jobId/retry')
+  async retryJob(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('jobId') jobId: string,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
+    return this.service.retryFailedJob(resolvedId, id, jobId);
+  }
+
   @Post(':id/tokens')
   async generateToken(
     @Request() req: any,

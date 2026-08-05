@@ -11,7 +11,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
 import { createHash, randomBytes } from 'crypto';
-import type { PrintJobStatus } from '@prisma/client';
+import type { Prisma, PrintJob, PrintJobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrintStationDto } from './dto/create-print-station.dto';
 import { UpdatePrintStationDto } from './dto/update-print-station.dto';
@@ -22,6 +22,7 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 const MAX_PRINT_ATTEMPTS = 3;
 const STALE_SENT_MS = 30_000;
+const PRINT_CLAIM_LEASE_MS = 45_000;
 const MAX_UNDELIVERED_JOB_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_AGENT_TOKENS_PER_STATION = 5;
 const PRINTED_JOB_RETENTION_DAYS = 30;
@@ -41,6 +42,105 @@ export class PrintStationService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async claimAndEmitJob(job: {
+    id: string;
+    restaurantId: string;
+    printStationId: string | null;
+    ticketBase64: string;
+    status: PrintJobStatus;
+    attempts: number;
+    lastAttemptAt: Date | null;
+    assignedAgentTokenId: string | null;
+  }): Promise<boolean> {
+    if (!job.printStationId || job.attempts >= MAX_PRINT_ATTEMPTS) return false;
+
+    const now = new Date();
+    const deliveryToken = randomBytes(24).toString('hex');
+    const claimExpiresAt = new Date(now.getTime() + PRINT_CLAIM_LEASE_MS);
+    const claim = await this.prisma.printJob.updateMany({
+      where: {
+        id: job.id,
+        status: job.status,
+        attempts: { lt: MAX_PRINT_ATTEMPTS },
+        ...(job.lastAttemptAt && { lastAttemptAt: job.lastAttemptAt }),
+        OR: [
+          { claimToken: null },
+          { claimExpiresAt: null },
+          { claimExpiresAt: { lt: now } },
+        ],
+      },
+      data: { claimToken: deliveryToken, claimExpiresAt },
+    });
+    if (claim.count === 0) return false;
+
+    try {
+      const assignedAgentTokenId = await this.events.findPrintAgentToken(
+        job.restaurantId,
+        job.printStationId,
+        job.assignedAgentTokenId,
+      );
+      if (!assignedAgentTokenId) {
+        await this.prisma.printJob.updateMany({
+          where: { id: job.id, claimToken: deliveryToken },
+          data: { claimToken: null, claimExpiresAt: null },
+        });
+        return false;
+      }
+
+      if (!job.assignedAgentTokenId) {
+        const assigned = await this.prisma.printJob.updateMany({
+          where: {
+            id: job.id,
+            claimToken: deliveryToken,
+            assignedAgentTokenId: null,
+          },
+          data: { assignedAgentTokenId },
+        });
+        if (assigned.count !== 1) {
+          await this.prisma.printJob.updateMany({
+            where: { id: job.id, claimToken: deliveryToken },
+            data: { claimToken: null, claimExpiresAt: null },
+          });
+          return false;
+        }
+      }
+
+      const emitted = await this.events.emitPrintJob(
+        job.restaurantId,
+        job.printStationId,
+        job.id,
+        job.ticketBase64,
+        deliveryToken,
+        assignedAgentTokenId,
+      );
+      if (!emitted) {
+        await this.prisma.printJob.updateMany({
+          where: { id: job.id, claimToken: deliveryToken },
+          data: { claimToken: null, claimExpiresAt: null },
+        });
+        return false;
+      }
+
+      await this.prisma.printJob.updateMany({
+        where: { id: job.id, claimToken: deliveryToken },
+        data: {
+          status: 'SENT',
+          attempts: { increment: 1 },
+          lastAttemptAt: now,
+          claimExpiresAt,
+          outcomeUncertain: false,
+        },
+      });
+      return true;
+    } catch (error) {
+      await this.prisma.printJob.updateMany({
+        where: { id: job.id, claimToken: deliveryToken },
+        data: { claimToken: null, claimExpiresAt: null },
+      });
+      throw error;
+    }
   }
 
   // ─── Station CRUD ─────────────────────────────────────────────────────────
@@ -199,8 +299,16 @@ export class PrintStationService {
 
   // ─── Order Routing ────────────────────────────────────────────────────────
 
-  async routeOrderToPrinters(orderId: string): Promise<void> {
-    const order = await this.prisma.order.findUnique({
+  async createPrintJobsForOrder(
+    orderId: string,
+    database?: Pick<Prisma.TransactionClient, 'order' | 'printJob'>,
+  ): Promise<PrintJob[]> {
+    if (!database) {
+      return this.prisma.$transaction((tx) =>
+        this.createPrintJobsForOrder(orderId, tx),
+      );
+    }
+    const order = await database.order.findUnique({
       where: { id: orderId },
       include: {
         restaurant: { select: { tier: true, forceTier: true } },
@@ -215,14 +323,14 @@ export class PrintStationService {
         },
       },
     });
-    if (!order) return;
+    if (!order) return [];
     if (
       !this.featureService.restaurantHasFeature(
         order.restaurant,
         FeatureFlag.PRINTERS_THERMAL,
       )
     ) {
-      return;
+      return [];
     }
 
     const stationMap = new Map<string, { station: any; items: PrintItem[] }>();
@@ -252,6 +360,7 @@ export class PrintStationService {
       });
     }
 
+    const jobs = [];
     for (const [stationId, { station, items }] of stationMap) {
       const template = (station.receiptTemplate as ReceiptTemplate) ?? {};
       const ticket = buildEscPosTicket({
@@ -271,9 +380,11 @@ export class PrintStationService {
 
       const ticketBase64 = ticket.toString('base64');
 
-      // H-1+H-3: Create with attempts:0, only increment on confirmed emit
-      const job = await this.prisma.printJob.create({
-        data: {
+      const deduplicationKey = `${orderId}:${stationId}`;
+      const job = await database.printJob.upsert({
+        where: { deduplicationKey },
+        create: {
+          deduplicationKey,
           restaurantId: order.restaurantId,
           printStationId: stationId,
           orderId,
@@ -281,31 +392,62 @@ export class PrintStationService {
           status: 'PENDING',
           attempts: 0,
         },
+        update: {},
       });
+      jobs.push(job);
+    }
+    return jobs;
+  }
 
-      const emitted = await this.events.emitPrintJob(
-        order.restaurantId,
-        stationId,
-        job.id,
-        ticketBase64,
-      );
-
+  async routeOrderToPrinters(orderId: string): Promise<void> {
+    const jobs = await this.createPrintJobsForOrder(orderId);
+    for (const job of jobs.filter(
+      (candidate) => candidate.status === 'PENDING',
+    )) {
+      const emitted = await this.claimAndEmitJob(job);
       if (emitted) {
-        await this.prisma.printJob.update({
-          where: { id: job.id },
-          data: {
-            status: 'SENT',
-            attempts: { increment: 1 },
-            lastAttemptAt: new Date(),
-          },
-        });
-        this.logger.log(`Print job ${job.id} sent to station ${station.name}`);
+        this.logger.log(`Print job ${job.id} sent`);
       } else {
         this.logger.warn(
-          `No agent connected for station ${station.name} — job ${job.id} queued as PENDING`,
+          `No assigned print agent is connected — job ${job.id} remains PENDING`,
         );
       }
     }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE, {
+    name: 'reconcileMissingOrderPrintJobs',
+    waitForCompletion: true,
+  })
+  async reconcileMissingOrderPrintJobs(now = new Date()): Promise<number> {
+    const recentCutoff = new Date(now.getTime() - MAX_UNDELIVERED_JOB_AGE_MS);
+    const orders = await this.prisma.order.findMany({
+      where: {
+        createdAt: { gte: recentCutoff },
+        status: { notIn: ['PENDING_PAYMENT', 'CANCELED'] },
+        printJobs: { none: {} },
+        items: {
+          some: {
+            menuItem: { category: { printStationId: { not: null } } },
+          },
+        },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    const results = await Promise.allSettled(
+      orders.map((order) => this.routeOrderToPrinters(order.id)),
+    );
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        this.logger.error(
+          `Failed to reconcile print routing for order ${orders[index].id}`,
+          result.reason,
+        );
+      }
+    });
+    return results.filter((result) => result.status === 'fulfilled').length;
   }
 
   // ─── Retry on Agent Reconnect ─────────────────────────────────────────────
@@ -349,23 +491,7 @@ export class PrintStationService {
     );
 
     for (const job of jobs) {
-      // H-2: only mark SENT when emit actually reached a socket
-      const emitted = await this.events.emitPrintJob(
-        restaurantId,
-        stationId,
-        job.id,
-        job.ticketBase64,
-      );
-      if (emitted) {
-        await this.prisma.printJob.update({
-          where: { id: job.id },
-          data: {
-            status: 'SENT',
-            attempts: { increment: 1 },
-            lastAttemptAt: new Date(),
-          },
-        });
-      }
+      await this.claimAndEmitJob(job);
     }
   }
 
@@ -377,16 +503,31 @@ export class PrintStationService {
     );
 
     try {
-      await this.prisma.printJob.updateMany({
-        where: {
-          status: { in: ['PENDING', 'SENT'] },
-          createdAt: { lt: wallClockThreshold },
-        },
-        data: {
-          status: 'FAILED',
-          errorMessage: 'Print job expired after 24 hours without delivery',
-        },
-      });
+      await this.prisma.$transaction([
+        this.prisma.printJob.updateMany({
+          where: {
+            status: 'PENDING',
+            createdAt: { lt: wallClockThreshold },
+          },
+          data: {
+            status: 'FAILED',
+            outcomeUncertain: false,
+            errorMessage: 'Print job expired before a delivery was confirmed',
+          },
+        }),
+        this.prisma.printJob.updateMany({
+          where: {
+            status: 'SENT',
+            createdAt: { lt: wallClockThreshold },
+          },
+          data: {
+            status: 'FAILED',
+            outcomeUncertain: true,
+            errorMessage:
+              'Print outcome is unknown after 24 hours without acknowledgement',
+          },
+        }),
+      ]);
     } catch (error) {
       this.logger.error('Failed to expire old undelivered print jobs', error);
     }
@@ -400,6 +541,7 @@ export class PrintStationService {
         },
         data: {
           status: 'FAILED',
+          outcomeUncertain: true,
           errorMessage: 'Max retry attempts exhausted without ACK',
         },
       });
@@ -453,10 +595,15 @@ export class PrintStationService {
     printStationId?: string,
     restaurantId?: string,
     agentTokenId?: string,
+    deliveryToken?: string,
+    retryable = true,
   ): Promise<void> {
+    if (!deliveryToken) return;
     const job = await this.prisma.printJob.findFirst({
       where: {
         id: jobId,
+        claimToken: deliveryToken,
+        ...(agentTokenId && { assignedAgentTokenId: agentTokenId }),
         ...(printStationId && { printStationId }),
         ...(restaurantId && { restaurantId }),
       },
@@ -466,21 +613,48 @@ export class PrintStationService {
     if (job.status === 'PRINTED' || job.status === 'FAILED') return;
 
     if (success) {
-      await this.prisma.printJob.update({
-        where: { id: jobId },
-        data: { status: 'PRINTED', errorMessage: null },
+      await this.prisma.printJob.updateMany({
+        where: {
+          id: jobId,
+          claimToken: deliveryToken,
+          ...(agentTokenId && { assignedAgentTokenId: agentTokenId }),
+          status: { in: ['PENDING', 'SENT'] },
+        },
+        data: {
+          status: 'PRINTED',
+          errorMessage: null,
+          outcomeUncertain: false,
+          claimToken: null,
+          claimExpiresAt: null,
+        },
       });
       // M-1: Touch lastSeen on successful print — agent is alive and printing
       if (agentTokenId) {
         void this.touchLastSeenById(agentTokenId);
       }
     } else {
-      const permanentlyFailed = job.attempts >= MAX_PRINT_ATTEMPTS;
-      await this.prisma.printJob.update({
-        where: { id: jobId },
+      const permanentlyFailed =
+        !retryable || job.attempts >= MAX_PRINT_ATTEMPTS;
+      await this.prisma.printJob.updateMany({
+        where: {
+          id: jobId,
+          claimToken: deliveryToken,
+          ...(agentTokenId && { assignedAgentTokenId: agentTokenId }),
+          status: { in: ['PENDING', 'SENT'] },
+        },
         data: {
           status: permanentlyFailed ? 'FAILED' : 'PENDING',
           errorMessage: error ?? 'Unknown printer error',
+          outcomeUncertain: !retryable,
+          claimToken: null,
+          claimExpiresAt: null,
+          // An explicit NACK means the assigned agent itself confirms it did
+          // not produce output — unlike a lost ACK, there is no ambiguity
+          // about a possible duplicate physical print. Safe to release the
+          // device pin so a retry (background or operator-triggered) can
+          // route to any other agent connected at this station, instead of
+          // being stuck waiting for this exact device to reconnect.
+          ...(!permanentlyFailed && { assignedAgentTokenId: null }),
         },
       });
 
@@ -535,6 +709,7 @@ export class PrintStationService {
         orderId: true,
         status: true,
         attempts: true,
+        outcomeUncertain: true,
         errorMessage: true,
         lastAttemptAt: true,
         createdAt: true,
@@ -542,6 +717,57 @@ export class PrintStationService {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+  }
+
+  async retryFailedJob(restaurantId: string, stationId: string, jobId: string) {
+    await this.assertOwnership(restaurantId, stationId);
+    const job = await this.prisma.printJob.findFirst({
+      where: { id: jobId, restaurantId, printStationId: stationId },
+      select: { status: true, outcomeUncertain: true, orderId: true },
+    });
+    if (!job) throw new NotFoundException('Print job not found');
+    if (job.status !== 'FAILED') {
+      throw new ConflictException('Only failed print jobs can be retried');
+    }
+    if (job.outcomeUncertain) {
+      throw new ConflictException(
+        'Printer reconciliation is required before retrying this job',
+      );
+    }
+    const updated = await this.prisma.printJob.updateMany({
+      where: {
+        id: jobId,
+        restaurantId,
+        printStationId: stationId,
+        status: 'FAILED',
+        outcomeUncertain: false,
+      },
+      data: {
+        status: 'PENDING',
+        attempts: 0,
+        errorMessage: null,
+        claimToken: null,
+        claimExpiresAt: null,
+        // This is the operator's explicit admin override: a job pinned to a
+        // now-unreachable agent (lost/replaced device) would otherwise sit
+        // PENDING forever, since findPrintAgentToken only matches sockets
+        // whose agentTokenId equals the pin. outcomeUncertain is already
+        // guaranteed false here, so there is no risk of routing a possibly-
+        // already-printed job to a second device.
+        assignedAgentTokenId: null,
+      },
+    });
+    if (updated.count !== 1) {
+      throw new ConflictException(
+        'The print job state changed before it could be retried',
+      );
+    }
+    void this.routeOrderToPrinters(job.orderId).catch((error: Error) =>
+      this.logger.error(
+        `Print retry failed for job ${jobId}: ${error.message}`,
+      ),
+    );
+    return { id: jobId, status: 'PENDING' as const };
   }
 
   // ─── Dashboard Health ─────────────────────────────────────────────────────

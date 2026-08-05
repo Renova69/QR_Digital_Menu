@@ -44,6 +44,10 @@ import {
 } from "../lib/loyaltyExpiry";
 import { cn } from "../lib/utils";
 import { storePaymentConfirmationContext } from "../lib/paymentConfirmationContext";
+import {
+  clearOrderIdempotencyKey,
+  getOrCreateOrderIdempotencyKey,
+} from "../lib/orderIdempotency";
 
 type FieldState = "neutral" | "valid" | "invalid";
 
@@ -652,11 +656,18 @@ const CheckoutPage = () => {
       orderData.redeemPoints = selectedDiscountPoints;
     }
 
+    const idempotencyScope = `${restaurantId}:${orderLocationKey ?? tableNumber ?? "default"}`;
+    const idempotencyKey = getOrCreateOrderIdempotencyKey(
+      idempotencyScope,
+      orderData,
+    );
+
     try {
       setSubmitting(true);
       setError(null);
 
-      const newOrder = await createOrder(orderData);
+      const newOrder = await createOrder(orderData, idempotencyKey);
+      clearOrderIdempotencyKey(idempotencyScope, idempotencyKey);
 
       if (newOrder.sessionToken && orderLocationKey && sessionStorageKey) {
         localStorage.setItem(sessionStorageKey, newOrder.sessionToken);

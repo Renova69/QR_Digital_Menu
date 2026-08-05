@@ -1,3 +1,6 @@
+// Must be the first import in the entire application — see instrument.ts.
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import {
   Logger,
@@ -113,7 +116,11 @@ async function bootstrap() {
     app.useLogger(appLogger);
 
     app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
     );
     app.useGlobalFilters(new AllExceptionsFilter());
 
@@ -300,19 +307,24 @@ async function bootstrap() {
       defaultVersion: '1',
     });
 
-    const config = new DocumentBuilder()
-      .setTitle('QR Menu API')
-      .setDescription('API for QR-based restaurant menu system')
-      .setVersion('1.0')
-      .addTag('authentication', 'Endpoints for user authentication')
-      .addTag('menu', 'Endpoints for menu management')
-      .addTag('restaurants', 'Endpoints for restaurant management')
-      .addTag('dashboard', 'Endpoints for dashboard statistics')
-      .addBearerAuth()
-      .build();
+    // Swagger exposes the full API/DTO shape and accelerates endpoint
+    // probing/scanning, so it is only mounted outside production. There is
+    // no authenticated production consumer of /api-docs today.
+    if (process.env.NODE_ENV !== 'production') {
+      const config = new DocumentBuilder()
+        .setTitle('QR Menu API')
+        .setDescription('API for QR-based restaurant menu system')
+        .setVersion('1.0')
+        .addTag('authentication', 'Endpoints for user authentication')
+        .addTag('menu', 'Endpoints for menu management')
+        .addTag('restaurants', 'Endpoints for restaurant management')
+        .addTag('dashboard', 'Endpoints for dashboard statistics')
+        .addBearerAuth()
+        .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api-docs', app, document);
+      const document = SwaggerModule.createDocument(app, config);
+      SwaggerModule.setup('api-docs', app, document);
+    }
 
     const redisAdapter = new RedisIoAdapter(app);
     await redisAdapter.connectToRedis();

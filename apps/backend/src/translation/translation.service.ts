@@ -288,7 +288,14 @@ export class TranslationService {
     // Only signal failure when EVERY requested language failed — there is nothing
     // to persist, so the entity should be re-tried as a whole next time.
     if (failedLangs === targetLanguages.length && lastError) {
-      throw lastError;
+      throw lastError instanceof Error
+        ? lastError
+        : new Error(
+            typeof lastError === 'string'
+              ? lastError
+              : 'Translation provider failed with a non-Error value',
+            { cause: lastError },
+          );
     }
 
     return translations;

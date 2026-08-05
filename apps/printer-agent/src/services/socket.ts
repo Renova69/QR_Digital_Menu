@@ -1,11 +1,18 @@
 import { io, Socket } from "socket.io-client";
 import { AgentConfig } from "../store/config";
+import { durablePrintLedger } from "../store/print-ledger";
+import {
+  executePrintOnce,
+  fingerprintTicket,
+  PrintOutcomeUncertainError,
+} from "./print-once";
 import { sendToPrinter } from "./printer";
 import { acquireWakeLock, releaseWakeLock } from "./wakeLock";
 
 interface PrintJobPayload {
   jobId: string;
   ticket: string; // base64-encoded ESC/POS bytes built by backend
+  deliveryToken: string;
 }
 
 export type ConnectionStatus =
@@ -352,7 +359,8 @@ export function startSocketService(
         if (myGeneration !== generation) return;
         const jobId = payload?.jobId;
         const ticket = payload?.ticket;
-        if (!jobId || !ticket) {
+        const deliveryToken = payload?.deliveryToken;
+        if (!jobId || !ticket || !deliveryToken) {
           if (__DEV__) {
             console.warn(
               `${TAG} print:job received with missing fields`,
@@ -382,12 +390,23 @@ export function startSocketService(
             `${TAG} sending ${binary.length} bytes to ${config.printerIp}:${config.printerPort}`,
           );
         }
-        await sendToPrinter(config.printerIp, config.printerPort, binary);
-        socket?.emit("print:ack", { jobId, success: true });
+        const result = await executePrintOnce(
+          durablePrintLedger,
+          jobId,
+          fingerprintTicket(ticket),
+          () => sendToPrinter(config.printerIp, config.printerPort, binary),
+        );
+        socket?.emit("print:ack", {
+          jobId,
+          deliveryToken,
+          success: true,
+        });
         emit({
           status: "connected",
           message: "Online",
-          hint: `Last print OK — job ${shortId}`,
+          hint: result.printed
+            ? `Last print OK — job ${shortId}`
+            : `Duplicate suppressed — job ${shortId}`,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -397,7 +416,9 @@ export function startSocketService(
         try {
           socket?.emit("print:ack", {
             jobId: payload?.jobId,
+            deliveryToken: payload?.deliveryToken,
             success: false,
+            retryable: !(err instanceof PrintOutcomeUncertainError),
             error: message,
           });
         } catch {}

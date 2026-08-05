@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { createHash } from 'crypto';
 import { DeepLGlossaryService } from './deepl-glossary.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -135,11 +136,7 @@ describe('DeepLGlossaryService', () => {
       mockPrisma.glossaryTerm.findMany.mockResolvedValue([
         { sourceText: 'мезе', translatedText: 'Vorspeise', kind: 'TERM' },
       ]);
-      const crypto = require('crypto');
-      const hash = crypto
-        .createHash('md5')
-        .update('мезе\tVorspeise')
-        .digest('hex');
+      const hash = createHash('md5').update('мезе\tVorspeise').digest('hex');
       mockPrisma.deepLGlossary.findUnique.mockResolvedValue({
         deeplGlossaryId: 'g-existing',
         contentHash: hash,

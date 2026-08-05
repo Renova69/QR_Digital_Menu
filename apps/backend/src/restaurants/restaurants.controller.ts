@@ -13,6 +13,7 @@ import {
   UploadedFile,
   BadRequestException,
   HttpCode,
+  Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -31,6 +32,8 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 @UseGuards(JwtAuthGuard)
 @Controller('restaurants')
 export class RestaurantsController {
+  private readonly logger = new Logger(RestaurantsController.name);
+
   constructor(
     private readonly restaurantsService: RestaurantsService,
     private readonly storageService: StorageService,
@@ -101,9 +104,7 @@ export class RestaurantsController {
     }
     try {
       // Verify ownership before processing the upload so we don't waste R2
-      // storage on unauthorised requests. The actual DB write happens in the
-      // subsequent PATCH /restaurants/:id so that logo + branding settings are
-      // persisted atomically in one transaction.
+      // storage on unauthorised requests.
       await this.restaurantsService.findOneForManagement(id, req.user.id);
 
       const { url, thumbnailUrl } =
@@ -112,6 +113,29 @@ export class RestaurantsController {
           file.originalname,
           file.mimetype,
         );
+
+      // Persist the reference immediately rather than waiting for the
+      // client's follow-up PATCH /restaurants/:id (which also re-sends
+      // these same URLs as part of the full branding form). If the client
+      // never sends that PATCH — closed tab, dropped network, crashed form
+      // — these R2 objects would otherwise be orphaned forever with no
+      // record ever pointing at them. The PATCH still runs afterward as
+      // normal and just re-writes the same values (idempotent) alongside
+      // whatever other branding fields changed in the same save.
+      try {
+        await this.restaurantsService.updateLogo(
+          id,
+          url,
+          thumbnailUrl,
+          req.user.id,
+        );
+      } catch (persistError) {
+        this.logger.error(
+          `Uploaded logo for restaurant ${id} but failed to persist the reference immediately — it will still be written by the follow-up PATCH if that request arrives`,
+          persistError,
+        );
+      }
+
       return { logoUrl: url, logoThumbnailUrl: thumbnailUrl };
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload logo');

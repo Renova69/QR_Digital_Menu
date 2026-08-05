@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, createLogger } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // Collapse vite's benign proxy-error stack dumps into one throttled line.
 //
@@ -123,7 +124,21 @@ export default defineConfig(({ mode }) => {
           type: "module",
         },
       }),
-    ],
+      // Source-map upload only — never affects module resolution/chunking
+      // (see the manualChunks comment above on why that matters here).
+      // SENTRY_AUTH_TOKEN is a separate org-level secret from the public
+      // VITE_SENTRY_DSN; without it this plugin silently no-ops rather than
+      // failing the build, so local/CI builds without the token still work.
+      env.SENTRY_AUTH_TOKEN &&
+        sentryVitePlugin({
+          org: env.SENTRY_ORG,
+          project: env.SENTRY_PROJECT || "qr-menu-frontend",
+          authToken: env.SENTRY_AUTH_TOKEN,
+          sourcemaps: {
+            filesToDeleteAfterUpload: ["**/*.map"],
+          },
+        }),
+    ].filter(Boolean),
     server: {
       host: true,
       strictPort: true,
@@ -151,6 +166,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 1000,
+      // "hidden": generate maps for the Sentry plugin to upload, but never
+      // emit a `//# sourceMappingURL` comment in the shipped bundle — with
+      // filesToDeleteAfterUpload removing the .map files afterward too,
+      // there's neither a dangling reference nor a public map in the deploy.
+      sourcemap: "hidden",
       // Split heavy third-party libs out of the main bundle (#5) so the entry
       // chunk shrinks and vendors cache independently across deploys.
       rollupOptions: {
