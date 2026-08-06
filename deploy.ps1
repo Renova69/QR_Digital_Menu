@@ -78,8 +78,12 @@ Write-Host "==> Deploying new revision (no traffic yet)..."
     --platform=managed `
     --session-affinity `
     --no-traffic `
-    --tag=$revisionTag `
-    2>&1
+    --tag=$revisionTag
+# No 2>&1 here: PowerShell 5.1 wraps every stderr line from a native command
+# into a terminating NativeCommandError under $ErrorActionPreference="Stop",
+# even for gcloud's routine progress output on a successful deploy. Letting
+# stderr print directly (unredirected) avoids a false failure; $LASTEXITCODE
+# is still the real signal.
 if ($LASTEXITCODE -ne 0) { Write-Error "Deploy failed"; exit 1 }
 
 $canaryUrlJson = & $GCLOUD run services describe $SERVICE `
