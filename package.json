@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "check:node": "node scripts/check-node-version.js",
-    "postinstall": "prisma generate --schema apps/backend/prisma/schema.prisma",
+    "postinstall": "node scripts/postinstall-safe.js",
     "test:node-version": "node --test scripts/check-node-version.test.js",
     "predev": "npm run check:node",
     "dev": "node scripts/dev-with-logs.js",
