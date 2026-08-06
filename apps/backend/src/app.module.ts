@@ -7,7 +7,6 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
-import { DebugSentryVerificationController } from './debug-sentry-verification.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
@@ -106,7 +105,7 @@ if (throttlerStorage) {
     ReservationsModule,
     PushModule,
   ],
-  controllers: [AppController, DebugSentryVerificationController],
+  controllers: [AppController],
   providers: [
     AppService,
     {
