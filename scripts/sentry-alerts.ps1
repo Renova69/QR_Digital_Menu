@@ -33,9 +33,27 @@
 #>
 [CmdletBinding()]
 param(
-  [string]$Token = $env:SENTRY_AUTH_TOKEN,
+  [string]$Token,
   [switch]$DryRun
 )
+
+# ─── TEMPORARY TOKEN SLOT ────────────────────────────────────────────────────
+# Paste a User auth token (sntryu_...) between the quotes, run the script, then
+# CLEAR IT AGAIN.
+#
+# Why this slot exists: `$env:SENTRY_AUTH_TOKEN = '...'` sets the variable only
+# inside the shell process you typed it in. Any separate process gets its own
+# environment block and never sees it.
+#
+# !! THIS FILE IS TRACKED BY GIT !!
+# A token left here and committed is published in history permanently, and
+# scrubbing it afterwards needs a history rewrite. Clear it as soon as the run
+# succeeds, and never `git add` this file while it is populated.
+#
+# Safer alternative: leave this blank and put the token in scripts/.sentry-token
+# instead. That path is gitignored and is picked up automatically below.
+$InlineToken = ''
+# ─────────────────────────────────────────────────────────────────────────────
 
 $ErrorActionPreference = 'Stop'
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -50,8 +68,35 @@ $Frontend = 'qr-menu-frontend'
 $UserId   = '4854077'          # Kiril Petrov -- email notification target
 $EnvName  = 'production'       # matches Sentry.init({ environment }) in both apps
 
+# Resolution order: explicit -Token, then the inline slot, then the gitignored
+# token file, then the environment.
+$script:UsedInlineToken = $false
+if ([string]::IsNullOrWhiteSpace($Token) -and $InlineToken) {
+  $Token = $InlineToken.Trim()
+  $script:UsedInlineToken = $true
+}
 if ([string]::IsNullOrWhiteSpace($Token)) {
-  throw "No token. Pass -Token 'sntryu_...' or set `$env:SENTRY_AUTH_TOKEN."
+  $tokenFile = Join-Path $PSScriptRoot '.sentry-token'
+  if (Test-Path $tokenFile) {
+    $Token = (Get-Content $tokenFile -Raw).Trim()
+  }
+}
+if ([string]::IsNullOrWhiteSpace($Token)) {
+  $Token = $env:SENTRY_AUTH_TOKEN
+}
+
+if ([string]::IsNullOrWhiteSpace($Token)) {
+  throw @"
+No token.
+
+Provide one of:
+  1. Paste it into the `$InlineToken slot near the top of this file (clear it after).
+  2. Put it in scripts/.sentry-token  (gitignored - preferred).
+  3. Pass -Token 'sntryu_...'.
+
+Create the token at https://sentry.io/settings/account/api/auth-tokens/
+with scopes: alerts:write, project:write, org:read, project:read
+"@
 }
 if ($Token.StartsWith('sntrys_')) {
   throw "That is an Organization token. Alert rules need a User token (sntryu_...) with alerts:write."
@@ -321,4 +366,12 @@ if ($DryRun) {
   Write-Host "created=$script:Created  skipped=$script:Skipped  failed=$script:Failed" -ForegroundColor Cyan
   Write-Host 'Review at https://renova-design.sentry.io/alerts/rules/'
 }
+
+if ($script:UsedInlineToken) {
+  Write-Host ''
+  Write-Host '  !! Your token is still pasted in this file.' -ForegroundColor Red
+  Write-Host '     Clear $InlineToken now - this file is tracked by git and a' -ForegroundColor Red
+  Write-Host '     committed token cannot be removed without rewriting history.' -ForegroundColor Red
+}
+
 if ($script:Failed -gt 0) { exit 1 }

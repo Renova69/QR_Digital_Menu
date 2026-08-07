@@ -101,3 +101,6 @@ apps/backend/scripts/extract-all-menu-terms.ts
 apps/backend/scripts/extract-real-bg-terms.ts
 apps/backend/scripts/list-enterprise-menu.ts
 apps/backend/scripts/wipe-demo-translations.ts
+
+# Sentry User auth token for scripts/sentry-alerts.ps1 - never commit
+scripts/.sentry-token
