@@ -182,7 +182,14 @@ describe('DashboardController analytics tier gating', () => {
       mockRestaurant('PROFESSIONAL'),
     );
 
-    await controller.getAnalytics(OWNER, 'rest-1', '1', undefined, 'EN-us');
+    await controller.getAnalytics(
+      OWNER,
+      'rest-1',
+      '1',
+      undefined,
+      undefined,
+      'EN-us',
+    );
 
     expect(mockDashboard.getAnalytics).toHaveBeenCalledWith(
       'rest-1',
@@ -200,7 +207,14 @@ describe('DashboardController analytics tier gating', () => {
     );
 
     await expect(
-      controller.getAnalytics(OWNER, 'rest-1', '1', undefined, 'unsupported'),
+      controller.getAnalytics(
+        OWNER,
+        'rest-1',
+        '1',
+        undefined,
+        undefined,
+        'unsupported',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(mockDashboard.getAnalytics).not.toHaveBeenCalled();
@@ -211,7 +225,13 @@ describe('DashboardController analytics tier gating', () => {
       mockRestaurant('PROFESSIONAL'),
     );
 
-    await controller.getPaymentsSummary(OWNER, 'rest-1', {}, '1');
+    await controller.getPaymentsSummary(
+      OWNER,
+      'rest-1',
+      undefined,
+      undefined,
+      '1',
+    );
 
     expect(mockDashboard.getPaymentsSummary).toHaveBeenCalledWith(
       'rest-1',
@@ -223,7 +243,7 @@ describe('DashboardController analytics tier gating', () => {
 
   it('rejects an unsupported payment-summary period', async () => {
     await expect(
-      controller.getPaymentsSummary(OWNER, 'rest-1', {}, '2'),
+      controller.getPaymentsSummary(OWNER, 'rest-1', undefined, undefined, '2'),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
@@ -335,10 +355,13 @@ describe('DashboardController analytics tier gating', () => {
     );
 
     await expect(
-      controller.getAnalytics(OWNER, 'rest-1', undefined, {
-        startDate: '2026-12-31',
-        endDate: '2026-01-01',
-      } as any),
+      controller.getAnalytics(
+        OWNER,
+        'rest-1',
+        undefined,
+        '2026-12-31',
+        '2026-01-01',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -348,10 +371,13 @@ describe('DashboardController analytics tier gating', () => {
     );
 
     await expect(
-      controller.getAnalytics(OWNER, 'rest-1', undefined, {
-        startDate: '2025-01-01',
-        endDate: '2026-12-31',
-      } as any),
+      controller.getAnalytics(
+        OWNER,
+        'rest-1',
+        undefined,
+        '2025-01-01',
+        '2026-12-31',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -360,12 +386,58 @@ describe('DashboardController analytics tier gating', () => {
       mockRestaurant('PROFESSIONAL'),
     );
 
-    await controller.getAnalytics(OWNER, 'rest-1', undefined, {
-      startDate: '2026-06-01',
-      endDate: '2026-06-30',
-    } as any);
+    await controller.getAnalytics(
+      OWNER,
+      'rest-1',
+      undefined,
+      '2026-06-01',
+      '2026-06-30',
+    );
 
     expect(mockDashboard.getAnalytics).toHaveBeenCalled();
+  });
+
+  // Regression: /payments-summary accepts an OPEN-ENDED single bound
+  // (`startDateStr || endDateStr`), and buildRestaurantDateRange silently drops
+  // an unparseable value — so a malformed lone bound must be rejected at the
+  // controller, or the query silently widens to all-time and skips `period`.
+  it('rejects a malformed startDate supplied without an endDate', async () => {
+    await expect(
+      controller.getPaymentsSummary(OWNER, 'rest-1', 'not-a-date', undefined),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed endDate supplied without a startDate', async () => {
+    await expect(
+      controller.getPaymentsSummary(OWNER, 'rest-1', undefined, 'garbage'),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed lone startDate on analytics', async () => {
+    await expect(
+      controller.getAnalytics(OWNER, 'rest-1', undefined, '2026-13-45'),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockDashboard.getAnalytics).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid open-ended single bound on payments-summary', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      mockRestaurant('PROFESSIONAL'),
+    );
+
+    await controller.getPaymentsSummary(OWNER, 'rest-1', '2026-06-01');
+
+    expect(mockDashboard.getPaymentsSummary).toHaveBeenCalledWith(
+      'rest-1',
+      '2026-06-01',
+      undefined,
+      undefined,
+    );
   });
 
   it('rejects analytics without restaurantId', async () => {

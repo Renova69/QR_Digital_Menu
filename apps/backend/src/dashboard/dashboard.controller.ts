@@ -18,7 +18,7 @@ import { FeatureGuard } from '../subscription/feature.guard';
 import { FeatureService } from '../subscription/feature.service';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
-import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
+import { DateTime } from 'luxon';
 
 // Cap the analytics window so a caller can't request year 0001→9999 and force
 // the day-by-day revenue-trend loop (+ unbounded order fetch) to exhaust CPU /
@@ -48,15 +48,28 @@ export class DashboardController {
     private readonly featureService: FeatureService,
   ) {}
 
-  /** Reject inverted or excessively wide date ranges before they reach the
-   *  query layer. No-op when either bound is missing (period-based requests). */
+  /** Reject malformed, inverted, or excessively wide date ranges before they
+   *  reach the query layer.
+   *
+   *  Each bound is format-checked INDEPENDENTLY, even when the other is absent:
+   *  /payments-summary accepts an open-ended single bound (`startDateStr ||
+   *  endDateStr`), and buildRestaurantDateRange silently drops a value it can't
+   *  parse — so an unvalidated malformed bound there would widen the query to
+   *  all-time (and skip the `period` fallback) instead of failing loudly.
+   *  Parsed with the same DateTime.fromISO the consumers use, so anything that
+   *  passes here is guaranteed to parse downstream.
+   *
+   *  The inverted/width checks still require both bounds. */
   private assertDateRange(startDate?: string, endDate?: string): void {
-    if (!startDate || !endDate) return;
-    const start = new Date(startDate).getTime();
-    const end = new Date(endDate).getTime();
-    if (Number.isNaN(start) || Number.isNaN(end)) {
-      throw new BadRequestException('Invalid startDate or endDate');
+    if (startDate && !DateTime.fromISO(startDate).isValid) {
+      throw new BadRequestException('Invalid startDate');
     }
+    if (endDate && !DateTime.fromISO(endDate).isValid) {
+      throw new BadRequestException('Invalid endDate');
+    }
+    if (!startDate || !endDate) return;
+    const start = DateTime.fromISO(startDate).toMillis();
+    const end = DateTime.fromISO(endDate).toMillis();
     if (end < start) {
       throw new BadRequestException('endDate must not be before startDate');
     }
@@ -125,13 +138,14 @@ export class DashboardController {
   async getPaymentsSummary(
     @AuthUser() user: any,
     @Query('restaurantId') restaurantId: string,
-    @Query() dateRange: DateRangeQueryDto,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
     @Query('period') periodStr?: string,
   ) {
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
     }
-    this.assertDateRange(dateRange.startDate, dateRange.endDate);
+    this.assertDateRange(startDate, endDate);
     const period = periodStr ? parseInt(periodStr, 10) : undefined;
     if (period !== undefined && ![1, 7, 14, 30].includes(period)) {
       throw new BadRequestException('period must be 1, 7, 14, or 30');
@@ -139,8 +153,8 @@ export class DashboardController {
     await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getPaymentsSummary(
       restaurantId,
-      dateRange.startDate,
-      dateRange.endDate,
+      startDate,
+      endDate,
       period,
     );
   }
@@ -152,7 +166,8 @@ export class DashboardController {
     @AuthUser() user: any,
     @Query('restaurantId') restaurantId: string,
     @Query('period') periodStr?: string,
-    @Query() dateRange?: DateRangeQueryDto,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
     @Query('lang') lang?: string,
   ) {
     if (!restaurantId) {
@@ -172,7 +187,7 @@ export class DashboardController {
       throw new BadRequestException('Unsupported dashboard language');
     }
 
-    this.assertDateRange(dateRange?.startDate, dateRange?.endDate);
+    this.assertDateRange(startDate, endDate);
 
     const { tier, forceTier } = await this.verifyDashboardAccess(
       user,
@@ -194,8 +209,8 @@ export class DashboardController {
     const result = await this.dashboardService.getAnalytics(
       restaurantId,
       period,
-      dateRange?.startDate,
-      dateRange?.endDate,
+      startDate,
+      endDate,
       // Skip computing the 7 premium metrics for non-FULL tiers — they're
       // stripped below anyway, so computing them only wastes DB work.
       hasFullAnalytics,
