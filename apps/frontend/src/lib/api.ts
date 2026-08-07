@@ -873,9 +873,12 @@ export type FeedbackInvitationResponse = {
   };
 };
 
+// `paymentId` is optional: the server resolves the session's latest succeeded
+// payment when the client can't name one (hosted-checkout return without its
+// sessionStorage marker, or a waiter-settled payment).
 export const createFeedbackInvitation = async (
   sessionToken: string,
-  data: { paymentId: string },
+  data: { paymentId?: string } = {},
 ) => {
   const response = await api.post(
     "/feedback/invitations",

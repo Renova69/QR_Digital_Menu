@@ -79,12 +79,24 @@ export class FeedbackService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async issueVisitInvitation(tableSessionToken: string, paymentId: string) {
+  /**
+   * `paymentId` is optional by design. The customer's device frequently cannot
+   * name the payment that completed — a hosted-checkout redirect can lose its
+   * sessionStorage marker, and waiter-settled cash/terminal payments are never
+   * initiated by that device. In those cases the session's latest SUCCEEDED
+   * payment IS the payment that just completed, and the server is the
+   * authoritative place to resolve it. The table-session token authorizes the
+   * lookup either way, so this widens no access.
+   */
+  async issueVisitInvitation(tableSessionToken: string, paymentId?: string) {
     const payment = await this.prisma.payment.findFirst({
       where: {
-        id: paymentId,
         tableSession: { token: tableSessionToken },
+        ...(paymentId ? { id: paymentId } : { status: 'SUCCEEDED' }),
       },
+      // Only meaningful in the resolve-latest case; a same-session id lookup is
+      // already unique.
+      orderBy: { updatedAt: 'desc' },
       include: {
         tableSession: {
           include: {

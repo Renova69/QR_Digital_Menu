@@ -139,6 +139,67 @@ describe('FeedbackService', () => {
       expect(mockPrisma.feedbackInvitation.updateMany).not.toHaveBeenCalled();
     });
 
+    // A hosted-checkout return can come back without its sessionStorage
+    // marker, and waiter-settled cash/terminal payments are never initiated by
+    // the customer's device — in both cases the client has no paymentId to
+    // send. The session's latest SUCCEEDED payment is the authoritative answer.
+    it('resolves the latest succeeded payment when no paymentId is supplied', async () => {
+      const expiresAt = new Date(Date.now() + 60_000);
+      mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
+      mockPrisma.feedbackInvitation.upsert.mockResolvedValue({
+        id: 'invitation-1',
+        usedAt: null,
+        presentedAt: null,
+        expiresAt,
+      });
+
+      const result = await service.issueVisitInvitation('session-token');
+
+      expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tableSession: { token: 'session-token' },
+            status: 'SUCCEEDED',
+          },
+          orderBy: { updatedAt: 'desc' },
+        }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({ eligible: true, submitted: false }),
+      );
+    });
+
+    it('still scopes to the given payment when a paymentId is supplied', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
+      mockPrisma.feedbackInvitation.upsert.mockResolvedValue({
+        id: 'invitation-1',
+        usedAt: null,
+        presentedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      await service.issueVisitInvitation('session-token', 'payment-1');
+
+      expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tableSession: { token: 'session-token' },
+            id: 'payment-1',
+          },
+        }),
+      );
+    });
+
+    // The session token is the only credential — a caller without one must not
+    // be able to resolve someone else's payment by omitting the id.
+    it('finds nothing when the session token does not match', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.issueVisitInvitation('wrong-token'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
     it('does not invite a guest before the relevant order is served', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue({
         ...servedPayment,

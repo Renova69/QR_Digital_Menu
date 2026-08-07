@@ -16,7 +16,14 @@ export type PaymentCompletionDetails = {
 };
 
 export type PaymentConfirmationContext = {
-  paymentId: string;
+  /**
+   * Optional: a hosted-checkout round-trip can return without its
+   * sessionStorage marker, and waiter-settled payments never carry one. The
+   * session token alone is enough — the server resolves the session's latest
+   * succeeded payment. Requiring an id here used to drop the customer back to
+   * the menu with only a banner, silently skipping the review.
+   */
+  paymentId?: string;
   sessionToken: string;
   amount?: number;
   provider?: PaymentCompletionProvider;
@@ -41,7 +48,7 @@ export function readPaymentConfirmationContext(): PaymentConfirmationContext | n
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<PaymentConfirmationContext>;
     if (
-      typeof value.paymentId !== "string" ||
+      (value.paymentId !== undefined && typeof value.paymentId !== "string") ||
       typeof value.sessionToken !== "string" ||
       typeof value.menuReturnUrl !== "string" ||
       typeof value.completedAt !== "number" ||

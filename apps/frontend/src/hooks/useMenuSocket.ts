@@ -82,7 +82,13 @@ export function useMenuSocket({
       paymentId?: string | null;
       requestedAmount?: number;
     }) => {
-      if (!pendingCashRequestId || request?.id !== pendingCashRequestId) return;
+      // PAID is NOT scoped to a request this device started. Cash is normally
+      // settled by the waiter — they can raise and confirm the request entirely
+      // from the POS — so requiring `pendingCashRequestId` meant the customer's
+      // open menu never reacted, and the post-payment review was skipped for
+      // effectively every cash payment. This socket room is already scoped to
+      // one table session, so any PAID cash request here belongs to this
+      // customer's own visit.
       if (request.status === "PAID") {
         clearPaidSession(
           request.paymentId
@@ -95,7 +101,14 @@ export function useMenuSocket({
         );
         return;
       }
-      if (request.status === "CANCELLED") {
+      // CANCELLED stays owner-scoped: "staff cancelled your request" is only
+      // meaningful to the device that actually raised it, and the waiter may
+      // cancel a request this customer knows nothing about.
+      if (
+        request.status === "CANCELLED" &&
+        pendingCashRequestId &&
+        request.id === pendingCashRequestId
+      ) {
         setPendingCashRequestId(null);
         setIsPaymentModalOpen(false);
         setPaymentBanner({

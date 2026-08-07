@@ -112,18 +112,27 @@ export function usePaymentReturn({
         params.toString() ? `?${params.toString()}` : ""
       }`;
 
-      if (
-        storedToken &&
-        hostedMarker?.token === storedToken &&
-        hostedMarker.paymentId
-      ) {
+      // The confirmation screen (payment proof + review prompt) only needs the
+      // session token: the server resolves the session's latest succeeded
+      // payment when no id is supplied. Previously this also required a
+      // sessionStorage `hostedMarker` carrying a paymentId — but that marker
+      // has to survive a full off-site redirect through the payment provider,
+      // and when it didn't (new tab, in-app browser, storage eviction) the
+      // customer silently fell through to the banner branch and never saw the
+      // review. Only the marker's *extra* detail is treated as optional now.
+      if (storedToken) {
+        const markerMatches = hostedMarker?.token === storedToken;
         storePaymentConfirmationContext({
-          paymentId: hostedMarker.paymentId,
+          ...(markerMatches && hostedMarker?.paymentId
+            ? { paymentId: hostedMarker.paymentId }
+            : {}),
           sessionToken: storedToken,
-          ...(typeof hostedMarker.total === "number"
+          ...(markerMatches && typeof hostedMarker?.total === "number"
             ? { amount: hostedMarker.total }
             : {}),
-          ...(hostedMarker.provider ? { provider: hostedMarker.provider } : {}),
+          ...(markerMatches && hostedMarker?.provider
+            ? { provider: hostedMarker.provider }
+            : {}),
           ...(restaurantId ? { restaurantId } : {}),
           menuReturnUrl,
           ...(tableParam ? { tableNumber: tableParam } : {}),

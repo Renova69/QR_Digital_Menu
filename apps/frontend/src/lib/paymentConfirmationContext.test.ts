@@ -35,4 +35,37 @@ describe("payment confirmation context", () => {
     clearPaymentConfirmationContext();
     expect(readPaymentConfirmationContext()).toBeNull();
   });
+
+  // A hosted-checkout return can lose its sessionStorage marker, so the id is
+  // unknown; the session token alone is enough for the server to resolve the
+  // payment. Rejecting this context used to drop the customer back to the menu
+  // with only a banner and no review prompt.
+  it("accepts a context with no paymentId", () => {
+    const completedAt = Date.now();
+    storePaymentConfirmationContext({
+      sessionToken: "session-token",
+      menuReturnUrl: "/menu/public/rest-1?table=10",
+      completedAt,
+    });
+
+    expect(readPaymentConfirmationContext()).toEqual({
+      sessionToken: "session-token",
+      menuReturnUrl: "/menu/public/rest-1?table=10",
+      completedAt,
+    });
+  });
+
+  it("still rejects a context with a non-string paymentId", () => {
+    sessionStorage.setItem(
+      "payment-confirmation",
+      JSON.stringify({
+        paymentId: 42,
+        sessionToken: "session-token",
+        menuReturnUrl: "/menu",
+        completedAt: Date.now(),
+      }),
+    );
+
+    expect(readPaymentConfirmationContext()).toBeNull();
+  });
 });

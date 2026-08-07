@@ -12,6 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
+import { formatEuro } from "../lib/currency";
 import {
   createFeedbackInvitation,
   markFeedbackInvitationPresented,
@@ -23,13 +24,21 @@ import {
   clearPaymentConfirmationContext,
   readPaymentConfirmationContext,
 } from "../lib/paymentConfirmationContext";
+// Money renders through formatEuro ("24.50 €") like every other price surface
+// (CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions). Intl.NumberFormat
+// is deliberately NOT used: with an undefined locale it formatted per the
+// visitor's browser/OS locale, and even pinned to a locale it emits a
+// symbol-first "€24.50" that disagrees with the rest of the app. EUR is the
+// only transactional currency (create-item.dto enforces @IsIn([EUR]); BGN is
+// display-only), so the payment's currency field needs no branching here.
 
-function formatPaymentAmount(amount: number, currency = "EUR") {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(amount);
-}
+// Widening retry ladder (ms) for the two server-resolved blocking states.
+// The first two steps cover the common provider-webhook lag; later steps back
+// off so a tab left open costs almost nothing.
+const INVITATION_RETRY_DELAYS_MS = [800, 1500, 3000, 6000, 12000, 20000];
+const INVITATION_RETRY_MAX_DELAY_MS = 30_000;
+// Hard stop so an abandoned tab never polls forever.
+const INVITATION_RETRY_CEILING_MS = 10 * 60 * 1000;
 
 export default function PaymentConfirmationPage() {
   const navigate = useNavigate();
@@ -50,9 +59,10 @@ export default function PaymentConfirmationPage() {
   const loadInvitation = useCallback(async () => {
     if (!context) return;
     try {
-      const result = await createFeedbackInvitation(context.sessionToken, {
-        paymentId: context.paymentId,
-      });
+      const result = await createFeedbackInvitation(
+        context.sessionToken,
+        context.paymentId ? { paymentId: context.paymentId } : {},
+      );
       setInvitation((current) =>
         result.reason === "ALREADY_PROMPTED" && current?.eligible
           ? current
@@ -73,16 +83,40 @@ export default function PaymentConfirmationPage() {
     void loadInvitation();
   }, [loadInvitation]);
 
+  // Both blocking reasons resolve on the SERVER's clock, not the customer's:
+  // PAYMENT_PENDING clears when the provider webhook lands (usually 1-3s after
+  // the redirect), ORDERS_NOT_SERVED when staff close out the order (minutes).
+  // A flat 30s interval was wrong at both ends — it made customers stare at
+  // "Confirming payment" for up to 30s after the payment had already settled
+  // (most closed the tab first, and the invitation is only created once the
+  // payment reads SUCCEEDED, so the review was lost), while also polling
+  // forever on any tab left open.
+  //
+  // Backoff fixes both: sub-second first retry catches the webhook case almost
+  // immediately, and widening delays plus a hard ceiling stop an abandoned tab
+  // from polling indefinitely.
   useEffect(() => {
-    if (
-      invitation?.reason !== "ORDERS_NOT_SERVED" &&
-      invitation?.reason !== "PAYMENT_PENDING"
-    )
-      return;
-    const timer = window.setInterval(() => {
-      void loadInvitation();
-    }, 30_000);
-    return () => window.clearInterval(timer);
+    const reason = invitation?.reason;
+    if (reason !== "ORDERS_NOT_SERVED" && reason !== "PAYMENT_PENDING") return;
+
+    let attempt = 0;
+    let timer: number | undefined;
+    const startedAt = Date.now();
+
+    const scheduleNext = () => {
+      if (Date.now() - startedAt >= INVITATION_RETRY_CEILING_MS) return;
+      const delay =
+        INVITATION_RETRY_DELAYS_MS[attempt] ?? INVITATION_RETRY_MAX_DELAY_MS;
+      attempt += 1;
+      timer = window.setTimeout(() => {
+        void loadInvitation().finally(scheduleNext);
+      }, delay);
+    };
+    scheduleNext();
+
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [invitation?.reason, loadInvitation]);
 
   useEffect(() => {
@@ -120,7 +154,6 @@ export default function PaymentConfirmationPage() {
   const amount =
     invitation?.payment.amount ??
     (typeof context.amount === "number" ? context.amount : undefined);
-  const currency = invitation?.payment.currency ?? "EUR";
   const provider = invitation?.payment.provider ?? context.provider;
   const isCash = provider === "CASH";
   const invitationToken = invitation?.invitationToken;
@@ -229,7 +262,7 @@ export default function PaymentConfirmationPage() {
           )}
           {amount !== undefined && (
             <p className="mt-3 text-3xl font-black text-foreground">
-              {formatPaymentAmount(amount, currency)}
+              {formatEuro(amount)}
             </p>
           )}
           <div className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -253,7 +286,7 @@ export default function PaymentConfirmationPage() {
                 "payment.remainingTableBalance",
                 "Remaining table balance: {{amount}}",
                 {
-                  amount: formatPaymentAmount(context.remaining, currency),
+                  amount: formatEuro(context.remaining),
                 },
               )}
             </p>

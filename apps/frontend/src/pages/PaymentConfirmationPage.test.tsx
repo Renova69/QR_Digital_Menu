@@ -70,7 +70,9 @@ describe("PaymentConfirmationPage", () => {
     expect(
       await screen.findByText("Payment received successfully"),
     ).toBeVisible();
-    expect(screen.getByText("€24.50")).toBeVisible();
+    // App-wide money format via formatEuro() — matches CartDrawer,
+    // CheckoutPage, PaymentModal and ItemWithOptions.
+    expect(screen.getByText("24.50 €")).toBeVisible();
 
     const stars = await screen.findAllByRole("button", {
       name: /star/i,
@@ -164,6 +166,90 @@ describe("PaymentConfirmationPage", () => {
     expect(
       screen.queryByText("Payment received successfully"),
     ).not.toBeInTheDocument();
+  });
+
+  // Stripe redirects the customer back before its webhook lands, so the first
+  // invitation call routinely reads PAYMENT_PENDING. The retry has to be fast:
+  // the invitation row is only created once the payment reads SUCCEEDED, and a
+  // customer who closes the tab first never gets a review. The old 30s flat
+  // interval lost most of them.
+  it("re-checks a webhook-lagged payment within seconds, not half a minute", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = {
+        eligible: false,
+        submitted: false,
+        reason: "PAYMENT_PENDING",
+        payment: {
+          id: "payment-1",
+          amount: 24.5,
+          currency: "eur",
+          provider: "STRIPE",
+        },
+        restaurant: { id: "rest-1", name: "Daffi", googleReviewUrl: null },
+      } as const;
+      vi.mocked(createFeedbackInvitation)
+        .mockResolvedValueOnce(pending)
+        .mockResolvedValue({
+          eligible: true,
+          submitted: false,
+          invitationToken: "invitation-token",
+          payment: pending.payment,
+          restaurant: pending.restaurant,
+        });
+
+      render(
+        <MemoryRouter initialEntries={["/payment-confirmation"]}>
+          <PaymentConfirmationPage />
+        </MemoryRouter>,
+      );
+
+      // First call resolves to PAYMENT_PENDING.
+      await vi.waitFor(() =>
+        expect(createFeedbackInvitation).toHaveBeenCalledTimes(1),
+      );
+
+      // Well under the old 30s interval, the retry has already fired.
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.waitFor(() =>
+        expect(createFeedbackInvitation).toHaveBeenCalledTimes(2),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops retrying once the invitation is no longer blocked", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(createFeedbackInvitation).mockResolvedValue({
+        eligible: true,
+        submitted: false,
+        invitationToken: "invitation-token",
+        payment: {
+          id: "payment-1",
+          amount: 24.5,
+          currency: "eur",
+          provider: "CASH",
+        },
+        restaurant: { id: "rest-1", name: "Daffi", googleReviewUrl: null },
+      });
+
+      render(
+        <MemoryRouter initialEntries={["/payment-confirmation"]}>
+          <PaymentConfirmationPage />
+        </MemoryRouter>,
+      );
+
+      await vi.waitFor(() =>
+        expect(createFeedbackInvitation).toHaveBeenCalledTimes(1),
+      );
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(createFeedbackInvitation).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the one claimed prompt when StrictMode retries issuance", async () => {
