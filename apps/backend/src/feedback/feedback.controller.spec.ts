@@ -72,6 +72,7 @@ describe('FeedbackController', () => {
   describe('findAll', () => {
     it('should call feedbackService.findAll with restaurantId, filters, and userId', async () => {
       const query: FeedbackListQueryDto = {
+        restaurantId: 'rest-1',
         page: 1,
         limit: 10,
         rating: 4,
@@ -84,7 +85,7 @@ describe('FeedbackController', () => {
         total: 0,
       });
 
-      const result = await controller.findAll('rest-1', query, req);
+      const result = await controller.findAll(query, req);
 
       expect(mockFeedbackService.findAll).toHaveBeenCalledWith(
         'rest-1',
@@ -94,18 +95,29 @@ describe('FeedbackController', () => {
       expect(result).toEqual({ data: [], total: 0 });
     });
 
-    it('should handle missing restaurantId', async () => {
-      const query: FeedbackListQueryDto = { page: 1, limit: 10 };
+    it('should take restaurantId from the validated query DTO, not a second binding', async () => {
+      // Previously the handler bound restaurantId twice -- once via
+      // @Query('restaurantId') and once inside the whole-object @Query() DTO.
+      // The global pipe validates the whole object, so the request 400'd with
+      // "property restaurantId should not exist". A missing restaurantId is now
+      // rejected by the pipe before the handler runs (covered in
+      // feedback-list-query.dto.spec.ts), so the controller's only job is to
+      // forward the id the DTO carries.
+      const query: FeedbackListQueryDto = {
+        restaurantId: 'rest-from-dto',
+        page: 1,
+        limit: 10,
+      };
       const req = { user: { id: 'user-1' } };
       mockFeedbackService.findAll.mockResolvedValue({
         data: [],
         total: 0,
       });
 
-      await controller.findAll(undefined as any, query, req);
+      await controller.findAll(query, req);
 
       expect(mockFeedbackService.findAll).toHaveBeenCalledWith(
-        undefined,
+        'rest-from-dto',
         query,
         'user-1',
       );

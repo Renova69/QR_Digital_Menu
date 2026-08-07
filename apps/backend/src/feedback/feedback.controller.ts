@@ -74,12 +74,14 @@ export class FeedbackController {
   // Protected — owner views all feedback
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(
-    @Query('restaurantId') restaurantId: string,
-    @Query() query: FeedbackListQueryDto,
-    @Request() req: any,
-  ) {
-    return this.feedbackService.findAll(restaurantId, query, req.user.id);
+  // Read restaurantId off the validated DTO rather than binding it a second
+  // time with @Query('restaurantId'). Mixing a named @Query() with a
+  // whole-object @Query() means the object is still validated as a whole, so
+  // an id the named binding accepts is rejected by forbidNonWhitelisted unless
+  // the DTO also declares it -- which is how this 400'd. One binding, one
+  // source of truth (matches getSummary below).
+  findAll(@Query() query: FeedbackListQueryDto, @Request() req: any) {
+    return this.feedbackService.findAll(query.restaurantId, query, req.user.id);
   }
 
   // Protected — owner views feedback summary/stats
