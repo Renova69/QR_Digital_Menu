@@ -49,6 +49,7 @@ const mockFeatureService = {
   canAccess: jest.fn().mockResolvedValue(true),
   getEffectiveTier: jest.fn().mockReturnValue('PROFESSIONAL'),
   hasFeature: jest.fn().mockReturnValue(true),
+  restaurantHasFeature: jest.fn().mockReturnValue(true),
 };
 
 const mockDeliveries = {
@@ -60,6 +61,19 @@ describe('LoyaltyService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // clearAllMocks drops return values as well as call history, so re-arm the
+    // defaults the loyalty-entitlement filter depends on. Without these every
+    // restaurant reads as unentitled and unrelated suites go empty-handed.
+    mockFeatureService.restaurantHasFeature.mockReturnValue(true);
+    mockPrisma.restaurant.findMany.mockResolvedValue([
+      {
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isLoyaltyEnabled: true,
+        isActive: true,
+      },
+    ]);
     const module = await Test.createTestingModule({
       providers: [
         LoyaltyService,
@@ -140,7 +154,13 @@ describe('LoyaltyService', () => {
 
       expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { customerId: 'user-1' },
+          // restaurantId scopes the page to loyalty-entitled restaurants; it is
+          // part of the query (not a post-filter) precisely so take/cursor stay
+          // correct — see the entitlement-filtering suite below.
+          where: {
+            customerId: 'user-1',
+            restaurantId: { in: ['r1'] },
+          },
           take: 3,
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         }),
@@ -729,6 +749,8 @@ describe('LoyaltyService', () => {
           lifetimePoints: 500,
           restaurant: {
             name: 'Test Bistro',
+            tier: 'PROFESSIONAL',
+            forceTier: null,
             isLoyaltyEnabled: true,
             loyaltyExchangeRate: 10,
             loyaltyRedeemRate: 150,
@@ -791,6 +813,136 @@ describe('LoyaltyService', () => {
       expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 26 }),
       );
+    });
+  });
+
+  // ─── Tier entitlement on the customer-facing routes ────────────────────────
+  // GET /loyalty/accounts and /loyalty/orders/history are cross-restaurant, so
+  // they carry no :restaurantId for FeatureGuard to gate on. They are the two
+  // routes left ungated when the owner-facing ones gained
+  // @RequireFeature(LOYALTY) (17.07.REPORT.md M6): a customer could open
+  // /profile directly -- the menu hides the link, but the URL still works --
+  // and read loyalty data belonging to a FREE-tier restaurant that cannot even
+  // show the loyalty toggle in its settings. Gating here means filtering per
+  // restaurant, not rejecting the whole request, because one customer legitimately
+  // holds accounts across several restaurants on different plans.
+  describe('loyalty entitlement filtering', () => {
+    const restaurantConfig = {
+      isLoyaltyEnabled: true,
+      loyaltyExchangeRate: 10,
+      loyaltyRedeemRate: 150,
+      loyaltyMaxRedemptionPercent: 50,
+      loyaltyPointExpiryDays: 90,
+      loyaltyExpiryReminderDays: 15,
+      loyaltySignupBonus: 0,
+      timezone: 'UTC',
+      happyHourEnable: false,
+      happyHourDays: '',
+      happyHourStartTime: '17:00',
+      happyHourEndTime: '19:00',
+      happyHourMultiplier: 1.5,
+      loyaltySilverThreshold: 500,
+      loyaltyGoldThreshold: 2000,
+      loyaltySilverMultiplier: 1.2,
+      loyaltyGoldMultiplier: 1.5,
+    };
+
+    const accountAt = (id: string, name: string, tier: string) => ({
+      id,
+      userId: 'user-1',
+      restaurantId: id,
+      points: 100,
+      lifetimePoints: 100,
+      restaurant: { name, tier, forceTier: null, ...restaurantConfig },
+    });
+
+    // Drive the real isLoyaltyAvailable() predicate rather than stubbing a
+    // bespoke one, so these tests exercise the same tier resolution the
+    // earn/redeem paths use.
+    const gateOnTier = () => {
+      mockFeatureService.getEffectiveTier.mockImplementation(
+        (tier: string, forceTier?: string | null) => forceTier ?? tier,
+      );
+      mockFeatureService.hasFeature.mockImplementation(
+        (tier: string) => tier === 'PROFESSIONAL' || tier === 'ENTERPRISE',
+      );
+    };
+
+    it('hides accounts held at restaurants whose plan does not include loyalty', async () => {
+      const paid = accountAt('acc-pro', 'Pro Bistro', 'PROFESSIONAL');
+      const free = accountAt('acc-free', 'Free Demo', 'FREE');
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([paid, free]);
+      gateOnTier();
+      mockTx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue(paid);
+      mockTx.loyaltyPointLedger.findMany.mockResolvedValue([]);
+
+      const result = await service.getLoyaltyAccounts('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].restaurant.name).toBe('Pro Bistro');
+    });
+
+    it('skips the point-expiry transaction entirely for unentitled accounts', async () => {
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
+        accountAt('acc-free', 'Free Demo', 'FREE'),
+      ]);
+      gateOnTier();
+
+      const result = await service.getLoyaltyAccounts('user-1');
+
+      expect(result).toEqual([]);
+      // Filtering must run before the per-account expiry work, not after it --
+      // otherwise an unentitled restaurant still costs a locking transaction.
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it('scopes order history to restaurants whose plan includes loyalty', async () => {
+      mockPrisma.restaurant.findMany.mockResolvedValue([
+        {
+          id: 'r-pro',
+          tier: 'PROFESSIONAL',
+          forceTier: null,
+          isLoyaltyEnabled: true,
+          isActive: true,
+        },
+        {
+          id: 'r-free',
+          tier: 'FREE',
+          forceTier: null,
+          isLoyaltyEnabled: true,
+          isActive: true,
+        },
+      ]);
+      gateOnTier();
+      mockPrisma.order.findMany.mockResolvedValue([]);
+
+      await service.getHistory('user-1', { limit: 10 });
+
+      // Restriction belongs in the query, not a post-filter: trimming rows after
+      // `take: limit + 1` would corrupt both hasMore and the returned cursor.
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { customerId: 'user-1', restaurantId: { in: ['r-pro'] } },
+        }),
+      );
+    });
+
+    it('returns empty history without querying orders when nothing is entitled', async () => {
+      mockPrisma.restaurant.findMany.mockResolvedValue([
+        {
+          id: 'r-free',
+          tier: 'FREE',
+          forceTier: null,
+          isLoyaltyEnabled: true,
+          isActive: true,
+        },
+      ]);
+      gateOnTier();
+
+      const result = await service.getHistory('user-1', { limit: 10 });
+
+      expect(result).toEqual({ data: [], nextCursor: null });
+      expect(mockPrisma.order.findMany).not.toHaveBeenCalled();
     });
   });
 });

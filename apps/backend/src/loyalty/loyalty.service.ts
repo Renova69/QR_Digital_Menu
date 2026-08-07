@@ -246,18 +246,31 @@ export class LoyaltyService {
         restaurant: {
           select: {
             name: true,
+            // Entitlement inputs for isLoyaltyAvailable(). This route is
+            // cross-restaurant, so it carries no :restaurantId and FeatureGuard
+            // cannot gate it — the filter below is what keeps a FREE-tier
+            // restaurant's loyalty data off /profile.
+            tier: true,
+            forceTier: true,
+            isActive: true,
             ...LOYALTY_CONFIG_FIELDS,
           },
         },
       },
     });
 
+    // Filter before the per-account work below, not after: an unentitled
+    // account should cost neither a row-locking transaction nor a payload.
+    const entitledAccounts = accounts.filter((account) =>
+      isLoyaltyAvailable(account.restaurant, this.featureService),
+    );
+
     // Process each account independently in parallel with its own mini-transaction.
     // Per-account atomicity is preserved; one account failing does not roll back
     // others (fault isolation); and the outer connection is not held for N
     // sequential round-trips (#N+1-C1).
     const enriched = await Promise.all(
-      accounts.map(async (account) => {
+      entitledAccounts.map(async (account) => {
         const { updated, expiringBatches } = await this.prisma.$transaction(
           async (tx: Prisma.TransactionClient) => {
             await lockLoyaltyAccountRow(tx, account.id);
@@ -301,10 +314,51 @@ export class LoyaltyService {
     return enriched;
   }
 
+  /**
+   * Restaurant ids where this customer has order history AND the restaurant's
+   * plan actually entitles loyalty. Tier resolution stays inside
+   * isLoyaltyAvailable() so this can never drift from the earn/redeem paths —
+   * a hand-written tier predicate in a Prisma `where` would.
+   */
+  private async entitledLoyaltyRestaurantIds(
+    userId: string,
+  ): Promise<string[]> {
+    const restaurants = await this.prisma.restaurant.findMany({
+      where: { orders: { some: { customerId: userId } } },
+      select: {
+        id: true,
+        tier: true,
+        forceTier: true,
+        isActive: true,
+        isLoyaltyEnabled: true,
+      },
+    });
+
+    return restaurants
+      .filter((restaurant) =>
+        isLoyaltyAvailable(restaurant, this.featureService),
+      )
+      .map((restaurant) => restaurant.id);
+  }
+
   async getHistory(userId: string, query: LoyaltyHistoryQueryDto) {
     const limit = query.limit ?? 25;
+
+    // Same cross-restaurant gap as getLoyaltyAccounts. The restriction has to
+    // live in the query rather than filtering the returned page: trimming rows
+    // after `take: limit + 1` would under-fill pages and hand back a cursor
+    // that skips records on the following request.
+    const entitledRestaurantIds =
+      await this.entitledLoyaltyRestaurantIds(userId);
+    if (entitledRestaurantIds.length === 0) {
+      return { data: [], nextCursor: null };
+    }
+
     const orders = await this.prisma.order.findMany({
-      where: { customerId: userId },
+      where: {
+        customerId: userId,
+        restaurantId: { in: entitledRestaurantIds },
+      },
       take: limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       select: {
