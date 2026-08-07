@@ -541,7 +541,7 @@ describe('FeedbackService', () => {
     it('returns paginated data with total and totalPages', async () => {
       const result = await service.findAll(
         'rest-1',
-        { page: 1, limit: 10 },
+        { restaurantId: 'rest-1', page: 1, limit: 10 },
         'owner-1',
       );
 
@@ -579,7 +579,7 @@ describe('FeedbackService', () => {
 
       const result = await service.findAll(
         'rest-1',
-        { page: 1, limit: 10 },
+        { restaurantId: 'rest-1', page: 1, limit: 10 },
         'owner-1',
       );
 
@@ -610,6 +610,7 @@ describe('FeedbackService', () => {
       await service.findAll(
         'rest-1',
         {
+          restaurantId: 'rest-1',
           page: 2,
           limit: 10,
           rating: 4,
@@ -640,7 +641,7 @@ describe('FeedbackService', () => {
     it('sorts the review inbox from oldest to newest when requested', async () => {
       await service.findAll(
         'rest-1',
-        { page: 1, limit: 10, sort: 'OLDEST' },
+        { restaurantId: 'rest-1', page: 1, limit: 10, sort: 'OLDEST' },
         'owner-1',
       );
 
@@ -671,7 +672,7 @@ describe('FeedbackService', () => {
 
       const result = await service.findAll(
         'rest-1',
-        { page: 1, limit: 10 },
+        { restaurantId: 'rest-1', page: 1, limit: 10 },
         'owner-1',
       );
 
@@ -686,7 +687,11 @@ describe('FeedbackService', () => {
     });
 
     it('uses default page/limit for undefined pagination', async () => {
-      const result = await service.findAll('rest-1', {}, 'owner-1');
+      const result = await service.findAll(
+        'rest-1',
+        { restaurantId: 'rest-1' },
+        'owner-1',
+      );
 
       expect(result.page).toBe(1);
       expect(result).toHaveProperty('totalPages');
@@ -699,7 +704,11 @@ describe('FeedbackService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-2' });
 
       await expect(
-        service.findAll('rest-1', { page: 1, limit: 10 }, 'staff-2'),
+        service.findAll(
+          'rest-1',
+          { restaurantId: 'rest-1', page: 1, limit: 10 },
+          'staff-2',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
