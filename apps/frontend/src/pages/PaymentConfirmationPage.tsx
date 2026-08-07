@@ -101,9 +101,17 @@ export default function PaymentConfirmationPage() {
 
     let attempt = 0;
     let timer: number | undefined;
+    // Clearing the pending timer alone leaks: once a round is already in
+    // flight, its continuation would schedule the next one after this effect
+    // has been torn down, and the stale cleanup can no longer reach that
+    // timer. The ladder then runs to its ceiling — polling and calling
+    // setState after unmount, and doubling up when `reason` transitions while
+    // a request is outstanding.
+    let cancelled = false;
     const startedAt = Date.now();
 
     const scheduleNext = () => {
+      if (cancelled) return;
       if (Date.now() - startedAt >= INVITATION_RETRY_CEILING_MS) return;
       const delay =
         INVITATION_RETRY_DELAYS_MS[attempt] ?? INVITATION_RETRY_MAX_DELAY_MS;
@@ -115,6 +123,7 @@ export default function PaymentConfirmationPage() {
     scheduleNext();
 
     return () => {
+      cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [invitation?.reason, loadInvitation]);

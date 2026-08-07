@@ -219,6 +219,63 @@ describe("PaymentConfirmationPage", () => {
     }
   });
 
+  // "Back to Menu" unmounts this page, and an impatient customer clicks it
+  // exactly while a PAYMENT_PENDING retry is in flight. Clearing only the
+  // pending timer isn't enough — the in-flight promise's continuation would
+  // still schedule another round the cleanup can no longer reach, leaving the
+  // ladder running (and calling setState) after unmount.
+  it("stops retrying when the page unmounts mid-request", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = {
+        eligible: false,
+        submitted: false,
+        reason: "PAYMENT_PENDING",
+        payment: {
+          id: "payment-1",
+          amount: 24.5,
+          currency: "eur",
+          provider: "STRIPE",
+        },
+        restaurant: { id: "rest-1", name: "Daffi", googleReviewUrl: null },
+      } as const;
+
+      let resolveInFlight: () => void = () => {};
+      vi.mocked(createFeedbackInvitation)
+        .mockResolvedValueOnce(pending)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveInFlight = () => resolve(pending);
+            }),
+        );
+
+      const { unmount } = render(
+        <MemoryRouter initialEntries={["/payment-confirmation"]}>
+          <PaymentConfirmationPage />
+        </MemoryRouter>,
+      );
+
+      await vi.waitFor(() =>
+        expect(createFeedbackInvitation).toHaveBeenCalledTimes(1),
+      );
+
+      // Fire the first retry, leaving it unresolved.
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.waitFor(() =>
+        expect(createFeedbackInvitation).toHaveBeenCalledTimes(2),
+      );
+
+      unmount();
+      resolveInFlight();
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(createFeedbackInvitation).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stops retrying once the invitation is no longer blocked", async () => {
     vi.useFakeTimers();
     try {
