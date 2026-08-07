@@ -169,6 +169,42 @@ describe('FeedbackService', () => {
       );
     });
 
+    // The two failure modes this endpoint exists to survive combine here: a
+    // hosted-checkout return that lost its sessionStorage marker (so the client
+    // has no paymentId) AND a redirect that beat the provider webhook (so the
+    // payment is still PENDING). Resolving must report PAYMENT_PENDING so the
+    // page retries — throwing 404 strands the customer on "couldn't verify"
+    // with no automatic recovery.
+    it('reports PAYMENT_PENDING, not 404, when resolving without an id before the webhook lands', async () => {
+      const pendingPayment = { ...servedPayment, status: 'PENDING' };
+      // Mirrors real Prisma: a status:'SUCCEEDED' filter matches nothing while
+      // the session's only payment is still PENDING.
+      mockPrisma.payment.findFirst.mockImplementation(
+        async ({ where }: { where: { status?: string } }) =>
+          where.status === 'SUCCEEDED' ? null : pendingPayment,
+      );
+
+      const result = await service.issueVisitInvitation('session-token');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          eligible: false,
+          reason: 'PAYMENT_PENDING',
+        }),
+      );
+      expect(mockPrisma.feedbackInvitation.upsert).not.toHaveBeenCalled();
+    });
+
+    // A dead earlier attempt must not be resurrected and reported as pending
+    // forever — that would poll for the full ceiling and never resolve.
+    it('does not fall back to a failed or abandoned payment', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.issueVisitInvitation('session-token'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
     it('still scopes to the given payment when a paymentId is supplied', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(servedPayment);
       mockPrisma.feedbackInvitation.upsert.mockResolvedValue({

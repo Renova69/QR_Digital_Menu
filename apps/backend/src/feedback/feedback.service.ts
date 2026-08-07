@@ -89,38 +89,52 @@ export class FeedbackService {
    * lookup either way, so this widens no access.
    */
   async issueVisitInvitation(tableSessionToken: string, paymentId?: string) {
-    const payment = await this.prisma.payment.findFirst({
-      where: {
-        tableSession: { token: tableSessionToken },
-        ...(paymentId ? { id: paymentId } : { status: 'SUCCEEDED' }),
-      },
-      // Only meaningful in the resolve-latest case; a same-session id lookup is
-      // already unique.
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        tableSession: {
-          include: {
-            orders: {
-              select: { id: true, status: true },
+    const findPayment = (
+      scope: { id: string } | { status: 'SUCCEEDED' | 'PENDING' },
+    ) =>
+      this.prisma.payment.findFirst({
+        where: { tableSession: { token: tableSessionToken }, ...scope },
+        // Only meaningful in the resolve-latest case; a same-session id lookup
+        // is already unique.
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          tableSession: {
+            include: {
+              orders: {
+                select: { id: true, status: true },
+              },
+            },
+          },
+          allocations: {
+            include: {
+              orderItem: {
+                select: { orderId: true },
+              },
+            },
+          },
+          restaurant: {
+            select: {
+              id: true,
+              name: true,
+              googleReviewUrl: true,
             },
           },
         },
-        allocations: {
-          include: {
-            orderItem: {
-              select: { orderId: true },
-            },
-          },
-        },
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            googleReviewUrl: true,
-          },
-        },
-      },
-    });
+      });
+
+    // Prefer a settled payment, but fall back to one still in flight. A
+    // hosted-checkout redirect regularly beats the provider webhook, so the
+    // session's newest payment can still be PENDING at this point. Returning
+    // it lets the caller answer PAYMENT_PENDING and retry; filtering it out
+    // produced a 404 the confirmation page treats as unrecoverable, stranding
+    // the customer on "couldn't verify" with no review.
+    //
+    // FAILED / ABANDONED / REFUNDED are deliberately excluded — resurrecting a
+    // dead earlier attempt would report "pending" that never resolves.
+    const payment = paymentId
+      ? await findPayment({ id: paymentId })
+      : ((await findPayment({ status: 'SUCCEEDED' })) ??
+        (await findPayment({ status: 'PENDING' })));
 
     if (!payment || !payment.tableSessionId || !payment.tableSession) {
       throw new NotFoundException('Payment confirmation not found');
