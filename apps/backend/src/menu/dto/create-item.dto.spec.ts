@@ -1,6 +1,50 @@
-import { validate } from 'class-validator';
+import { validate, validateSync } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { CreateItemDto, Currency } from './create-item.dto';
+
+/**
+ * Mirrors the GLOBAL pipe config in main.ts exactly (whitelist +
+ * forbidNonWhitelisted). The `forbidNonWhitelisted` flag is what turns an
+ * undeclared property into a hard 400 instead of silently stripping it.
+ */
+function validateWhitelisted(payload: Record<string, unknown>) {
+  return validateSync(plainToInstance(CreateItemDto, payload), {
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  });
+}
+
+describe('CreateItemDto whitelist enforcement', () => {
+  /** The exact shape CreateItemForm -> MenuContext builds for a new item. */
+  const basePayload = {
+    name: 'Burger',
+    description: 'Beef patty',
+    price: 12.5,
+    currency: Currency.EUR,
+    allergens: ['gluten'],
+    dietaryTags: [],
+    isFeatured: false,
+    upsellContexts: [],
+    relatedItemIds: [],
+    rewardPointsMode: 'OFF',
+  };
+
+  it('accepts the payload the create-item form actually sends', () => {
+    expect(validateWhitelisted(basePayload)).toHaveLength(0);
+  });
+
+  // Regression: useMenu.ts forwarded its whole mutation variable — including
+  // the `categoryId` that belongs in the URL — as the request body. categoryId
+  // is a @Param, never a body field, so forbidNonWhitelisted rejected every
+  // item creation with "property categoryId should not exist".
+  it('rejects categoryId in the body (it is a URL param, not a body field)', () => {
+    const errors = validateWhitelisted({ ...basePayload, categoryId: 'cat-1' });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].property).toBe('categoryId');
+    expect(errors[0].constraints).toHaveProperty('whitelistValidation');
+  });
+});
 
 describe('CreateItemDto', () => {
   it('should accept a valid tags array', async () => {

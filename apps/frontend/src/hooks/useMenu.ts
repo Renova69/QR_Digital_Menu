@@ -75,7 +75,10 @@ export const useMenu = (restaurantId: string | undefined) => {
   const createItemMutation = useMutation({
     mutationFn: (
       itemData: { categoryId: string } & Omit<Item, "id" | "categoryId">,
-    ) => createItem(itemData.categoryId, itemData),
+    ) => {
+      const { categoryId, ...rest } = itemData;
+      return createItem(categoryId, rest);
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["items", variables.categoryId],
