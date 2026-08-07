@@ -250,9 +250,7 @@ export class LoyaltyService {
             // cross-restaurant, so it carries no :restaurantId and FeatureGuard
             // cannot gate it — the filter below is what keeps a FREE-tier
             // restaurant's loyalty data off /profile.
-            tier: true,
-            forceTier: true,
-            isActive: true,
+            ...LOYALTY_TIER_FIELDS,
             ...LOYALTY_CONFIG_FIELDS,
           },
         },
@@ -327,10 +325,8 @@ export class LoyaltyService {
       where: { orders: { some: { customerId: userId } } },
       select: {
         id: true,
-        tier: true,
-        forceTier: true,
-        isActive: true,
         isLoyaltyEnabled: true,
+        ...LOYALTY_TIER_FIELDS,
       },
     });
 
