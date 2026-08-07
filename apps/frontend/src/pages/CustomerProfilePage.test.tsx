@@ -2,9 +2,17 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
+import type { AxiosRequestConfig } from "axios";
 import CustomerProfilePage from "./CustomerProfilePage";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
+
+/** api.get's real signature takes AxiosRequestConfig, whose `params` is
+ *  `unknown`. Declaring a narrower `config` in a mockImplementation is a
+ *  parameter-contravariance error, so accept the real type and narrow the
+ *  one field these tests care about here. */
+const cursorOf = (config?: AxiosRequestConfig): string | undefined =>
+  (config?.params as { cursor?: string } | undefined)?.cursor;
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -100,11 +108,11 @@ describe("CustomerProfilePage", () => {
 
   it("loads older orders through the server cursor without replacing the first page", async () => {
     vi.mocked(api.get).mockImplementation(
-      (path: string, config?: { params?: { cursor?: string } }) => {
+      (path: string, config?: AxiosRequestConfig) => {
         if (path === "/loyalty/accounts") {
           return Promise.resolve({ data: [] });
         }
-        if (config?.params?.cursor === "order-1") {
+        if (cursorOf(config) === "order-1") {
           return Promise.resolve({
             data: {
               data: [
@@ -158,11 +166,11 @@ describe("CustomerProfilePage", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     let loadMoreAttempts = 0;
     vi.mocked(api.get).mockImplementation(
-      (path: string, config?: { params?: { cursor?: string } }) => {
+      (path: string, config?: AxiosRequestConfig) => {
         if (path === "/loyalty/accounts") {
           return Promise.resolve({ data: [] });
         }
-        if (config?.params?.cursor === "order-1") {
+        if (cursorOf(config) === "order-1") {
           loadMoreAttempts += 1;
           if (loadMoreAttempts === 1) {
             return Promise.reject(new Error("Older history unavailable"));
