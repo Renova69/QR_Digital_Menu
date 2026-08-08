@@ -31,6 +31,10 @@ build/
 *.md
 !README.md
 
+# Docusaurus source content is required by the standalone docs deployment.
+!apps/docs/**/*.md
+!apps/docs/**/*.mdx
+
 # IDE
 .vscode/
 .idea/
