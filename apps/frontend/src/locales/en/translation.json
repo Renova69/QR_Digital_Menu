@@ -2048,7 +2048,10 @@
         "privacy": "Privacy",
         "terms": "Terms",
         "cookies": "Cookies",
-        "gdpr": "GDPR"
+        "gdpr": "GDPR",
+        "dpa": "Data Processing Agreement",
+        "refund": "Refund Policy",
+        "msa": "Master Service Agreement"
       }
     },
     "heroPills": {
@@ -3636,7 +3639,11 @@
     "verifying": "Verifying...",
     "tryAgainInMinutes_one": "Try again in {{count}} minute.",
     "tryAgainInMinutes_other": "Try again in {{count}} minutes.",
-    "closeSessionConfirm": "Close the session for table {{table}}? The open bill of €{{amount}} will be discarded with no payment recorded."
+    "closeSessionConfirm": "Close the session for table {{table}}? The open bill of €{{amount}} will be discarded with no payment recorded.",
+    "agreeToTermsPt1": "By creating an account, you agree to our ",
+    "agreeToTermsPt2": "Terms of Service",
+    "agreeToTermsPt3": " and ",
+    "agreeToTermsPt4": "Privacy Policy"
   },
   "pos": {
     "failedSubmitOrder": "Failed to submit order. Try again.",

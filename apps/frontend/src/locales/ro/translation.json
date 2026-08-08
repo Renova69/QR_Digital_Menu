@@ -2097,7 +2097,10 @@
         "privacy": "Confidențialitate",
         "terms": "Termeni",
         "cookies": "Cookie-uri",
-        "gdpr": "GDPR"
+        "gdpr": "GDPR",
+        "dpa": "Acord de prelucrare a datelor",
+        "refund": "Politica de rambursare",
+        "msa": "Acord Cadru de Servicii (MSA)"
       },
       "links": {
         "about": "Despre",
@@ -3723,7 +3726,11 @@
     "verifying": "Se verifică...",
     "tryAgainInMinutes_one": "Încearcă din nou peste {{count}} minut.",
     "tryAgainInMinutes_other": "Încearcă din nou peste {{count}} de minute.",
-    "closeSessionConfirm": "Închizi sesiunea pentru masa {{table}}? Nota curentă de €{{amount}} va fi anulată fără a înregistra o plată."
+    "closeSessionConfirm": "Închizi sesiunea pentru masa {{table}}? Nota curentă de €{{amount}} va fi anulată fără a înregistra o plată.",
+    "agreeToTermsPt1": "Prin crearea unui cont, sunteți de acord cu ",
+    "agreeToTermsPt2": "Termenii de utilizare",
+    "agreeToTermsPt3": " și ",
+    "agreeToTermsPt4": "Politica de confidențialitate"
   },
   "pos": {
     "failedSubmitOrder": "Nu s-a putut trimite comanda. Încercați din nou.",
