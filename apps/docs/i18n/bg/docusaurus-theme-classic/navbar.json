@@ -1,0 +1,26 @@
+{
+  "title": {
+    "message": "Документация за Renova",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "Лого на Renova",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Guides": {
+    "message": "Ръководства",
+    "description": "Navbar item with label Guides"
+  },
+  "item.label.Admin": {
+    "message": "Администрация",
+    "description": "Navbar item with label Admin"
+  },
+  "item.label.Back to App": {
+    "message": "Обратно към приложението",
+    "description": "Navbar item with label Back to App"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item with label GitHub"
+  }
+}

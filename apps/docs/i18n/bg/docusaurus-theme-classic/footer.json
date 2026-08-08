@@ -1,0 +1,50 @@
+{
+  "link.title.Guides": {
+    "message": "Ръководства",
+    "description": "The title of the footer links column with title=Guides in the footer"
+  },
+  "link.title.Restaurant Management": {
+    "message": "Управление на ресторанта",
+    "description": "The title of the footer links column with title=Restaurant Management in the footer"
+  },
+  "link.title.Legal": {
+    "message": "Правни документи",
+    "description": "The title of the footer links column with title=Legal in the footer"
+  },
+  "link.item.label.Getting Started": {
+    "message": "Първи стъпки",
+    "description": "The label of footer link with label=Getting Started linking to /getting-started"
+  },
+  "link.item.label.Digital Menu": {
+    "message": "Дигитално меню",
+    "description": "The label of footer link with label=Digital Menu linking to /guides/menu/overview"
+  },
+  "link.item.label.QR Codes": {
+    "message": "QR кодове",
+    "description": "The label of footer link with label=QR Codes linking to /guides/qr-codes/generating"
+  },
+  "link.item.label.POS System": {
+    "message": "POS система",
+    "description": "The label of footer link with label=POS System linking to /admin/pos/overview"
+  },
+  "link.item.label.Bookings": {
+    "message": "Резервации",
+    "description": "The label of footer link with label=Bookings linking to /guides/bookings/setup"
+  },
+  "link.item.label.Staff & Roles": {
+    "message": "Персонал и роли",
+    "description": "The label of footer link with label=Staff & Roles linking to /admin/staff/roles"
+  },
+  "link.item.label.Terms of Service": {
+    "message": "Общи условия",
+    "description": "The label of footer link with label=Terms of Service linking to https://qr-digital-menu-ivory.vercel.app/terms"
+  },
+  "link.item.label.Privacy Policy": {
+    "message": "Политика за поверителност",
+    "description": "The label of footer link with label=Privacy Policy linking to https://qr-digital-menu-ivory.vercel.app/privacy"
+  },
+  "copyright": {
+    "message": "Авторско право © 2026 Renova. Изградено с Docusaurus.",
+    "description": "The footer copyright"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "version.label": {
+    "message": "Curentă",
+    "description": "The label for version current"
+  },
+  "sidebar.guidesSidebar.category.Digital Menu": {
+    "message": "Meniu digital",
+    "description": "The label for category 'Digital Menu' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Digital Menu.link.generated-index.description": {
+    "message": "Creați, organizați și publicați meniul restaurantului.",
+    "description": "The generated-index page description for category 'Digital Menu' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.QR Codes": {
+    "message": "Coduri QR",
+    "description": "The label for category 'QR Codes' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.QR Codes.link.generated-index.description": {
+    "message": "Generați, personalizați, descărcați și imprimați coduri QR pentru punctele de servire.",
+    "description": "The generated-index page description for category 'QR Codes' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Online Ordering": {
+    "message": "Comenzi online",
+    "description": "The label for category 'Online Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Online Ordering.link.generated-index.description": {
+    "message": "Înțelegeți fluxul clienților pentru comandă, finalizarea comenzii și plată.",
+    "description": "The generated-index page description for category 'Online Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Bookings & Reservations": {
+    "message": "Rezervări",
+    "description": "The label for category 'Bookings & Reservations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Bookings & Reservations.link.generated-index.description": {
+    "message": "Configurați disponibilitatea și gestionați cererile de rezervare.",
+    "description": "The generated-index page description for category 'Bookings & Reservations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Customer Feedback": {
+    "message": "Feedback clienți",
+    "description": "The label for category 'Customer Feedback' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Customer Feedback.link.generated-index.description": {
+    "message": "Colectați și analizați feedback verificat de la clienți după plată.",
+    "description": "The generated-index page description for category 'Customer Feedback' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.doc.Getting Started": {
+    "message": "Introducere",
+    "description": "The label for the doc item 'Getting Started' in sidebar 'guidesSidebar', linking to the doc getting-started"
+  },
+  "sidebar.adminSidebar.category.Restaurant Dashboard": {
+    "message": "Panoul restaurantului",
+    "description": "The label for category 'Restaurant Dashboard' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Restaurant Dashboard.link.generated-index.description": {
+    "message": "Navigați în panou și configurați restaurantul.",
+    "description": "The generated-index page description for category 'Restaurant Dashboard' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.POS & Kitchen": {
+    "message": "POS și bucătărie",
+    "description": "The label for category 'POS & Kitchen' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.POS & Kitchen.link.generated-index.description": {
+    "message": "Utilizați fluxurile de lucru POS pentru personal și afișajul din bucătărie.",
+    "description": "The generated-index page description for category 'POS & Kitchen' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Staff & Roles": {
+    "message": "Personal și roluri",
+    "description": "The label for category 'Staff & Roles' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Staff & Roles.link.generated-index.description": {
+    "message": "Creați conturi pentru personal și înțelegeți accesul specific fiecărui rol.",
+    "description": "The generated-index page description for category 'Staff & Roles' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Billing & Subscription": {
+    "message": "Facturare și abonament",
+    "description": "The label for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Billing & Subscription.link.generated-index.description": {
+    "message": "Gestionați planurile, detaliile de plată și facturile de abonament.",
+    "description": "The generated-index page description for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  }
+}

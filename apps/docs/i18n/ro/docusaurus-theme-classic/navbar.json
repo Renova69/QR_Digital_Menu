@@ -1,0 +1,26 @@
+{
+  "title": {
+    "message": "Documentație Renova",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "Sigla Renova",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Guides": {
+    "message": "Ghiduri",
+    "description": "Navbar item with label Guides"
+  },
+  "item.label.Admin": {
+    "message": "Administrare",
+    "description": "Navbar item with label Admin"
+  },
+  "item.label.Back to App": {
+    "message": "Înapoi la aplicație",
+    "description": "Navbar item with label Back to App"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item with label GitHub"
+  }
+}

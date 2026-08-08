@@ -28,6 +28,11 @@ const config: Config = {
   i18n: {
     defaultLocale: "en",
     locales: ["en", "bg", "ro"],
+    localeConfigs: {
+      en: { label: "English" },
+      bg: { label: "Български" },
+      ro: { label: "Română" },
+    },
   },
 
   presets: [
@@ -76,6 +81,10 @@ const config: Config = {
         {
           href: "https://qr-digital-menu-ivory.vercel.app/",
           label: "Back to App",
+          position: "right",
+        },
+        {
+          type: "localeDropdown",
           position: "right",
         },
         {

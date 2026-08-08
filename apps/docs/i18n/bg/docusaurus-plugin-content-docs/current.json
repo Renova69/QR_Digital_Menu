@@ -1,0 +1,82 @@
+{
+  "version.label": {
+    "message": "Текуща",
+    "description": "The label for version current"
+  },
+  "sidebar.guidesSidebar.category.Digital Menu": {
+    "message": "Дигитално меню",
+    "description": "The label for category 'Digital Menu' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Digital Menu.link.generated-index.description": {
+    "message": "Създавайте, организирайте и публикувайте менюто на вашия ресторант.",
+    "description": "The generated-index page description for category 'Digital Menu' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.QR Codes": {
+    "message": "QR кодове",
+    "description": "The label for category 'QR Codes' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.QR Codes.link.generated-index.description": {
+    "message": "Генерирайте, брандирайте, изтегляйте и отпечатвайте QR кодове за точките за обслужване.",
+    "description": "The generated-index page description for category 'QR Codes' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Online Ordering": {
+    "message": "Онлайн поръчки",
+    "description": "The label for category 'Online Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Online Ordering.link.generated-index.description": {
+    "message": "Разберете процеса за поръчване, приключване на поръчката и плащане от гостите.",
+    "description": "The generated-index page description for category 'Online Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Bookings & Reservations": {
+    "message": "Резервации",
+    "description": "The label for category 'Bookings & Reservations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Bookings & Reservations.link.generated-index.description": {
+    "message": "Настройвайте наличността и управлявайте заявките за резервации.",
+    "description": "The generated-index page description for category 'Bookings & Reservations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Customer Feedback": {
+    "message": "Обратна връзка от клиенти",
+    "description": "The label for category 'Customer Feedback' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Customer Feedback.link.generated-index.description": {
+    "message": "Събирайте и преглеждайте потвърдена обратна връзка от гости след плащане.",
+    "description": "The generated-index page description for category 'Customer Feedback' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.doc.Getting Started": {
+    "message": "Първи стъпки",
+    "description": "The label for the doc item 'Getting Started' in sidebar 'guidesSidebar', linking to the doc getting-started"
+  },
+  "sidebar.adminSidebar.category.Restaurant Dashboard": {
+    "message": "Табло на ресторанта",
+    "description": "The label for category 'Restaurant Dashboard' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Restaurant Dashboard.link.generated-index.description": {
+    "message": "Навигирайте в таблото и конфигурирайте ресторанта си.",
+    "description": "The generated-index page description for category 'Restaurant Dashboard' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.POS & Kitchen": {
+    "message": "POS и кухня",
+    "description": "The label for category 'POS & Kitchen' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.POS & Kitchen.link.generated-index.description": {
+    "message": "Използвайте работните процеси на POS системата за персонала и кухненския дисплей.",
+    "description": "The generated-index page description for category 'POS & Kitchen' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Staff & Roles": {
+    "message": "Персонал и роли",
+    "description": "The label for category 'Staff & Roles' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Staff & Roles.link.generated-index.description": {
+    "message": "Създавайте акаунти на служители и разберете достъпа според ролята.",
+    "description": "The generated-index page description for category 'Staff & Roles' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Billing & Subscription": {
+    "message": "Таксуване и абонамент",
+    "description": "The label for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Billing & Subscription.link.generated-index.description": {
+    "message": "Управлявайте планове, данни за плащане и абонаментни фактури.",
+    "description": "The generated-index page description for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "link.title.Guides": {
+    "message": "Ghiduri",
+    "description": "The title of the footer links column with title=Guides in the footer"
+  },
+  "link.title.Restaurant Management": {
+    "message": "Administrarea restaurantului",
+    "description": "The title of the footer links column with title=Restaurant Management in the footer"
+  },
+  "link.title.Legal": {
+    "message": "Documente juridice",
+    "description": "The title of the footer links column with title=Legal in the footer"
+  },
+  "link.item.label.Getting Started": {
+    "message": "Introducere",
+    "description": "The label of footer link with label=Getting Started linking to /getting-started"
+  },
+  "link.item.label.Digital Menu": {
+    "message": "Meniu digital",
+    "description": "The label of footer link with label=Digital Menu linking to /guides/menu/overview"
+  },
+  "link.item.label.QR Codes": {
+    "message": "Coduri QR",
+    "description": "The label of footer link with label=QR Codes linking to /guides/qr-codes/generating"
+  },
+  "link.item.label.POS System": {
+    "message": "Sistem POS",
+    "description": "The label of footer link with label=POS System linking to /admin/pos/overview"
+  },
+  "link.item.label.Bookings": {
+    "message": "Rezervări",
+    "description": "The label of footer link with label=Bookings linking to /guides/bookings/setup"
+  },
+  "link.item.label.Staff & Roles": {
+    "message": "Personal și roluri",
+    "description": "The label of footer link with label=Staff & Roles linking to /admin/staff/roles"
+  },
+  "link.item.label.Terms of Service": {
+    "message": "Termeni și condiții",
+    "description": "The label of footer link with label=Terms of Service linking to https://qr-digital-menu-ivory.vercel.app/terms"
+  },
+  "link.item.label.Privacy Policy": {
+    "message": "Politica de confidențialitate",
+    "description": "The label of footer link with label=Privacy Policy linking to https://qr-digital-menu-ivory.vercel.app/privacy"
+  },
+  "copyright": {
+    "message": "Drepturi de autor © 2026 Renova. Creat cu Docusaurus.",
+    "description": "The footer copyright"
+  }
+}
