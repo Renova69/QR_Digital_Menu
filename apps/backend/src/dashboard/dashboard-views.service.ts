@@ -1,9 +1,39 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import * as Sentry from '@sentry/nestjs';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 type ViewDef = { name: string; create: string; index: string };
+
+/**
+ * Prisma's interactive-transaction default is 5s. That is not a deliberate
+ * budget for a REFRESH MATERIALIZED VIEW — it is just the default nobody
+ * overrode, and it scales with the data while the work does too.
+ *
+ * To be clear about the size of the problem: at the time of writing the whole
+ * database is ~50 MB and order_item holds ~5.4k rows, so a refresh completes
+ * in milliseconds and 5s is roughly 500x more headroom than needed. This is a
+ * latent trap, not a live incident — it only bites at a couple of orders of
+ * magnitude more data.
+ *
+ * It is worth setting anyway because the cost is zero (a larger budget cannot
+ * slow a fast transaction) and because these two paths are the ones where a
+ * timeout would be least obvious. The bound stays modest rather than unlimited
+ * for two real reasons: a plain, non-CONCURRENT refresh holds ACCESS EXCLUSIVE
+ * on each view, and the transaction occupies one of only ten pooled
+ * connections for its whole duration.
+ */
+const REFRESH_TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 } as const;
+
+/**
+ * createViews is version-gated — an unchanged deploy does zero DDL — but a
+ * definition change DROPs and rebuilds every view, which costs more than a
+ * refresh. It also runs inside onModuleInit, so it delays app.listen(); the
+ * budget stays inside Cloud Run's startup allowance rather than matching the
+ * refresh ceiling.
+ */
+const CREATE_TX_OPTIONS = { timeout: 90_000, maxWait: 10_000 } as const;
 
 @Injectable()
 export class DashboardViewsService implements OnModuleInit {
@@ -85,6 +115,12 @@ export class DashboardViewsService implements OnModuleInit {
       this.ready = true;
       this.logger.log('Analytics materialized views initialised');
     } catch (err) {
+      // Degrading to raw queries keeps the dashboard working, so this is a
+      // warning rather than a boot failure — but it must still reach Sentry.
+      // See refreshViews for why: nothing else reports a swallowed cron error.
+      Sentry.captureException(err, {
+        tags: { subsystem: 'dashboard-views', phase: 'create' },
+      });
       this.logger.warn(
         'Materialized views unavailable — falling back to raw queries',
         err,
@@ -115,9 +151,17 @@ export class DashboardViewsService implements OnModuleInit {
         await tx.$executeRawUnsafe('REFRESH MATERIALIZED VIEW mv_peak_hours');
         await tx.$executeRawUnsafe('REFRESH MATERIALIZED VIEW mv_item_stats');
         return true;
-      });
+      }, REFRESH_TX_OPTIONS);
       if (refreshed) this.logger.log('Analytics views refreshed');
     } catch (err) {
+      // The only capture point for this failure. AllExceptionsFilter reports
+      // HTTP errors, but a cron that catches its own exception reaches nothing
+      // — so a refresh that fails every hour would leave the dashboard serving
+      // silently stale numbers with no error anywhere. Wrong analytics that
+      // look right are worse than analytics that are visibly broken.
+      Sentry.captureException(err, {
+        tags: { subsystem: 'dashboard-views', phase: 'refresh' },
+      });
       this.logger.warn('View refresh failed', err);
     } finally {
       this.refreshing = false;
@@ -152,6 +196,6 @@ export class DashboardViewsService implements OnModuleInit {
         );
         this.logger.log(`Rebuilt ${def.name} (v:${version})`);
       }
-    });
+    }, CREATE_TX_OPTIONS);
   }
 }
