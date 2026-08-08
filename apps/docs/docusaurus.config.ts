@@ -17,7 +17,7 @@ const config: Config = {
 
   // [EDIT BEFORE LIVE] Set to your custom docs domain, e.g. https://docs.yourdomain.com
   // or your GitHub Pages URL, e.g. https://YOUR_GITHUB_USERNAME.github.io
-  url: "https://YOUR_GITHUB_USERNAME.github.io",
+  url: "https://renova69.github.io",
 
   // [EDIT BEFORE LIVE] If deploying to GitHub Pages under a repo name (not a user/org root),
   // set this to '/<repo-name>/', e.g. '/QR_Digital_Menu-main/'
@@ -25,7 +25,7 @@ const config: Config = {
   baseUrl: "/QR_Digital_Menu-main/",
 
   // [EDIT BEFORE LIVE] Your GitHub username / org name
-  organizationName: "YOUR_GITHUB_USERNAME",
+  organizationName: "renova69",
 
   // [EDIT BEFORE LIVE] Your repository name
   projectName: "QR_Digital_Menu-main",
@@ -50,7 +50,7 @@ const config: Config = {
           sidebarPath: "./sidebars.ts",
           routeBasePath: "/", // Docs at root path, no /docs/ prefix
           // [EDIT BEFORE LIVE] Replace with your own GitHub repo URL
-          editUrl: "https://github.com/YOUR_GITHUB_USERNAME/QR_Digital_Menu-main/tree/main/apps/docs/",
+          editUrl: "https://github.com/renova69/QR_Digital_Menu-main/tree/main/apps/docs/",
         },
         blog: false, // Blog disabled — docs-only site
         theme: {
@@ -86,12 +86,12 @@ const config: Config = {
         },
         // [EDIT BEFORE LIVE] Replace href with your actual app URL
         {
-          href: "https://YOUR_APP_URL.com",
+          href: "https://qr-digital-menu-ivory.vercel.app/",
           label: "Back to App",
           position: "right",
         },
         {
-          href: "https://github.com/YOUR_GITHUB_USERNAME/QR_Digital_Menu-main",
+          href: "https://github.com/renova69/QR_Digital_Menu-main",
           label: "GitHub",
           position: "right",
         },
@@ -120,8 +120,8 @@ const config: Config = {
           title: "Legal",
           items: [
             // [EDIT BEFORE LIVE] Replace with your actual domain
-            { label: "Terms of Service", href: "https://YOUR_APP_URL.com/terms" },
-            { label: "Privacy Policy", href: "https://YOUR_APP_URL.com/privacy" },
+            { label: "Terms of Service", href: "https://qr-digital-menu-ivory.vercel.app/terms" },
+            { label: "Privacy Policy", href: "https://qr-digital-menu-ivory.vercel.app/privacy" },
           ],
         },
       ],
