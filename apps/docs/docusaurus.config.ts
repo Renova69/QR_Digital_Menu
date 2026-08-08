@@ -22,13 +22,13 @@ const config: Config = {
   // [EDIT BEFORE LIVE] If deploying to GitHub Pages under a repo name (not a user/org root),
   // set this to '/<repo-name>/', e.g. '/QR_Digital_Menu-main/'
   // If using a custom domain (docs.yourdomain.com), set to '/'
-  baseUrl: "/QR_Digital_Menu-main/",
+  baseUrl: "/QR_Digital_Menu/",
 
   // [EDIT BEFORE LIVE] Your GitHub username / org name
   organizationName: "renova69",
 
   // [EDIT BEFORE LIVE] Your repository name
-  projectName: "QR_Digital_Menu-main",
+  projectName: "QR_Digital_Menu",
 
   // GitHub Pages uses the gh-pages branch by default
   deploymentBranch: "gh-pages",
@@ -50,7 +50,7 @@ const config: Config = {
           sidebarPath: "./sidebars.ts",
           routeBasePath: "/", // Docs at root path, no /docs/ prefix
           // [EDIT BEFORE LIVE] Replace with your own GitHub repo URL
-          editUrl: "https://github.com/renova69/QR_Digital_Menu-main/tree/main/apps/docs/",
+          editUrl: "https://github.com/renova69/QR_Digital_Menu/tree/main/apps/docs/",
         },
         blog: false, // Blog disabled — docs-only site
         theme: {
@@ -91,7 +91,7 @@ const config: Config = {
           position: "right",
         },
         {
-          href: "https://github.com/renova69/QR_Digital_Menu-main",
+          href: "https://github.com/renova69/QR_Digital_Menu",
           label: "GitHub",
           position: "right",
         },

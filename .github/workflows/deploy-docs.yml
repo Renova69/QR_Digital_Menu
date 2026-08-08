@@ -40,6 +40,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: apps/docs/build
+          publish_dir: ./apps/docs/build
           # [EDIT BEFORE LIVE] If using a custom domain, uncomment and set your domain:
           # cname: docs.yourdomain.com
