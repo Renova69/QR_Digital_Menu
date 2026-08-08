@@ -2,10 +2,11 @@ import React from "react";
 import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import logoUrl from "@site/static/img/renova-logo.png";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 export default function Home(): JSX.Element {
   const { siteConfig } = useDocusaurusContext();
+  const logoUrl = useBaseUrl("/img/renova-logo.png");
 
   return (
     <Layout

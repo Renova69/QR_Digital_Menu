@@ -14,6 +14,8 @@ Each table or service point has its own QR destination. Scanning it opens the pu
 2. Add or select a table, room, or pickup point.
 3. Open its QR-code action.
 4. Scan the preview to test the destination.
-5. Download the PNG or use the bulk-print view.
+5. Download the individual PNG. For tables, you can also use the bulk-print view.
+
+Rooms and pickup points support individual PNG downloads but are not included in the table bulk-print view.
 
 Do not manually edit a generated QR URL. Rename or update the service point in Renova, then generate a fresh asset if its destination changes.

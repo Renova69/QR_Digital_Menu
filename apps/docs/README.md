@@ -19,10 +19,13 @@ The development server runs at `http://localhost:3002`.
 ## Build
 
 ```bash
+npm run typecheck
 npm run build
 ```
 
-This command type-checks and generates static content in `build`.
+The first command checks the TypeScript configuration. The second validates internal links and generates the static site in `build`.
+
+The build uses Docusaurus's supported `--no-minify` mode because the default minifier is not reliable in the current toolchain. This trades a larger static bundle for deterministic local and CI builds.
 
 ## Vercel Deployment
 
