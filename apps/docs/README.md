@@ -21,9 +21,13 @@ The development server runs at `http://localhost:3002`.
 ```bash
 npm run typecheck
 npm run build
+npm run verify:deployment
 ```
 
-The first command checks the TypeScript configuration. The second validates internal links and generates the static site in `build`.
+The first command checks the TypeScript configuration. The second validates
+internal links and generates the static site in `build`. Run the third command
+from a full monorepo checkout to verify the frontend proxy, generated subpath
+routes, and Content Security Policy integration.
 
 The build uses Docusaurus's supported `--no-minify` mode because the default minifier is not reliable in the current toolchain. This trades a larger static bundle for deterministic local and CI builds.
 
