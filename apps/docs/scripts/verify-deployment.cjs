@@ -7,6 +7,9 @@ const repositoryRoot = path.resolve(__dirname, "../../..");
 const frontendVercelConfig = JSON.parse(
   fs.readFileSync(path.join(repositoryRoot, "vercel.json"), "utf8"),
 );
+const docsVercelConfig = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, "apps/docs/vercel.json"), "utf8"),
+);
 const docsHome = fs.readFileSync(
   path.join(repositoryRoot, "apps/docs/build/index.html"),
   "utf8",
@@ -50,6 +53,10 @@ assert(
 assert(
   fs.existsSync(path.join(repositoryRoot, "apps/docs/build/getting-started.html")),
   "The docs origin is missing the proxied getting-started route.",
+);
+assert(
+  docsVercelConfig.cleanUrls === true,
+  "The docs origin must serve generated .html files through extensionless URLs.",
 );
 
 const contentSecurityPolicy = frontendVercelConfig.headers

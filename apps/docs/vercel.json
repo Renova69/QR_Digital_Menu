@@ -3,5 +3,6 @@
   "installCommand": "npm install --production=false --prefix=../..",
   "buildCommand": "npm run build",
   "outputDirectory": "build",
+  "cleanUrls": true,
   "framework": "docusaurus-2"
 }
