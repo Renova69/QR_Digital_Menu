@@ -1,28 +1,20 @@
 ---
-title: Payments
+title: Guest Payments
 sidebar_label: Payments
+sidebar_position: 3
 ---
 
-# Payments
+# Guest Payments
 
-Renova supports integrated payment processing so guests can pay at the table directly from their phone.
+Available payment methods depend on the restaurant's enabled provider, currency, region, browser, and subscription features.
 
-## Supported Payment Methods
+Renova supports configured online-provider flows and a staff-confirmed cash flow. Stripe uses automatic payment methods, so the card and wallet options presented to a guest are determined by Stripe for that payment. Other configured providers may use their own hosted checkout.
 
-- Credit & Debit Cards (Visa, Mastercard, Amex)
-- Apple Pay & Google Pay
-- Cash (guest selects "Pay at counter" option)
+## Before Accepting Payments
 
-## How Payments Work
+1. Configure and verify the payment provider in restaurant settings.
+2. Test a complete payment using the provider's test environment where available.
+3. Confirm that successful payments create the expected order and appear in the payment dashboard.
+4. Test failed, cancelled, delayed, and cash-confirmation paths.
 
-1. At checkout, the guest selects their payment method.
-2. Card payments are processed securely via **Stripe** — fully PCI compliant.
-3. Upon successful payment, the order is automatically confirmed and sent to the kitchen.
-
-## Payouts
-
-Funds are deposited directly to your bank account on a rolling basis (typically 2–3 business days) via Stripe's payout schedule.
-
-:::info
-You must connect a Stripe account in **Dashboard → Billing** before accepting card payments.
-:::
+Payout timing and supported methods are controlled by the selected payment provider and merchant account.

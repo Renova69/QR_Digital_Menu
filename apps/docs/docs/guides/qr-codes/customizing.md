@@ -1,20 +1,19 @@
 ---
-title: Customizing QR Codes
-sidebar_label: Customizing
+title: QR Code Branding
+sidebar_label: Branding
+sidebar_position: 2
 ---
 
-# Customizing QR Codes
+# QR Code Branding
 
-You can customize the look of your QR codes to match your restaurant's brand.
+Renova applies your restaurant branding automatically:
 
-## Available Customizations
+- The QR foreground uses the restaurant accent color, or black when no accent is set.
+- The background remains white for contrast.
+- The restaurant logo is placed in the center when a logo is configured.
 
-- **Foreground color** — Change the QR code dots to match your brand color.
-- **Background color** — Set a custom background (white is recommended for maximum scan reliability).
-- **Logo overlay** — Add your restaurant logo to the center of the QR code.
-
-## Scan Reliability Warning
+Update the restaurant logo or accent color in your branding settings, then reopen or download the QR code to use the new appearance.
 
 :::caution
-Always test scannability after adding a logo or changing colors. Heavy customization can reduce scan success rates. We recommend keeping the foreground dark and the background light.
+Always scan every printed design before putting it into service. Very light accent colors can reduce contrast even though Renova preserves a white background and high error correction.
 :::

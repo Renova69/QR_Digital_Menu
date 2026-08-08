@@ -1,22 +1,19 @@
 ---
-title: Staff Roles & Permissions
-sidebar_label: Roles
+title: Staff Roles & Credentials
+sidebar_label: Roles & Credentials
+sidebar_position: 1
 ---
 
-# Staff Roles & Permissions
+# Staff Roles & Credentials
 
-Renova has three distinct staff roles, each with different levels of access.
+Renova separates privileged dashboard accounts from shared-device operational roles.
 
-## Role Summary
+| Role        | Credential model                  | Typical destination                    |
+| ----------- | --------------------------------- | -------------------------------------- |
+| **Owner**   | Email and password                | Full restaurant dashboard and billing  |
+| **Manager** | Email and password                | Dashboard configuration and operations |
+| **Staff**   | Email and password                | Limited dashboard operations           |
+| **Waiter**  | Numeric PIN on an enrolled device | Staff POS                              |
+| **Kitchen** | Numeric PIN on an enrolled device | Kitchen display                        |
 
-| Role | Dashboard | Menu Editor | POS | Kitchen | Staff Management | Billing |
-|---|---|---|---|---|---|---|
-| **Owner** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Manager** | ✅ | ✅ | ✅ | ✅ | ✅ (non-billing) | ❌ |
-| **Staff** | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-
-## Role Descriptions
-
-- **Owner** — Full access to everything, including billing and subscription management. Only one owner per restaurant.
-- **Manager** — Can manage the menu, staff, and operations but cannot change billing.
-- **Staff** — Limited to the POS and kitchen display. Suitable for waiters and kitchen staff.
+Exact access also depends on subscription features and server-side authorization. Assign the least-privileged role that matches the person's work, and never use a shared waiter or kitchen PIN for an owner or manager account.

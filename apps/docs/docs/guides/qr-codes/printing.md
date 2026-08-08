@@ -1,20 +1,20 @@
 ---
-title: Printing QR Codes
-sidebar_label: Printing
+title: Downloading and Printing QR Codes
+sidebar_label: Downloading & Printing
+sidebar_position: 3
 ---
 
-# Printing QR Codes
+# Downloading and Printing QR Codes
 
-## Download Options
+Renova provides two output paths:
 
-After generating, you can download QR codes as:
-- **PNG** — For digital use or quick printing on a regular printer.
-- **SVG** — High-resolution vector format, ideal for professional printing at any size.
-- **PDF Sheet** — All table QR codes arranged on a single printable sheet.
+- Download an individual QR code as a high-resolution PNG.
+- Open the bulk-print layout to arrange multiple table QR codes for browser printing. Your browser can also save this layout as a PDF.
 
-## Best Practices
+## Before Placement
 
-- Print at **minimum 3cm × 3cm** to ensure phones can scan reliably.
-- Laminate your QR codes to protect them from spills.
-- Place them at **eye level on the table** — table tents are the most effective format.
-- Test each code with multiple phones before deploying them on tables.
+- Keep the white quiet zone around the code intact.
+- Print large enough for the intended scanning distance.
+- Test with multiple phones and lighting conditions.
+- Replace damaged or low-contrast prints.
+- Verify that each physical code opens the correct table or service point.

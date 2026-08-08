@@ -1,0 +1,8 @@
+{
+  "label": "Online Ordering",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "Understand the guest ordering, checkout, and payment flow."
+  }
+}

@@ -1,22 +1,13 @@
 ---
 title: The Checkout Experience
 sidebar_label: Checkout
+sidebar_position: 2
 ---
 
 # The Checkout Experience
 
-## What Guests See
+Checkout shows the guest's cart, quantities, selected options, total, and the fields required by the restaurant's current ordering configuration.
 
-When a guest proceeds to checkout, they are shown:
-- A summary of all items in their cart.
-- A field for their name (used to call out the order).
-- Any applicable notes or special requests field.
-- The total price.
+Guests can review the destination attached to their QR session and add supported notes or special requests before submitting. Payment choices appear only when the restaurant has enabled and configured them.
 
-## Order Confirmation
-
-After submitting, the guest sees a confirmation screen with their order number. They can use this number to track the status of their order.
-
-## Special Requests
-
-Guests can add free-text notes to their entire order (e.g., "No onions on the burger"). These notes are visible to kitchen staff on the Kitchen Display.
+After submission, Renova shows the relevant order or payment confirmation state. Staff should test this complete flow after changing menu, ordering, or payment settings.

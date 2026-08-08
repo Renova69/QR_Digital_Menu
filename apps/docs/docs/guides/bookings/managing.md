@@ -1,25 +1,13 @@
 ---
 title: Managing Bookings
 sidebar_label: Managing
+sidebar_position: 2
 ---
 
 # Managing Bookings
 
-## Viewing Incoming Bookings
+Reservation operations show incoming bookings and their current status. Depending on the current state, authorized staff can confirm, decline, mark arrival, complete, cancel, or record a no-show.
 
-All bookings appear in **Dashboard → Bookings** in a calendar or list view.
+When manual confirmation is enabled, review the requested date, time, party size, contact details, and notes before confirming or declining. Renova sends configured guest notifications for supported status changes.
 
-## Confirming or Declining
-
-If auto-confirm is off, each booking requires manual review:
-- Click a booking to view the details.
-- Click **Confirm** or **Decline**.
-- The guest receives an email notification automatically.
-
-## Cancellations
-
-Guests can cancel their own booking via the link in their confirmation email (up to the cancellation deadline you set). You can also cancel a booking manually from your dashboard.
-
-## No-shows
-
-Mark a booking as a **No-show** to keep your records accurate. If a deposit was collected, you can choose to retain it.
+Guests can use the secure management link in their reservation communication to review supported actions. Keep restaurant service hours and capacity current so public availability remains accurate.

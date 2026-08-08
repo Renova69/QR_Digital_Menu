@@ -1,22 +1,15 @@
 ---
 title: Adding Menu Items
 sidebar_label: Adding Items
+sidebar_position: 2
 ---
 
 # Adding Menu Items
 
-## Steps
+1. Open **Dashboard → Menu Editor**.
+2. Select an existing category or create one.
+3. Add an item and enter its name, description, and price.
+4. Add an image and allergen information when applicable.
+5. Save the item, then preview the public menu.
 
-1. Go to your **Dashboard → Menu Editor**.
-2. Select or create a **category**.
-3. Click **Add Item**.
-4. Fill in the item name, description, and price.
-5. Upload an image (recommended: square, minimum 800×800px).
-6. Set allergen tags if applicable.
-7. Click **Save**.
-
-## Tips
-
-- Keep descriptions short and appetising — 1–2 sentences is ideal.
-- Always add a photo — items with images get significantly more clicks.
-- Use the **Available / Sold Out** toggle to hide items temporarily without deleting them.
+Use the availability control to temporarily hide a sold-out item without deleting it. Keep descriptions concise and verify prices before publishing.

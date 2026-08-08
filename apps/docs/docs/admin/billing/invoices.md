@@ -1,24 +1,21 @@
 ---
-title: Invoices & Receipts
+title: Invoices and Receipts
 sidebar_label: Invoices
+sidebar_position: 2
 ---
 
-# Invoices & Receipts
+# Invoices and Receipts
 
-All billing transactions are available in **Dashboard → Billing → Invoices**.
+Subscription invoices, receipts, and payment methods are managed through Stripe rather than an invoice screen inside Renova.
 
-## Downloading Invoices
+## Open the Billing Portal
 
-Click **Download PDF** next to any invoice to save a copy for your accounting records.
+1. Open **Dashboard → Billing**.
+2. Select **Manage Billing**.
+3. Review the documents and payment options available in the Stripe-hosted portal.
 
-## Invoice Details
+The exact documents and actions available depend on the Stripe customer and merchant configuration. If **Manage Billing** is not available, confirm that the restaurant has an active Stripe-backed subscription.
 
-Each invoice includes:
-- Invoice number and date
-- Subscription plan and billing period
-- Amount charged (excluding and including VAT)
-- Your registered business name and address (set in Settings)
+## Subscription Billing vs Customer Payments
 
-## Updating Billing Details
-
-To update your card or business details, go to **Dashboard → Billing → Payment Method**. Changes are handled securely through Stripe and take effect on your next billing cycle.
+The Billing page covers the restaurant's Renova subscription. Payments made by restaurant guests for orders are separate transactions and do not appear as Renova subscription invoices.

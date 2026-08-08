@@ -8,7 +8,8 @@
   "workspaces": [
     "apps/frontend",
     "apps/backend",
-    "apps/printer-agent"
+    "apps/printer-agent",
+    "apps/docs"
   ],
   "scripts": {
     "check:node": "node scripts/check-node-version.js",
@@ -19,7 +20,10 @@
     "predev:raw": "npm run check:node",
     "dev:raw": "turbo dev",
     "prebuild": "npm run check:node",
-    "build": "turbo build",
+    "build": "turbo build --filter=!@qr-menu/documentation",
+    "build:all": "turbo build",
+    "docs:dev": "npm run start --workspace @qr-menu/documentation",
+    "docs:build": "npm run build --workspace @qr-menu/documentation",
     "lint": "turbo lint",
     "test": "npm run test:node-version && npm run test --workspace apps/backend -- --runInBand && npm run test:run --workspace apps/frontend && npm run test:ci --workspace apps/printer-agent",
     "test:coverage": "npm run test:cov --workspace apps/backend && npm run test:cov --workspace apps/frontend && npm run test:cov --workspace apps/printer-agent",

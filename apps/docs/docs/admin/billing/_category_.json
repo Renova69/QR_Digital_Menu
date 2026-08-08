@@ -1,0 +1,8 @@
+{
+  "label": "Billing & Subscription",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Manage plans, payment details, and subscription invoices."
+  }
+}

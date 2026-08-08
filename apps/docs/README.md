@@ -1,6 +1,6 @@
-# Website
+# Renova Documentation
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+The public product documentation for Renova, built with Docusaurus and deployed as a separate Vercel project from `apps/docs`.
 
 ## Installation
 
@@ -8,15 +8,13 @@ This website is built using [Docusaurus](https://docusaurus.io/), a modern stati
 npm install
 ```
 
-**Note**: feel free to use the package manager of your choice.
-
 ## Local Development
 
 ```bash
 npm run start
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+The development server runs at `http://localhost:3002`.
 
 ## Build
 
@@ -24,20 +22,17 @@ This command starts a local development server and opens up a browser window. Mo
 npm run build
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+This command type-checks and generates static content in `build`.
 
-## Deployment
+## Vercel Deployment
 
-Using SSH:
+Create a separate Vercel project for this repository and set its **Root Directory** to `apps/docs`. The checked-in `vercel.json` supplies the framework, build command, and output directory.
 
-```bash
-USE_SSH=true npm run deploy
-```
+Production URL: <https://qr-digital-menu-docs.vercel.app>
 
-Not using SSH:
+From the monorepo root, the equivalent commands are:
 
 ```bash
-GIT_USER=<Your GitHub username> npm run deploy
+npm run docs:dev
+npm run docs:build
 ```
-
-If you are using GitHub Pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.

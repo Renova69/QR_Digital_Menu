@@ -1,25 +1,13 @@
 ---
 title: POS System Overview
 sidebar_label: Overview
+sidebar_position: 1
 ---
 
 # POS System Overview
 
-The Renova POS (Point of Sale) system gives your front-of-house staff a dedicated tablet or desktop interface to manage orders in real time.
+The staff POS at `/staff/pos` supports table operations, order entry, and payment workflows on a tablet or desktop.
 
-## Accessing the POS
+Owners, managers, staff, and authorized device roles can reach operational screens according to their role and enabled subscription features. Waiter devices default to the POS, while kitchen devices default to the kitchen display.
 
-Navigate to **`/staff/pos`** or tap the **POS** shortcut from your dashboard. Staff must have the **Staff** or **Manager** role to access.
-
-## What the POS Shows
-
-- All active orders grouped by table
-- Order status (Pending → Preparing → Ready → Completed)
-- Item details and special requests
-- The ability to update order status or add new manual orders
-
-## Use Cases
-
-- Taking orders from guests who prefer to order verbally
-- Monitoring the status of all tables at a glance
-- Coordinating between front-of-house and kitchen
+Use the POS to select a table, create orders, review active work, and start supported payment flows. Keep staff sessions individual so actions can be attributed correctly.

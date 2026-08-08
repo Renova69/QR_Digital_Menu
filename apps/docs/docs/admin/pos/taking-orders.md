@@ -1,26 +1,17 @@
 ---
 title: Taking Orders via POS
 sidebar_label: Taking Orders
+sidebar_position: 2
 ---
 
 # Taking Orders via POS
 
-## Manual Order Entry
+1. Open `/staff/pos` on an authorized staff device.
+2. Select the relevant table or service point.
+3. Add menu items, quantities, options, and supported notes.
+4. Review the order and submit it.
+5. Confirm that it appears in the appropriate operational view.
 
-Staff can place orders on behalf of guests directly in the POS:
+Order-status actions follow the restaurant workflow and the permissions of the signed-in role. Payment tools can support full, partial, or itemized settlement when the corresponding features and provider are enabled.
 
-1. Open the POS at `/staff/pos`.
-2. Select the table number.
-3. Browse the menu and add items.
-4. Add any special instructions.
-5. Click **Place Order**.
-
-The order is immediately sent to the Kitchen Display.
-
-## Modifying an Order
-
-Existing orders can be modified before they enter the **Preparing** state. Once a kitchen acknowledges an item, it cannot be edited without cancelling the order.
-
-## Splitting Bills
-
-Use the **Split Bill** button on any table to divide items between multiple payment transactions.
+Do not create a second order merely because a network response is slow. Check the table and order history before retrying.

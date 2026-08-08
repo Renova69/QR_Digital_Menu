@@ -2,10 +2,6 @@ import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TODO [EDIT BEFORE LIVE]: Replace the values marked below with your own info.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const config: Config = {
   title: "Renova Docs",
   tagline: "Everything you need to know about the Renova platform.",
@@ -15,27 +11,19 @@ const config: Config = {
     v4: true,
   },
 
-  // [EDIT BEFORE LIVE] Set to your custom docs domain, e.g. https://docs.yourdomain.com
-  // or your GitHub Pages URL, e.g. https://YOUR_GITHUB_USERNAME.github.io
-  url: "https://renova69.github.io",
-
-  // [EDIT BEFORE LIVE] If deploying to GitHub Pages under a repo name (not a user/org root),
-  // set this to '/<repo-name>/', e.g. '/QR_Digital_Menu-main/'
-  // If using a custom domain (docs.yourdomain.com), set to '/'
+  url: "https://qr-digital-menu-docs.vercel.app",
   baseUrl: "/",
-
-  // [EDIT BEFORE LIVE] Your GitHub username / org name
   organizationName: "renova69",
-
-  // [EDIT BEFORE LIVE] Your repository name
   projectName: "QR_Digital_Menu",
-
-  // GitHub Pages uses the gh-pages branch by default
-  deploymentBranch: "gh-pages",
   trailingSlash: false,
 
-  onBrokenLinks: "warn",
-  onBrokenMarkdownLinks: "warn",
+  onBrokenLinks: "throw",
+
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "throw",
+    },
+  },
 
   i18n: {
     defaultLocale: "en",
@@ -48,7 +36,8 @@ const config: Config = {
       {
         docs: {
           sidebarPath: "./sidebars.ts",
-          editUrl: "https://github.com/renova69/QR_Digital_Menu/tree/main/apps/docs/",
+          editUrl:
+            "https://github.com/renova69/QR_Digital_Menu/tree/main/apps/docs/",
         },
         blog: false, // Blog disabled — docs-only site
         theme: {
@@ -59,6 +48,7 @@ const config: Config = {
   ],
 
   themeConfig: {
+    image: "img/renova-logo.png",
     colorMode: {
       defaultMode: "light",
       respectPrefersColorScheme: true,
@@ -67,7 +57,7 @@ const config: Config = {
       title: "Renova Docs",
       logo: {
         alt: "Renova Logo",
-        src: "img/logo.svg",
+        src: "img/renova-logo.png",
       },
       items: [
         {
@@ -82,7 +72,6 @@ const config: Config = {
           position: "left",
           label: "Admin",
         },
-        // [EDIT BEFORE LIVE] Replace href with your actual app URL
         {
           href: "https://qr-digital-menu-ivory.vercel.app/",
           label: "Back to App",
@@ -101,25 +90,30 @@ const config: Config = {
         {
           title: "Guides",
           items: [
-            { label: "Getting Started", to: "/getting-started" },
-            { label: "Digital Menu", to: "/guides/menu" },
-            { label: "QR Codes", to: "/guides/qr-codes" },
+            { label: "Getting Started", to: "/docs/getting-started" },
+            { label: "Digital Menu", to: "/docs/guides/menu/overview" },
+            { label: "QR Codes", to: "/docs/guides/qr-codes/generating" },
           ],
         },
         {
           title: "Restaurant Management",
           items: [
-            { label: "POS System", to: "/guides/pos" },
-            { label: "Bookings", to: "/guides/bookings" },
-            { label: "Staff & Roles", to: "/guides/staff" },
+            { label: "POS System", to: "/docs/admin/pos/overview" },
+            { label: "Bookings", to: "/docs/guides/bookings/setup" },
+            { label: "Staff & Roles", to: "/docs/admin/staff/roles" },
           ],
         },
         {
           title: "Legal",
           items: [
-            // [EDIT BEFORE LIVE] Replace with your actual domain
-            { label: "Terms of Service", href: "https://qr-digital-menu-ivory.vercel.app/terms" },
-            { label: "Privacy Policy", href: "https://qr-digital-menu-ivory.vercel.app/privacy" },
+            {
+              label: "Terms of Service",
+              href: "https://qr-digital-menu-ivory.vercel.app/terms",
+            },
+            {
+              label: "Privacy Policy",
+              href: "https://qr-digital-menu-ivory.vercel.app/privacy",
+            },
           ],
         },
       ],

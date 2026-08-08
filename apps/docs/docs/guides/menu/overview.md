@@ -1,21 +1,24 @@
 ---
 title: Digital Menu Overview
 sidebar_label: Overview
+sidebar_position: 1
 ---
 
 # Digital Menu Overview
 
-Your digital menu is the heart of Renova. Guests scan your QR code and immediately see a fast, beautiful, mobile-friendly menu — no app download required.
+Guests open your mobile-friendly menu by scanning a table or service-point QR code. No app installation is required.
 
-## Key Features
+## Core Capabilities
 
-- **Categories** — Organize items into sections (Starters, Mains, Desserts, Drinks, etc.)
-- **Item Details** — Add descriptions, prices, images, and allergen information.
-- **Availability** — Mark items as sold out instantly from your dashboard.
-- **Multi-language** — Menus support multiple languages for international guests.
+- Organize items into visible, ordered categories.
+- Add names, descriptions, prices, images, and allergen information.
+- Mark items unavailable without deleting them.
+- Present translated menu content when translations are configured.
+- Apply restaurant branding to the public menu.
 
 ## Next Steps
 
-- [Adding Menu Items](./adding-items)
-- [Managing Categories](./categories)
-- [Uploading Images](./images)
+- [Add menu items](./adding-items)
+- [Manage categories](./categories)
+- [Upload images](./images)
+- [Maintain allergen information](./allergens)

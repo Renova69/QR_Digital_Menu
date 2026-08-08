@@ -1,21 +1,19 @@
 ---
 title: Generating QR Codes
 sidebar_label: Generating
+sidebar_position: 1
 ---
 
 # Generating QR Codes
 
-Each table in your restaurant gets its own unique QR code. When scanned, it opens your digital menu and automatically tags all orders from that table.
+Each table or service point has its own QR destination. Scanning it opens the public menu with that location attached to the guest session.
 
-## How to Generate
+## Create a QR Code
 
-1. Go to **Dashboard → QR Codes**.
-2. Click **Generate QR Codes**.
-3. Enter the number of tables you want to create codes for.
-4. Click **Generate**.
+1. Open **Dashboard → Tables & QR Codes**.
+2. Add or select a table, room, or pickup point.
+3. Open its QR-code action.
+4. Scan the preview to test the destination.
+5. Download the PNG or use the bulk-print view.
 
-Your QR codes are instantly created and ready to download.
-
-## Table Numbers
-
-Each QR code encodes a table number. Orders that come in through a QR code automatically include the table number so your staff knows exactly where to deliver.
+Do not manually edit a generated QR URL. Rename or update the service point in Renova, then generate a fresh asset if its destination changes.

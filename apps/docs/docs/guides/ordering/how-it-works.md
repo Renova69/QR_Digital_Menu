@@ -1,22 +1,19 @@
 ---
 title: How Online Ordering Works
-sidebar_label: How it Works
+sidebar_label: How It Works
+sidebar_position: 1
 ---
 
 # How Online Ordering Works
 
-Renova enables guests to browse your menu, add items to a cart, and submit orders directly from their phone — no app download required.
+When ordering is enabled for the restaurant and service point, guests can submit orders from the public menu without installing an app.
 
 ## Guest Flow
 
-1. Guest scans the QR code on their table.
-2. The digital menu opens instantly in their browser.
-3. They browse categories, tap items to see details, and add to cart.
-4. They proceed to checkout, enter their name, and confirm the order.
-5. The order appears instantly on your **POS / Kitchen Display**.
+1. The guest scans a QR code.
+2. Renova opens the menu and associates the session with the service point.
+3. The guest chooses items and options, then reviews the cart.
+4. The guest completes the available checkout or payment flow.
+5. Eligible orders appear in the restaurant's operational views in real time.
 
-## Order Notifications
-
-Your staff receive real-time notifications for every new order. Orders can be viewed in:
-- The **POS System** (front-of-house)
-- The **Kitchen Display** (back-of-house)
+Staff can follow order progress in the dashboard, POS, or kitchen display according to their role and enabled features.

@@ -1,20 +1,21 @@
 ---
 title: Subscription Plans
 sidebar_label: Plans
+sidebar_position: 1
 ---
 
 # Subscription Plans
 
-Renova is a subscription-based service. You can view your current plan and available plans in **Dashboard → Billing**.
+View your restaurant's current or effective subscription tier in **Dashboard → Billing**. The features shown in the app depend on that subscription state.
 
-## Changing Plans
+## Starting a Plan
 
-1. Go to **Dashboard → Billing → Change Plan**.
-2. Select your new plan.
-3. Confirm the change.
+When the Billing page offers a plan, select it to begin checkout. Payment and subscription confirmation are handled securely by the configured billing provider.
 
-Upgrades take effect immediately. Downgrades take effect at the end of your current billing cycle.
+Do not close the checkout window until it confirms completion. Return to **Dashboard → Billing** afterward to verify the subscription state.
 
-## Free Trial
+## Managing an Active Subscription
 
-New accounts include a free trial period. No credit card is required to start. You will be prompted to add payment details when your trial ends.
+For an active Stripe subscription, choose **Manage Billing** to open the Stripe-hosted customer portal. Depending on the options enabled for the account, the portal can let you change or cancel the subscription and update its payment method.
+
+The timing of plan changes and cancellations is determined by the subscription state and the billing provider. Treat the status shown in Renova and the confirmation shown by Stripe as authoritative.

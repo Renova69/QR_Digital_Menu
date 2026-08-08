@@ -1,31 +1,23 @@
 ---
 title: Collecting Customer Feedback
 sidebar_label: Collecting Feedback
+sidebar_position: 1
 ---
 
 # Collecting Customer Feedback
 
-Renova automatically invites guests to leave feedback after their visit, helping you understand what's working and what to improve.
+Eligible guests are prompted for feedback on the payment-confirmation screen after Renova verifies the payment and the related orders have reached the required served state.
 
-## How It Works
+## Guest Experience
 
-After an order is marked as completed, guests receive a link to a short feedback form.
+The feedback card contains:
 
-## The Feedback Form
+- One overall star rating
+- An optional free-text comment
+- An optional link to the restaurant's configured Google review page after submission
 
-Guests rate their experience on:
-- **Overall satisfaction** (star rating)
-- **Food quality**
-- **Service speed**
-- **Free-text comment** (optional)
+The prompt is tied to a verified visit and is not sent as a separate email invitation.
 
-## Viewing Feedback
+## Review Responses
 
-All responses appear in **Dashboard → Feedback** with:
-- Average scores over time
-- Individual responses with timestamps
-- Filtering by date range and rating
-
-:::tip
-Respond to negative feedback quickly. Guests who feel heard are more likely to return.
-:::
+Authorized dashboard users can review feedback entries and summary metrics. Use date and rating filters where available, and investigate recurring operational themes rather than relying on a single response.

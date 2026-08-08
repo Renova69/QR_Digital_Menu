@@ -1,26 +1,20 @@
 ---
 title: Restaurant Settings
 sidebar_label: Settings
+sidebar_position: 2
 ---
 
 # Restaurant Settings
 
-Access via **Dashboard → Settings**.
+Restaurant settings provide the source information used by the public menu and optional modules.
 
-## General Settings
+## Common Configuration
 
-- **Restaurant name** — Shown on your digital menu and booking page.
-- **Logo** — Displayed at the top of your menu.
-- **Address & contact details** — Shown to guests on the menu footer.
-- **Currency** — The currency used on all prices and receipts.
+- Restaurant name, contact details, address, currency, and timezone
+- Logo, accent color, fonts, and public-menu appearance
+- Menu and ordering behavior
+- Payment-provider credentials and availability
+- Reservation hours, capacity, and notifications
+- Staff devices and printer stations
 
-## Opening Hours
-
-Set your regular opening hours. Guests will see these on your booking page and menu.
-
-## Notifications
-
-Configure where order notifications are sent:
-- **In-app** — Always on.
-- **Email** — Optional, sends a copy of each order to your email.
-- **Printer** — If you have the Renova printer agent installed, orders print automatically.
+Changes can affect public guest flows immediately. Preview the menu and test QR, ordering, payment, reservation, and printing workflows after changing operational settings.

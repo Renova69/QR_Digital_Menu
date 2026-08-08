@@ -5,10 +5,8 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start --port 3002",
-    "build": "docusaurus build",
+    "build": "docusaurus build --no-minify",
     "swizzle": "docusaurus swizzle",
-    "deploy:gh": "docusaurus deploy",
-    "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",

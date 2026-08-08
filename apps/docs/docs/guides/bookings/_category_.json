@@ -1,0 +1,8 @@
+{
+  "label": "Bookings & Reservations",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Configure availability and manage reservation requests."
+  }
+}

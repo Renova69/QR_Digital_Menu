@@ -1,27 +1,23 @@
 ---
 title: Setting Up Bookings
 sidebar_label: Setup
+sidebar_position: 1
 ---
 
 # Setting Up Bookings
 
-Renova's booking system lets guests reserve a table online, reducing phone calls and no-shows.
+Renova can expose a public reservation page at `/book/[restaurant-id]` when reservations are enabled.
 
-## Enabling Bookings
+## Configure Availability
 
-1. Go to **Dashboard → Settings → Bookings**.
-2. Toggle **Enable Online Bookings** on.
-3. Configure your opening hours and table capacity.
-4. Set the minimum advance booking time (e.g., 1 hour before arrival).
-5. Save.
+In the dashboard's reservation settings, configure the options your venue needs:
 
-Your booking page is now live at `yourdomain.com/book/[restaurant-id]`.
+- Service hours and booking interval
+- Minimum lead time and booking horizon
+- Maximum guests and optional per-slot capacity
+- Standard and large-party dining duration
+- Automatic or manual confirmation
+- Required guest phone number and optional booking preferences
+- Restaurant notification email or phone
 
-## Booking Settings
-
-| Setting | Description |
-|---|---|
-| Max party size | Largest group size guests can book for |
-| Advance notice | Minimum time before a booking can be made |
-| Auto-confirm | Automatically confirm bookings without manual approval |
-| Deposit required | (Optional) Require a card deposit to hold the reservation |
+Save the settings, open the public booking page, and make a test reservation before sharing the link.

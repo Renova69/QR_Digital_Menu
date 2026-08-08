@@ -1,24 +1,13 @@
 ---
 title: Kitchen Display
 sidebar_label: Kitchen Display
+sidebar_position: 3
 ---
 
 # Kitchen Display
 
-The Kitchen Display System (KDS) is a dedicated view designed for kitchen screens or tablets.
+The kitchen display at `/staff/kitchen` is designed for a shared kitchen screen or tablet. Kitchen-role devices are directed to this view after authentication.
 
-## Accessing the Kitchen Display
+Active orders are grouped into **New**, **In Progress**, and **Ready** columns. Advancing an order moves it through `NEW → IN_PROGRESS → SERVED → COMPLETED`. Cards include the available table, item, and request details.
 
-Navigate to **`/staff/kitchen`**. This page is optimized for display on a mounted screen.
-
-## How It Works
-
-- Orders appear as cards the moment a guest submits them.
-- Each card shows the table number, items, and any special instructions.
-- Staff tap an order card to mark it as **Preparing**, then **Ready**.
-- When an order is marked **Ready**, the front-of-house POS is notified.
-
-## Display Settings
-
-- **Sort by:** Arrival time (default) or priority
-- **Auto-dismiss:** Cards automatically archive after being marked complete for X minutes (configurable in settings)
+Completed orders leave the active board and remain available in the built-in history for 24 hours. Failed status updates stay visible so staff can retry instead of silently losing the action.

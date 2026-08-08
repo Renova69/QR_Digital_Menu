@@ -1,23 +1,21 @@
 ---
-title: Inviting Staff Members
-sidebar_label: Inviting Staff
+title: Creating Staff Access
+sidebar_label: Creating Staff Access
+sidebar_position: 2
 ---
 
-# Inviting Staff Members
+# Creating Staff Access
 
-## How to Invite
+Renova creates staff access directly; it does not currently use a pending email-invitation workflow.
 
-1. Go to **Dashboard → Staff**.
-2. Click **Invite Staff Member**.
-3. Enter their email address and select their role (Manager or Staff).
-4. Click **Send Invite**.
+## Create a Staff Member
 
-The invited person receives an email with a link to create their account and join your restaurant.
+1. Open the staff section in dashboard settings.
+2. Enter the person's name and choose an allowed role.
+3. Provide an email address for dashboard roles when required.
+4. Create the staff member.
+5. Securely share the temporary password or PIN shown in the result dialog.
 
-## Pending Invitations
+Waiter and kitchen roles use a PIN. When shared-device enrollment is enabled, Renova can also show a short-lived enrollment QR code for the device. Staff and manager roles receive a temporary password for email sign-in.
 
-Invites that have been sent but not yet accepted appear under **Pending Invitations**. You can cancel or resend invitations from this list.
-
-## Removing Staff
-
-Click the **Remove** button next to any active staff member to immediately revoke their access. This does not delete their Renova account — it only removes them from your restaurant.
+Review access whenever responsibilities change. Remove or deactivate access promptly when a staff member no longer needs it, and regenerate credentials if they may have been exposed.

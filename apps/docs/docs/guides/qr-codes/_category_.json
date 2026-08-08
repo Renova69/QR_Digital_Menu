@@ -1,0 +1,8 @@
+{
+  "label": "QR Codes",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "Generate, brand, download, and print QR codes for service points."
+  }
+}
