@@ -114,6 +114,30 @@ Invoke-Native -Description "Build" -Command {
     & $GCLOUD builds submit --project=$PROJECT --tag=$IMAGE $SRC
 }
 
+# --- 2b. Migrate once, here, rather than once per container -----------------
+# The image no longer runs `prisma migrate deploy` at start-up (see the CMD
+# comment in apps/backend/Dockerfile). Running it here means exactly one
+# migration process per deploy instead of one per instance, so there is nothing
+# to serialise and Prisma's advisory lock has no contention to arbitrate.
+#
+# This uses DIRECT_URL from apps/backend/.env -- the unpooled Neon endpoint --
+# because migrations need a real session. Ordering is deliberate: after the
+# build, so a broken build cannot leave a migrated database behind, and before
+# the deploy, so the schema is always at or ahead of the code. Migrations here
+# are additive-only, which is what makes "schema ahead of code" safe.
+#
+# A failure aborts before any new revision exists, leaving $previousRevision
+# serving untouched.
+Write-Host "==> Applying database migrations..."
+Push-Location (Join-Path $PSScriptRoot $SRC)
+try {
+    Invoke-Native -Description "Database migration" -Command {
+        & npx prisma migrate deploy
+    }
+} finally {
+    Pop-Location
+}
+
 # --- 3. Deploy with no traffic -- the new revision exists but serves nobody
 Write-Host "==> Deploying new revision (no traffic yet)..."
 # --update-secrets, never --set-secrets: the latter replaces the service's

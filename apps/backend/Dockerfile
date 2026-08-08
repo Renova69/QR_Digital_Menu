@@ -39,11 +39,23 @@ USER node
 
 EXPOSE 3000
 
-# Run pending migrations before starting the server (Issue 48).
-# Requires DATABASE_URL to be set via Secret Manager at runtime.
-# Fail fast if the migration command blocks during DB cold start/network issues.
-ENV PRISMA_MIGRATE_TIMEOUT_SECONDS=60
-# NOTE: Before first use, baseline the prod DB:
-#   npx prisma migrate resolve --applied 20260611000000_schema_safety_constraints
-# Then verify clean: npx prisma migrate status
-CMD ["sh", "-c", "timeout --foreground \"${PRISMA_MIGRATE_TIMEOUT_SECONDS:-60}s\" node_modules/.bin/prisma migrate deploy && node dist/main"]
+# Migrations deliberately do NOT run here. They used to (Issue 48), chained as
+# `prisma migrate deploy && node dist/main`, which meant every container start
+# raced every other one: maxScale is 3, so three instances could apply the same
+# migration at once. Prisma's own guard against that is a session-scoped
+# advisory lock, which cannot work through PgBouncer transaction pooling, so it
+# had been switched off with PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 — leaving no
+# protection at all. Re-enabling the lock would only have traded the race for a
+# new failure: a second instance blocking on the lock past the 60s timeout got
+# killed, and the `&&` then stopped it from ever serving.
+#
+# deploy.ps1 now runs `prisma migrate deploy` exactly once per deploy, over the
+# unpooled DIRECT_URL where the advisory lock genuinely works, and aborts the
+# deploy if it fails. One run per deploy instead of one per instance removes
+# the contention rather than arbitrating it.
+#
+# Trade-off worth knowing: a container started outside deploy.ps1 no longer
+# self-heals its schema. Migrations are additive-only here, so an older
+# revision keeps working against a newer schema, but a fresh environment must
+# be migrated explicitly before its first boot.
+CMD ["node", "dist/main"]
