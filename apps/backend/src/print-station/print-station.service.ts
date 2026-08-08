@@ -7,7 +7,8 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
 import { createHash, randomBytes } from 'crypto';
@@ -415,7 +416,7 @@ export class PrintStationService {
     }
   }
 
-  @Cron(CronExpression.EVERY_MINUTE, {
+  @Cron(CRON_EVERY_MINUTE.PRINT_RECONCILE_MISSING_JOBS, {
     name: 'reconcileMissingOrderPrintJobs',
     waitForCompletion: true,
   })
@@ -495,7 +496,10 @@ export class PrintStationService {
     }
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CRON_EVERY_MINUTE.PRINT_RETRY_STUCK_JOBS, {
+    name: 'retryStuckPrintJobs',
+    waitForCompletion: true,
+  })
   async retryStuckPrintJobs(): Promise<void> {
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
     const wallClockThreshold = new Date(

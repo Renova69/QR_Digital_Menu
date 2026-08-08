@@ -7,7 +7,10 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../../common/cron-monitor';
+import { CRON_EVERY_10_MINUTES } from '../../common/cron-schedules';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsGateway } from '../../events/events.gateway';
 import { FeatureService } from '../../subscription/feature.service';
@@ -1018,7 +1021,19 @@ export class StripeCheckoutService {
    * authoritative outcome of anything stuck longer than a normal async refund
    * should take.
    */
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  // @Cron must stay above @SentryCron — see notification-delivery.service.ts.
+  @Cron(CRON_EVERY_10_MINUTES.STRIPE_RECONCILE_PENDING_REFUNDS, {
+    name: 'stripeReconcilePendingRefunds',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'stripe-reconcile-pending-refunds',
+    cronMonitor(CRON_EVERY_10_MINUTES.STRIPE_RECONCILE_PENDING_REFUNDS, {
+      maxRuntimeMinutes: 8,
+      checkinMarginMinutes: 3,
+      failureIssueThreshold: 2,
+    }),
+  )
   async reconcilePendingRefunds(): Promise<void> {
     const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
     const stuck = await this.prisma.refundAttempt.findMany({
@@ -1223,7 +1238,19 @@ export class StripeCheckoutService {
    * Reconciliation cron for stuck PENDING Stripe payments — recovers money from
    * lost webhooks and frees sessions whose checkout was abandoned.
    */
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  // @Cron must stay above @SentryCron — see notification-delivery.service.ts.
+  @Cron(CRON_EVERY_10_MINUTES.STRIPE_RECONCILE_PENDING_PAYMENTS, {
+    name: 'stripeReconcilePendingPayments',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'stripe-reconcile-pending-payments',
+    cronMonitor(CRON_EVERY_10_MINUTES.STRIPE_RECONCILE_PENDING_PAYMENTS, {
+      maxRuntimeMinutes: 8,
+      checkinMarginMinutes: 3,
+      failureIssueThreshold: 2,
+    }),
+  )
   async reconcilePendingPayments(): Promise<void> {
     const STALE_MINUTES = 15;
     const staleBefore = new Date(Date.now() - STALE_MINUTES * 60 * 1000);

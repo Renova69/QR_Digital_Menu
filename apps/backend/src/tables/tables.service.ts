@@ -6,7 +6,8 @@ import {
   Logger,
   ConflictException,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -38,7 +39,10 @@ export class TablesService {
     private readonly paymentProviderConfig: PaymentProviderConfigService,
   ) {}
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CRON_EVERY_MINUTE.TABLES_AUTO_CLOSE_PAID, {
+    name: 'tablesAutoClosePaidSessions',
+    waitForCompletion: true,
+  })
   async autoClosePaidSessions() {
     try {
       const cutoff = new Date(Date.now() - PAID_SESSION_AUTO_CLOSE_MS);

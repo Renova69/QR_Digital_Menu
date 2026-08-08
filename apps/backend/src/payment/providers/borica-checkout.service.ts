@@ -7,7 +7,10 @@ import {
   ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../../common/cron-monitor';
+import { CRON_EVERY_10_MINUTES } from '../../common/cron-schedules';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BoricaCardholderInfo, BoricaProvider } from '../borica.provider';
 import { PaymentCoreService } from '../core/payment-core.service';
@@ -102,10 +105,19 @@ export class BoricaCheckoutService {
     return ['-17', '-25', '-31'].includes((result.rc ?? '').trim());
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES, {
+  // @Cron must stay above @SentryCron — see notification-delivery.service.ts.
+  @Cron(CRON_EVERY_10_MINUTES.BORICA_PAYMENT_RECONCILIATION, {
     name: 'boricaPaymentReconciliation',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'borica-payment-reconciliation',
+    cronMonitor(CRON_EVERY_10_MINUTES.BORICA_PAYMENT_RECONCILIATION, {
+      maxRuntimeMinutes: 8,
+      checkinMarginMinutes: 3,
+      failureIssueThreshold: 2,
+    }),
+  )
   async reconcileBoricaPayments() {
     const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
     const reviewCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

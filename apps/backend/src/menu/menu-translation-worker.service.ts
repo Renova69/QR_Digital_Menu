@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import {
+  CRON_EVERY_10_MINUTES,
+  CRON_EVERY_MINUTE,
+} from '../common/cron-schedules';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuTranslationService } from './menu-translation.service';
 import { TranslationService } from '../translation/translation.service';
@@ -71,7 +75,7 @@ export class MenuTranslationWorkerService {
     return process.env.TRANSLATION_ENABLED === 'true';
   }
 
-  @Cron(CronExpression.EVERY_MINUTE, {
+  @Cron(CRON_EVERY_MINUTE.MENU_TRANSLATION_WORKER, {
     name: 'menuTranslationWorker',
     waitForCompletion: true,
   })
@@ -488,7 +492,7 @@ export class MenuTranslationWorkerService {
   /** PENDING rows whose claim never completed (process crash/restart mid-
    * batch) go back to STALE so they aren't stuck forever. Mirrors
    * print-station.service.ts's retryStuckPrintJobs convention. */
-  @Cron(CronExpression.EVERY_10_MINUTES, {
+  @Cron(CRON_EVERY_10_MINUTES.MENU_TRANSLATION_STUCK_RESET, {
     name: 'menuTranslationStuckReset',
     waitForCompletion: true,
   })

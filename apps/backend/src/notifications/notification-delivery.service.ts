@@ -5,14 +5,17 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import {
   NotificationChannel,
   type NotificationDelivery,
   NotificationDeliveryStatus,
   Prisma,
 } from '@prisma/client';
+import { SentryCron } from '@sentry/nestjs';
 import { createHash, randomUUID } from 'node:crypto';
+import { cronMonitor } from '../common/cron-monitor';
+import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   type DeliveryPayload,
@@ -23,6 +26,22 @@ import {
 
 const LEASE_DURATION_MS = 60_000;
 const MAX_DRAIN_BATCH = 50;
+
+/**
+ * Settling a claimed delivery is two or three small writes, but it competes
+ * for a connection pool shared with every other cron. Prisma's 5s default was
+ * being exhausted by contention rather than by the work itself (Sentry
+ * QR-MENU-BACKEND-8: "4999 ms passed" on a single `updateMany`), and a thrown
+ * settlement leaves the row PROCESSING until its lease expires — so the
+ * provider call is repeated even though it already succeeded. Prefer waiting
+ * over redoing side-effectful work.
+ *
+ * maxWait + timeout must stay comfortably below LEASE_DURATION_MS, since the
+ * provider call already consumed part of the lease before we get here — if the
+ * lease expires mid-settlement another worker reclaims the row and the
+ * `leaseToken` guard in the update silently matches nothing.
+ */
+const SETTLE_TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 } as const;
 
 type ClaimedDelivery = NotificationDelivery & {
   previousStatus: NotificationDeliveryStatus;
@@ -96,7 +115,31 @@ export class NotificationDeliveryService {
     return Promise.all(inputs.map((input) => this.enqueue(input)));
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  // waitForCompletion matters more here than anywhere else: a drain can make
+  // up to MAX_DRAIN_BATCH provider calls, each with network latency, so it can
+  // easily outrun its own one-minute interval. Without the guard, overlapping
+  // drains stack up and each one holds pool connections.
+  // @Cron must stay ABOVE @SentryCron. Decorators apply bottom-up, so
+  // SentryCron wraps the method first and @Cron then registers the wrapped
+  // version. Reversed, the scheduler would register the unwrapped method and
+  // no check-in would ever be sent — silently.
+  @Cron(CRON_EVERY_MINUTE.NOTIFICATION_DRAIN_DUE, {
+    name: 'notificationDrainDue',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'notification-drain-due',
+    cronMonitor(CRON_EVERY_MINUTE.NOTIFICATION_DRAIN_DUE, {
+      // A full batch is MAX_DRAIN_BATCH provider calls end to end, so a slow
+      // SMS/email provider can legitimately push one run past a few minutes.
+      maxRuntimeMinutes: 5,
+      // Skipped ticks are expected here — waitForCompletion drops a tick
+      // whenever the previous drain is still running — so only a sustained
+      // absence should open an issue.
+      checkinMarginMinutes: 2,
+      failureIssueThreshold: 5,
+    }),
+  )
   async drainDue(): Promise<number> {
     let processed = 0;
     while (processed < MAX_DRAIN_BATCH && (await this.processNext())) {
@@ -180,7 +223,7 @@ export class NotificationDeliveryService {
         if (updated.count === 1) {
           await this.completeSource(tx, claimed, now, 'accepted');
         }
-      });
+      }, SETTLE_TX_OPTIONS);
     } else {
       await this.settleFailure(claimed, now, result);
     }
@@ -227,7 +270,7 @@ export class NotificationDeliveryService {
       if (updated.count === 1 && !retry) {
         await this.completeSource(tx, claimed, now, 'failed');
       }
-    });
+    }, SETTLE_TX_OPTIONS);
   }
 
   private async completeSource(
