@@ -1,7 +1,7 @@
 {
   "buildCommand": "npx turbo build --filter=frontend",
   "outputDirectory": "apps/frontend/dist",
-  "installCommand": "npm install",
+  "installCommand": "npm install --production=false",
   "framework": "vite",
   "rewrites": [
     {
