@@ -342,12 +342,21 @@ New-MetricRule -Rule @{
 #    spans, measuring span.duration instead of transaction.duration. No
 #    eventTypes key -- that field belongs to the old error/transaction datasets
 #    and this dataset rejects it.
+#
+#    span.op:http.server is load-bearing. A bare `is_transaction:true` also
+#    matches Prisma's own root spans (prisma:client:operation,
+#    prisma:client:transaction), which are emitted by the background crons with
+#    no HTTP request behind them. Those ran 10-28s during the 2026-08-07 pool
+#    contention and dominated the percentile, so the rule fired on cron DB time
+#    (6.2s evaluated) while the only real endpoint in the window served in 55ms.
+#    Keep this scoped to server requests -- cron health belongs in the error
+#    rules, not in a user-facing latency SLO.
 New-MetricRule -Rule @{
   name             = 'Backend: p95 latency > 3s'
   projects         = @($Backend)
   environment      = $EnvName
   dataset          = 'events_analytics_platform'
-  query            = 'is_transaction:true'
+  query            = 'is_transaction:true span.op:http.server'
   aggregate        = 'p95(span.duration)'
   timeWindow       = 10                # minutes
   thresholdType    = 0
