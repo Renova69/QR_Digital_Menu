@@ -189,7 +189,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
                       required
                     />
                     <label htmlFor="terms" className="text-xs text-muted-foreground">
-                      By creating an account, you agree to our <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>.
+                      {t("auto.agreeToTermsPt1", "By creating an account, you agree to our ")}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{t("auto.agreeToTermsPt2", "Terms of Service")}</a>
+                      {t("auto.agreeToTermsPt3", " and ")}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{t("auto.agreeToTermsPt4", "Privacy Policy")}</a>.
                     </label>
                   </div>
                 )}

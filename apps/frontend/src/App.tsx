@@ -140,6 +140,15 @@ function App() {
                       <Route path="/" element={<HomePage />} />
                       <Route path="/pricing" element={<PricingPage />} />
                       <Route path="/about" element={<AboutPage />} />
+                      
+                      {/* Legal pages — public, no auth required */}
+                      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                      <Route path="/terms" element={<TermsPage />} />
+                      <Route path="/cookies" element={<CookiePolicyPage />} />
+                      <Route path="/dpa" element={<DpaPage />} />
+                      <Route path="/refund-policy" element={<RefundPolicyPage />} />
+                      <Route path="/msa" element={<MsaPage />} />
+
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route
@@ -260,15 +269,7 @@ function App() {
                       element={<ImpersonationExchangePage />}
                     />
 
-                    {/* Legal pages — public, no auth required */}
-                    <Route path="/privacy" element={<PrivacyPolicyPage />} />
-                    <Route path="/terms" element={<TermsPage />} />
-                    <Route path="/cookies" element={<CookiePolicyPage />} />
-                    <Route path="/dpa" element={<DpaPage />} />
-                    <Route path="/refund-policy" element={<RefundPolicyPage />} />
-                    <Route path="/msa" element={<MsaPage />} />
 
-                    {/* Customer-facing routes — no header, full viewport */}
                     <Route element={<PublicLayout />}>
                       <Route element={<RouteGroupErrorBoundary />}>
                         <Route

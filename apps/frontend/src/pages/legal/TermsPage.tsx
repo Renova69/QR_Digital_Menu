@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
 import { getPublicLegalSettings } from "../../lib/api";
 
 export default function TermsPage() {
@@ -36,13 +37,10 @@ export default function TermsPage() {
     "";
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold mb-6">
-        {t("auto.termsOfService", "Terms of Service")}
-      </h1>
-      <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-sans">
-        {content}
-      </pre>
+    <div className="max-w-2xl mx-auto px-4 pt-32 pb-12">
+      <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none">
+        <ReactMarkdown>{content}</ReactMarkdown>
+      </div>
       {data.dataControllerName && (
         <div className="mt-10 pt-6 border-t text-xs text-gray-500 space-y-1">
           <p>

@@ -1,0 +1,1 @@
+- [Vercel Autodeploys on Push](project_vercel_autodeploy.md) — frontend ships itself on `git push`; only backend needs deploy.ps1. Stop asking the user to deploy the frontend.
