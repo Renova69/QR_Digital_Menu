@@ -167,10 +167,18 @@ const TableView: React.FC = () => {
     },
   });
 
+  // The Tables tab itself is FREE-entitled (qr:manage), but this endpoint is
+  // not: GET /payments/sessions/:restaurantId is guarded by
+  // RequireFeature(PAYMENTS_STRIPE), i.e. PROFESSIONAL+. Without the
+  // entitlement check the query 403s on every FREE and STARTER tenant and,
+  // because of refetchInterval, keeps doing so every 30s for as long as the
+  // tab is open. Mirror the server-side flag exactly.
+  const canPayments = useFeature("payments:stripe");
+
   const { data: sessions } = useQuery({
     queryKey: ["tableSessions", restaurantId],
     queryFn: () => getTableSessions(restaurantId),
-    enabled: !!restaurantId,
+    enabled: !!restaurantId && canPayments,
     refetchInterval: 30000,
   });
 
