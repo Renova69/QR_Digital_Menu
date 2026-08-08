@@ -10,9 +10,13 @@ export function getBackendReadinessUrl(apiUrl = DEFAULT_API_URL) {
   return url.toString().replace(/\/$/, "");
 }
 
+// A cold `node dist/main` boot on a spinning disk spends most of its time in
+// module loading before any app code runs (measured: 69s on this repo's HDD),
+// so the wait has to outlast that or `npm run dev` kills a backend that was
+// only slow, not broken. Override with DEV_BACKEND_WAIT_TIMEOUT_MS.
 export async function waitForBackend({
   url,
-  timeoutMs = 180_000,
+  timeoutMs = 300_000,
   intervalMs = 500,
   requestTimeoutMs = 2_000,
   fetchImpl = globalThis.fetch,

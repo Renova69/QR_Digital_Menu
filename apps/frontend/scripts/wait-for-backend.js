@@ -13,7 +13,7 @@ if (env.DEV_WAIT_FOR_BACKEND === "false") {
   const timeoutMs =
     Number.isFinite(configuredTimeout) && configuredTimeout > 0
       ? configuredTimeout
-      : 180_000;
+      : 300_000;
 
   console.log(
     `[frontend:dev] Waiting for backend readiness at ${readinessUrl}...`,

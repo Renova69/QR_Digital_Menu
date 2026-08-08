@@ -7,10 +7,34 @@
 // apps/backend/src/auth/auth-runtime-policy.ts and 2998691e). The root
 // wrapper (scripts/dev-with-logs.js) already does this for `npm run dev`;
 // this mirrors that default for direct/standalone invocation.
+//
+// Uses nest-cli.dev.json rather than nest-cli.json so watch mode keeps
+// `deleteOutDir: false`: wiping and rewriting all 422 dist files on every
+// start is expensive on a spinning disk, and the rewrite churns the chokidar
+// watcher that nest uses to decide when to respawn the app. `nest build`
+// still reads nest-cli.json, so release builds stay clean + type-checked.
+// If a renamed or deleted source leaves a stale dist file behind, run
+// `npm run clean`.
 const { spawn } = require('node:child_process');
+const { existsSync } = require('node:fs');
+const { join } = require('node:path');
 
-const child = spawn('npx', ['nest', 'start', '--watch'], {
-  cwd: __dirname + '/..',
+const backendRoot = join(__dirname, '..');
+const devConfig = 'nest-cli.dev.json';
+
+// The Nest CLI silently falls back to its built-in defaults (builder: tsc)
+// when -c points at a missing file, which would swap SWC for a much slower
+// compiler without saying so. Fail loudly instead.
+if (!existsSync(join(backendRoot, devConfig))) {
+  console.error(
+    `[start:dev] Missing ${devConfig} in ${backendRoot} — refusing to start ` +
+      `because the Nest CLI would silently fall back to the tsc builder.`,
+  );
+  process.exit(1);
+}
+
+const child = spawn('npx', ['nest', 'start', '--watch', '-c', devConfig], {
+  cwd: backendRoot,
   shell: true,
   stdio: 'inherit',
   env: {
