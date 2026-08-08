@@ -13,13 +13,5 @@
       "persistent": true,
       "env": ["NODE_ENV"]
     }
-  },
-  "pipeline": {
-    "build": {
-      "filter": "!@qr-menu/documentation"
-    },
-    "dev": {
-      "filter": "!@qr-menu/documentation"
-    }
   }
 }
