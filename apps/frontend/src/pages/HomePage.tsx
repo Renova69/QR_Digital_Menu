@@ -1886,17 +1886,19 @@ const HomePage = () => {
               </h5>
               <div className="space-y-3">
                 {[
-                  { labelKey: "landing.footer.legal.privacy", to: "/privacy" },
-                  { labelKey: "landing.footer.legal.terms", to: "/terms" },
-                  { labelKey: "landing.footer.legal.cookies", to: "/cookies" },
-                  { labelKey: "landing.footer.legal.gdpr", to: "/privacy" },
+                  { label: t("landing.footer.legal.privacy", "Privacy"), to: "/privacy" },
+                  { label: t("landing.footer.legal.terms", "Terms"), to: "/terms" },
+                  { label: t("landing.footer.legal.cookies", "Cookies"), to: "/cookies" },
+                  { label: t("landing.footer.legal.dpa", "Data Processing Agreement"), to: "/dpa" },
+                  { label: t("landing.footer.legal.refund", "Refund Policy"), to: "/refund-policy" },
+                  { label: t("landing.footer.legal.msa", "Master Service Agreement"), to: "/msa" },
                 ].map((item) => (
                   <Link
-                    key={item.labelKey}
+                    key={item.to}
                     to={item.to}
                     className="block text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
-                    {t(item.labelKey)}
+                    {item.label}
                   </Link>
                 ))}
               </div>

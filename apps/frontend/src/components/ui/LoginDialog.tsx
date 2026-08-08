@@ -26,6 +26,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
   const [password, setPassword] = useState("");
   const [verificationPending, setVerificationPending] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const { login, register, verifyRegistration, isLoading, errorMessage } =
     useAuth();
 
@@ -37,6 +38,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
       } else if (verificationPending) {
         await verifyRegistration(email, password, verificationCode);
       } else {
+        if (!termsAccepted) return;
         const result = await register(email, password);
         if (result?.requiresVerification) {
           setVerificationPending(true);
@@ -176,6 +178,21 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
                     className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                   />
                 </div>
+                {!isLogin && (
+                  <div className="flex items-start gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-1"
+                      required
+                    />
+                    <label htmlFor="terms" className="text-xs text-muted-foreground">
+                      By creating an account, you agree to our <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>.
+                    </label>
+                  </div>
+                )}
               </>
             ) : (
               <div>
@@ -202,8 +219,8 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
             )}
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white brand-cta focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+              disabled={isLoading || (!isLogin && !verificationPending && !termsAccepted)}
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white brand-cta focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading
                 ? "..."

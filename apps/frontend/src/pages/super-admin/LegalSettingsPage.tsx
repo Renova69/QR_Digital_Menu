@@ -286,6 +286,24 @@ export default function LegalSettingsPage() {
           disabled={!gdprOn}
         />
         <ToggleRow
+          label="Data Processing Agreement (/dpa)"
+          checked={!!merged.dpaEnabled}
+          onChange={(v) => set("dpaEnabled", v)}
+          disabled={!gdprOn}
+        />
+        <ToggleRow
+          label="Refund Policy (/refund-policy)"
+          checked={!!merged.refundPolicyEnabled}
+          onChange={(v) => set("refundPolicyEnabled", v)}
+          disabled={!gdprOn}
+        />
+        <ToggleRow
+          label="Master Service Agreement (/msa)"
+          checked={!!merged.msaEnabled}
+          onChange={(v) => set("msaEnabled", v)}
+          disabled={!gdprOn}
+        />
+        <ToggleRow
           label={t(
             "auto.cookiePolicyPageCookies",
             "Cookie Policy page (/cookies)",
@@ -409,6 +427,24 @@ export default function LegalSettingsPage() {
             label={t("auto.termsOfServiceContent", "Terms of Service Content")}
             value={merged.termsContent as Record<string, string>}
             onChange={(v) => set("termsContent", v)}
+            disabled={!gdprOn}
+          />
+          <LocaleTextEditor
+            label="Data Processing Agreement (DPA) Content [EDIT BEFORE LIVE]"
+            value={merged.dpaContent as Record<string, string>}
+            onChange={(v) => set("dpaContent", v)}
+            disabled={!gdprOn}
+          />
+          <LocaleTextEditor
+            label="Refund Policy Content [EDIT BEFORE LIVE]"
+            value={merged.refundPolicyContent as Record<string, string>}
+            onChange={(v) => set("refundPolicyContent", v)}
+            disabled={!gdprOn}
+          />
+          <LocaleTextEditor
+            label="Master Service Agreement (MSA) Content [EDIT BEFORE LIVE]"
+            value={merged.msaContent as Record<string, string>}
+            onChange={(v) => set("msaContent", v)}
             disabled={!gdprOn}
           />
           <LocaleTextEditor

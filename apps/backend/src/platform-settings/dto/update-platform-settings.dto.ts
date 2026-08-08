@@ -40,6 +40,21 @@ export class UpdatePlatformSettingsDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
+  dpaEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  refundPolicyEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  msaEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
   erasureEndpointEnabled?: boolean;
 
   @ApiPropertyOptional()
@@ -90,6 +105,21 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @IsObject()
   cookiePolicyContent?: Record<string, string>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  dpaContent?: Record<string, string>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  refundPolicyContent?: Record<string, string>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  msaContent?: Record<string, string>;
 
   @ApiPropertyOptional()
   @IsOptional()

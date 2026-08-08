@@ -82,6 +82,9 @@ const ImpersonationExchangePage = lazy(
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicyPage"));
 const TermsPage = lazy(() => import("./pages/legal/TermsPage"));
 const CookiePolicyPage = lazy(() => import("./pages/legal/CookiePolicyPage"));
+const DpaPage = lazy(() => import("./pages/legal/DpaPage"));
+const RefundPolicyPage = lazy(() => import("./pages/legal/RefundPolicyPage"));
+const MsaPage = lazy(() => import("./pages/legal/MsaPage"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -261,6 +264,9 @@ function App() {
                     <Route path="/privacy" element={<PrivacyPolicyPage />} />
                     <Route path="/terms" element={<TermsPage />} />
                     <Route path="/cookies" element={<CookiePolicyPage />} />
+                    <Route path="/dpa" element={<DpaPage />} />
+                    <Route path="/refund-policy" element={<RefundPolicyPage />} />
+                    <Route path="/msa" element={<MsaPage />} />
 
                     {/* Customer-facing routes — no header, full viewport */}
                     <Route element={<PublicLayout />}>

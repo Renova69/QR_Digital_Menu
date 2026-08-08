@@ -1214,6 +1214,9 @@ model PlatformSettings {
   privacyPolicyEnabled      Boolean  @default(false)
   termsEnabled              Boolean  @default(false)
   cookiePolicyEnabled       Boolean  @default(false)
+  dpaEnabled                Boolean  @default(false)
+  refundPolicyEnabled       Boolean  @default(false)
+  msaEnabled                Boolean  @default(false)
   erasureEndpointEnabled    Boolean  @default(false)
   dataExportEndpointEnabled Boolean  @default(false)
   retentionCronEnabled      Boolean  @default(false)
@@ -1225,6 +1228,9 @@ model PlatformSettings {
   privacyPolicyContent      Json?
   termsContent              Json?
   cookiePolicyContent       Json?
+  dpaContent                Json?
+  refundPolicyContent       Json?
+  msaContent                Json?
   dataControllerName        String?
   dataControllerEmail       String?
   dataControllerAddress     String?
