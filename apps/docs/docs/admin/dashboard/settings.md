@@ -1,5 +1,4 @@
 ---
-id: settings
 title: Restaurant Settings
 sidebar_label: Settings
 ---

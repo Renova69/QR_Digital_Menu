@@ -1,5 +1,4 @@
 ---
-id: printing
 title: Printing QR Codes
 sidebar_label: Printing
 ---

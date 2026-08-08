@@ -1,5 +1,4 @@
 ---
-id: inviting
 title: Inviting Staff Members
 sidebar_label: Inviting Staff
 ---

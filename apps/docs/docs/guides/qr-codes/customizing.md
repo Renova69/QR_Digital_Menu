@@ -1,5 +1,4 @@
 ---
-id: customizing
 title: Customizing QR Codes
 sidebar_label: Customizing
 ---

@@ -1,5 +1,4 @@
 ---
-id: allergens
 title: Allergen Information
 sidebar_label: Allergens
 ---

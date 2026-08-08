@@ -1,5 +1,4 @@
 ---
-id: images
 title: Uploading Menu Images
 sidebar_label: Images
 ---

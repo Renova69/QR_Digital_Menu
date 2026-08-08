@@ -1,5 +1,4 @@
 ---
-id: generating
 title: Generating QR Codes
 sidebar_label: Generating
 ---

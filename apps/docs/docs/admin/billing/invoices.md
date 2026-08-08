@@ -1,5 +1,4 @@
 ---
-id: invoices
 title: Invoices & Receipts
 sidebar_label: Invoices
 ---

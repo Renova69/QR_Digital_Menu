@@ -1,5 +1,4 @@
 ---
-id: plans
 title: Subscription Plans
 sidebar_label: Plans
 ---

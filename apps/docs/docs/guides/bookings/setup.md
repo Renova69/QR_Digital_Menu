@@ -1,5 +1,4 @@
 ---
-id: setup
 title: Setting Up Bookings
 sidebar_label: Setup
 ---

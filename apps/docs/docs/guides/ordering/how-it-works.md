@@ -1,5 +1,4 @@
 ---
-id: how-it-works
 title: How Online Ordering Works
 sidebar_label: How it Works
 ---

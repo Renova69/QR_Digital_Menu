@@ -1,5 +1,4 @@
 ---
-id: categories
 title: Managing Categories
 sidebar_label: Categories
 ---

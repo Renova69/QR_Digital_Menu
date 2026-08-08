@@ -1,5 +1,4 @@
 ---
-id: roles
 title: Staff Roles & Permissions
 sidebar_label: Roles
 ---

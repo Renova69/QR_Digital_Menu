@@ -1,5 +1,4 @@
 ---
-id: collecting
 title: Collecting Customer Feedback
 sidebar_label: Collecting Feedback
 ---

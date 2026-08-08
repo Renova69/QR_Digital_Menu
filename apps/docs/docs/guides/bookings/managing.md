@@ -1,5 +1,4 @@
 ---
-id: managing
 title: Managing Bookings
 sidebar_label: Managing
 ---

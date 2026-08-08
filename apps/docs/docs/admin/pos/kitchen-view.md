@@ -1,5 +1,4 @@
 ---
-id: kitchen-view
 title: Kitchen Display
 sidebar_label: Kitchen Display
 ---

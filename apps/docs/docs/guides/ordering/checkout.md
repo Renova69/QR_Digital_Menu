@@ -1,5 +1,4 @@
 ---
-id: checkout
 title: The Checkout Experience
 sidebar_label: Checkout
 ---

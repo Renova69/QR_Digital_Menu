@@ -1,5 +1,4 @@
 ---
-id: overview
 title: Dashboard Overview
 sidebar_label: Overview
 ---

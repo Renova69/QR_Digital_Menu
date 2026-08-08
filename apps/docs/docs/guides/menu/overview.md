@@ -1,5 +1,4 @@
 ---
-id: overview
 title: Digital Menu Overview
 sidebar_label: Overview
 ---

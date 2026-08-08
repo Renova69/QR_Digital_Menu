@@ -1,5 +1,4 @@
 ---
-id: taking-orders
 title: Taking Orders via POS
 sidebar_label: Taking Orders
 ---

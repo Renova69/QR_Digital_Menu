@@ -1,5 +1,4 @@
 ---
-id: overview
 title: POS System Overview
 sidebar_label: Overview
 ---

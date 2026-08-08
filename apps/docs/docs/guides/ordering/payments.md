@@ -1,5 +1,4 @@
 ---
-id: payments
 title: Payments
 sidebar_label: Payments
 ---

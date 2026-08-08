@@ -1,5 +1,4 @@
 ---
-id: adding-items
 title: Adding Menu Items
 sidebar_label: Adding Items
 ---
