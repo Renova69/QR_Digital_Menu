@@ -83,11 +83,14 @@ const inlineScriptHashes = [
 ];
 
 assert(contentSecurityPolicy, "The frontend Content-Security-Policy is missing.");
-for (const hash of inlineScriptHashes) {
-  assert(
-    contentSecurityPolicy.includes(`'${hash}'`),
-    `The frontend CSP does not permit the Docusaurus inline script ${hash}.`,
-  );
-}
+const missingInlineScriptHashes = inlineScriptHashes.filter(
+  (hash) => !contentSecurityPolicy.includes(`'${hash}'`),
+);
+assert(
+  missingInlineScriptHashes.length === 0,
+  `The frontend CSP does not permit these Docusaurus inline scripts: ${missingInlineScriptHashes.join(
+    ", ",
+  )}.`,
+);
 
 console.log("Docs subpath, origin mapping, and CSP checks passed.");
