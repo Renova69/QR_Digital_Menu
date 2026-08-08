@@ -22,7 +22,7 @@ const config: Config = {
   // [EDIT BEFORE LIVE] If deploying to GitHub Pages under a repo name (not a user/org root),
   // set this to '/<repo-name>/', e.g. '/QR_Digital_Menu-main/'
   // If using a custom domain (docs.yourdomain.com), set to '/'
-  baseUrl: "/QR_Digital_Menu/",
+  baseUrl: "/",
 
   // [EDIT BEFORE LIVE] Your GitHub username / org name
   organizationName: "renova69",
