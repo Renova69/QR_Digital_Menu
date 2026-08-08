@@ -332,7 +332,10 @@ async function bootstrap() {
 
     // Establish the Prisma connection pool before accepting traffic so the
     // first requests after boot don't race an un-connected client (BUGS.md S2).
-    await app.get(PrismaService).$connect();
+    // Must go through connectWithRetry(): this runs before Nest's onModuleInit
+    // hooks, so it is the very first connection attempt, and a cold Neon
+    // compute can exhaust pool_timeout on it.
+    await app.get(PrismaService).connectWithRetry();
 
     const port = parseInt(process.env.PORT || '3000', 10);
     await app.listen(port, '0.0.0.0');

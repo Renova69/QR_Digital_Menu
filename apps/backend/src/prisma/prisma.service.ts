@@ -28,8 +28,32 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+  private connectPromise: Promise<void> | null = null;
 
   async onModuleInit() {
+    await this.connectWithRetry();
+  }
+
+  /**
+   * Connect with jittered backoff. Safe to call more than once — the first
+   * call's promise is reused, so `bootstrap()` and this service's own
+   * `onModuleInit` share a single attempt.
+   *
+   * Boot must never call a bare `$connect()`: Neon returns
+   * "Timed out fetching a new connection from the connection pool" on a cold
+   * compute, and an unretried failure there kills the process before it
+   * listens (dev log 2026-08-07 17:57; Sentry QR-MENU-BACKEND-3/5/6/7).
+   */
+  connectWithRetry(): Promise<void> {
+    this.connectPromise ??= this.runConnectWithRetry().catch((error) => {
+      // Don't cache a rejected attempt — a later caller may still succeed.
+      this.connectPromise = null;
+      throw error;
+    });
+    return this.connectPromise;
+  }
+
+  private async runConnectWithRetry(): Promise<void> {
     const isDev = process.env.NODE_ENV !== 'production';
     const maxRetries = isDev ? 8 : 15;
     const baseMs = isDev ? 200 : 1_000;
