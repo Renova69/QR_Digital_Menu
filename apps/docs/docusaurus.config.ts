@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: "https://qr-digital-menu-docs.vercel.app",
-  baseUrl: "/",
+  url: "https://qr-digital-menu-ivory.vercel.app",
+  baseUrl: "/docs/",
   organizationName: "renova69",
   projectName: "QR_Digital_Menu",
   trailingSlash: false,
@@ -35,6 +35,7 @@ const config: Config = {
       "classic",
       {
         docs: {
+          routeBasePath: "/",
           sidebarPath: "./sidebars.ts",
           editUrl:
             "https://github.com/renova69/QR_Digital_Menu/tree/main/apps/docs/",
@@ -90,17 +91,17 @@ const config: Config = {
         {
           title: "Guides",
           items: [
-            { label: "Getting Started", to: "/docs/getting-started" },
-            { label: "Digital Menu", to: "/docs/guides/menu/overview" },
-            { label: "QR Codes", to: "/docs/guides/qr-codes/generating" },
+            { label: "Getting Started", to: "/getting-started" },
+            { label: "Digital Menu", to: "/guides/menu/overview" },
+            { label: "QR Codes", to: "/guides/qr-codes/generating" },
           ],
         },
         {
           title: "Restaurant Management",
           items: [
-            { label: "POS System", to: "/docs/admin/pos/overview" },
-            { label: "Bookings", to: "/docs/guides/bookings/setup" },
-            { label: "Staff & Roles", to: "/docs/admin/staff/roles" },
+            { label: "POS System", to: "/admin/pos/overview" },
+            { label: "Bookings", to: "/guides/bookings/setup" },
+            { label: "Staff & Roles", to: "/admin/staff/roles" },
           ],
         },
         {

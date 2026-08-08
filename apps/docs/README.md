@@ -31,7 +31,10 @@ The build uses Docusaurus's supported `--no-minify` mode because the default min
 
 Create a separate Vercel project for this repository and set its **Root Directory** to `apps/docs`. The checked-in `vercel.json` supplies the framework, build command, and output directory.
 
-Production URL: <https://qr-digital-menu-docs.vercel.app>
+The standalone project remains the deployment origin, while the frontend
+project exposes the public documentation at:
+
+<https://qr-digital-menu-ivory.vercel.app/docs/>
 
 From the monorepo root, the equivalent commands are:
 

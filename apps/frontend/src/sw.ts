@@ -10,6 +10,8 @@ import {
 import { NavigationRoute, registerRoute } from "workbox-routing";
 import { NetworkFirst } from "workbox-strategies";
 
+import { SPA_NAVIGATION_DENYLIST } from "./serviceWorkerRoutes";
+
 declare const self: ServiceWorkerGlobalScope;
 
 clientsClaim();
@@ -23,7 +25,7 @@ precacheAndRoute(self.__WB_MANIFEST || []);
 // offline. API and socket requests must never fall back to index.html.
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL("/index.html"), {
-    denylist: [/^\/api\//, /^\/socket\.io\//],
+    denylist: SPA_NAVIGATION_DENYLIST,
   }),
 );
 
