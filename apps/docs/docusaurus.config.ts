@@ -48,8 +48,6 @@ const config: Config = {
       {
         docs: {
           sidebarPath: "./sidebars.ts",
-          routeBasePath: "/", // Docs at root path, no /docs/ prefix
-          // [EDIT BEFORE LIVE] Replace with your own GitHub repo URL
           editUrl: "https://github.com/renova69/QR_Digital_Menu/tree/main/apps/docs/",
         },
         blog: false, // Blog disabled — docs-only site
