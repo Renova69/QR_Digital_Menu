@@ -130,14 +130,17 @@ export class NotificationDeliveryService {
   @SentryCron(
     'notification-drain-due',
     cronMonitor(CRON_EVERY_MINUTE.NOTIFICATION_DRAIN_DUE, {
-      // A full batch is MAX_DRAIN_BATCH provider calls end to end, so a slow
-      // SMS/email provider can legitimately push one run past a few minutes.
-      maxRuntimeMinutes: 5,
-      // Skipped ticks are expected here — waitForCompletion drops a tick
-      // whenever the previous drain is still running — so only a sustained
-      // absence should open an issue.
-      checkinMarginMinutes: 2,
-      failureIssueThreshold: 5,
+      // Worst legitimate run is MAX_DRAIN_BATCH (50) provider calls that each
+      // burn the full PROVIDER_HTTP_TIMEOUT_MS (10s) — 500s, or 8m20s. Anything
+      // at or below that would flag a healthy-but-slow drain as failed, so keep
+      // real headroom above it.
+      maxRuntimeMinutes: 15,
+      // The margin has to cover the same 8m20s. waitForCompletion drops every
+      // tick while a drain is still running, so a long healthy run produces a
+      // string of check-in-less minutes; with a short margin those read as
+      // missed and open an issue on their own.
+      checkinMarginMinutes: 10,
+      failureIssueThreshold: 3,
     }),
   )
   async drainDue(): Promise<number> {
