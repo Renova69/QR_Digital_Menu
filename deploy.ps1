@@ -116,6 +116,11 @@ Invoke-Native -Description "Build" -Command {
 
 # --- 3. Deploy with no traffic -- the new revision exists but serves nobody
 Write-Host "==> Deploying new revision (no traffic yet)..."
+# --update-secrets, never --set-secrets: the latter replaces the service's
+# entire secret list, silently dropping every binding not named here.
+# Attaching DIRECT_URL through the deploy (rather than a bare
+# `gcloud run services update`) keeps it inside the canary flow below, so a
+# bad secret fails the smoke check instead of going straight to live traffic.
 Invoke-Native -Description "Deploy" -Command {
     & $GCLOUD run deploy $SERVICE `
         --project=$PROJECT `
@@ -124,6 +129,7 @@ Invoke-Native -Description "Deploy" -Command {
         --platform=managed `
         --session-affinity `
         --no-traffic `
+        --update-secrets=DIRECT_URL=DIRECT_URL:latest `
         --tag=$revisionTag
 }
 

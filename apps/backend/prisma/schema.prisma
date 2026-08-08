@@ -4,7 +4,22 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime queries: pooled (PgBouncer, transaction mode). Unchanged.
+  url       = env("DATABASE_URL")
+  // Prisma CLI only -- migrate, db push, introspect. Never used by the app.
+  //
+  // Migrations need a real session, which transaction pooling cannot give
+  // them: the advisory lock Prisma takes to stop two processes migrating at
+  // once is session-scoped, and through the pooler each statement may land on
+  // a different server connection, so the lock protects nothing. That is why
+  // PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 is set on Cloud Run today -- the
+  // lock was switched off rather than made to work. With maxScale 3 and
+  // `prisma migrate deploy` running on every container start, nothing
+  // currently prevents concurrent instances applying the same migration.
+  //
+  // Pointing the CLI at the unpooled endpoint restores session semantics, so
+  // that flag can be removed and the lock does its job again.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
