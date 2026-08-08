@@ -6,7 +6,9 @@
     "node": "24.x"
   },
   "workspaces": [
-    "apps/*"
+    "apps/frontend",
+    "apps/backend",
+    "apps/printer-agent"
   ],
   "scripts": {
     "check:node": "node scripts/check-node-version.js",
