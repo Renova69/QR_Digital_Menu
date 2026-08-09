@@ -40,6 +40,15 @@ describeWithDatabase(
       assertIsolatedTestDatabase(concurrencyDatabaseUrl!);
       prisma = new PrismaClient({
         datasources: { db: { url: concurrencyDatabaseUrl } },
+        // These tests deliberately make two transactions contend for the same
+        // session row, so one of them sits blocked on the lock by design.
+        // Prisma's 5s default interactive-transaction timeout is under that
+        // contention window on a slow CI runner, and the commit then fails with
+        // "Transaction already closed" — a timeout of the harness, not a real
+        // invariant violation. Same allowance the sibling
+        // preproduction-concurrency spec already makes. Test client only; the
+        // production PrismaService keeps its own defaults.
+        transactionOptions: { maxWait: 5_000, timeout: 15_000 },
       });
       await prisma.$connect();
     });
