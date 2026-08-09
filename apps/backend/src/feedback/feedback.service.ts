@@ -456,10 +456,12 @@ export class FeedbackService {
               customerName: true,
               tableName: true,
               totalPrice: true,
+              tableSessionId: true,
             },
           },
           invitation: {
             select: {
+              tableSessionId: true,
               payment: {
                 select: {
                   provider: true,
@@ -505,6 +507,12 @@ export class FeedbackService {
       orderTotal: feedback.order?.totalPrice ?? null,
       payment: feedback.invitation?.payment ?? null,
       googleReviewClickedAt: feedback.googleReviewClickedAt,
+      // Present when the review can be traced back to a table visit. The
+      // dashboard uses it to decide whether the row opens a visit drawer.
+      sessionId:
+        feedback.invitation?.tableSessionId ??
+        feedback.order?.tableSessionId ??
+        null,
     }));
 
     return {
@@ -512,6 +520,120 @@ export class FeedbackService {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * The visit behind a review (owner-only). A review reaches its table session
+   * one of two ways — through the invitation it was issued from, or, for legacy
+   * order-bound feedback, through the order itself. Everything the drawer shows
+   * is derived from that session, so there is no second source of truth for
+   * what the guest actually ordered.
+   */
+  async getVisit(feedbackId: string, userId: string) {
+    const feedback = await this.prisma.feedback.findUnique({
+      where: { id: feedbackId },
+      select: {
+        id: true,
+        restaurantId: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        invitation: { select: { tableSessionId: true } },
+        order: { select: { tableSessionId: true } },
+      },
+    });
+    if (!feedback) throw new NotFoundException('Feedback not found');
+
+    await this.verifyRestaurantAccess(feedback.restaurantId, userId);
+
+    const sessionId =
+      feedback.invitation?.tableSessionId ??
+      feedback.order?.tableSessionId ??
+      null;
+    if (!sessionId) {
+      throw new NotFoundException('This review is not linked to a table visit');
+    }
+
+    // Scope by restaurantId as well as id: the session id came off a row we
+    // already authorised, but re-scoping keeps this query safe if that ever
+    // changes.
+    const session = await this.prisma.tableSession.findFirst({
+      where: { id: sessionId, restaurantId: feedback.restaurantId },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        paidAt: true,
+        table: { select: { name: true } },
+        orders: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            createdAt: true,
+            status: true,
+            source: true,
+            totalPrice: true,
+            items: {
+              select: {
+                id: true,
+                quantity: true,
+                // Point-in-time snapshot — survives a later rename or delete.
+                itemName: true,
+                unitPriceWithOptions: true,
+                notes: true,
+              },
+            },
+          },
+        },
+        payments: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            provider: true,
+            status: true,
+            amount: true,
+            tipAmount: true,
+            currency: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    if (!session) {
+      throw new NotFoundException('Table visit not found');
+    }
+
+    return {
+      feedback: {
+        id: feedback.id,
+        rating: feedback.rating,
+        comment: feedback.comment,
+        createdAt: feedback.createdAt,
+      },
+      session: {
+        id: session.id,
+        status: session.status,
+        tableName: session.table?.name ?? null,
+        openedAt: session.createdAt,
+        paidAt: session.paidAt,
+      },
+      orders: session.orders.map((order) => ({
+        id: order.id,
+        createdAt: order.createdAt,
+        status: order.status,
+        source: order.source,
+        total: order.totalPrice,
+        items: order.items.map((item) => ({
+          id: item.id,
+          name: item.itemName,
+          quantity: item.quantity,
+          unitPrice: item.unitPriceWithOptions,
+          lineTotal: item.quantity * item.unitPriceWithOptions,
+          notes: item.notes,
+        })),
+      })),
+      payments: session.payments,
     };
   }
 

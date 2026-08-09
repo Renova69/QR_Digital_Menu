@@ -31,6 +31,9 @@ const mockPrisma = {
   order: {
     findUnique: jest.fn(),
   },
+  tableSession: {
+    findFirst: jest.fn(),
+  },
   restaurant: {
     findUnique: jest.fn(),
   },
@@ -563,6 +566,7 @@ describe('FeedbackService', () => {
           googleReviewClickedAt: new Date('2026-07-30T10:16:00.000Z'),
           order: null,
           invitation: {
+            tableSessionId: 'session-1',
             payment: {
               provider: 'STRIPE',
               amount: 24.5,
@@ -598,6 +602,8 @@ describe('FeedbackService', () => {
           currency: 'EUR',
         },
         googleReviewClickedAt: new Date('2026-07-30T10:16:00.000Z'),
+        // Carries the visit link so the dashboard row can open the drawer.
+        sessionId: 'session-1',
       });
     });
 
@@ -831,6 +837,162 @@ describe('FeedbackService', () => {
       await expect(service.getSummary('rest-1', 'staff-1')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('getVisit', () => {
+    const ownRestaurant = () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner-1',
+        timezone: 'Europe/Sofia',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+    };
+
+    const sessionRow = {
+      id: 'session-1',
+      status: 'PAID',
+      createdAt: new Date('2026-08-01T19:42:00Z'),
+      paidAt: new Date('2026-08-01T21:05:00Z'),
+      table: { name: 'Table 4' },
+      orders: [
+        {
+          id: 'order-1',
+          createdAt: new Date('2026-08-01T19:44:00Z'),
+          status: 'SERVED',
+          source: 'CUSTOMER',
+          totalPrice: 16.4,
+          items: [
+            {
+              id: 'item-1',
+              quantity: 2,
+              itemName: 'Shopska Salad',
+              unitPriceWithOptions: 6.2,
+              notes: null,
+            },
+          ],
+        },
+      ],
+      payments: [
+        {
+          id: 'pay-1',
+          provider: 'STRIPE',
+          status: 'PAID',
+          amount: 31.2,
+          tipAmount: 0,
+          currency: 'EUR',
+          createdAt: new Date('2026-08-01T21:05:00Z'),
+        },
+      ],
+    };
+
+    it('resolves the visit through the invitation and totals each line', async () => {
+      ownRestaurant();
+      mockPrisma.feedback.findUnique.mockResolvedValue({
+        id: 'feedback-1',
+        restaurantId: 'rest-1',
+        rating: 2,
+        comment: 'Slow service',
+        createdAt: new Date('2026-08-01T21:10:00Z'),
+        invitation: { tableSessionId: 'session-1' },
+        order: null,
+      });
+      mockPrisma.tableSession.findFirst.mockResolvedValue(sessionRow);
+
+      const result = await service.getVisit('feedback-1', 'owner-1');
+
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'session-1', restaurantId: 'rest-1' },
+        }),
+      );
+      expect(result.session.tableName).toBe('Table 4');
+      expect(result.orders[0].source).toBe('CUSTOMER');
+      expect(result.orders[0].items[0]).toEqual(
+        expect.objectContaining({
+          name: 'Shopska Salad',
+          quantity: 2,
+          unitPrice: 6.2,
+          lineTotal: 12.4,
+        }),
+      );
+      expect(result.payments[0].amount).toBe(31.2);
+    });
+
+    it('falls back to the order session for legacy order-bound feedback', async () => {
+      ownRestaurant();
+      mockPrisma.feedback.findUnique.mockResolvedValue({
+        id: 'feedback-2',
+        restaurantId: 'rest-1',
+        rating: 5,
+        comment: null,
+        createdAt: new Date(),
+        invitation: null,
+        order: { tableSessionId: 'session-9' },
+      });
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        ...sessionRow,
+        id: 'session-9',
+      });
+
+      const result = await service.getVisit('feedback-2', 'owner-1');
+
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'session-9', restaurantId: 'rest-1' },
+        }),
+      );
+      expect(result.session.id).toBe('session-9');
+    });
+
+    it('404s when the review is not linked to any visit', async () => {
+      ownRestaurant();
+      mockPrisma.feedback.findUnique.mockResolvedValue({
+        id: 'feedback-3',
+        restaurantId: 'rest-1',
+        rating: 4,
+        comment: null,
+        createdAt: new Date(),
+        invitation: null,
+        order: null,
+      });
+
+      await expect(service.getVisit('feedback-3', 'owner-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.tableSession.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('404s when the feedback does not exist', async () => {
+      mockPrisma.feedback.findUnique.mockResolvedValue(null);
+
+      await expect(service.getVisit('nope', 'owner-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('refuses a caller who does not own the restaurant', async () => {
+      mockPrisma.feedback.findUnique.mockResolvedValue({
+        id: 'feedback-1',
+        restaurantId: 'rest-1',
+        rating: 2,
+        comment: null,
+        createdAt: new Date(),
+        invitation: { tableSessionId: 'session-1' },
+        order: null,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner-1',
+        timezone: 'UTC',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'other-rest',
+      });
+
+      await expect(service.getVisit('feedback-1', 'intruder')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrisma.tableSession.findFirst).not.toHaveBeenCalled();
     });
   });
 });

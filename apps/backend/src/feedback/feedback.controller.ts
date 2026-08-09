@@ -94,4 +94,12 @@ export class FeedbackController {
       query,
     );
   }
+
+  // Protected — the table visit a review came from. Declared after the literal
+  // 'summary' route so it cannot shadow it.
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/visit')
+  getVisit(@Param('id') id: string, @Request() req: any) {
+    return this.feedbackService.getVisit(id, req.user.id);
+  }
 }

@@ -14,35 +14,11 @@ import { useTranslation } from "react-i18next";
 import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 import { Modal } from "../../../components/ui/modal";
 import { getFeedbackReviews, type FeedbackReview } from "../../../lib/api";
+import { formatPaymentAmount, formatPaymentProvider } from "./reviewFormatting";
+import { VisitDetailDrawer } from "./VisitDetailDrawer";
 
 type ReviewInboxProps = {
   restaurantId: string;
-};
-
-const formatPaymentAmount = (
-  amount: number,
-  currency: string,
-  language: string,
-) =>
-  new Intl.NumberFormat(language, {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(amount);
-
-const formatPaymentProvider = (
-  provider: string,
-  t: (key: string, options?: { defaultValue?: string }) => string,
-) => {
-  if (provider === "STRIPE") {
-    return t("payments.stripeMethod", { defaultValue: "Stripe" });
-  }
-  if (provider === "CASH") {
-    return t("payments.cashMethod", { defaultValue: "Cash" });
-  }
-  if (provider === "EPAY") return "ePay.bg";
-  if (provider === "BORICA") return "BORICA";
-  if (provider === "MYPOS") return "myPOS";
-  return provider;
 };
 
 const ReviewStars = ({ rating }: { rating: number }) => {
@@ -70,7 +46,13 @@ const ReviewStars = ({ rating }: { rating: number }) => {
   );
 };
 
-const ReviewCard = ({ review }: { review: FeedbackReview }) => {
+const ReviewCard = ({
+  review,
+  onOpenVisit,
+}: {
+  review: FeedbackReview;
+  onOpenVisit?: (feedbackId: string) => void;
+}) => {
   const { t, i18n } = useTranslation();
   const date = new Intl.DateTimeFormat(i18n.language, {
     dateStyle: "medium",
@@ -146,6 +128,21 @@ const ReviewCard = ({ review }: { review: FeedbackReview }) => {
           </span>
         )}
       </div>
+
+      {/* Only offered when the review is actually traceable to a session —
+          Google-sourced reviews and orphaned rows have nothing to open. */}
+      {review.sessionId && onOpenVisit && (
+        <button
+          type="button"
+          onClick={() => onOpenVisit(review.id)}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary transition hover:gap-2"
+        >
+          {t("analytics.reviewInbox.viewVisit", {
+            defaultValue: "View the visit",
+          })}
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
     </article>
   );
 };
@@ -153,6 +150,7 @@ const ReviewCard = ({ review }: { review: FeedbackReview }) => {
 export const ReviewInbox = ({ restaurantId }: ReviewInboxProps) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [visitFeedbackId, setVisitFeedbackId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [rating, setRating] = useState<number>();
   const [commentsOnly, setCommentsOnly] = useState(false);
@@ -256,7 +254,11 @@ export const ReviewInbox = ({ restaurantId }: ReviewInboxProps) => {
       </div>
       <div className="space-y-2">
         {data.data.map((review) => (
-          <ReviewCard key={review.id} review={review} />
+          <ReviewCard
+            key={review.id}
+            review={review}
+            onOpenVisit={setVisitFeedbackId}
+          />
         ))}
       </div>
 
@@ -393,7 +395,11 @@ export const ReviewInbox = ({ restaurantId }: ReviewInboxProps) => {
             </div>
           )}
           {inboxData?.data.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              onOpenVisit={setVisitFeedbackId}
+            />
           ))}
           {inboxData && inboxData.totalPages > 1 && (
             <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
@@ -430,6 +436,11 @@ export const ReviewInbox = ({ restaurantId }: ReviewInboxProps) => {
           )}
         </div>
       </Modal>
+
+      <VisitDetailDrawer
+        feedbackId={visitFeedbackId}
+        onClose={() => setVisitFeedbackId(null)}
+      />
     </div>
   );
 };

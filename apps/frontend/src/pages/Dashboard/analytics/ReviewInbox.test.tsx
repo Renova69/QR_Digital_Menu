@@ -5,10 +5,12 @@ import { ReviewInbox } from "./ReviewInbox";
 
 const api = vi.hoisted(() => ({
   getFeedbackReviews: vi.fn(),
+  getFeedbackVisit: vi.fn(),
 }));
 
 vi.mock("../../../lib/api", () => ({
   getFeedbackReviews: api.getFeedbackReviews,
+  getFeedbackVisit: api.getFeedbackVisit,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -229,5 +231,106 @@ describe("ReviewInbox", () => {
       }),
     );
     await waitFor(() => expect(view.container.innerHTML).toBe(""));
+  });
+
+  describe("visit drawer", () => {
+    const reviewPage = (sessionId: string | null) => ({
+      data: [
+        {
+          id: "review-1",
+          source: "LOCAL",
+          rating: 2,
+          comment: "Slow service",
+          createdAt: "2026-08-01T21:10:00.000Z",
+          authorName: null,
+          tableName: "Table 4",
+          orderTotal: null,
+          payment: null,
+          googleReviewClickedAt: null,
+          sessionId,
+        },
+      ],
+      total: 1,
+      page: 1,
+      totalPages: 1,
+    });
+
+    it("offers the visit only when the review is traceable to a session", async () => {
+      api.getFeedbackReviews.mockResolvedValue(reviewPage(null));
+      renderInbox();
+
+      expect(await screen.findByText("Slow service")).toBeTruthy();
+      expect(screen.queryByText("View the visit")).toBeNull();
+    });
+
+    it("opens the visit with its orders, source badge and payment", async () => {
+      api.getFeedbackReviews.mockResolvedValue(reviewPage("session-1"));
+      api.getFeedbackVisit.mockResolvedValue({
+        feedback: {
+          id: "review-1",
+          rating: 2,
+          comment: "Slow service",
+          createdAt: "2026-08-01T21:10:00.000Z",
+        },
+        session: {
+          id: "session-1",
+          status: "PAID",
+          tableName: "Table 4",
+          openedAt: "2026-08-01T19:42:00.000Z",
+          paidAt: "2026-08-01T21:05:00.000Z",
+        },
+        orders: [
+          {
+            id: "order-1",
+            createdAt: "2026-08-01T19:44:00.000Z",
+            status: "SERVED",
+            source: "CUSTOMER",
+            total: 16.4,
+            items: [
+              {
+                id: "item-1",
+                name: "Shopska Salad",
+                quantity: 2,
+                unitPrice: 6.2,
+                lineTotal: 12.4,
+                notes: null,
+              },
+            ],
+          },
+        ],
+        payments: [
+          {
+            id: "pay-1",
+            provider: "STRIPE",
+            status: "PAID",
+            amount: 31.2,
+            tipAmount: 0,
+            currency: "EUR",
+            createdAt: "2026-08-01T21:05:00.000Z",
+          },
+        ],
+      });
+
+      renderInbox();
+
+      fireEvent.click(await screen.findByText("View the visit"));
+
+      expect(await screen.findByText("Shopska Salad")).toBeTruthy();
+      expect(api.getFeedbackVisit).toHaveBeenCalledWith("review-1");
+      // CUSTOMER is the QR channel — the badge must not read "CUSTOMER".
+      expect(screen.getByText("QR")).toBeTruthy();
+      expect(screen.getByText("€12.40")).toBeTruthy();
+      expect(screen.getByText("€31.20")).toBeTruthy();
+    });
+
+    it("surfaces a load failure instead of an empty drawer", async () => {
+      api.getFeedbackReviews.mockResolvedValue(reviewPage("session-1"));
+      api.getFeedbackVisit.mockRejectedValue(new Error("boom"));
+
+      renderInbox();
+      fireEvent.click(await screen.findByText("View the visit"));
+
+      expect(await screen.findByRole("alert")).toBeTruthy();
+    });
   });
 });
