@@ -1,21 +1,52 @@
-import { afterEach } from '@jest/globals';
 import {
   decryptSecret,
   encryptSecret,
   validatePaymentSecretCryptoConfig,
 } from './secret-crypto';
 
+// Jest workers run many spec files in one process, so anything this suite writes to
+// process.env outlives the file and can flip an unrelated suite into production mode.
+// Snapshot every key we touch and put it back rather than deleting or hardcoding.
+const PER_TEST_ENV_KEYS = [
+  'PAYMENT_SECRET_ENCRYPTION_KEY',
+  'PAYMENT_SECRET_ENCRYPTION_KEY_ID',
+  'PAYMENT_SECRET_WRITE_VERSION',
+  'PAYMENT_SECRET_ALLOW_LEGACY_PLAINTEXT',
+  'NODE_ENV',
+] as const;
+
+const SUITE_ENV_KEYS = [
+  'EPAY_SECRET_ENCRYPTION_KEY',
+  ...PER_TEST_ENV_KEYS,
+] as const;
+
 describe('secret-crypto', () => {
+  const originalEnv = new Map<string, string | undefined>();
+
+  const restoreEnv = (keys: readonly string[]): void => {
+    for (const key of keys) {
+      const original = originalEnv.get(key);
+      if (original === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = original;
+      }
+    }
+  };
+
   beforeAll(() => {
+    for (const key of SUITE_ENV_KEYS) {
+      originalEnv.set(key, process.env[key]);
+    }
     process.env.EPAY_SECRET_ENCRYPTION_KEY = '01234567890123456789012345678901';
   });
 
   afterEach(() => {
-    delete process.env.PAYMENT_SECRET_ENCRYPTION_KEY;
-    delete process.env.PAYMENT_SECRET_ENCRYPTION_KEY_ID;
-    delete process.env.PAYMENT_SECRET_WRITE_VERSION;
-    delete process.env.PAYMENT_SECRET_ALLOW_LEGACY_PLAINTEXT;
-    process.env.NODE_ENV = 'test';
+    restoreEnv(PER_TEST_ENV_KEYS);
+  });
+
+  afterAll(() => {
+    restoreEnv(SUITE_ENV_KEYS);
   });
 
   it('should encrypt and decrypt successfully', () => {
