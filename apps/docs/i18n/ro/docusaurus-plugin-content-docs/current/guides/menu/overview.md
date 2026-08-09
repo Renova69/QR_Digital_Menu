@@ -1,24 +1,24 @@
 ---
-title: Prezentare Generală Meniu Digital
-sidebar_label: Prezentare Generală
+title: Prezentare generală a meniului digital
+sidebar_label: Prezentare generală
 sidebar_position: 1
 ---
 
-# Prezentare Generală Meniu Digital
+# Prezentare generală a meniului digital
 
-Oaspeții deschid meniul dvs. adaptat pentru dispozitive mobile scanând un cod QR de pe masă sau de la punctul de servire. Nu este necesară instalarea vreunei aplicații.
+Oaspeții deschid meniul prietenos cu dispozitivele mobile scanând un cod QR de la masă sau dintr-un punct de servire. Nu este necesară instalarea unei aplicații.
 
-## Capabilități de Bază
+## Capacități de bază
 
 - Organizați articolele în categorii vizibile, ordonate.
 - Adăugați nume, descrieri, prețuri, imagini și informații despre alergeni.
 - Marcați articolele ca indisponibile fără a le șterge.
 - Prezentați conținutul meniului tradus atunci când traducerile sunt configurate.
-- Aplicați brandingul restaurantului pe meniul public.
+- Aplicați branding-ul restaurantului pe meniul public.
 
-## Pașii Următori
+## Pașii următori
 
-- [Adăugați articole în meniu](./adding-items)
+- [Adăugați elemente în meniu](./adding-items)
 - [Gestionați categoriile](./categories)
 - [Încărcați imagini](./images)
 - [Mențineți informațiile despre alergeni](./allergens)

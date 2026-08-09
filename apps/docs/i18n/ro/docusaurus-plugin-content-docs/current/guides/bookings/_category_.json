@@ -1,0 +1,8 @@
+{
+  "label": "Rezervări",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Configurați disponibilitatea și gestionați cererile de rezervare."
+  }
+}

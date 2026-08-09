@@ -1,0 +1,8 @@
+{
+  "label": "Tabloul de bord al restaurantului",
+  "position": 1,
+  "link": {
+    "type": "generated-index",
+    "description": "Navigați în tabloul de bord și configurați-vă restaurantul."
+  }
+}

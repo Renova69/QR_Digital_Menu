@@ -1,0 +1,22 @@
+{
+  "title": {
+    "message": "Renova Docs",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "Renova Logo",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Guides": {
+    "message": "Guides",
+    "description": "Navbar item with label Guides"
+  },
+  "item.label.Admin": {
+    "message": "Admin",
+    "description": "Navbar item with label Admin"
+  },
+  "item.label.Back to App": {
+    "message": "Back to App",
+    "description": "Navbar item with label Back to App"
+  }
+}

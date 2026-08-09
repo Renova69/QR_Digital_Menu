@@ -1,0 +1,138 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.guidesSidebar.category.1. Core Platform": {
+    "message": "1. Core Platform",
+    "description": "The label for category '1. Core Platform' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.1. Core Platform.link.generated-index.description": {
+    "message": "Learn about the foundational platform features including authentication, account management, and billing.",
+    "description": "The generated-index page description for category '1. Core Platform' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Digital Menu": {
+    "message": "Digital Menu",
+    "description": "The label for category 'Digital Menu' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Digital Menu.link.generated-index.description": {
+    "message": "Create, organize, and publish your restaurant menu.",
+    "description": "The generated-index page description for category 'Digital Menu' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.2. Menu Management": {
+    "message": "2. Menu Management",
+    "description": "The label for category '2. Menu Management' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.2. Menu Management.link.generated-index.description": {
+    "message": "Guides for building, translating, importing, and optimizing your digital menu.",
+    "description": "The generated-index page description for category '2. Menu Management' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.QR Codes": {
+    "message": "QR Codes",
+    "description": "The label for category 'QR Codes' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.QR Codes.link.generated-index.description": {
+    "message": "Generate, brand, download, and print QR codes for service points.",
+    "description": "The generated-index page description for category 'QR Codes' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.3. Operations & Ordering": {
+    "message": "3. Operations & Ordering",
+    "description": "The label for category '3. Operations & Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.3. Operations & Ordering.link.generated-index.description": {
+    "message": "Guides covering the full operational lifecycle: from the customer scanning a QR code to the kitchen fulfilling the order.",
+    "description": "The generated-index page description for category '3. Operations & Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Online Ordering": {
+    "message": "Online Ordering",
+    "description": "The label for category 'Online Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Online Ordering.link.generated-index.description": {
+    "message": "Understand the guest ordering, checkout, and payment flow.",
+    "description": "The generated-index page description for category 'Online Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.4. Customer Experience": {
+    "message": "4. Customer Experience",
+    "description": "The label for category '4. Customer Experience' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.4. Customer Experience.link.generated-index.description": {
+    "message": "Learn how to build customer retention with the Loyalty Program, Reservations, and the integrated Feedback System.",
+    "description": "The generated-index page description for category '4. Customer Experience' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Bookings & Reservations": {
+    "message": "Bookings & Reservations",
+    "description": "The label for category 'Bookings & Reservations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Bookings & Reservations.link.generated-index.description": {
+    "message": "Configure availability and manage reservation requests.",
+    "description": "The generated-index page description for category 'Bookings & Reservations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.5. Payments & Integrations": {
+    "message": "5. Payments & Integrations",
+    "description": "The label for category '5. Payments & Integrations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.5. Payments & Integrations.link.generated-index.description": {
+    "message": "Guides for configuring Pay-at-Table, receipt printing, and push notifications.",
+    "description": "The generated-index page description for category '5. Payments & Integrations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Customer Feedback": {
+    "message": "Customer Feedback",
+    "description": "The label for category 'Customer Feedback' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Customer Feedback.link.generated-index.description": {
+    "message": "Collect and review verified post-payment guest feedback.",
+    "description": "The generated-index page description for category 'Customer Feedback' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.6. Analytics & Customization": {
+    "message": "6. Analytics & Customization",
+    "description": "The label for category '6. Analytics & Customization' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.6. Analytics & Customization.link.generated-index.description": {
+    "message": "Guides for customizing your menu's appearance and analyzing your business performance.",
+    "description": "The generated-index page description for category '6. Analytics & Customization' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Super Admin": {
+    "message": "Super Admin",
+    "description": "The label for category 'Super Admin' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Super Admin.link.generated-index.description": {
+    "message": "Guides for platform operators managing the multi-tenant QR Digital Menu system.",
+    "description": "The generated-index page description for category 'Super Admin' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.doc.Getting Started": {
+    "message": "Getting Started",
+    "description": "The label for the doc item 'Getting Started' in sidebar 'guidesSidebar', linking to the doc getting-started"
+  },
+  "sidebar.adminSidebar.category.Restaurant Dashboard": {
+    "message": "Restaurant Dashboard",
+    "description": "The label for category 'Restaurant Dashboard' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Restaurant Dashboard.link.generated-index.description": {
+    "message": "Navigate the dashboard and configure your restaurant.",
+    "description": "The generated-index page description for category 'Restaurant Dashboard' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.POS & Kitchen": {
+    "message": "POS & Kitchen",
+    "description": "The label for category 'POS & Kitchen' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.POS & Kitchen.link.generated-index.description": {
+    "message": "Use the staff POS and kitchen display workflows.",
+    "description": "The generated-index page description for category 'POS & Kitchen' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Staff & Roles": {
+    "message": "Staff & Roles",
+    "description": "The label for category 'Staff & Roles' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Staff & Roles.link.generated-index.description": {
+    "message": "Create staff accounts and understand role-specific access.",
+    "description": "The generated-index page description for category 'Staff & Roles' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Billing & Subscription": {
+    "message": "Billing & Subscription",
+    "description": "The label for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  },
+  "sidebar.adminSidebar.category.Billing & Subscription.link.generated-index.description": {
+    "message": "Manage plans, payment details, and subscription invoices.",
+    "description": "The generated-index page description for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  }
+}

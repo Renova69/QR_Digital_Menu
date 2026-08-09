@@ -1,21 +1,21 @@
 ---
-title: Facturi și Chitanțe
+title: Facturi și chitanțe
 sidebar_label: Facturi
 sidebar_position: 2
 ---
 
-# Facturi și Chitanțe
+# Facturi și chitanțe
 
-Facturile, chitanțele și metodele de plată pentru abonament sunt gestionate prin Stripe, nu printr-un ecran de facturare din cadrul Renova.
+Facturile de abonament, chitanțele și metodele de plată sunt gestionate prin Stripe, nu printr-un ecran de facturi din interiorul Renova.
 
 ## Deschideți Portalul de Facturare
 
-1. Deschideți **Tablou de bord → Facturare**.
-2. Selectați **Gestionare Facturare**.
-3. Revizuiți documentele și opțiunile de plată disponibile în portalul găzduit de Stripe.
+1. Deschideți **Panou de control → Facturare** (Dashboard → Billing).
+2. Selectați **Gestionare facturare** (Manage Billing).
+3. Examinați documentele și opțiunile de plată disponibile în portalul găzduit de Stripe.
 
-Documentele și acțiunile exacte disponibile depind de configurația clientului și a comerciantului Stripe. Dacă **Gestionare Facturare** nu este disponibil, confirmați că restaurantul are un abonament activ susținut de Stripe.
+Documentele exacte și acțiunile disponibile depind de configurația clientului și a comerciantului din Stripe. Dacă **Gestionare facturare** nu este disponibil, confirmați că restaurantul are un abonament activ susținut de Stripe.
 
-## Facturarea Abonamentului vs Plățile Clienților
+## Facturarea abonamentului versus Plățile clienților
 
-Pagina de Facturare acoperă abonamentul Renova al restaurantului. Plățile efectuate de clienții restaurantului pentru comenzi sunt tranzacții separate și nu apar ca facturi de abonament Renova.
+Pagina de Facturare acoperă abonamentul Renova al restaurantului. Plățile efectuate de oaspeții restaurantului pentru comenzi sunt tranzacții separate și nu apar ca facturi de abonament Renova.

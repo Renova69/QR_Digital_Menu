@@ -1,0 +1,8 @@
+{
+  "label": "5. Payments & Integrations",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Guides for configuring Pay-at-Table, receipt printing, and push notifications."
+  }
+}

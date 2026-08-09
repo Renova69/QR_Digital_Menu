@@ -1,14 +1,14 @@
 ---
-title: Informații despre Alergeni
+title: Informații despre alergeni
 sidebar_label: Alergeni
 sidebar_position: 5
 ---
 
-# Informații despre Alergeni
+# Informații despre alergeni
 
-Renova poate afișa pe articolele din meniu cele 14 categorii majore de alergeni din UE, inclusiv gluten, crustacee, ouă, pește, arahide, boabe de soia, lapte, nuci, țelină, muștar, semințe de susan, sulfiți, lupin și moluște.
+Renova poate afișa cele 14 categorii majore de alergeni din UE pe articolele din meniu, inclusiv gluten, crustacee, ouă, pește, arahide, soia, lapte, nuci, țelină, muștar, susan, sulfiți, lupin și moluște.
 
-## Adăugarea Alergenilor la un Articol
+## Adăugați alergeni la un articol
 
 1. Editați articolul din meniu.
 2. Selectați fiecare alergen care se aplică.

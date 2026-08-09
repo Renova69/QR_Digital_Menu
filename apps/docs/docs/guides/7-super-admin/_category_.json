@@ -1,0 +1,8 @@
+{
+  "label": "Super Admin",
+  "position": 7,
+  "link": {
+    "type": "generated-index",
+    "description": "Guides for platform operators managing the multi-tenant QR Digital Menu system."
+  }
+}

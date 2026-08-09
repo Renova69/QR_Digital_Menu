@@ -1,0 +1,8 @@
+{
+  "label": "5. Plăți & Integrări",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Ghiduri pentru configurarea Plății la Masă, imprimării chitanțelor și notificărilor push."
+  }
+}

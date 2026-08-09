@@ -1,20 +1,20 @@
 ---
-title: Setările Restaurantului
+title: Setări restaurant
 sidebar_label: Setări
 sidebar_position: 2
 ---
 
-# Setările Restaurantului
+# Setări restaurant
 
-Setările restaurantului furnizează informațiile sursă utilizate de meniul public și modulele opționale.
+Setările restaurantului oferă informațiile sursă utilizate de meniul public și de modulele opționale.
 
-## Configurare Comună
+## Configurație comună
 
-- Numele restaurantului, detaliile de contact, adresa, moneda și fusul orar
-- Logo-ul, culoarea de accent, fonturile și aspectul meniului public
+- Numele restaurantului, detalii de contact, adresă, monedă și fus orar
+- Logo, culoare de accent, fonturi și aspectul meniului public
 - Comportamentul meniului și al comenzilor
-- Datele de conectare și disponibilitatea furnizorului de plăți
+- Acreditările furnizorului de plăți și disponibilitatea
 - Orele de rezervare, capacitatea și notificările
-- Dispozitivele personalului și stațiile de imprimantă
+- Dispozitive pentru personal și stații de imprimantă
 
-Modificările pot afecta imediat fluxurile clienților publici. Previzualizați meniul și testați fluxurile de lucru QR, comenzi, plăți, rezervări și imprimare după modificarea setărilor operaționale.
+Modificările pot afecta imediat fluxurile publice ale oaspeților. Previzualizați meniul și testați fluxurile de lucru pentru QR, comenzi, plată, rezervare și imprimare după modificarea setărilor operaționale.

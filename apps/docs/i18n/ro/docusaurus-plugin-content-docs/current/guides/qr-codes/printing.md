@@ -1,20 +1,20 @@
 ---
-title: Descărcarea și Tipărirea Codurilor QR
-sidebar_label: Descărcare & Tipărire
+title: Descărcarea și imprimarea codurilor QR
+sidebar_label: Descărcare și imprimare
 sidebar_position: 3
 ---
 
-# Descărcarea și Tipărirea Codurilor QR
+# Descărcarea și imprimarea codurilor QR
 
 Renova oferă două căi de ieșire:
 
-- Descărcați un cod QR individual ca un PNG de înaltă rezoluție.
-- Deschideți aspectul de tipărire în masă pentru a aranja coduri QR pentru mai multe mese pentru tipărirea din browser. Browserul dvs. poate salva și acest aspect ca PDF.
+- Descărcați un cod QR individual ca PNG de înaltă rezoluție.
+- Deschideți aspectul de imprimare în masă pentru a aranja mai multe coduri QR de masă pentru imprimarea din browser. Browserul dvs. poate salva, de asemenea, acest aspect ca PDF.
 
-## Înainte de Plasare
+## Înainte de plasare
 
-- Păstrați intactă zona liniștită albă din jurul codului.
-- Tipăriți suficient de mare pentru distanța de scanare prevăzută.
+- Păstrați intactă zona albă liberă din jurul codului.
+- Imprimați suficient de mare pentru distanța de scanare prevăzută.
 - Testați cu mai multe telefoane și condiții de iluminare.
-- Înlocuiți tipăriturile deteriorate sau cu contrast redus.
+- Înlocuiți printurile deteriorate sau cu contrast redus.
 - Verificați dacă fiecare cod fizic deschide masa sau punctul de servire corect.

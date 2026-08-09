@@ -1,0 +1,50 @@
+{
+  "link.title.Guides": {
+    "message": "Guides",
+    "description": "The title of the footer links column with title=Guides in the footer"
+  },
+  "link.title.Restaurant Management": {
+    "message": "Restaurant Management",
+    "description": "The title of the footer links column with title=Restaurant Management in the footer"
+  },
+  "link.title.Legal": {
+    "message": "Legal",
+    "description": "The title of the footer links column with title=Legal in the footer"
+  },
+  "link.item.label.Getting Started": {
+    "message": "Getting Started",
+    "description": "The label of footer link with label=Getting Started linking to /getting-started"
+  },
+  "link.item.label.Digital Menu": {
+    "message": "Digital Menu",
+    "description": "The label of footer link with label=Digital Menu linking to /guides/menu/overview"
+  },
+  "link.item.label.QR Codes": {
+    "message": "QR Codes",
+    "description": "The label of footer link with label=QR Codes linking to /guides/qr-codes/generating"
+  },
+  "link.item.label.POS System": {
+    "message": "POS System",
+    "description": "The label of footer link with label=POS System linking to /admin/pos/overview"
+  },
+  "link.item.label.Bookings": {
+    "message": "Bookings",
+    "description": "The label of footer link with label=Bookings linking to /guides/bookings/setup"
+  },
+  "link.item.label.Staff & Roles": {
+    "message": "Staff & Roles",
+    "description": "The label of footer link with label=Staff & Roles linking to /admin/staff/roles"
+  },
+  "link.item.label.Terms of Service": {
+    "message": "Terms of Service",
+    "description": "The label of footer link with label=Terms of Service linking to https://qr-digital-menu-ivory.vercel.app/terms"
+  },
+  "link.item.label.Privacy Policy": {
+    "message": "Privacy Policy",
+    "description": "The label of footer link with label=Privacy Policy linking to https://qr-digital-menu-ivory.vercel.app/privacy"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Renova. Built with Docusaurus.",
+    "description": "The footer copyright"
+  }
+}

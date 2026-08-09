@@ -1,19 +1,19 @@
 ---
-title: Roluri & Credențiale Personal
-sidebar_label: Roluri & Credențiale
+title: Rolurile și acreditările personalului
+sidebar_label: Roluri și acreditări
 sidebar_position: 1
 ---
 
-# Roluri & Credențiale Personal
+# Rolurile și acreditările personalului
 
-Renova separă conturile privilegiate ale tabloului de bord de rolurile operaționale pe dispozitive partajate.
+Renova separă conturile privilegiate ale panoului de control de rolurile operaționale ale dispozitivelor partajate.
 
-| Rol         | Model de credențiale              | Destinație tipică                      |
+| Rol         | Model de acreditare               | Destinație tipică                      |
 | ----------- | --------------------------------- | -------------------------------------- |
-| **Owner**   | E-mail și parolă                  | Tablou de bord complet și facturare    |
-| **Manager** | E-mail și parolă                  | Configurare și operațiuni tablou de bord|
-| **Staff**   | E-mail și parolă                  | Operațiuni limitate tablou de bord     |
-| **Waiter**  | PIN numeric pe un dispozitiv înscris | POS personal                        |
-| **Kitchen** | PIN numeric pe un dispozitiv înscris | Afișaj bucătărie                    |
+| **Proprietar** (Owner) | E-mail și parolă                  | Panoul complet al restaurantului și facturare |
+| **Manager** | E-mail și parolă                  | Configurarea panoului și operațiuni    |
+| **Personal** (Staff) | E-mail și parolă                  | Operațiuni limitate ale panoului       |
+| **Ospătar** (Waiter) | PIN numeric pe un dispozitiv înregistrat | POS pentru personal                    |
+| **Bucătărie** (Kitchen) | PIN numeric pe un dispozitiv înregistrat | Afișaj pentru bucătărie                |
 
-Accesul exact depinde, de asemenea, de funcțiile abonamentului și de autorizarea pe partea de server. Atribuiți rolul cu cele mai puține privilegii care se potrivește cu munca persoanei și nu folosiți niciodată un PIN partajat de chelner sau bucătărie pentru un cont de proprietar sau manager.
+Accesul exact depinde, de asemenea, de caracteristicile abonamentului și de autorizarea pe partea de server. Atribuiți rolul cu cele mai puține privilegii care se potrivește muncii persoanei și nu utilizați niciodată un cod PIN partajat de ospătar sau bucătărie pentru un cont de proprietar sau manager.

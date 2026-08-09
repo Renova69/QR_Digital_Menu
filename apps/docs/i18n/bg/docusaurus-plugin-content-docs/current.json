@@ -78,5 +78,61 @@
   "sidebar.adminSidebar.category.Billing & Subscription.link.generated-index.description": {
     "message": "Управлявайте планове, данни за плащане и абонаментни фактури.",
     "description": "The generated-index page description for category 'Billing & Subscription' in sidebar 'adminSidebar'"
+  },
+  "sidebar.guidesSidebar.category.1. Core Platform": {
+    "message": "1. Основна платформа",
+    "description": "The label for category '1. Core Platform' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.1. Core Platform.link.generated-index.description": {
+    "message": "Научете за основните функции на платформата, включително удостоверяване, управление на акаунти и фактуриране.",
+    "description": "The generated-index page description for category '1. Core Platform' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.2. Menu Management": {
+    "message": "2. Управление на менюто",
+    "description": "The label for category '2. Menu Management' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.2. Menu Management.link.generated-index.description": {
+    "message": "Ръководства за създаване, превод, импортиране и оптимизиране на вашето дигитално меню.",
+    "description": "The generated-index page description for category '2. Menu Management' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.3. Operations & Ordering": {
+    "message": "3. Операции и поръчки",
+    "description": "The label for category '3. Operations & Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.3. Operations & Ordering.link.generated-index.description": {
+    "message": "Ръководства, покриващи пълния оперативен цикъл: от сканиране на QR код от клиента до изпълнение на поръчката от кухнята.",
+    "description": "The generated-index page description for category '3. Operations & Ordering' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.4. Customer Experience": {
+    "message": "4. Клиентско преживяване",
+    "description": "The label for category '4. Customer Experience' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.4. Customer Experience.link.generated-index.description": {
+    "message": "Научете как да изградите задържане на клиентите с програмата за лоялност, резервациите и интегрираната система за обратна връзка.",
+    "description": "The generated-index page description for category '4. Customer Experience' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.5. Payments & Integrations": {
+    "message": "5. Плащания и интеграции",
+    "description": "The label for category '5. Payments & Integrations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.5. Payments & Integrations.link.generated-index.description": {
+    "message": "Ръководства за конфигуриране на плащане на масата, принтиране на касови бележки и насочени известия.",
+    "description": "The generated-index page description for category '5. Payments & Integrations' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.6. Analytics & Customization": {
+    "message": "6. Анализи и персонализация",
+    "description": "The label for category '6. Analytics & Customization' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.6. Analytics & Customization.link.generated-index.description": {
+    "message": "Ръководства за персонализиране на външния вид на вашето меню и анализиране на бизнес резултатите ви.",
+    "description": "The generated-index page description for category '6. Analytics & Customization' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Super Admin": {
+    "message": "Супер администратор",
+    "description": "The label for category 'Super Admin' in sidebar 'guidesSidebar'"
+  },
+  "sidebar.guidesSidebar.category.Super Admin.link.generated-index.description": {
+    "message": "Ръководства за оператори на платформата, управляващи мултитенант системата на QR Digital Menu.",
+    "description": "The generated-index page description for category 'Super Admin' in sidebar 'guidesSidebar'"
   }
 }

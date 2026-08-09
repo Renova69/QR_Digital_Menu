@@ -1,14 +1,14 @@
 ---
-title: Colectarea Feedback-ului Clienților
-sidebar_label: Colectare Feedback
+title: Colectarea feedback-ului clienților
+sidebar_label: Colectarea feedback-ului
 sidebar_position: 1
 ---
 
-# Colectarea Feedback-ului Clienților
+# Colectarea feedback-ului clienților
 
-Oaspeților eligibili li se solicită feedback pe ecranul de confirmare a plății după ce Renova verifică plata și comenzile aferente au atins starea necesară de servire.
+Oaspeților eligibili li se solicită feedback pe ecranul de confirmare a plății după ce Renova verifică plata și comenzile asociate au ajuns la starea de servire necesară.
 
-## Experiența Oaspeților
+## Experiența oaspetelui
 
 Cardul de feedback conține:
 
@@ -18,6 +18,6 @@ Cardul de feedback conține:
 
 Solicitarea este legată de o vizită verificată și nu este trimisă ca o invitație separată prin e-mail.
 
-## Revizuirea Răspunsurilor
+## Revizuirea răspunsurilor
 
-Utilizatorii autorizați ai tabloului de bord pot revizui intrările de feedback și valorile rezumative. Utilizați filtrele de dată și evaluare acolo unde sunt disponibile și investigați temele operaționale recurente, mai degrabă decât să vă bazați pe un singur răspuns.
+Utilizatorii autorizați ai tabloului de bord pot revizui intrările de feedback și valorile rezumative. Utilizați filtrele de dată și evaluare acolo unde sunt disponibile și investigați temele operaționale recurente, în loc să vă bazați pe un singur răspuns.

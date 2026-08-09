@@ -1,0 +1,8 @@
+{
+  "label": "POS și Bucătărie",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "Utilizați POS-ul pentru personal și fluxurile de lucru ale afișajului din bucătărie."
+  }
+}

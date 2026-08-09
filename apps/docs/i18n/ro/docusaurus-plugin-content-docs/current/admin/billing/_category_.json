@@ -1,0 +1,8 @@
+{
+  "label": "Facturare și abonament",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Gestionați planurile, detaliile de plată și facturile de abonament."
+  }
+}
