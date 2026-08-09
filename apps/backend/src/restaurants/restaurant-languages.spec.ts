@@ -2,6 +2,8 @@ import {
   SUPPORTED_TARGET_LANGUAGE_CODES,
   MAX_TARGET_LANGUAGES,
 } from './restaurant-languages';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 describe('Restaurant Languages Constants', () => {
   it('should have a defined list of supported target language codes', () => {
@@ -22,5 +24,18 @@ describe('Restaurant Languages Constants', () => {
   it('should not contain duplicate language codes', () => {
     const uniqueCodes = new Set(SUPPORTED_TARGET_LANGUAGE_CODES);
     expect(uniqueCodes.size).toBe(SUPPORTED_TARGET_LANGUAGE_CODES.length);
+  });
+
+  it('defaults existing restaurants to Bulgarian instead of inferring menu language from dashboard locale', () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        'prisma/migrations/20260809190000_separate_menu_source_language/migration.sql',
+      ),
+      'utf8',
+    );
+
+    expect(migration).toContain(`DEFAULT 'bg'`);
+    expect(migration).not.toContain('dashboardLanguage');
   });
 });

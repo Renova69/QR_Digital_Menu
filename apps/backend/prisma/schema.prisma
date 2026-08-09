@@ -1363,10 +1363,11 @@ enum MenuTranslationField {
   CHOICES
 }
 
-// NEEDS_REVIEW is a one-time migration-era status: it flags units whose
-// stored translation is suspected to be un-translated source text written by
-// the pre-fix "glossary-only mode" gate. Never set by ordinary application
-// code after the initial backfill — see repair-poisoned-translations.ts.
+// NEEDS_REVIEW is a terminal, non-retryable status for a unit whose stored or
+// newly returned translation is suspected to be untranslated/garbage. It is
+// set by repair-poisoned-translations.ts and by the worker's deterministic
+// garbage validator; a source hash/language change makes the unit eligible
+// for translation again.
 enum MenuTranslationStatus {
   CURRENT
   STALE

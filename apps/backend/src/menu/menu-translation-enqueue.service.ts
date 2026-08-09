@@ -99,7 +99,7 @@ export class MenuTranslationEnqueueService {
         (params) => Prisma.sql`(
           ${randomUUID()}, ${params.restaurantId}, ${params.entityType}::"MenuTranslationEntity",
           ${params.entityId}, ${params.field}::"MenuTranslationField", ${params.locale},
-          ${params.sourceLang}, ${params.sourceHash}, 'STALE'::"MenuTranslationStatus", now(), now()
+          ${params.sourceLang}, ${params.sourceHash}, ${force ? 'STALE' : 'CURRENT'}::"MenuTranslationStatus", now(), now()
         )`,
       ),
     );

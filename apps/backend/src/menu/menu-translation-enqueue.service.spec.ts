@@ -45,6 +45,25 @@ describe('MenuTranslationEnqueueService', () => {
         ),
       ).resolves.toBeUndefined();
     });
+
+    it('inserts a missing state row as CURRENT when a valid cached translation already exists', async () => {
+      await service.enqueueCategory(
+        'rest-1',
+        {
+          id: 'cat-1',
+          name: 'Супи',
+          translations: { en: { name: 'Soups' } },
+        },
+        ['en'],
+        'bg',
+      );
+
+      const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+        values: unknown[];
+      };
+      expect(query.values).toContain('CURRENT');
+      expect(query.values).not.toContain('STALE');
+    });
   });
 
   describe('enqueueItem', () => {

@@ -18,6 +18,7 @@ const mockPrisma = {
     updateMany: jest.fn(),
     update: jest.fn(),
     groupBy: jest.fn(),
+    count: jest.fn(),
   },
   translationRun: {
     findFirst: jest.fn(),
@@ -57,6 +58,7 @@ describe('MenuTranslationWorkerService', () => {
     mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
       { status: 'CURRENT', _count: { _all: 1 } },
     ]);
+    mockPrisma.menuTranslationState.count.mockResolvedValue(0);
     mockPrisma.translationRun.findFirst.mockResolvedValue(null);
     mockQuota.assertCanSpend.mockResolvedValue({
       allowed: true,
@@ -126,6 +128,7 @@ describe('MenuTranslationWorkerService', () => {
       const result = await service.getRestaurantProgress('rest-1');
 
       expect(result.active).toBe(false);
+      expect(result.status).toBe('COMPLETED');
       expect(mockPrisma.translationRun.update).not.toHaveBeenCalled();
     });
   });
@@ -383,6 +386,44 @@ describe('MenuTranslationWorkerService', () => {
       );
     });
 
+    it('isolates garbage output so valid rows in the same batch still become CURRENT', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([
+        claimedRow({ id: 'state-good', entityId: 'item-good' }),
+        claimedRow({ id: 'state-bad', entityId: 'item-bad' }),
+      ]);
+      mockPrisma.menuItem.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.id.in.map((id: string) => ({
+            id,
+            name: id === 'item-good' ? 'Супа' : 'Луканка',
+          })),
+        ),
+      );
+      mockMenuTranslation.applyLazyTranslations
+        .mockRejectedValueOnce(
+          new Error('Garbage translation detected for one batch member'),
+        )
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(
+          new Error('Garbage translation detected for "Луканка"'),
+        );
+
+      await service.runOnce();
+
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['state-good'] } },
+          data: expect.objectContaining({ status: 'CURRENT' }),
+        }),
+      );
+      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'state-bad' },
+          data: expect.objectContaining({ status: 'NEEDS_REVIEW' }),
+        }),
+      );
+    });
+
     it('emits a completed progress event on full success', async () => {
       mockPrisma.$queryRawUnsafe.mockResolvedValue([claimedRow()]);
       mockPrisma.menuItem.findMany.mockResolvedValue([
@@ -454,14 +495,17 @@ describe('MenuTranslationWorkerService', () => {
       );
     });
 
-    it('emits a partial progress event when some entity types failed', async () => {
+    it('emits a partial progress event when a unit reaches terminal review', async () => {
       mockPrisma.$queryRawUnsafe.mockResolvedValue([claimedRow()]);
       mockPrisma.menuItem.findMany.mockResolvedValue([
         { id: 'item-1', name: 'X' },
       ]);
       mockMenuTranslation.applyLazyTranslations.mockRejectedValue(
-        new Error('fail'),
+        new Error('Garbage translation detected for "X"'),
       );
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'NEEDS_REVIEW', _count: { _all: 1 } },
+      ]);
 
       await service.runOnce();
 
@@ -470,6 +514,41 @@ describe('MenuTranslationWorkerService', () => {
         'translate:progress',
         expect.objectContaining({ status: 'PARTIAL' }),
       );
+    });
+
+    it('keeps the persisted run RUNNING while a failed row is still retryable', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([claimedRow()]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        { id: 'item-1', name: 'X' },
+      ]);
+      mockMenuTranslation.applyLazyTranslations.mockRejectedValue(
+        new Error('temporary provider failure'),
+      );
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'FAILED', _count: { _all: 1 } },
+      ]);
+      mockPrisma.menuTranslationState.count.mockResolvedValue(1);
+      mockPrisma.translationRun.findFirst.mockResolvedValue({
+        id: 'run-1',
+        status: 'RUNNING',
+        totalUnits: 1,
+        locales: ['en'],
+        createdAt: new Date(),
+      });
+
+      await service.runOnce();
+
+      expect(mockPrisma.translationRun.update).toHaveBeenLastCalledWith({
+        where: { id: 'run-1' },
+        data: expect.objectContaining({
+          status: 'RUNNING',
+          doneUnits: 0,
+          failedUnits: 1,
+        }),
+      });
+      expect(
+        mockPrisma.translationRun.update.mock.calls.at(-1)?.[0].data,
+      ).not.toHaveProperty('finishedAt');
     });
 
     it('groups claimed rows by (restaurantId, locale) and processes each group independently', async () => {

@@ -42,6 +42,8 @@ import { DashboardProfileModal } from "../components/dashboard/DashboardProfileM
 import { buildMenuReturnUrl, normalizeRestaurantId } from "../lib/menuUrl";
 import { RenovaBrand } from "../components/brand/RenovaBrand";
 import { updateRestaurant } from "../lib/api";
+import { persistDashboardLanguage } from "../lib/dashboardLanguage";
+import { useToast } from "../components/ui/toast";
 
 const AnalyticsView = lazy(() => import("./Dashboard/AnalyticsView"));
 const SettingsView = lazy(() => import("./Dashboard/SettingsView"));
@@ -180,33 +182,59 @@ const DashboardPage = () => {
   }, [isStaff, activeTab]);
 
   const { t, i18n } = useTranslation();
+  const { showToast, ToastComponent } = useToast();
+  const dashboardLanguageSaveInFlight = useRef(false);
+  const [dashboardLanguageSaving, setDashboardLanguageSaving] = useState(false);
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
 
   useEffect(() => {
     const configuredLanguage = activeRestaurant?.dashboardLanguage;
     if (
       configuredLanguage &&
-      DASHBOARD_LANGUAGES.some((language) => language.code === configuredLanguage) &&
+      DASHBOARD_LANGUAGES.some(
+        (language) => language.code === configuredLanguage,
+      ) &&
       !i18n.language?.startsWith(configuredLanguage)
     ) {
       void i18n.changeLanguage(configuredLanguage);
     }
   }, [activeRestaurant?.id, activeRestaurant?.dashboardLanguage, i18n]);
 
-  const changeDashboardLanguage = (language: string) => {
-    void i18n.changeLanguage(language);
+  const changeDashboardLanguage = async (language: string) => {
     if (
       isStaff ||
       !activeRestaurant?.id ||
       activeRestaurant.dashboardLanguage === language
     ) {
+      await i18n.changeLanguage(language);
       return;
     }
-    void updateRestaurant(activeRestaurant.id, {
-      dashboardLanguage: language,
-    })
-      .then(() => fetchRestaurants?.())
-      .catch(() => undefined);
+    if (dashboardLanguageSaveInFlight.current) return;
+
+    dashboardLanguageSaveInFlight.current = true;
+    setDashboardLanguageSaving(true);
+    const previousLanguage =
+      activeRestaurant.dashboardLanguage ??
+      i18n.resolvedLanguage?.slice(0, 2) ??
+      "en";
+    try {
+      await persistDashboardLanguage({
+        restaurantId: activeRestaurant.id,
+        nextLanguage: language,
+        previousLanguage,
+        changeLanguage: (nextLanguage) => i18n.changeLanguage(nextLanguage),
+        update: updateRestaurant,
+        refresh: fetchRestaurants,
+      });
+    } catch {
+      showToast(
+        t("settings.failedSave", "Failed to save settings. Please try again."),
+        "error",
+      );
+    } finally {
+      dashboardLanguageSaveInFlight.current = false;
+      setDashboardLanguageSaving(false);
+    }
   };
   const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
   const publicMenuUrl = activeRestaurantId
@@ -373,6 +401,7 @@ const DashboardPage = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {ToastComponent}
       {/* ── FIXED LEFT SIDEBAR (desktop) ── */}
       <aside className="hidden md:flex flex-col w-[260px] shrink-0 sidebar-dark h-full overflow-y-auto hide-scrollbar z-40">
         {/* Wordmark */}
@@ -604,11 +633,12 @@ const DashboardPage = () => {
           <div className="flex items-center gap-3">
             <select
               value={i18n.language?.slice(0, 2) ?? "en"}
+              disabled={dashboardLanguageSaving && !isStaff}
               onChange={(e) => {
                 const lang = e.target.value;
-                changeDashboardLanguage(lang);
+                void changeDashboardLanguage(lang);
               }}
-              className="h-8 px-3 rounded-xl text-xs font-bold uppercase tracking-widest text-foreground/70 cursor-pointer bg-secondary border border-border hover:bg-muted transition-all"
+              className="h-8 px-3 rounded-xl text-xs font-bold uppercase tracking-widest text-foreground/70 cursor-pointer bg-secondary border border-border hover:bg-muted transition-all disabled:cursor-wait disabled:opacity-60"
             >
               {DASHBOARD_LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -940,10 +970,11 @@ const DashboardPage = () => {
                 {DASHBOARD_LANGUAGES.map((l) => (
                   <button
                     key={l.code}
+                    disabled={dashboardLanguageSaving && !isStaff}
                     onClick={() => {
-                      changeDashboardLanguage(l.code);
+                      void changeDashboardLanguage(l.code);
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${
                       i18n.language?.startsWith(l.code)
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:bg-muted"
