@@ -14,7 +14,17 @@ npm install
 npm run start
 ```
 
-The development server runs at `http://localhost:3002`.
+The docs launcher starts one local Docusaurus server per locale on loopback
+ports 3002–3004. From the monorepo root, the normal `npm run dev` command also
+starts these servers and Vite exposes them through the same subpaths used in
+production:
+
+- `http://localhost:3001/docs/`
+- `http://localhost:3001/docs/bg/`
+- `http://localhost:3001/docs/ro/`
+
+Replace `localhost` with the development machine's LAN address to test from
+another device, for example `http://192.168.0.35:3001/docs/`.
 
 ## Build
 

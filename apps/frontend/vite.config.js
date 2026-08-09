@@ -144,6 +144,24 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       port: 3001,
       proxy: {
+        // Mirror the production /docs subpath locally. Turbo starts one
+        // isolated Docusaurus dev server per locale, while browsers access all
+        // of them through the frontend origin.
+        "/docs/bg": {
+          target: "http://127.0.0.1:3003",
+          changeOrigin: true,
+          ws: true,
+        },
+        "/docs/ro": {
+          target: "http://127.0.0.1:3004",
+          changeOrigin: true,
+          ws: true,
+        },
+        "/docs": {
+          target: "http://127.0.0.1:3002",
+          changeOrigin: true,
+          ws: true,
+        },
         // xfwd adds X-Forwarded-For/-Proto/-Host so the backend sees the real
         // browser IP instead of 127.0.0.1. Without it, ThrottlerGuard buckets
         // all dev traffic under one IP and any req.ip logic reads localhost —
