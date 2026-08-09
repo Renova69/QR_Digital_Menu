@@ -110,7 +110,10 @@ describe('RestaurantsService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       menuTranslationState: {
-        groupBy: jest.fn().mockResolvedValue([]),
+        groupBy: jest
+          .fn()
+          .mockResolvedValue([{ status: 'STALE', _count: { _all: 1 } }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
 
@@ -132,6 +135,16 @@ describe('RestaurantsService', () => {
 
     mockTranslationWorker = {
       kick: jest.fn(),
+      getRestaurantProgress: jest.fn().mockResolvedValue({
+        done: 0,
+        total: 0,
+        pending: 0,
+        failed: 0,
+        current: 0,
+        active: false,
+        status: null,
+        runId: null,
+      }),
     };
 
     mockTranslationQuota = {
@@ -492,6 +505,39 @@ describe('RestaurantsService', () => {
         mockDeviceEnrollment.revokeRestaurantDevices,
       ).not.toHaveBeenCalled();
     });
+
+    it('invalidates cached targets when the explicit menu source language changes', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ dashboardLanguage: 'bg' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(
+        makeRestaurant({ dashboardLanguage: 'en' }),
+      );
+
+      await service.update(
+        'rest1',
+        { dashboardLanguage: 'en' } as Parameters<typeof service.update>[1],
+        'user1',
+      );
+
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
+        where: { restaurantId: 'rest1', locale: { not: 'en' } },
+        data: expect.objectContaining({
+          status: 'STALE',
+          sourceLang: 'en',
+          failureCount: 0,
+        }),
+      });
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
+        where: { restaurantId: 'rest1', locale: 'en' },
+        data: expect.objectContaining({ status: 'CURRENT', sourceLang: 'en' }),
+      });
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ─── branding tier enforcement ────────────────────────────────────────────────
@@ -709,6 +755,7 @@ describe('RestaurantsService', () => {
           id: 'opt1',
           name: 'Size',
           choices: [{ name: 'Large', priceModifier: 1 }],
+          translations: { en: { name: 'Size' } },
         },
       ]);
 
@@ -732,7 +779,11 @@ describe('RestaurantsService', () => {
       );
       expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
         'rest1',
-        expect.objectContaining({ id: 'opt1', name: 'Size' }),
+        expect.objectContaining({
+          id: 'opt1',
+          name: 'Size',
+          translations: { en: { name: 'Size' } },
+        }),
         ['en', 'ro'],
         expect.any(String),
       );
@@ -741,12 +792,14 @@ describe('RestaurantsService', () => {
           data: expect.objectContaining({
             restaurantId: 'rest1',
             requestedById: 'user1',
-            status: 'QUEUED',
+            status: 'RUNNING',
             locales: ['en', 'ro'],
+            totalUnits: 1,
+            doneUnits: 0,
           }),
         }),
       );
-      expect(mockPrisma.translationRun.update).toHaveBeenCalled();
+      expect(mockPrisma.translationRun.update).not.toHaveBeenCalled();
       expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
       expect(result.runId).toBe('run-1');
     });
@@ -757,7 +810,7 @@ describe('RestaurantsService', () => {
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'translate:progress',
-        expect.objectContaining({ status: 'QUEUED', runId: 'run-1' }),
+        expect.objectContaining({ status: 'RUNNING', runId: 'run-1' }),
       );
     });
 
@@ -796,6 +849,16 @@ describe('RestaurantsService', () => {
         id: 'run-1',
         status: 'RUNNING',
         createdAt: new Date(),
+      });
+      mockTranslationWorker.getRestaurantProgress.mockResolvedValue({
+        done: 34,
+        total: 40,
+        pending: 5,
+        failed: 1,
+        current: 40,
+        active: true,
+        status: 'RUNNING',
+        runId: 'run-1',
       });
 
       const result = await service.getTranslationStatus('rest1', 'user1');

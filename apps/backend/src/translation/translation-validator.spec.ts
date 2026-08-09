@@ -19,6 +19,12 @@ describe('isGarbageTranslation', () => {
     it('does not flag identity after trimming', () => {
       expect(isGarbageTranslation(' Pizza ', 'Pizza', 'en')).toBe(false);
     });
+
+    it('flags untranslated Cyrillic identity text for a Latin target', () => {
+      expect(
+        isGarbageTranslation('Шкембе на фурна', 'Шкембе на фурна', 'en'),
+      ).toBe(true);
+    });
   });
 
   describe('length ratio — real legitimate DeepL output must NOT be flagged (2026-07-25 rework)', () => {

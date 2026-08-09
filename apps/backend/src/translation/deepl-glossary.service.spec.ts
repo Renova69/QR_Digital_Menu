@@ -148,6 +148,23 @@ describe('DeepLGlossaryService', () => {
       expect(mockPost).not.toHaveBeenCalled();
     });
 
+    it('does not retry a recently failed glossary on every menu item', async () => {
+      mockPrisma.glossaryTerm.findMany.mockResolvedValue([
+        { sourceText: 'мезе', translatedText: 'appetizer', kind: 'TERM' },
+      ]);
+      mockPrisma.deepLGlossary.findUnique.mockResolvedValue({
+        deeplGlossaryId: null,
+        contentHash: null,
+        lastError: 'Request failed with status code 456',
+        updatedAt: new Date(),
+      });
+
+      const result = await service.ensureGlossary('bg', 'de');
+
+      expect(result).toBeUndefined();
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+
     it('rebuilds when contentHash has drifted from the cached value', async () => {
       mockPrisma.glossaryTerm.findMany.mockResolvedValue([
         { sourceText: 'мезе', translatedText: 'Vorspeise NEW', kind: 'TERM' },

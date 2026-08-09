@@ -39,11 +39,18 @@ export function isGarbageTranslation(
   const trimmedSource = source.trim();
   const trimmedTranslation = translation.trim();
 
-  // 4. Identity check
-  // If the translation is identical to the source, it's not a hallucination, just an un-translated string.
-  // We return false here to let other parts of the system handle it (e.g. fallback).
+  // Identity is valid for script-compatible proper nouns (Pizza -> Pizza),
+  // but Cyrillic source copied unchanged into a Latin target is an obviously
+  // untranslated value. Treat it as stale so Translate All can repair cached
+  // source copies instead of preserving them as CURRENT forever.
   if (trimmedSource === trimmedTranslation) {
-    return false;
+    const sourceHasCyrillic = /[\u0400-\u04FF]/.test(trimmedSource);
+    const sourceHasLatin = /[a-zA-Z]/.test(trimmedSource);
+    return (
+      LATIN_LANGUAGES.includes(targetLang) &&
+      sourceHasCyrillic &&
+      !sourceHasLatin
+    );
   }
 
   // 1. Length ratio check

@@ -183,13 +183,23 @@ describe('MenuTranslationService', () => {
       expect(rawCallsFor('menu_option')).toHaveLength(1);
     });
 
+    it('rejects when the provider fails so the queue row is not marked current', async () => {
+      mockTranslation.translateTexts.mockRejectedValue(new Error('DeepL down'));
+      const category = makeCategory({ items: [] });
+
+      await expect(
+        service.applyLazyTranslations([category], 'bg'),
+      ).rejects.toThrow('DeepL down');
+      expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
     it('does not throw when category DB write fails — logs warning only', async () => {
       mockPrisma.$executeRaw.mockRejectedValue(new Error('DB error'));
       const category = makeCategory({ items: [] });
 
       await expect(
         service.applyLazyTranslations([category], 'bg'),
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('DB error');
     });
 
     it('does not throw when item DB write fails — logs warning only', async () => {
@@ -204,7 +214,7 @@ describe('MenuTranslationService', () => {
 
       await expect(
         service.applyLazyTranslations([category], 'ro'),
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('Item DB error');
     });
 
     it('does not throw when option DB write fails — logs warning only', async () => {
@@ -231,7 +241,7 @@ describe('MenuTranslationService', () => {
 
       await expect(
         service.applyLazyTranslations([category], 'ro'),
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('Option DB error');
     });
 
     it('chunks translations at translationService.maxBatchSize (50) texts per call', async () => {

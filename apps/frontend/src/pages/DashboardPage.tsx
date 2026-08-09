@@ -39,7 +39,6 @@ import { useFeature, type FeatureFlag } from "../hooks/useFeature";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { DashboardProfileModal } from "../components/dashboard/DashboardProfileModal";
-import { updateRestaurant } from "../lib/api";
 import { buildMenuReturnUrl, normalizeRestaurantId } from "../lib/menuUrl";
 import { RenovaBrand } from "../components/brand/RenovaBrand";
 
@@ -134,7 +133,6 @@ const DashboardPage = () => {
     restaurants,
     loading: restaurantsLoading,
     error: restaurantsError,
-    fetchRestaurants,
   }: any = useContext(RestaurantContext);
   const [activeTab, setActiveTab] = useState<TabId>("summary");
   const [lockedFeatureClicked, setLockedFeatureClicked] =
@@ -143,7 +141,6 @@ const DashboardPage = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromParamApplied = useRef(false);
-  const dashLangSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isStaff = user?.role?.toUpperCase() === "STAFF";
   const STAFF_ALLOWED_TABS: TabId[] = ["orders", "assistance", "tables"];
@@ -217,16 +214,6 @@ const DashboardPage = () => {
     canReservations,
     canAnalytics,
   ]);
-
-  const lastRestaurantId = useRef<string | null>(null);
-  useEffect(() => {
-    if (activeRestaurant?.id !== lastRestaurantId.current) {
-      if (activeRestaurant?.dashboardLanguage) {
-        i18n.changeLanguage(activeRestaurant.dashboardLanguage);
-      }
-      lastRestaurantId.current = activeRestaurant?.id || null;
-    }
-  }, [activeRestaurant?.id, activeRestaurant?.dashboardLanguage, i18n]);
 
   const newOrdersCount = orders.filter(
     (o) => o.status === "NEW" || o.status === "PENDING_PAYMENT",
@@ -591,15 +578,6 @@ const DashboardPage = () => {
               onChange={(e) => {
                 const lang = e.target.value;
                 void i18n.changeLanguage(lang);
-                if (activeRestaurant?.id) {
-                  if (dashLangSaveTimer.current)
-                    clearTimeout(dashLangSaveTimer.current);
-                  dashLangSaveTimer.current = setTimeout(() => {
-                    void updateRestaurant(activeRestaurant.id, {
-                      dashboardLanguage: lang,
-                    }).then(() => fetchRestaurants());
-                  }, 400);
-                }
               }}
               className="h-8 px-3 rounded-xl text-xs font-bold uppercase tracking-widest text-foreground/70 cursor-pointer bg-secondary border border-border hover:bg-muted transition-all"
             >
@@ -935,11 +913,6 @@ const DashboardPage = () => {
                     key={l.code}
                     onClick={() => {
                       void i18n.changeLanguage(l.code);
-                      if (activeRestaurant?.id) {
-                        void updateRestaurant(activeRestaurant.id, {
-                          dashboardLanguage: l.code,
-                        }).then(() => fetchRestaurants());
-                      }
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                       i18n.language?.startsWith(l.code)

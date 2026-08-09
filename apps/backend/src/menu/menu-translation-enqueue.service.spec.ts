@@ -31,7 +31,7 @@ describe('MenuTranslationEnqueueService', () => {
         ['en', 'de'],
         'bg',
       );
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it('does not throw when the DB write fails', async () => {
@@ -65,7 +65,7 @@ describe('MenuTranslationEnqueueService', () => {
         ['en'],
         'bg',
       );
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it('skips preset allergen/dietary keys entirely', async () => {
@@ -98,7 +98,7 @@ describe('MenuTranslationEnqueueService', () => {
         'bg',
       );
       // NAME + ALLERGENS (custom "Truffle" present) + DIETARY_TAGS = 3
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(3);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it('does not enqueue DESCRIPTION for a blank/whitespace-only description', async () => {
@@ -118,8 +118,8 @@ describe('MenuTranslationEnqueueService', () => {
         ['en', 'de', 'fr'],
         'bg',
       );
-      // 2 fields x 3 locales = 6
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(6);
+      // All six state rows are written in one database round-trip.
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -145,8 +145,43 @@ describe('MenuTranslationEnqueueService', () => {
         ['en'],
         'bg',
       );
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('deduplicates locales and never queues the source language', async () => {
+    await service.enqueueCategory(
+      'rest-1',
+      { id: 'cat-1', name: 'Мезета' },
+      ['bg', 'en', 'en'],
+      'bg',
+    );
+
+    expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const values = (
+      mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] }
+    ).values;
+    expect(values.filter((value) => value === 'en')).toHaveLength(1);
+  });
+
+  it('marks a row stale when its source language changes', async () => {
+    await service.enqueueCategory(
+      'rest-1',
+      {
+        id: 'cat-1',
+        name: 'Starters',
+        translations: { bg: { name: 'Предястия' } },
+      },
+      ['bg'],
+      'en',
+    );
+
+    const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+    };
+    expect(query.strings.join(' ')).toContain(
+      '"menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang"',
+    );
   });
 
   describe('enqueueBatch', () => {

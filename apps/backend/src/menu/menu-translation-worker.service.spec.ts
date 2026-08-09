@@ -206,13 +206,39 @@ describe('MenuTranslationWorkerService', () => {
         [
           expect.objectContaining({
             translations: { en: { name: ' ' } },
-            items: [{ id: 'item-1', name: 'Кебапче' }],
+            items: expect.arrayContaining([
+              expect.objectContaining({ id: 'item-1' }),
+            ]),
           }),
         ],
         'en',
         'bg',
         expect.objectContaining({ restaurantId: 'rest-1' }),
       );
+    });
+
+    it('removes only the claimed cached field so a stale value is regenerated', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([
+        claimedRow({ entityType: 'ITEM', field: 'NAME' }),
+      ]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        {
+          id: 'item-1',
+          name: 'Шкембе на фурна',
+          description: 'Традиционно',
+          translations: {
+            en: { name: 'Шкембе на фурна', description: 'Traditional' },
+          },
+        },
+      ]);
+
+      await service.runOnce();
+
+      const [categories] =
+        mockMenuTranslation.applyLazyTranslations.mock.calls[0];
+      expect(categories[0].items[0].translations.en).toEqual({
+        description: 'Traditional',
+      });
     });
 
     it('wraps a claimed OPTION in synthetic category+item before calling applyLazyTranslations', async () => {
@@ -227,9 +253,9 @@ describe('MenuTranslationWorkerService', () => {
 
       const [categories] =
         mockMenuTranslation.applyLazyTranslations.mock.calls[0];
-      expect(categories[0].items[0].options).toEqual([
-        { id: 'opt-1', name: 'Size' },
-      ]);
+      expect(categories[0].items[0].options).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: 'opt-1' })]),
+      );
     });
 
     it('passes real category rows directly (no synthetic wrapper) for CATEGORY claims', async () => {
@@ -243,7 +269,7 @@ describe('MenuTranslationWorkerService', () => {
       await service.runOnce();
 
       expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
-        [{ id: 'cat-1', name: 'Мезета' }],
+        [expect.objectContaining({ id: 'cat-1' })],
         'en',
         'bg',
         expect.any(Object),
@@ -304,6 +330,35 @@ describe('MenuTranslationWorkerService', () => {
         'translate:progress',
         expect.objectContaining({ status: 'COMPLETED' }),
       );
+    });
+
+    it('finalizes the persisted run when its last queued unit completes', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([claimedRow()]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        { id: 'item-1', name: 'X' },
+      ]);
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 1 } },
+      ]);
+      mockPrisma.translationRun.findFirst.mockResolvedValue({
+        id: 'run-1',
+        status: 'RUNNING',
+        totalUnits: 1,
+        locales: ['en'],
+        createdAt: new Date(),
+      });
+
+      await service.runOnce();
+
+      expect(mockPrisma.translationRun.update).toHaveBeenCalledWith({
+        where: { id: 'run-1' },
+        data: expect.objectContaining({
+          status: 'COMPLETED',
+          doneUnits: 1,
+          failedUnits: 0,
+          finishedAt: expect.any(Date),
+        }),
+      });
     });
 
     it('reports done/total against ALL outstanding restaurant work, not just this batch (2026-07-25 live-data fix)', async () => {

@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import GeneralSettingsTab from "./GeneralSettingsTab";
 import RestaurantContext from "../../../context/RestaurantContext";
 import {
-  updateRestaurant,
   triggerTranslation,
   getTranslationStatus,
   type TranslationStatus,
@@ -76,6 +75,8 @@ const idleStatus: TranslationStatus = {
   pending: 0,
   failed: 0,
   current: 10,
+  done: 0,
+  total: 0,
   active: false,
   latestRunId: null,
   latestRunStatus: null,
@@ -116,14 +117,16 @@ describe("GeneralSettingsTab - translation status badge", () => {
       ...idleStatus,
       pending: 4,
       active: true,
-    });
+      done: 3,
+      total: 10,
+    } as TranslationStatus & { done: number; total: number });
     render(<GeneralSettingsTab />, { wrapper });
 
-    expect(
-      await screen.findByText(
-        "Queued — translation is running in the background…",
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText("3/10 · 7 left")).toBeTruthy();
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "3",
+    );
   });
 });
 
@@ -134,6 +137,9 @@ describe("GeneralSettingsTab - handleForceTranslate", () => {
       success: true,
       message: "queued",
       runId: "run-1",
+      done: 0,
+      total: 10,
+      status: "RUNNING",
     });
     render(<GeneralSettingsTab />, { wrapper });
     await waitFor(() => expect(getTranslationStatus).toHaveBeenCalled());
@@ -144,9 +150,7 @@ describe("GeneralSettingsTab - handleForceTranslate", () => {
     // 202-contract: the button flips to "translating" immediately, driven by
     // the enqueue call resolving — not by the (nonexistent) full completion.
     expect(await screen.findByText("settings.translating")).toBeTruthy();
-    expect(
-      screen.getByText("Queued — translation is running in the background…"),
-    ).toBeTruthy();
+    expect(screen.getByText("0/10 · 10 left")).toBeTruthy();
   });
 
   it("resets translating and surfaces the error when enqueue reports failure", async () => {
@@ -194,9 +198,11 @@ describe("GeneralSettingsTab - poll fallback", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    
+
     // Simulate the instant QUEUED event from backend so progress is not null
-    const onCall = mockSocket.on.mock.calls.find(c => c[0] === "translate:progress");
+    const onCall = mockSocket.on.mock.calls.find(
+      (c) => c[0] === "translate:progress",
+    );
     if (onCall) {
       act(() => {
         onCall[1]({ phase: "queued", done: 0, total: 10, status: "QUEUED" });
@@ -212,7 +218,7 @@ describe("GeneralSettingsTab - poll fallback", () => {
 
     expect(getTranslationStatus).toHaveBeenCalledTimes(2);
     expect(screen.getByText("settings.translateAllNow")).toBeTruthy();
-    
+
     // The status bar should remain visible with the success message
     expect(screen.getByText("✓ Translation complete!")).toBeTruthy();
   });
@@ -244,7 +250,12 @@ describe("GeneralSettingsTab - poll fallback", () => {
 
     // Emit a batch COMPLETED event
     act(() => {
-      handleProgress({ phase: "completed", done: 5, total: 10, status: "COMPLETED" });
+      handleProgress({
+        phase: "completed",
+        done: 5,
+        total: 10,
+        status: "COMPLETED",
+      });
     });
 
     // The numbers update (5/10 · 5 left)

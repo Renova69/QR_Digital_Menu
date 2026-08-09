@@ -338,6 +338,13 @@ export class RestaurantsService {
     )
       ? { ...updateRestaurantDto }
       : stripBrandingFields({ ...updateRestaurantDto });
+    const sourceLanguageChanged =
+      typeof data.dashboardLanguage === 'string' &&
+      data.dashboardLanguage.trim().toLowerCase() !==
+        (restaurant.dashboardLanguage ?? 'bg').trim().toLowerCase();
+    const nextSourceLanguage = sourceLanguageChanged
+      ? data.dashboardLanguage.trim().toLowerCase()
+      : null;
 
     // Multi-language gating: strip targetLanguages if tier lacks multi-language feature
     if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
@@ -405,6 +412,35 @@ export class RestaurantsService {
       select: RESTAURANT_READ_SELECT,
       data,
     });
+
+    if (nextSourceLanguage) {
+      await Promise.all([
+        this.prisma.menuTranslationState.updateMany({
+          where: {
+            restaurantId: id,
+            locale: { not: nextSourceLanguage },
+          },
+          data: {
+            status: 'STALE',
+            sourceLang: nextSourceLanguage,
+            failureCount: 0,
+            nextAttemptAt: null,
+            lastError: null,
+          },
+        }),
+        this.prisma.menuTranslationState.updateMany({
+          where: { restaurantId: id, locale: nextSourceLanguage },
+          data: {
+            status: 'CURRENT',
+            sourceLang: nextSourceLanguage,
+            failureCount: 0,
+            nextAttemptAt: null,
+            lastError: null,
+          },
+        }),
+      ]);
+      this.translationWorker.kick();
+    }
 
     if (shouldEvictSharedDevices) {
       await this.deviceEnrollmentService.evictRestaurantDevices(id);
@@ -485,8 +521,36 @@ export class RestaurantsService {
       };
     }
 
-    const targets = restaurant.targetLanguages;
     const sourceLang = restaurant.dashboardLanguage ?? 'bg';
+    const targets = [
+      ...new Set(
+        restaurant.targetLanguages
+          .map((locale) => locale.trim().toLowerCase())
+          .filter(
+            (locale) => locale && locale !== sourceLang.trim().toLowerCase(),
+          ),
+      ),
+    ];
+    if (targets.length === 0) {
+      return {
+        success: false,
+        message: 'No target languages different from the menu source language.',
+      };
+    }
+
+    const existingProgress =
+      await this.translationWorker.getRestaurantProgress(id);
+    if (existingProgress.active) {
+      this.translationWorker.kick();
+      return {
+        success: true,
+        message: 'Translation is already running.',
+        runId: existingProgress.runId,
+        done: existingProgress.done,
+        total: existingProgress.total,
+        status: existingProgress.status,
+      };
+    }
 
     const [items, categories, options] = await Promise.all([
       this.prisma.menuItem.findMany({
@@ -521,15 +585,6 @@ export class RestaurantsService {
       };
     }
 
-    const run = await this.prisma.translationRun.create({
-      data: {
-        restaurantId: id,
-        requestedById: userId,
-        status: 'QUEUED',
-        locales: targets,
-      },
-    });
-
     // Bounded concurrency (not Promise.all across every entity) — a large
     // multi-language menu is hundreds of categories/items/options, each
     // issuing its own DB upsert(s); unbounded fan-out exhausts PgBouncer's
@@ -548,7 +603,12 @@ export class RestaurantsService {
         (o) => () =>
           this.translationEnqueue.enqueueOption(
             id,
-            { id: o.id, name: o.name, choices: o.choices as any },
+            {
+              id: o.id,
+              name: o.name,
+              choices: o.choices as any,
+              translations: o.translations,
+            },
             targets,
             sourceLang,
           ),
@@ -557,7 +617,7 @@ export class RestaurantsService {
 
     const stateCounts = await this.prisma.menuTranslationState.groupBy({
       by: ['status'],
-      where: { restaurantId: id },
+      where: { restaurantId: id, locale: { in: targets } },
       _count: { _all: true },
     });
     let actualEnqueued = 0;
@@ -567,10 +627,27 @@ export class RestaurantsService {
       }
     }
     const totalUnits = actualEnqueued;
+    if (totalUnits === 0) {
+      return {
+        success: true,
+        message: 'All configured translations are already current.',
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
+      };
+    }
 
-    await this.prisma.translationRun.update({
-      where: { id: run.id },
-      data: { totalUnits, status: 'RUNNING', startedAt: new Date() },
+    const run = await this.prisma.translationRun.create({
+      data: {
+        restaurantId: id,
+        requestedById: userId,
+        status: 'RUNNING',
+        locales: targets,
+        totalUnits,
+        doneUnits: 0,
+        startedAt: new Date(),
+      },
     });
 
     this.eventsGateway.emitToRestaurant(id, 'translate:progress', {
@@ -578,7 +655,7 @@ export class RestaurantsService {
       done: 0,
       total: totalUnits,
       runId: run.id,
-      status: 'QUEUED',
+      status: 'RUNNING',
     });
 
     this.translationWorker.kick();
@@ -587,6 +664,9 @@ export class RestaurantsService {
       success: true,
       message: `Queued ${categories.length} categories, ${items.length} items, and ${options.length} options for translation into ${targets.length} language(s).`,
       runId: run.id,
+      done: 0,
+      total: totalUnits,
+      status: 'RUNNING',
     };
   }
 
@@ -614,19 +694,17 @@ export class RestaurantsService {
     const failed = byStatus.FAILED ?? 0;
     const current = byStatus.CURRENT ?? 0;
 
-    const latestRun = await this.prisma.translationRun.findFirst({
-      where: { restaurantId: id },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, status: true, createdAt: true },
-    });
+    const progress = await this.translationWorker.getRestaurantProgress(id);
 
     return {
       pending,
       failed,
       current,
-      active: pending > 0,
-      latestRunId: latestRun?.id ?? null,
-      latestRunStatus: latestRun?.status ?? null,
+      active: progress.active,
+      done: progress.done,
+      total: progress.total,
+      latestRunId: progress.runId,
+      latestRunStatus: progress.runId ? progress.status : null,
     };
   }
 

@@ -22,6 +22,17 @@ interface ClaimedRow {
   failureCount: number;
 }
 
+export interface RestaurantTranslationProgress {
+  done: number;
+  total: number;
+  pending: number;
+  failed: number;
+  current: number;
+  active: boolean;
+  status: string | null;
+  runId: string | null;
+}
+
 // Fixed placeholder id for the synthetic category/item wrappers used to
 // isolate a single claimed ITEM or OPTION from its real siblings when
 // handed to MenuTranslationService.applyLazyTranslations (which expects a
@@ -207,6 +218,38 @@ export class MenuTranslationWorkerService {
     ];
   }
 
+  private clearClaimedFields(
+    entities: any[],
+    rows: ClaimedRow[],
+    locale: string,
+  ): void {
+    const fieldKeys: Record<string, string> = {
+      NAME: 'name',
+      DESCRIPTION: 'description',
+      ALLERGENS: 'allergens',
+      DIETARY_TAGS: 'dietaryTags',
+      CHOICES: 'choices',
+    };
+    const byId = new Map(entities.map((entity) => [entity.id, entity]));
+
+    for (const row of rows) {
+      const entity = byId.get(row.entityId);
+      const fieldKey = fieldKeys[row.field];
+      if (!entity || !fieldKey) continue;
+      const translations =
+        entity.translations && typeof entity.translations === 'object'
+          ? { ...entity.translations }
+          : {};
+      const localeEntry =
+        translations[locale] && typeof translations[locale] === 'object'
+          ? { ...translations[locale] }
+          : {};
+      delete localeEntry[fieldKey];
+      translations[locale] = localeEntry;
+      entity.translations = translations;
+    }
+  }
+
   private async estimateChars(rows: ClaimedRow[]): Promise<number> {
     // Rough pre-flight estimate for the quota check — sums canonical text
     // lengths for the claimed entities. Deliberately approximate (doesn't
@@ -262,26 +305,40 @@ export class MenuTranslationWorkerService {
    * look complete (e.g. "50/50") while most of the run was still queued
    * (2026-07-25 live-data finding, via manual dashboard testing).
    */
-  private async getProgressSnapshot(
+  async getRestaurantProgress(
     restaurantId: string,
-  ): Promise<{ done: number; total: number }> {
+  ): Promise<RestaurantTranslationProgress> {
+    const latestRun = await this.prisma.translationRun.findFirst({
+      where: { restaurantId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const runLocales = latestRun?.locales ?? [];
+    const stateWhere =
+      runLocales.length > 0
+        ? { restaurantId, locale: { in: runLocales } }
+        : { restaurantId };
     const counts = await this.prisma.menuTranslationState.groupBy({
       by: ['status'],
-      where: { restaurantId },
+      where: stateWhere,
       _count: { _all: true },
     });
 
     let outstanding = 0;
+    let pending = 0;
+    let failed = 0;
     let current = 0;
     for (const row of counts) {
       if (row.status === 'CURRENT') {
         current += row._count._all;
+      } else if (row.status === 'FAILED' || row.status === 'NEEDS_REVIEW') {
+        failed += row._count._all;
+        outstanding += row._count._all;
       } else if (
         row.status === 'STALE' ||
         row.status === 'PENDING' ||
-        row.status === 'FAILED' ||
         row.status === 'SKIPPED'
       ) {
+        pending += row._count._all;
         outstanding += row._count._all;
       }
     }
@@ -293,19 +350,58 @@ export class MenuTranslationWorkerService {
     // this run and should not make the bar jump backward. When no run exists
     // (e.g. translations triggered by edit→save auto-enqueue), fall back to
     // the live counts so the bar has a meaningful denominator.
-    const latestRun = await this.prisma.translationRun.findFirst({
-      where: { restaurantId },
-      orderBy: { createdAt: 'desc' },
-    });
 
     if (latestRun) {
-      const total = latestRun.totalUnits;
+      const total =
+        typeof latestRun.totalUnits === 'number'
+          ? latestRun.totalUnits
+          : current + outstanding;
       const done = Math.max(0, total - outstanding);
-      return { done, total };
+      const status: 'RUNNING' | 'PARTIAL' | 'COMPLETED' =
+        pending > 0 ? 'RUNNING' : failed > 0 ? 'PARTIAL' : 'COMPLETED';
+      const activeRun = ['QUEUED', 'RUNNING'].includes(latestRun.status);
+      if (activeRun) {
+        await this.prisma.translationRun.update({
+          where: { id: latestRun.id },
+          data: {
+            status,
+            doneUnits: done,
+            failedUnits: Math.min(failed, Math.max(0, total - done)),
+            ...(status === 'RUNNING' ? {} : { finishedAt: new Date() }),
+          },
+        });
+      }
+      return {
+        done,
+        total,
+        pending,
+        failed,
+        current,
+        active: pending > 0,
+        status,
+        runId: latestRun.id,
+      };
     }
 
     // No run record — use live CURRENT + outstanding as the denominator.
-    return { done: current, total: current + outstanding };
+    const total = current + outstanding;
+    return {
+      done: current,
+      total,
+      pending,
+      failed,
+      current,
+      active: pending > 0,
+      status:
+        pending > 0
+          ? 'RUNNING'
+          : failed > 0
+            ? 'PARTIAL'
+            : total > 0
+              ? 'COMPLETED'
+              : null,
+      runId: null,
+    };
   }
 
   private async markCurrent(ids: string[]): Promise<void> {
@@ -409,6 +505,7 @@ export class MenuTranslationWorkerService {
       const categories = await this.prisma.menuCategory.findMany({
         where: { id: { in: ids } },
       });
+      this.clearClaimedFields(categories, byType.CATEGORY, locale);
       try {
         await this.menuTranslationService.applyLazyTranslations(
           categories,
@@ -429,6 +526,7 @@ export class MenuTranslationWorkerService {
       const items = await this.prisma.menuItem.findMany({
         where: { id: { in: ids } },
       });
+      this.clearClaimedFields(items, byType.ITEM, locale);
       try {
         await this.menuTranslationService.applyLazyTranslations(
           this.wrapItemsAsCategory(items, locale),
@@ -449,6 +547,7 @@ export class MenuTranslationWorkerService {
       const options = await this.prisma.menuOption.findMany({
         where: { id: { in: ids } },
       });
+      this.clearClaimedFields(options, byType.OPTION, locale);
       try {
         await this.menuTranslationService.applyLazyTranslations(
           this.wrapOptionsAsCategory(options, locale),
@@ -478,14 +577,19 @@ export class MenuTranslationWorkerService {
   private async emitProgress(
     restaurantId: string,
     phase: string,
-    status: string,
+    statusOverride: string,
   ): Promise<void> {
-    const snapshot = await this.getProgressSnapshot(restaurantId);
+    const snapshot = await this.getRestaurantProgress(restaurantId);
+    const status =
+      statusOverride === 'QUOTA_BLOCKED' || statusOverride === 'PARTIAL'
+        ? statusOverride
+        : (snapshot.status ?? statusOverride);
     this.events.emitToRestaurant(restaurantId, 'translate:progress', {
       phase,
       done: snapshot.done,
       total: snapshot.total,
       status,
+      runId: snapshot.runId,
     });
   }
 
