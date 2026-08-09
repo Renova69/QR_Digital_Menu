@@ -11,6 +11,7 @@ import { NavigationRoute, registerRoute } from "workbox-routing";
 import { NetworkFirst } from "workbox-strategies";
 
 import { SPA_NAVIGATION_DENYLIST } from "./serviceWorkerRoutes";
+import { treatServerErrorsAsFailures } from "./swCachePlugins";
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -40,6 +41,9 @@ registerRoute(
     cacheName: "pos-public-menu-v1",
     networkTimeoutSeconds: 4,
     plugins: [
+      // Must precede the cache plugins: it converts a 5xx into a rejection so
+      // NetworkFirst reaches its cache fallback instead of returning the error.
+      treatServerErrorsAsFailures,
       new CacheableResponsePlugin({ statuses: [0, 200] }),
       new ExpirationPlugin({
         maxEntries: 80,
