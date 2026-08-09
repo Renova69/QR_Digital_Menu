@@ -32,6 +32,33 @@ describe('isGarbageTranslation', () => {
         expect(isGarbageTranslation('Луканка', 'Луканка', locale)).toBe(true);
       },
     );
+
+    // The platform supports 12 locales; el/ja/zh/ar are neither Latin nor
+    // Cyrillic and were previously exempt from the identity check, so a
+    // Bulgarian source copied through unchanged cached as a valid
+    // translation — the same failure that produced the poisoned EN values.
+    it.each(['el', 'ja', 'zh', 'ar'])(
+      'flags untranslated Cyrillic identity text for the non-Latin target %s',
+      (locale) => {
+        expect(
+          isGarbageTranslation('Шкембе на фурна', 'Шкембе на фурна', locale),
+        ).toBe(true);
+      },
+    );
+
+    it.each(['el', 'ja', 'zh', 'ar'])(
+      'still allows a Latin proper-noun identity for the non-Latin target %s',
+      (locale) => {
+        expect(isGarbageTranslation('Pepsi', 'Pepsi', locale)).toBe(false);
+      },
+    );
+
+    it('does not flag identity for an unknown language code', () => {
+      // Guard against widening the rule to "any target that is not Cyrillic":
+      // an unrecognised code carries no script information, so the honest
+      // answer is "not provably garbage".
+      expect(isGarbageTranslation('Луканка', 'Луканка', 'xx')).toBe(false);
+    });
   });
 
   describe('length ratio — real legitimate DeepL output must NOT be flagged (2026-07-25 rework)', () => {

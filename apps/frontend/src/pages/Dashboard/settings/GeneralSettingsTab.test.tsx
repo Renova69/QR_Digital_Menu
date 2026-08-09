@@ -170,6 +170,52 @@ describe("GeneralSettingsTab - handleForceTranslate", () => {
     expect(screen.getByText("settings.translateAllNow")).toBeTruthy();
   });
 
+  it("surfaces the needs-review notice instead of a bare success when nothing could be queued", async () => {
+    // The backend completes the run (status COMPLETED, total 0) but reports
+    // values parked in NEEDS_REVIEW. Showing "✓ Translation complete!" here
+    // contradicts the outdated/failed badge sitting next to it.
+    const user = userEvent.setup();
+    vi.mocked(triggerTranslation).mockResolvedValue({
+      success: true,
+      message: "Nothing new to queue. 2 value(s) need manual review.",
+      runId: null,
+      done: 0,
+      total: 0,
+      status: "COMPLETED",
+      needsReview: 2,
+    });
+    render(<GeneralSettingsTab />, { wrapper });
+    await waitFor(() => expect(getTranslationStatus).toHaveBeenCalled());
+
+    await user.click(screen.getByText("settings.translateAllNow"));
+
+    expect(
+      await screen.findByText(
+        "Nothing new to queue — 2 value(s) need manual review.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("✓ Translation complete!")).toBeNull();
+  });
+
+  it("still shows the localized success message when nothing needs review", async () => {
+    const user = userEvent.setup();
+    vi.mocked(triggerTranslation).mockResolvedValue({
+      success: true,
+      message: "All configured translations are already current.",
+      runId: null,
+      done: 0,
+      total: 0,
+      status: "COMPLETED",
+      needsReview: 0,
+    });
+    render(<GeneralSettingsTab />, { wrapper });
+    await waitFor(() => expect(getTranslationStatus).toHaveBeenCalled());
+
+    await user.click(screen.getByText("settings.translateAllNow"));
+
+    expect(await screen.findByText("✓ Translation complete!")).toBeTruthy();
+  });
+
   it("resets translating and surfaces a mapped error when the enqueue call throws", async () => {
     const user = userEvent.setup();
     vi.mocked(triggerTranslation).mockRejectedValue(new Error("network down"));

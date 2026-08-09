@@ -22,8 +22,11 @@ const mockPrisma = {
   },
   translationRun: {
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
 };
 
@@ -60,6 +63,10 @@ describe('MenuTranslationWorkerService', () => {
     ]);
     mockPrisma.menuTranslationState.count.mockResolvedValue(0);
     mockPrisma.translationRun.findFirst.mockResolvedValue(null);
+    mockPrisma.translationRun.findUnique.mockResolvedValue(null);
+    mockPrisma.translationRun.findMany.mockResolvedValue([]);
+    mockPrisma.translationRun.update.mockResolvedValue({ id: 'run-1' });
+    mockPrisma.translationRun.updateMany.mockResolvedValue({ count: 0 });
     mockQuota.assertCanSpend.mockResolvedValue({
       allowed: true,
       remaining: 1000,
@@ -131,6 +138,38 @@ describe('MenuTranslationWorkerService', () => {
       expect(result.status).toBe('COMPLETED');
       expect(mockPrisma.translationRun.update).not.toHaveBeenCalled();
     });
+
+    it('scopes an active run to its explicit state membership so later edits cannot join it', async () => {
+      const startedAt = new Date('2026-08-09T10:00:00.000Z');
+      mockPrisma.translationRun.findFirst.mockResolvedValue({
+        id: 'run-2',
+        status: 'RUNNING',
+        totalUnits: 1,
+        locales: ['en'],
+        startedAt,
+        createdAt: new Date('2026-08-09T10:00:01.000Z'),
+      });
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 1 } },
+      ]);
+
+      const result = await service.getRestaurantProgress('rest-1');
+
+      expect(result).toMatchObject({
+        done: 1,
+        total: 1,
+        failed: 0,
+        status: 'COMPLETED',
+      });
+      expect(mockPrisma.menuTranslationState.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            restaurantId: 'rest-1',
+            runId: 'run-2',
+          },
+        }),
+      );
+    });
   });
 
   describe('tick / kick — kill switch', () => {
@@ -161,6 +200,38 @@ describe('MenuTranslationWorkerService', () => {
       mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
       await service.runOnce();
       expect(mockPrisma.restaurant.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('reconciles a RUNNING run after a crash saved its final row but missed finalization', async () => {
+      const startedAt = new Date('2026-08-09T10:00:00.000Z');
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
+      mockPrisma.translationRun.findMany.mockResolvedValue([
+        { id: 'run-1', restaurantId: 'rest-1' },
+      ]);
+      mockPrisma.translationRun.findUnique.mockResolvedValue({
+        id: 'run-1',
+        restaurantId: 'rest-1',
+        status: 'RUNNING',
+        totalUnits: 1,
+        locales: ['en'],
+        startedAt,
+        createdAt: startedAt,
+      });
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 1 } },
+      ]);
+
+      await service.runOnce();
+
+      expect(mockPrisma.translationRun.update).toHaveBeenCalledWith({
+        where: { id: 'run-1' },
+        data: expect.objectContaining({
+          status: 'COMPLETED',
+          doneUnits: 1,
+          failedUnits: 0,
+          finishedAt: expect.any(Date),
+        }),
+      });
     });
 
     it('does not even claim when the translation provider is not configured — mirrors the old translateAll upfront check, prevents caching source text as a fake translation', async () => {
@@ -424,6 +495,47 @@ describe('MenuTranslationWorkerService', () => {
       );
     });
 
+    it('isolates a bad field from a good field on the same item', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([
+        claimedRow({ id: 'state-name', field: 'NAME' }),
+        claimedRow({ id: 'state-description', field: 'DESCRIPTION' }),
+      ]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        {
+          id: 'item-1',
+          name: 'Супа',
+          description: 'Луканка',
+          translations: { en: {} },
+        },
+      ]);
+      mockMenuTranslation.applyLazyTranslations.mockImplementation(
+        async (categories: any[]) => {
+          const entry = categories[0].items[0].translations.en;
+          if (!entry.name && !entry.description) {
+            throw new Error('Garbage translation detected for mixed fields');
+          }
+          if (!entry.description) {
+            throw new Error('Garbage translation detected for description');
+          }
+        },
+      );
+
+      await service.runOnce();
+
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['state-name'] } },
+          data: expect.objectContaining({ status: 'CURRENT' }),
+        }),
+      );
+      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'state-description' },
+          data: expect.objectContaining({ status: 'NEEDS_REVIEW' }),
+        }),
+      );
+    });
+
     it('emits a completed progress event on full success', async () => {
       mockPrisma.$queryRawUnsafe.mockResolvedValue([claimedRow()]);
       mockPrisma.menuItem.findMany.mockResolvedValue([
@@ -603,6 +715,21 @@ describe('MenuTranslationWorkerService', () => {
           data: { status: 'STALE', claimedAt: null },
         }),
       );
+    });
+
+    it('fails an abandoned QUEUED run so the one-active-run guard can recover', async () => {
+      await service.resetStuckPending();
+
+      expect(mockPrisma.translationRun.updateMany).toHaveBeenCalledWith({
+        where: {
+          status: 'QUEUED',
+          updatedAt: { lt: expect.any(Date) },
+        },
+        data: expect.objectContaining({
+          status: 'FAILED',
+          finishedAt: expect.any(Date),
+        }),
+      });
     });
 
     it('does nothing when TRANSLATION_ENABLED is not "true"', async () => {

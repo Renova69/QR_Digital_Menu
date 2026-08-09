@@ -19,6 +19,15 @@ const LATIN_LANGUAGES = [
   'sk',
   'hu',
 ];
+// Supported target locales written in neither Latin nor Cyrillic script.
+// They take part in the identity check below (Cyrillic copied through
+// unchanged is untranslated for a Greek/Japanese/Chinese/Arabic menu just as
+// it is for an English one) but deliberately NOT in the predominance analysis
+// further down, which only knows how to count Latin and Cyrillic characters.
+// Enumerated rather than expressed as "any target that is not Cyrillic" so an
+// unrecognised language code makes no claim about script and is never flagged
+// on identity alone.
+const OTHER_SCRIPT_LANGUAGES = ['el', 'ja', 'zh', 'ar'];
 
 /**
  * Detects if the translation provided by a model (like NLLB) is likely hallucinated garbage.
@@ -42,16 +51,18 @@ export function isGarbageTranslation(
   const trimmedTranslation = translation.trim();
 
   // Identity is valid for script-compatible proper nouns (Pizza -> Pizza),
-  // but Cyrillic source copied unchanged into a Latin target is an obviously
-  // untranslated value. Treat it as stale so Translate All can repair cached
-  // source copies instead of preserving them as CURRENT forever.
+  // but Cyrillic source copied unchanged into a target that does not use
+  // Cyrillic is an obviously untranslated value. Treat it as stale so
+  // Translate All can repair cached source copies instead of preserving them
+  // as CURRENT forever.
   if (trimmedSource === trimmedTranslation) {
     const sourceHasCyrillic = /[\u0400-\u04FF]/.test(trimmedSource);
     const sourceHasLatin = /[a-zA-Z]/.test(trimmedSource);
+    const targetRejectsCyrillicIdentity =
+      LATIN_LANGUAGES.includes(normalizedTargetLang) ||
+      OTHER_SCRIPT_LANGUAGES.includes(normalizedTargetLang);
     return (
-      LATIN_LANGUAGES.includes(normalizedTargetLang) &&
-      sourceHasCyrillic &&
-      !sourceHasLatin
+      targetRejectsCyrillicIdentity && sourceHasCyrillic && !sourceHasLatin
     );
   }
 

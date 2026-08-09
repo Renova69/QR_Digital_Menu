@@ -34,6 +34,23 @@ describe('MenuTranslationEnqueueService', () => {
       expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
+    it('attaches Translate All queue units to their explicit run', async () => {
+      await service.enqueueCategory(
+        'rest-1',
+        { id: 'cat-1', name: 'Нова категория' },
+        ['en'],
+        'bg',
+        'run-1',
+      );
+
+      const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+        strings: readonly string[];
+        values: unknown[];
+      };
+      expect(query.strings.join(' ')).toContain('"runId"');
+      expect(query.values).toContain('run-1');
+    });
+
     it('does not throw when the DB write fails', async () => {
       mockPrisma.$executeRaw.mockRejectedValue(new Error('DB down'));
       await expect(
@@ -63,6 +80,28 @@ describe('MenuTranslationEnqueueService', () => {
       };
       expect(query.values).toContain('CURRENT');
       expect(query.values).not.toContain('STALE');
+    });
+
+    it('converges an existing failed or review state to CURRENT when its cached translation is now valid', async () => {
+      await service.enqueueCategory(
+        'rest-1',
+        {
+          id: 'cat-1',
+          name: 'Супи',
+          translations: { en: { name: 'Soups' } },
+        },
+        ['en'],
+        'bg',
+      );
+
+      const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+        strings: readonly string[];
+      };
+      const sql = query.strings.join(' ');
+      expect(sql).toContain(
+        'WHEN "menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang" THEN \'STALE\'',
+      );
+      expect(sql).toContain("ELSE 'CURRENT'");
     });
   });
 
@@ -247,6 +286,9 @@ describe('MenuTranslationEnqueueService', () => {
     };
     expect(query.strings.join(' ')).toContain(
       `"menu_translation_state"."status" = 'NEEDS_REVIEW'`,
+    );
+    expect(query.strings.join(' ')).toContain(
+      'THEN "menu_translation_state"."updatedAt" ELSE now() END',
     );
   });
 

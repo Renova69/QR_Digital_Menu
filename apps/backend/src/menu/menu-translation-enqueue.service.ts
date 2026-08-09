@@ -30,6 +30,7 @@ interface OptionLike {
 
 interface UpsertSpec {
   restaurantId: string;
+  runId?: string;
   entityType: EntityType;
   entityId: string;
   field: Field;
@@ -99,7 +100,8 @@ export class MenuTranslationEnqueueService {
         (params) => Prisma.sql`(
           ${randomUUID()}, ${params.restaurantId}, ${params.entityType}::"MenuTranslationEntity",
           ${params.entityId}, ${params.field}::"MenuTranslationField", ${params.locale},
-          ${params.sourceLang}, ${params.sourceHash}, ${force ? 'STALE' : 'CURRENT'}::"MenuTranslationStatus", now(), now()
+          ${params.sourceLang}, ${params.sourceHash}, ${force ? 'STALE' : 'CURRENT'}::"MenuTranslationStatus",
+          ${params.runId ?? null}, now(), now()
         )`,
       ),
     );
@@ -118,8 +120,7 @@ export class MenuTranslationEnqueueService {
       : Prisma.sql`(CASE
           WHEN "menu_translation_state"."sourceHash" <> EXCLUDED."sourceHash" THEN 'STALE'
           WHEN "menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang" THEN 'STALE'
-          WHEN "menu_translation_state"."status" = 'CURRENT' THEN 'CURRENT'
-          ELSE 'STALE'
+          ELSE 'CURRENT'
         END)::"MenuTranslationStatus"`;
 
     try {
@@ -127,20 +128,23 @@ export class MenuTranslationEnqueueService {
         Prisma.sql`
           INSERT INTO "menu_translation_state" (
             "id", "restaurantId", "entityType", "entityId", "field", "locale",
-            "sourceLang", "sourceHash", "status", "createdAt", "updatedAt"
+            "sourceLang", "sourceHash", "status", "runId", "createdAt", "updatedAt"
           )
           VALUES ${values}
           ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
             "sourceHash" = EXCLUDED."sourceHash",
             "sourceLang" = EXCLUDED."sourceLang",
             "status" = ${nextStatus},
+            "runId" = CASE WHEN ${nextStatus} = 'STALE'
+              THEN EXCLUDED."runId" ELSE NULL END,
             "nextAttemptAt" = CASE WHEN ${preserveNeedsReview}
               THEN "menu_translation_state"."nextAttemptAt" ELSE NULL END,
             "failureCount" = CASE WHEN ${preserveNeedsReview}
               THEN "menu_translation_state"."failureCount" ELSE 0 END,
             "lastError" = CASE WHEN ${preserveNeedsReview}
               THEN "menu_translation_state"."lastError" ELSE NULL END,
-            "updatedAt" = now()
+            "updatedAt" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."updatedAt" ELSE now() END
         `,
       );
     } catch (err) {
@@ -178,6 +182,7 @@ export class MenuTranslationEnqueueService {
     category: { id: string; name: string; translations?: unknown },
     locales: string[],
     sourceLang: string,
+    runId?: string,
   ): Promise<void> {
     const normalizedLocales = this.normalizeLocales(locales, sourceLang);
     const hash = computeSourceHash(category.name);
@@ -189,6 +194,7 @@ export class MenuTranslationEnqueueService {
           locale,
         ),
         restaurantId,
+        runId,
         entityType: 'CATEGORY' as const,
         entityId: category.id,
         field: 'NAME' as const,
@@ -204,6 +210,7 @@ export class MenuTranslationEnqueueService {
     item: ItemLike,
     locales: string[],
     sourceLang: string,
+    runId?: string,
   ): Promise<void> {
     const normalizedLocales = this.normalizeLocales(locales, sourceLang);
     const nameHash = computeSourceHash(item.name);
@@ -214,6 +221,7 @@ export class MenuTranslationEnqueueService {
         locale,
       ),
       restaurantId,
+      runId,
       entityType: 'ITEM' as const,
       entityId: item.id,
       field: 'NAME' as const,
@@ -232,6 +240,7 @@ export class MenuTranslationEnqueueService {
             locale,
           ),
           restaurantId,
+          runId,
           entityType: 'ITEM' as const,
           entityId: item.id,
           field: 'DESCRIPTION' as const,
@@ -261,6 +270,7 @@ export class MenuTranslationEnqueueService {
             ),
           ),
           restaurantId,
+          runId,
           entityType: 'ITEM' as const,
           entityId: item.id,
           field: 'ALLERGENS' as const,
@@ -288,6 +298,7 @@ export class MenuTranslationEnqueueService {
             ),
           ),
           restaurantId,
+          runId,
           entityType: 'ITEM' as const,
           entityId: item.id,
           field: 'DIETARY_TAGS' as const,
@@ -332,6 +343,7 @@ export class MenuTranslationEnqueueService {
     option: OptionLike,
     locales: string[],
     sourceLang: string,
+    runId?: string,
   ): Promise<void> {
     const normalizedLocales = this.normalizeLocales(locales, sourceLang);
     const nameHash = computeSourceHash(option.name);
@@ -342,6 +354,7 @@ export class MenuTranslationEnqueueService {
         locale,
       ),
       restaurantId,
+      runId,
       entityType: 'OPTION' as const,
       entityId: option.id,
       field: 'NAME' as const,
@@ -367,6 +380,7 @@ export class MenuTranslationEnqueueService {
             ),
           ),
           restaurantId,
+          runId,
           entityType: 'OPTION' as const,
           entityId: option.id,
           field: 'CHOICES' as const,

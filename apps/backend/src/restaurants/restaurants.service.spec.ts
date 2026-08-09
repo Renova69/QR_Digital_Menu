@@ -107,7 +107,10 @@ describe('RestaurantsService', () => {
         update: jest.fn().mockResolvedValue({}),
       },
       translationRun: {
-        create: jest.fn().mockResolvedValue({ id: 'run-1' }),
+        create: jest.fn().mockResolvedValue({
+          id: 'run-1',
+          createdAt: new Date('2026-08-09T10:00:00.000Z'),
+        }),
         update: jest.fn().mockResolvedValue({ id: 'run-1' }),
         findFirst: jest.fn().mockResolvedValue(null),
       },
@@ -116,6 +119,7 @@ describe('RestaurantsService', () => {
           .fn()
           .mockResolvedValue([{ status: 'STALE', _count: { _all: 1 } }]),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
 
@@ -137,6 +141,7 @@ describe('RestaurantsService', () => {
 
     mockTranslationWorker = {
       kick: jest.fn(),
+      isAvailable: jest.fn().mockReturnValue(true),
       getRestaurantProgress: jest.fn().mockResolvedValue({
         done: 0,
         total: 0,
@@ -541,6 +546,38 @@ describe('RestaurantsService', () => {
       expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
     });
 
+    it('detaches re-queued units from their old run so a finished run cannot be re-opened', async () => {
+      // Run membership is owned by Translate All. A source-language change is
+      // an owner edit: it must not push units back into a run whose
+      // totalUnits is already frozen, or getRestaurantProgress recomputes
+      // done = total - outstanding downward and the bar walks backward on an
+      // already-COMPLETED run.
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ menuSourceLanguage: 'bg' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(
+        makeRestaurant({ menuSourceLanguage: 'ro' }),
+      );
+
+      await service.update(
+        'rest1',
+        { menuSourceLanguage: 'ro' } as Parameters<typeof service.update>[1],
+        'user1',
+      );
+
+      for (const call of mockPrisma.menuTranslationState.updateMany.mock
+        .calls) {
+        expect(call[0].data).toMatchObject({ runId: null });
+      }
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledTimes(
+        2,
+      );
+    });
+
     it('does not invalidate menu translations when only dashboard language changes', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'bg' }),
@@ -556,9 +593,7 @@ describe('RestaurantsService', () => {
         'user1',
       );
 
-      expect(
-        mockPrisma.menuTranslationState.updateMany,
-      ).not.toHaveBeenCalled();
+      expect(mockPrisma.menuTranslationState.updateMany).not.toHaveBeenCalled();
       expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
     });
   });
@@ -768,6 +803,22 @@ describe('RestaurantsService', () => {
       expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
     });
 
+    it('returns a clear error without creating a run when translation is unavailable', async () => {
+      mockTranslationWorker.isAvailable.mockReturnValue(false);
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: false,
+        runId: null,
+        status: 'FAILED',
+      });
+      expect(result.message).toContain('disabled or not configured');
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+      expect(mockPrisma.translationRun.create).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
+    });
+
     it('does not create another run while the latest persisted run is active', async () => {
       mockTranslationWorker.getRestaurantProgress.mockResolvedValue({
         done: 2,
@@ -800,8 +851,17 @@ describe('RestaurantsService', () => {
 
       const result = await service.enqueueTranslateAll('rest1', 'user1');
 
-      expect(result.success).toBe(false);
+      // Same envelope as every other early exit — the dashboard reads
+      // runId/done/total/status off this response without a shape check.
+      expect(result).toMatchObject({
+        success: false,
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'FAILED',
+      });
       expect(result.message).toContain('quota');
+      expect(mockPrisma.translationRun.create).not.toHaveBeenCalled();
       expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
       expect(mockTranslationEnqueue.enqueueItem).not.toHaveBeenCalled();
       expect(mockTranslationEnqueue.enqueueOption).not.toHaveBeenCalled();
@@ -841,12 +901,14 @@ describe('RestaurantsService', () => {
         { id: 'cat1', name: 'Starters' },
         ['en', 'ro'],
         'bg',
+        'run-1',
       );
       expect(mockTranslationEnqueue.enqueueItem).toHaveBeenCalledWith(
         'rest1',
         expect.objectContaining({ id: 'item1', name: 'Soup' }),
         ['en', 'ro'],
         'bg',
+        'run-1',
       );
       expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
         'rest1',
@@ -857,22 +919,98 @@ describe('RestaurantsService', () => {
         }),
         ['en', 'ro'],
         'bg',
+        'run-1',
       );
       expect(mockPrisma.translationRun.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             restaurantId: 'rest1',
             requestedById: 'user1',
-            status: 'RUNNING',
+            status: 'QUEUED',
             locales: ['en', 'ro'],
-            totalUnits: 1,
-            doneUnits: 0,
           }),
         }),
       );
-      expect(mockPrisma.translationRun.update).not.toHaveBeenCalled();
+      expect(mockPrisma.translationRun.update).toHaveBeenCalledWith({
+        where: { id: 'run-1' },
+        data: expect.objectContaining({
+          status: 'RUNNING',
+          totalUnits: 1,
+          doneUnits: 0,
+        }),
+      });
+      expect(mockPrisma.menuTranslationState.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { runId: 'run-1' } }),
+      );
       expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
       expect(result.runId).toBe('run-1');
+    });
+
+    it('does not claim everything is current while values are parked for manual review', async () => {
+      // NEEDS_REVIEW rows are terminal, not queued, so they are detached from
+      // the run and never reach totalUnits. Reporting "already current" while
+      // the status badge shows failures is the owner-facing contradiction.
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 12 } },
+      ]);
+      mockPrisma.menuTranslationState.count.mockResolvedValue(2);
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(mockPrisma.menuTranslationState.count).toHaveBeenCalledWith({
+        where: {
+          restaurantId: 'rest1',
+          locale: { in: ['en', 'ro'] },
+          status: 'NEEDS_REVIEW',
+        },
+      });
+      expect(result).toMatchObject({
+        success: true,
+        runId: null,
+        total: 0,
+        status: 'COMPLETED',
+        // Machine-readable, because the dashboard renders its own localized
+        // copy — a prose-only message is dropped on this code path.
+        needsReview: 2,
+      });
+      expect(result.message).toContain('2');
+      expect(result.message).toMatch(/review/i);
+      expect(result.message).not.toContain('already current');
+    });
+
+    it('still reports everything current when nothing is queued and nothing needs review', async () => {
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 12 } },
+      ]);
+      mockPrisma.menuTranslationState.count.mockResolvedValue(0);
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result.message).toContain('already current');
+      expect(result).toMatchObject({
+        status: 'COMPLETED',
+        total: 0,
+        needsReview: 0,
+      });
+    });
+
+    it('returns the atomically winning active run when two Translate All requests race', async () => {
+      mockPrisma.translationRun.create.mockRejectedValueOnce({ code: 'P2002' });
+      mockPrisma.translationRun.findFirst.mockResolvedValueOnce({
+        id: 'run-winner',
+        status: 'QUEUED',
+        totalUnits: 0,
+      });
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: true,
+        runId: 'run-winner',
+        status: 'RUNNING',
+      });
+      expect(mockTranslationEnqueue.enqueueBatch).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
     });
 
     it('emits a queued translate:progress event with the run id', async () => {

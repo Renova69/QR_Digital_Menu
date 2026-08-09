@@ -393,11 +393,29 @@ const GeneralSettingsTab: React.FC = () => {
       } else if (res.status === "COMPLETED") {
         setTranslating(false);
         setTranslatePhaseStatus("COMPLETED");
-        setTranslateSuccess(true);
+        // A run can complete with nothing queued because every remaining
+        // value is parked in NEEDS_REVIEW — terminal work, not pending work.
+        // Reporting plain success there contradicts the outdated/failed badge
+        // rendered right next to this message, so surface the count instead.
+        // The backend sends it as a number precisely because this branch
+        // renders localized copy and never displays res.message.
+        const needsReview =
+          typeof res.needsReview === "number" ? res.needsReview : 0;
+        setTranslateSuccess(needsReview === 0);
         setStatus({
           loading: false,
-          error: "",
-          success: t("settings.translateSuccess", "✓ Translation complete!"),
+          error:
+            needsReview > 0
+              ? t("settings.translateNeedsReviewNotice", {
+                  count: needsReview,
+                  defaultValue:
+                    "Nothing new to queue — {{count}} value(s) need manual review.",
+                })
+              : "",
+          success:
+            needsReview > 0
+              ? ""
+              : t("settings.translateSuccess", "✓ Translation complete!"),
         });
       }
     } catch (err: any) {

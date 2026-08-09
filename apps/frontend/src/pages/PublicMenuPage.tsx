@@ -568,8 +568,9 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
     publicThemeMode,
   );
 
-  // Languages selectable on the public menu: the owner's default (dashboard)
-  // language first, then the configured target languages (deduplicated).
+  // Languages selectable on the public menu: the menu source language first
+  // (what the owner authors in — NOT their dashboard UI language), then the
+  // configured target languages (deduplicated).
   const availableLanguages = buildPublicMenuLanguages(
     menuMeta?.restaurant?.menuSourceLanguage,
     menuMeta?.restaurant?.targetLanguages,

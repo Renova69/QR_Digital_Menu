@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Runtime queries: pooled (PgBouncer, transaction mode). Unchanged.
   url       = env("DATABASE_URL")
   // Prisma CLI only -- migrate, db push, introspect. Never used by the app.
@@ -1380,6 +1380,7 @@ enum MenuTranslationStatus {
 model MenuTranslationState {
   id            String                @id @default(cuid())
   restaurantId  String
+  runId         String?
   entityType    MenuTranslationEntity
   entityId      String
   field         MenuTranslationField
@@ -1398,11 +1399,13 @@ model MenuTranslationState {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  run           TranslationRun?       @relation(fields: [runId], references: [id], onDelete: SetNull)
 
   @@unique([entityType, entityId, field, locale])
   @@index([restaurantId, locale, status])
   @@index([restaurantId, status])
   @@index([status, nextAttemptAt])
+  @@index([runId, status])
   @@map("menu_translation_state")
 }
 
@@ -1437,22 +1440,36 @@ enum TranslationRunStatus {
 // One row per "Translate All" click (or auto-enqueue on a new target
 // language). Exists only so the dashboard has something to poll/receive
 // progress on — the actual work items live in MenuTranslationState.
+//
+// INVISIBLE-TO-PRISMA CONSTRAINT — do not let a generated migration drop it:
+// the 20260809220000_translation_run_membership migration creates the partial
+// unique index
+//   translation_run_one_active_per_restaurant_idx
+//     ON translation_run(restaurantId) WHERE status IN ('QUEUED','RUNNING')
+// which is what makes "one active run per restaurant" atomic — it is the
+// source of the P2002 that RestaurantsService.enqueueTranslateAll catches to
+// return the winning run instead of starting a second one. Prisma cannot
+// express a filtered/partial index, so `prisma migrate dev` sees it as drift
+// and will emit a DROP INDEX for it. If that DROP appears in a generated
+// migration, delete the statement — losing the index silently downgrades the
+// race guard to the best-effort in-process check.
 model TranslationRun {
-  id            String               @id @default(cuid())
+  id            String                 @id @default(cuid())
   restaurantId  String
   requestedById String?
-  status        TranslationRunStatus @default(QUEUED)
+  status        TranslationRunStatus   @default(QUEUED)
   locales       String[]
-  totalUnits    Int                  @default(0)
-  doneUnits     Int                  @default(0)
-  failedUnits   Int                  @default(0)
-  charsUsed     Int                  @default(0)
+  totalUnits    Int                    @default(0)
+  doneUnits     Int                    @default(0)
+  failedUnits   Int                    @default(0)
+  charsUsed     Int                    @default(0)
   message       String?
   startedAt     DateTime?
   finishedAt    DateTime?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  restaurant    Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  units         MenuTranslationState[]
 
   @@index([restaurantId, createdAt])
   @@index([status])

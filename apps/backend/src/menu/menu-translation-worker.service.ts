@@ -40,9 +40,12 @@ type WorkerRunStatus = 'RUNNING' | 'PARTIAL' | 'COMPLETED' | 'QUOTA_BLOCKED';
 // isolate a single claimed ITEM or OPTION from its real siblings when
 // handed to MenuTranslationService.applyLazyTranslations (which expects a
 // category tree). Never a real DB row — the atomic UPDATE...WHERE id=$X
-// inside applyLazyTranslations simply affects 0 rows for these and is
-// swallowed by its own per-write .catch(warn), same as the existing
-// "trending" fake-category trick in menu-crud.service.ts.
+// inside applyLazyTranslations matches 0 rows for these, which Postgres
+// reports as an affected-row count of 0 rather than an error, so it neither
+// writes anything nor trips the per-write rejection path (that path now
+// re-throws so a genuinely failed write can no longer be recorded as a
+// successful translation). Same trick as the "trending" fake category in
+// menu-crud.service.ts.
 const SYNTHETIC_ID = '__worker_synthetic__';
 
 /**
@@ -89,12 +92,19 @@ export class MenuTranslationWorkerService {
     return process.env.TRANSLATION_ENABLED === 'true';
   }
 
+  /** One capability check shared by the cron worker and owner-facing enqueue.
+   * A run must never be created when either the operational kill switch is
+   * off or the translation provider has no usable credentials. */
+  isAvailable(): boolean {
+    return this.isEnabled() && this.translationService.isEnabled();
+  }
+
   @Cron(CRON_EVERY_MINUTE.MENU_TRANSLATION_WORKER, {
     name: 'menuTranslationWorker',
     waitForCompletion: true,
   })
   async tick(): Promise<void> {
-    if (!this.isEnabled()) return;
+    if (!this.isAvailable()) return;
     await this.drain();
   }
 
@@ -105,7 +115,7 @@ export class MenuTranslationWorkerService {
    * or other kicks — runOnce's mutex simply skips an iteration if a run is
    * already in progress. */
   kick(): void {
-    if (!this.isEnabled()) return;
+    if (!this.isAvailable()) return;
     void this.drain().catch((err) =>
       this.logger.error(
         `Worker kick failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -123,13 +133,16 @@ export class MenuTranslationWorkerService {
     // real translation and mark the row CURRENT, silently poisoning it the
     // same way the old glossary-only gate did. Leave rows STALE untouched;
     // they're picked up the moment a key is configured.
-    if (!this.translationService.isEnabled()) return false;
+    if (!this.isAvailable()) return false;
     this.running = true;
     try {
       const claimed = await this.claimBatch(
         MenuTranslationWorkerService.BATCH_LIMIT,
       );
-      if (claimed.length === 0) return false;
+      if (claimed.length === 0) {
+        await this.reconcileIdleRuns();
+        return false;
+      }
 
       const groups = new Map<string, ClaimedRow[]>();
       for (const row of claimed) {
@@ -226,19 +239,16 @@ export class MenuTranslationWorkerService {
     rows: ClaimedRow[],
     locale: string,
   ): void {
-    const fieldKeys: Record<string, string> = {
-      NAME: 'name',
-      DESCRIPTION: 'description',
-      ALLERGENS: 'allergens',
-      DIETARY_TAGS: 'dietaryTags',
-      CHOICES: 'choices',
-    };
-    const byId = new Map(entities.map((entity) => [entity.id, entity]));
-
+    const claimedById = new Map<string, Set<string>>();
     for (const row of rows) {
-      const entity = byId.get(row.entityId);
-      const fieldKey = fieldKeys[row.field];
-      if (!entity || !fieldKey) continue;
+      const fields = claimedById.get(row.entityId) ?? new Set<string>();
+      fields.add(row.field);
+      claimedById.set(row.entityId, fields);
+    }
+
+    for (const entity of entities) {
+      const claimed = claimedById.get(entity.id);
+      if (!claimed) continue;
       const translations =
         entity.translations && typeof entity.translations === 'object'
           ? { ...entity.translations }
@@ -247,7 +257,51 @@ export class MenuTranslationWorkerService {
         translations[locale] && typeof translations[locale] === 'object'
           ? { ...translations[locale] }
           : {};
-      delete localeEntry[fieldKey];
+
+      const scopeText = (field: string, key: string, source: unknown): void => {
+        if (claimed.has(field)) {
+          delete localeEntry[key];
+        } else if (
+          typeof source === 'string' &&
+          source.trim() &&
+          !localeEntry[key]
+        ) {
+          // Source text is only an in-memory sentinel. It prevents the
+          // reused lazy-translation service from translating an unclaimed
+          // sibling field during garbage-output bisection; it is never
+          // written because that field is absent from the pending text map.
+          localeEntry[key] = source;
+        }
+      };
+      const scopeMap = (field: string, key: string, values: unknown): void => {
+        if (claimed.has(field)) {
+          delete localeEntry[key];
+          return;
+        }
+        if (!Array.isArray(values)) return;
+        const existing =
+          localeEntry[key] &&
+          typeof localeEntry[key] === 'object' &&
+          !Array.isArray(localeEntry[key])
+            ? { ...localeEntry[key] }
+            : {};
+        for (const value of values) {
+          const source =
+            typeof value === 'string'
+              ? value
+              : value && typeof value.name === 'string'
+                ? value.name
+                : null;
+          if (source && !existing[source]) existing[source] = source;
+        }
+        localeEntry[key] = existing;
+      };
+
+      scopeText('NAME', 'name', entity.name);
+      scopeText('DESCRIPTION', 'description', entity.description);
+      scopeMap('ALLERGENS', 'allergens', entity.allergens);
+      scopeMap('DIETARY_TAGS', 'dietaryTags', entity.dietaryTags);
+      scopeMap('CHOICES', 'choices', entity.choices);
       translations[locale] = localeEntry;
       entity.translations = translations;
     }
@@ -310,16 +364,20 @@ export class MenuTranslationWorkerService {
    */
   async getRestaurantProgress(
     restaurantId: string,
+    runId?: string,
   ): Promise<RestaurantTranslationProgress> {
-    const latestRun = await this.prisma.translationRun.findFirst({
-      where: { restaurantId },
-      orderBy: { createdAt: 'desc' },
-    });
-    const runLocales = latestRun?.locales ?? [];
-    const stateWhere =
-      runLocales.length > 0
-        ? { restaurantId, locale: { in: runLocales } }
-        : { restaurantId };
+    const latestRun = runId
+      ? await this.prisma.translationRun.findUnique({ where: { id: runId } })
+      : await this.prisma.translationRun.findFirst({
+          where: { restaurantId },
+          orderBy: { createdAt: 'desc' },
+        });
+    const activeRun = Boolean(
+      latestRun && ['QUEUED', 'RUNNING'].includes(latestRun.status),
+    );
+    const stateWhere = latestRun
+      ? { restaurantId, runId: latestRun.id }
+      : { restaurantId };
     const [counts, retryable] = await Promise.all([
       this.prisma.menuTranslationState.groupBy({
         by: ['status'],
@@ -371,7 +429,6 @@ export class MenuTranslationWorkerService {
           ? latestRun.totalUnits
           : current + outstanding;
       const done = Math.max(0, total - outstanding);
-      const activeRun = ['QUEUED', 'RUNNING'].includes(latestRun.status);
       const liveStatus: WorkerRunStatus =
         pending > 0 || retryable > 0
           ? 'RUNNING'
@@ -467,6 +524,33 @@ export class MenuTranslationWorkerService {
       where: { id: { in: ids } },
       data: { status: 'STALE', claimedAt: null },
     });
+  }
+
+  /** A process can crash after the final state row is written CURRENT but
+   * before emitProgress persists the terminal run status. When the queue is
+   * idle, close any such run from the same read model used by polling. */
+  private async reconcileIdleRuns(): Promise<void> {
+    const activeRuns = await this.prisma.translationRun.findMany({
+      // QUEUED means the request is still attaching its units. Finalizing it
+      // here could race that enqueue phase; only RUNNING runs are drainable.
+      where: { status: 'RUNNING' },
+      select: { id: true, restaurantId: true },
+    });
+    for (const run of activeRuns) {
+      const snapshot = await this.getRestaurantProgress(
+        run.restaurantId,
+        run.id,
+      );
+      if (!snapshot.active || snapshot.pending > 0 || snapshot.retryable > 0) {
+        continue;
+      }
+      await this.emitProgress(
+        run.restaurantId,
+        snapshot.failed > 0 ? 'partial' : 'completed',
+        snapshot.failed > 0 ? 'PARTIAL' : 'COMPLETED',
+        snapshot.runId ?? undefined,
+      );
+    }
   }
 
   private isGarbageError(error: unknown): boolean {
@@ -637,8 +721,9 @@ export class MenuTranslationWorkerService {
     restaurantId: string,
     phase: string,
     statusOverride: WorkerRunStatus,
+    runId?: string,
   ): Promise<void> {
-    const snapshot = await this.getRestaurantProgress(restaurantId);
+    const snapshot = await this.getRestaurantProgress(restaurantId, runId);
     const status: WorkerRunStatus =
       statusOverride === 'QUOTA_BLOCKED'
         ? 'QUOTA_BLOCKED'
@@ -679,13 +764,28 @@ export class MenuTranslationWorkerService {
     const cutoff = new Date(
       Date.now() - MenuTranslationWorkerService.STUCK_PENDING_MINUTES * 60_000,
     );
-    const { count } = await this.prisma.menuTranslationState.updateMany({
-      where: { status: 'PENDING', claimedAt: { lt: cutoff } },
-      data: { status: 'STALE', claimedAt: null },
-    });
+    const [{ count }, { count: abandonedRunCount }] = await Promise.all([
+      this.prisma.menuTranslationState.updateMany({
+        where: { status: 'PENDING', claimedAt: { lt: cutoff } },
+        data: { status: 'STALE', claimedAt: null },
+      }),
+      this.prisma.translationRun.updateMany({
+        where: { status: 'QUEUED', updatedAt: { lt: cutoff } },
+        data: {
+          status: 'FAILED',
+          message: 'Translation enqueue was interrupted before it completed.',
+          finishedAt: new Date(),
+        },
+      }),
+    ]);
     if (count > 0) {
       this.logger.warn(
         `Reset ${count} stuck PENDING translation state row(s) to STALE`,
+      );
+    }
+    if (abandonedRunCount > 0) {
+      this.logger.warn(
+        `Failed ${abandonedRunCount} abandoned QUEUED translation run(s)`,
       );
     }
   }
