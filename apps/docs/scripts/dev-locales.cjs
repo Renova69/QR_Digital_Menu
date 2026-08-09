@@ -40,6 +40,10 @@ const children = localeServers.map(({ locale, port }) => {
       cwd: docsRoot,
       env: {
         ...process.env,
+        // Docusaurus' update notifier reads the user's global config store.
+        // That store may be unavailable in sandboxed/dev environments and can
+        // delay every locale process for minutes before the server starts.
+        NO_UPDATE_NOTIFIER: "1",
         DOCUSAURUS_GENERATED_FILES_DIR_NAME: path.join(
           ".docusaurus",
           locale,

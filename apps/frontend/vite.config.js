@@ -7,9 +7,9 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 // Collapse vite's benign proxy-error stack dumps into one throttled line.
 //
 // The `backend:dev` process runs `nest start --watch`, so every backend save
-// tears down port 3000 for a second while it recompiles. The wait-for-backend
-// gate only runs ONCE at `npm run dev` start — it does not re-fire on these
-// watch-restarts. Meanwhile the already-open browser keeps polling the API and
+// tears down port 3000 for a second while it recompiles. The optional
+// `npm run dev:wait` gate only runs once at startup — it does not re-fire on
+// these watch-restarts. Meanwhile the already-open browser keeps polling the API and
 // reconnecting the socket, so each restart produces a wall of proxy errors that
 // vite prints with a full node:net stack:
 //   - `ws proxy socket error` / ECONNABORTED  — WS torn down mid-write

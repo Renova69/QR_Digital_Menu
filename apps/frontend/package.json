@@ -56,7 +56,8 @@
     "postcss": "^8.4.31"
   },
   "scripts": {
-    "dev": "node scripts/wait-for-backend.js && vite --host",
+    "dev": "vite --host",
+    "dev:wait": "node scripts/wait-for-backend.js && vite --host",
     "dev:e2e": "node scripts/start-e2e-server.mjs",
     "start": "serve -s dist -l 3002",
     "build": "vite build",
