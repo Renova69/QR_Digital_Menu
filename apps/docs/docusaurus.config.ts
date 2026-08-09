@@ -42,8 +42,6 @@ const config: Config = {
         docs: {
           routeBasePath: "/",
           sidebarPath: "./sidebars.ts",
-          editUrl:
-            "https://github.com/renova69/QR_Digital_Menu/tree/main/apps/docs/",
         },
         blog: false, // Blog disabled — docs-only site
         theme: {
@@ -87,11 +85,6 @@ const config: Config = {
           type: "localeDropdown",
           position: "right",
         },
-        {
-          href: "https://github.com/renova69/QR_Digital_Menu",
-          label: "GitHub",
-          position: "right",
-        },
       ],
     },
     footer: {
@@ -130,7 +123,7 @@ const config: Config = {
       copyright: `Copyright © ${new Date().getFullYear()} Renova. Built with Docusaurus.`,
     },
     prism: {
-      theme: prismThemes.github,
+      theme: prismThemes.vsLight,
       darkTheme: prismThemes.dracula,
     },
   } satisfies Preset.ThemeConfig,

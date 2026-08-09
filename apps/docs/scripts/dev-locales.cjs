@@ -44,6 +44,11 @@ const children = localeServers.map(({ locale, port }) => {
         // That store may be unavailable in sandboxed/dev environments and can
         // delay every locale process for minutes before the server starts.
         NO_UPDATE_NOTIFIER: "1",
+        // Docusaurus' Rspack cache lives in one site-wide directory. Running
+        // several locale processes against it concurrently causes Windows
+        // file-lock collisions and can panic Rspack. Each dev process keeps
+        // its own in-memory cache instead.
+        DOCUSAURUS_NO_PERSISTENT_CACHE: "1",
         DOCUSAURUS_GENERATED_FILES_DIR_NAME: path.join(
           ".docusaurus",
           locale,

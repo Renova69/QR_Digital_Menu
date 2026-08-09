@@ -18,9 +18,5 @@
   "item.label.Back to App": {
     "message": "Обратно към приложението",
     "description": "Navbar item with label Back to App"
-  },
-  "item.label.GitHub": {
-    "message": "GitHub",
-    "description": "Navbar item with label GitHub"
   }
 }
