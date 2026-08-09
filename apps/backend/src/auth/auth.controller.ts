@@ -22,6 +22,7 @@ import { GoogleAuthGuard, isAllowedReturnTo } from './google-auth.guard';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
+import { AddIdentityDto, VerifyIdentityDto } from './dto/identity.dto';
 import { clearAuthTokenCookie, setAuthTokenCookie } from './auth-cookie';
 
 @Controller('auth')
@@ -164,6 +165,34 @@ export class AuthController {
     );
     setAuthTokenCookie(res, result.token);
     return result;
+  }
+
+  // Identity linking: a second identifier may only be ADDED to an authenticated
+  // account, never create one. Both routes are guarded so an unauthenticated
+  // caller cannot use the send step to probe which addresses are registered.
+  @UseGuards(JwtAuthGuard)
+  @Post('identity/add')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  addIdentity(
+    @Request() req: any,
+    @Body(new ValidationPipe({ whitelist: true })) dto: AddIdentityDto,
+  ) {
+    return this.authService.addIdentity(req.user.id, dto.email, dto.phone);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('identity/verify')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  verifyIdentity(
+    @Request() req: any,
+    @Body(new ValidationPipe({ whitelist: true })) dto: VerifyIdentityDto,
+  ) {
+    return this.authService.verifyIdentity(
+      req.user.id,
+      dto.code,
+      dto.email,
+      dto.phone,
+    );
   }
 
   @Post('logout')

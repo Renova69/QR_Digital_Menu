@@ -26,6 +26,9 @@ import { getApiError } from "../lib/apiError";
 interface User {
   id: string;
   email: string;
+  // Present for phone-first customers; `/auth/me` returns it. Identity linking
+  // reads it to decide which identifier the account is still missing.
+  phone?: string | null;
   name?: string;
   role: string;
   restaurantId?: string;

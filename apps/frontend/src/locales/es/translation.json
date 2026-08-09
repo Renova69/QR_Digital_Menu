@@ -1452,7 +1452,8 @@
       "noMatches": "Ninguna opinión coincide con estos filtros.",
       "sort": "Ordenar",
       "newest": "Más recientes primero",
-      "oldest": "Más antiguas primero"
+      "oldest": "Más antiguas primero",
+      "viewVisit": "Ver la visita"
     },
     "starLabel": "estrella",
     "positive": "Positivo",
@@ -1756,7 +1757,18 @@
     "accountantTools": "Herramientas para contables",
     "generateCloseout": "Generar liquidación",
     "avgOrder": "Importe medio por pedido",
-    "orders": "Pedidos"
+    "orders": "Pedidos",
+    "visitDrawer": {
+      "title": "Detalle de la visita",
+      "close": "Cerrar",
+      "orderCount": "Pedidos: {{n}}",
+      "orderLabel": "Pedido {{number}}",
+      "sourcePos": "TPV",
+      "sourceQr": "QR",
+      "tip": "Propina",
+      "error": "No se ha podido cargar esta visita.",
+      "noOrders": "No se registraron pedidos en esta visita."
+    }
   },
   "tables": {
     "title": "Gestionar tablas",
@@ -1933,7 +1945,36 @@
     "welcomeBack": "¡Bienvenido de nuevo!",
     "namePlaceholder": "Tu nombre",
     "nameSaved": "¡Guardado!",
-    "saveName": "Guardar"
+    "saveName": "Guardar",
+    "linkIdentity": {
+      "title": {
+        "email": "Añade tu correo electrónico",
+        "phone": "Añade tu número de teléfono"
+      },
+      "description": {
+        "email": "Recibe los recibos por correo — y conserva tus puntos si cambias de número.",
+        "phone": "Recibe avisos por SMS — y conserva tus puntos si cambias de correo."
+      },
+      "placeholder": {
+        "email": "tu@ejemplo.com",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "Enviar código",
+      "codeSent": {
+        "email": "Hemos enviado un código de 6 dígitos a {{value}}.",
+        "phone": "Hemos enviado un código de 6 dígitos a {{value}}."
+      },
+      "codePlaceholder": "Código de 6 dígitos",
+      "codeLabel": "Código de verificación",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "success": {
+        "email": "Correo añadido. Tus puntos se mantienen aunque cambies de número.",
+        "phone": "Número añadido. Tus puntos se mantienen aunque cambies de correo."
+      },
+      "errorInUse": "Ya pertenece a otra cuenta. Inicia sesión con ella o prueba con otra.",
+      "errorGeneric": "Algo ha salido mal. Inténtalo de nuevo."
+    }
   },
   "landing": {
     "heroBadge": "Diseñado para restaurantes búlgaros",

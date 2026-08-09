@@ -944,6 +944,52 @@ export type FeedbackReview = {
     currency: string;
   } | null;
   googleReviewClickedAt: string | null;
+  // Set when the review can be traced to a table visit — drives the drawer.
+  sessionId: string | null;
+};
+
+export type FeedbackVisitOrderItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  notes: string | null;
+};
+
+export type FeedbackVisitOrder = {
+  id: string;
+  createdAt: string;
+  status: string;
+  source: "CUSTOMER" | "POS";
+  total: number;
+  items: FeedbackVisitOrderItem[];
+};
+
+export type FeedbackVisit = {
+  feedback: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+  };
+  session: {
+    id: string;
+    status: string;
+    tableName: string | null;
+    openedAt: string;
+    paidAt: string | null;
+  };
+  orders: FeedbackVisitOrder[];
+  payments: {
+    id: string;
+    provider: string;
+    status: string;
+    amount: number;
+    tipAmount: number;
+    currency: string;
+    createdAt: string;
+  }[];
 };
 
 export type FeedbackReviewPage = {
@@ -968,6 +1014,34 @@ export const getFeedbackReviews = async (
   params: FeedbackReviewQuery,
 ): Promise<FeedbackReviewPage> => {
   const response = await api.get("/feedback", { params });
+  return response.data;
+};
+
+export const getFeedbackVisit = async (
+  feedbackId: string,
+): Promise<FeedbackVisit> => {
+  const response = await api.get(`/feedback/${feedbackId}/visit`);
+  return response.data;
+};
+
+// ── identity linking ────────────────────────────────────────────────────────
+// Adds a second verified identifier to the CURRENT account. Both calls require
+// a session — they can never create an account, which is what stops a
+// phone-first customer from ending up with a second, email-first one.
+
+export type AddIdentityPayload = { email?: string; phone?: string };
+
+export const addIdentity = async (
+  payload: AddIdentityPayload,
+): Promise<{ success: boolean; channel: string; devCode?: string }> => {
+  const response = await api.post("/auth/identity/add", payload);
+  return response.data;
+};
+
+export const verifyIdentity = async (
+  payload: AddIdentityPayload & { code: string },
+): Promise<{ user: { id: string; email: string; phone: string | null } }> => {
+  const response = await api.post("/auth/identity/verify", payload);
   return response.data;
 };
 

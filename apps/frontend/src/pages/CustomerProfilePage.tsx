@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { formatEuro, formatBgn } from "../lib/currency";
 import { orderStatusKeyMap } from "./Dashboard/analytics/shared";
 import DataPrivacyTab from "./profile/DataPrivacyTab";
+import LinkIdentityCard from "../components/profile/LinkIdentityCard";
 import {
   formatLoyaltyExpiryDate,
   groupExpiringPointBatches,
@@ -125,6 +126,8 @@ export const CustomerProfilePage: React.FC = () => {
         </h2>
         <p className="text-muted-foreground">{t("profile.subtitle")}</p>
       </div>
+
+      <LinkIdentityCard />
 
       {loyaltyAccounts.length > 0 && (
         <div className="glass-panel p-8 rounded-[2rem] border-white/5 mb-8">

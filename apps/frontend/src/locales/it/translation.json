@@ -1452,7 +1452,8 @@
       "noMatches": "Nessuna recensione corrisponde a questi filtri.",
       "sort": "Ordina",
       "newest": "Più recenti prima",
-      "oldest": "Meno recenti prima"
+      "oldest": "Meno recenti prima",
+      "viewVisit": "Vedi la visita"
     },
     "starLabel": "stella",
     "positive": "Positivo",
@@ -1756,7 +1757,18 @@
     "accountantTools": "Strumenti per contabili",
     "generateCloseout": "Genera liquidazione",
     "avgOrder": "Importo medio dell'ordine",
-    "orders": "Ordini"
+    "orders": "Ordini",
+    "visitDrawer": {
+      "title": "Dettaglio visita",
+      "close": "Chiudi",
+      "orderCount": "Ordini: {{n}}",
+      "orderLabel": "Ordine {{number}}",
+      "sourcePos": "POS",
+      "sourceQr": "QR",
+      "tip": "Mancia",
+      "error": "Impossibile caricare questa visita.",
+      "noOrders": "Nessun ordine registrato per questa visita."
+    }
   },
   "tables": {
     "title": "Gestisci tabelle",
@@ -1933,7 +1945,36 @@
     "welcomeBack": "Bentornato!",
     "namePlaceholder": "Il tuo nome",
     "nameSaved": "Salvato!",
-    "saveName": "Salva"
+    "saveName": "Salva",
+    "linkIdentity": {
+      "title": {
+        "email": "Aggiungi la tua email",
+        "phone": "Aggiungi il tuo numero di telefono"
+      },
+      "description": {
+        "email": "Ricevi le ricevute via email — e conserva i tuoi punti anche se cambi numero.",
+        "phone": "Ricevi aggiornamenti via SMS — e conserva i tuoi punti anche se cambi email."
+      },
+      "placeholder": {
+        "email": "tu@esempio.it",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "Invia codice",
+      "codeSent": {
+        "email": "Abbiamo inviato un codice di 6 cifre a {{value}}.",
+        "phone": "Abbiamo inviato un codice di 6 cifre a {{value}}."
+      },
+      "codePlaceholder": "Codice di 6 cifre",
+      "codeLabel": "Codice di verifica",
+      "confirm": "Conferma",
+      "cancel": "Annulla",
+      "success": {
+        "email": "Email aggiunta. I tuoi punti restano tuoi anche se cambi numero.",
+        "phone": "Numero aggiunto. I tuoi punti restano tuoi anche se cambi email."
+      },
+      "errorInUse": "Appartiene già a un altro account. Accedi con quello o provane un altro.",
+      "errorGeneric": "Qualcosa è andato storto. Riprova."
+    }
   },
   "landing": {
     "heroBadge": "Realizzato per i ristoranti bulgari",

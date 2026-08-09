@@ -1452,7 +1452,8 @@
       "noMatches": "没有符合这些筛选条件的评论。",
       "sort": "排序",
       "newest": "最新优先",
-      "oldest": "最早优先"
+      "oldest": "最早优先",
+      "viewVisit": "查看此次到店"
     },
     "starLabel": "星",
     "positive": "正",
@@ -1756,7 +1757,18 @@
     "accountantTools": "会计工具",
     "generateCloseout": "生成清仓单",
     "avgOrder": "平均订单",
-    "orders": "订单"
+    "orders": "订单",
+    "visitDrawer": {
+      "title": "到店详情",
+      "close": "关闭",
+      "orderCount": "订单数：{{n}}",
+      "orderLabel": "订单 {{number}}",
+      "sourcePos": "POS",
+      "sourceQr": "扫码",
+      "tip": "小费",
+      "error": "无法加载此次到店记录。",
+      "noOrders": "此次到店没有订单记录。"
+    }
   },
   "tables": {
     "title": "管理表",
@@ -1933,7 +1945,36 @@
     "welcomeBack": "欢迎回来！",
     "namePlaceholder": "您的姓名",
     "nameSaved": "已保存！",
-    "saveName": "保存"
+    "saveName": "保存",
+    "linkIdentity": {
+      "title": {
+        "email": "添加您的电子邮箱",
+        "phone": "添加您的手机号码"
+      },
+      "description": {
+        "email": "通过邮件接收收据——即使更换手机号，积分也不会丢失。",
+        "phone": "通过短信接收订单通知——即使更换邮箱，积分也不会丢失。"
+      },
+      "placeholder": {
+        "email": "you@example.com",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "发送验证码",
+      "codeSent": {
+        "email": "我们已向 {{value}} 发送了 6 位验证码。",
+        "phone": "我们已向 {{value}} 发送了 6 位验证码。"
+      },
+      "codePlaceholder": "6 位验证码",
+      "codeLabel": "验证码",
+      "confirm": "确认",
+      "cancel": "取消",
+      "success": {
+        "email": "邮箱已添加。即使更换手机号，积分依然保留。",
+        "phone": "手机号已添加。即使更换邮箱，积分依然保留。"
+      },
+      "errorInUse": "该信息已属于其他账户。请使用该账户登录，或换一个试试。",
+      "errorGeneric": "出错了，请重试。"
+    }
   },
   "landing": {
     "heroBadge": "专为保加利亚餐厅打造",

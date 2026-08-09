@@ -1452,7 +1452,8 @@
       "noMatches": "Keine Bewertungen entsprechen diesen Filtern.",
       "sort": "Sortierung",
       "newest": "Neueste zuerst",
-      "oldest": "Älteste zuerst"
+      "oldest": "Älteste zuerst",
+      "viewVisit": "Besuch ansehen"
     },
     "starLabel": "Stern",
     "positive": "Positiv",
@@ -1756,7 +1757,18 @@
     "accountantTools": "Tools für Buchhalter",
     "generateCloseout": "Abverkauf generieren",
     "avgOrder": "Durchschnittlicher Bestellwert",
-    "orders": "Bestellungen"
+    "orders": "Bestellungen",
+    "visitDrawer": {
+      "title": "Besuchsdetails",
+      "close": "Schließen",
+      "orderCount": "Bestellungen: {{n}}",
+      "orderLabel": "Bestellung {{number}}",
+      "sourcePos": "POS",
+      "sourceQr": "QR",
+      "tip": "Trinkgeld",
+      "error": "Dieser Besuch konnte nicht geladen werden.",
+      "noOrders": "Für diesen Besuch wurden keine Bestellungen erfasst."
+    }
   },
   "tables": {
     "title": "Tabellen verwalten",
@@ -1933,7 +1945,36 @@
     "welcomeBack": "Willkommen zurück!",
     "namePlaceholder": "Ihr Name",
     "nameSaved": "Gespeichert!",
-    "saveName": "Speichern"
+    "saveName": "Speichern",
+    "linkIdentity": {
+      "title": {
+        "email": "E-Mail-Adresse hinzufügen",
+        "phone": "Telefonnummer hinzufügen"
+      },
+      "description": {
+        "email": "Erhalte Belege per E-Mail — und behalte deine Punkte, auch wenn du die Telefonnummer wechselst.",
+        "phone": "Erhalte Bestellupdates per SMS — und behalte deine Punkte, auch wenn du die E-Mail-Adresse wechselst."
+      },
+      "placeholder": {
+        "email": "name@beispiel.de",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "Code senden",
+      "codeSent": {
+        "email": "Wir haben einen 6-stelligen Code an {{value}} gesendet.",
+        "phone": "Wir haben einen 6-stelligen Code an {{value}} gesendet."
+      },
+      "codePlaceholder": "6-stelliger Code",
+      "codeLabel": "Bestätigungscode",
+      "confirm": "Bestätigen",
+      "cancel": "Abbrechen",
+      "success": {
+        "email": "E-Mail hinzugefügt. Deine Punkte bleiben erhalten, auch wenn sich deine Telefonnummer ändert.",
+        "phone": "Telefonnummer hinzugefügt. Deine Punkte bleiben erhalten, auch wenn sich deine E-Mail-Adresse ändert."
+      },
+      "errorInUse": "Das gehört bereits zu einem anderen Konto. Melde dich damit an oder versuche es mit einem anderen.",
+      "errorGeneric": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
   },
   "landing": {
     "heroBadge": "Speziell für bulgarische Restaurants entwickelt",

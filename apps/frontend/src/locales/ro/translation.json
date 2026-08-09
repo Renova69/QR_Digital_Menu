@@ -930,7 +930,8 @@
       "noMatches": "Nicio recenzie nu corespunde acestor filtre.",
       "sort": "Sortare",
       "newest": "Cele mai noi întâi",
-      "oldest": "Cele mai vechi întâi"
+      "oldest": "Cele mai vechi întâi",
+      "viewVisit": "Vezi vizita"
     },
     "starLabel": "stele",
     "positive": "Pozitiv",
@@ -1244,7 +1245,18 @@
       "epay": "ePay.bg"
     },
     "ofCollected": "din suma încasată",
-    "noCustomerData": "Nu există date despre clienți în această perioadă"
+    "noCustomerData": "Nu există date despre clienți în această perioadă",
+    "visitDrawer": {
+      "title": "Detalii vizită",
+      "close": "Închide",
+      "orderCount": "Comenzi: {{n}}",
+      "orderLabel": "Comanda {{number}}",
+      "sourcePos": "POS",
+      "sourceQr": "QR",
+      "tip": "Bacșiș",
+      "error": "Vizita nu a putut fi încărcată.",
+      "noOrders": "Nu au fost înregistrate comenzi pentru această vizită."
+    }
   },
   "tables": {
     "title": "Administrare Mese",
@@ -1608,7 +1620,36 @@
     "at": "la",
     "noItems": "Niciun articol",
     "pleaseLogin": "Conectați-vă pentru a vedea profilul.",
-    "loginButton": "Autentificare"
+    "loginButton": "Autentificare",
+    "linkIdentity": {
+      "title": {
+        "email": "Adaugă adresa de e-mail",
+        "phone": "Adaugă numărul de telefon"
+      },
+      "description": {
+        "email": "Primește bonurile pe e-mail — și păstrează-ți punctele dacă îți schimbi numărul de telefon.",
+        "phone": "Primește notificări prin SMS — și păstrează-ți punctele dacă îți schimbi adresa de e-mail."
+      },
+      "placeholder": {
+        "email": "nume@exemplu.ro",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "Trimite codul",
+      "codeSent": {
+        "email": "Am trimis un cod din 6 cifre la {{value}}.",
+        "phone": "Am trimis un cod din 6 cifre la {{value}}."
+      },
+      "codePlaceholder": "Cod din 6 cifre",
+      "codeLabel": "Cod de verificare",
+      "confirm": "Confirmă",
+      "cancel": "Anulează",
+      "success": {
+        "email": "E-mailul a fost adăugat. Punctele rămân ale tale chiar dacă îți schimbi numărul de telefon.",
+        "phone": "Numărul de telefon a fost adăugat. Punctele rămân ale tale chiar dacă îți schimbi e-mailul."
+      },
+      "errorInUse": "Acesta aparține deja altui cont. Conectează-te cu el sau încearcă altul.",
+      "errorGeneric": "A apărut o eroare. Te rugăm să încerci din nou."
+    }
   },
   "landing": {
     "heroBadge": "Platforma completă pentru restaurante",

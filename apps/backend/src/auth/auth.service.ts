@@ -14,6 +14,7 @@ import { randomInt, randomBytes, createHash } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
+import { buildPhonePlaceholderEmail } from './phone-placeholder';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -592,6 +593,122 @@ export class AuthService {
     });
   }
 
+  /**
+   * Phone OTP issuance, shared by customer login and identity linking. Two
+   * providers, chosen by SMS_PROVIDER:
+   *  - 'twilio'      → Twilio Verify generates AND checks the code.
+   *  - 'smsgateway'  → we generate the code, send it through the SIM gateway,
+   *                    and verify it against our own DB (like the email flow).
+   */
+  private async issuePhoneVerificationCode(phone: string): Promise<{
+    devCode?: string;
+    channel: 'sms' | 'whatsapp';
+  }> {
+    const usingGateway = smsProvider() === 'smsgateway';
+    if (usingGateway ? !smsGatewayConfigured() : !this.twilioConfigured) {
+      throw new HttpException(
+        'SMS/WhatsApp verification is not configured. Use email instead.',
+        HttpStatus.NOT_IMPLEMENTED,
+      );
+    }
+
+    // Issue 42: per-phone 60s cooldown via VerificationToken (phone stored as
+    // `email` field since there is no separate `identifier` column).
+    const recentPhoneToken = await this.prisma.verificationToken.findFirst({
+      where: {
+        email: phone,
+        usedAt: null,
+        createdAt: { gte: new Date(Date.now() - 60_000) },
+      },
+    });
+    if (recentPhoneToken) {
+      throw new HttpException(
+        'Please wait before requesting another code.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (usingGateway) {
+      // OTP is an auth factor — use a CSPRNG, not Math.random.
+      const code = randomInt(100000, 1000000).toString();
+      const hashedCode = await bcrypt.hash(code, 10);
+      const isDev = process.env.NODE_ENV !== 'production';
+      const shouldSend = !isDev || process.env.SMS_FORCE_SEND === 'true';
+      if (shouldSend) {
+        // Send first; only persist the (hashed) code once the SIM gateway
+        // accepts it, so a failed send doesn't lock the user out for 60s.
+        const result = await sendViaSmsGateway(
+          phone,
+          `${code} is your verification code. It expires in 10 minutes.`,
+          { ttlSeconds: 10 * 60 },
+        );
+        if (!result.ok) {
+          this.logger.error(
+            `SMS gateway OTP send failed (${result.status}): ${result.detail.slice(0, 200)}`,
+          );
+          const isClientError = result.status >= 400 && result.status < 500;
+          throw new HttpException(
+            isClientError
+              ? 'Could not send a code to that phone number. Please check it is correct.'
+              : 'SMS service temporarily unavailable. Please try again shortly.',
+            isClientError
+              ? HttpStatus.UNPROCESSABLE_ENTITY
+              : HttpStatus.BAD_GATEWAY,
+          );
+        }
+      } else {
+        this.logger.log(`[dev] SMS OTP: ${code}`);
+      }
+      await this.prisma.verificationToken.create({
+        data: {
+          email: phone,
+          code: hashedCode,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+      return {
+        channel: 'sms',
+        ...(isDev ? { devCode: code } : {}),
+      };
+    }
+
+    // Twilio Verify: send first — only record the sentinel if Twilio succeeds.
+    // Creating the sentinel before the send would lock the user out for 60s
+    // even when the OTP was never delivered.
+    await this.sendTwilioOtp(phone);
+    await this.prisma.verificationToken.create({
+      data: {
+        email: phone,
+        code: randomBytes(8).toString('hex'),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+    return { channel: (process.env.TWILIO_CHANNEL as any) || 'sms' };
+  }
+
+  /** Counterpart to issuePhoneVerificationCode — verifies against whichever provider issued. */
+  private async consumePhoneVerificationCode(
+    phone: string,
+    code: string,
+  ): Promise<void> {
+    if (smsProvider() === 'smsgateway') {
+      // We issued the code ourselves; verify it from our DB (throws on
+      // invalid/expired/locked). Mirrors the email flow.
+      await this.consumeCodeForIdentifier(phone, code);
+      return;
+    }
+    if (!this.twilioConfigured) {
+      throw new HttpException(
+        'SMS verification not configured.',
+        HttpStatus.NOT_IMPLEMENTED,
+      );
+    }
+    const approved = await this.verifyTwilioOtp(phone, code);
+    if (!approved) {
+      throw new UnauthorizedException('Invalid or expired code.');
+    }
+  }
+
   // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
     email?: string,
@@ -610,94 +727,12 @@ export class AuthService {
       );
     }
 
-    // Phone-first flow. Two providers, chosen by SMS_PROVIDER:
-    //  - 'twilio'      → Twilio Verify generates AND checks the code.
-    //  - 'smsgateway'  → we generate the code, send it through the SIM gateway,
-    //                    and verify it against our own DB (like the email flow).
+    // Phone-first flow — delivery and provider choice live in the shared helper.
     if (phone && !email) {
-      phone = this.normalizePhone(phone);
-      const usingGateway = smsProvider() === 'smsgateway';
-      if (usingGateway ? !smsGatewayConfigured() : !this.twilioConfigured) {
-        throw new HttpException(
-          'SMS/WhatsApp verification is not configured. Use email instead.',
-          HttpStatus.NOT_IMPLEMENTED,
-        );
-      }
-
-      // Issue 42: per-phone 60s cooldown via VerificationToken (phone stored as
-      // `email` field since there is no separate `identifier` column).
-      const recentPhoneToken = await this.prisma.verificationToken.findFirst({
-        where: {
-          email: phone,
-          usedAt: null,
-          createdAt: { gte: new Date(Date.now() - 60_000) },
-        },
-      });
-      if (recentPhoneToken) {
-        throw new HttpException(
-          'Please wait before requesting another code.',
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-
-      if (usingGateway) {
-        // OTP is an auth factor — use a CSPRNG, not Math.random.
-        const code = randomInt(100000, 1000000).toString();
-        const hashedCode = await bcrypt.hash(code, 10);
-        const isDev = process.env.NODE_ENV !== 'production';
-        const shouldSend = !isDev || process.env.SMS_FORCE_SEND === 'true';
-        if (shouldSend) {
-          // Send first; only persist the (hashed) code once the SIM gateway
-          // accepts it, so a failed send doesn't lock the user out for 60s.
-          const result = await sendViaSmsGateway(
-            phone,
-            `${code} is your verification code. It expires in 10 minutes.`,
-            { ttlSeconds: 10 * 60 },
-          );
-          if (!result.ok) {
-            this.logger.error(
-              `SMS gateway OTP send failed (${result.status}): ${result.detail.slice(0, 200)}`,
-            );
-            const isClientError = result.status >= 400 && result.status < 500;
-            throw new HttpException(
-              isClientError
-                ? 'Could not send a code to that phone number. Please check it is correct.'
-                : 'SMS service temporarily unavailable. Please try again shortly.',
-              isClientError
-                ? HttpStatus.UNPROCESSABLE_ENTITY
-                : HttpStatus.BAD_GATEWAY,
-            );
-          }
-        } else {
-          this.logger.log(`[dev] SMS OTP: ${code}`);
-        }
-        await this.prisma.verificationToken.create({
-          data: {
-            email: phone,
-            code: hashedCode,
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-          },
-        });
-        return {
-          success: true,
-          channel: 'sms',
-          ...(isDev ? { devCode: code } : {}),
-        };
-      }
-
-      // Twilio Verify: send first — only record the sentinel if Twilio succeeds.
-      // Creating the sentinel before the send would lock the user out for 60s
-      // even when the OTP was never delivered.
-      await this.sendTwilioOtp(phone);
-      await this.prisma.verificationToken.create({
-        data: {
-          email: phone,
-          code: randomBytes(8).toString('hex'),
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        },
-      });
-      const channel = (process.env.TWILIO_CHANNEL as any) || 'sms';
-      return { success: true, channel };
+      const issued = await this.issuePhoneVerificationCode(
+        this.normalizePhone(phone),
+      );
+      return { success: true, ...issued };
     }
 
     // Email flow (existing)
@@ -967,29 +1002,14 @@ export class AuthService {
 
     // Phone-first flow — verify against whichever provider issued the code.
     if (phone && !email) {
-      if (smsProvider() === 'smsgateway') {
-        // We issued the code ourselves; verify it from our DB (throws on
-        // invalid/expired/locked). Mirrors the email flow.
-        await this.consumeCodeForIdentifier(phone, code);
-      } else {
-        if (!this.twilioConfigured) {
-          throw new HttpException(
-            'SMS verification not configured.',
-            HttpStatus.NOT_IMPLEMENTED,
-          );
-        }
-        const approved = await this.verifyTwilioOtp(phone, code);
-        if (!approved)
-          throw new UnauthorizedException('Invalid or expired code.');
-      }
+      await this.consumePhoneVerificationCode(phone, code);
 
       user = await this.usersService.findByPhone(phone);
       isNew = !user;
       if (!user) {
-        const placeholderEmail = `phone-${phone.replace(/\D/g, '')}@phone.local`;
         const password = await bcrypt.hash(randomBytes(24).toString('hex'), 10);
         user = await this.usersService.create({
-          email: placeholderEmail,
+          email: buildPhonePlaceholderEmail(phone),
           password,
           role: 'CUSTOMER',
           phone,
@@ -1055,6 +1075,159 @@ export class AuthService {
         restaurantId: user.restaurantId,
       },
       isNew,
+    };
+  }
+
+  // ── identity linking (V1) ──────────────────────────────────────────────
+  //
+  // A second identifier may only ever be ADDED to an already-authenticated
+  // account — it must never CREATE one. That single rule is what stops a
+  // phone-first customer from ending up with a second, email-first account
+  // holding a separate point balance. Merging accounts that already split is
+  // V2 and deliberately out of scope here.
+
+  private resolveIdentity(
+    email?: string,
+    phone?: string,
+  ): { field: 'email' | 'phone'; value: string } {
+    const hasEmail = Boolean(email?.trim());
+    const hasPhone = Boolean(phone?.trim());
+    if (hasEmail === hasPhone) {
+      throw new HttpException(
+        'Provide exactly one of email or phone.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return hasEmail
+      ? { field: 'email', value: this.normalizeEmail(email!) }
+      : { field: 'phone', value: this.normalizePhone(phone!) };
+  }
+
+  /**
+   * Identity linking is a customer-account feature. Staff and owners change
+   * their email through the dashboard profile flow, which has its own rules —
+   * letting them through here would be a second, less-guarded path to the same
+   * mutation.
+   */
+  private async loadLinkableCustomer(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Account not found.');
+    }
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('This account has been disabled.');
+    }
+    if (user.role !== 'CUSTOMER') {
+      throw new ForbiddenException(
+        'Identity linking is only available for customer accounts.',
+      );
+    }
+    return user;
+  }
+
+  private async assertIdentityFree(
+    field: 'email' | 'phone',
+    value: string,
+    userId: string,
+    client: { user: { findFirst: Function } } = this.prisma as any,
+  ): Promise<void> {
+    const holder = await client.user.findFirst({
+      where: { [field]: value, NOT: { id: userId } },
+    });
+    if (holder) {
+      // Distinct, machine-readable code: the client must be able to tell this
+      // apart from a bad code. Never silently merge, never silently steal.
+      throw new ConflictException('IDENTITY_IN_USE');
+    }
+  }
+
+  /**
+   * Step 1 — send a code to the identifier being ADDED. Requires a session for
+   * the account being modified, so an unauthenticated caller cannot use this to
+   * probe which addresses are registered.
+   */
+  async addIdentity(
+    userId: string,
+    email?: string,
+    phone?: string,
+  ): Promise<{
+    success: boolean;
+    devCode?: string;
+    channel: 'email' | 'sms' | 'whatsapp';
+  }> {
+    const identity = this.resolveIdentity(email, phone);
+    const user = await this.loadLinkableCustomer(userId);
+    await this.assertIdentityFree(identity.field, identity.value, user.id);
+
+    if (identity.field === 'email') {
+      const issued = await this.issueEmailVerificationCode(
+        identity.value,
+        'Confirm your email',
+      );
+      return { success: true, channel: 'email', ...issued };
+    }
+
+    const issued = await this.issuePhoneVerificationCode(identity.value);
+    return { success: true, ...issued };
+  }
+
+  /**
+   * Step 2 — on a valid code, write the identifier onto the EXISTING row,
+   * replacing any phone-… @phone.local placeholder. `User.email` is unique, so
+   * the collision re-check runs inside the transaction and P2002 is mapped to
+   * the same error the pre-check raises.
+   */
+  async verifyIdentity(
+    userId: string,
+    code: string,
+    email?: string,
+    phone?: string,
+  ): Promise<{ user: Record<string, unknown> }> {
+    if (!code) {
+      throw new HttpException('code is required', HttpStatus.BAD_REQUEST);
+    }
+    const identity = this.resolveIdentity(email, phone);
+    const user = await this.loadLinkableCustomer(userId);
+
+    if (identity.field === 'email') {
+      await this.consumeEmailVerificationCode(identity.value, code);
+    } else {
+      await this.consumePhoneVerificationCode(identity.value, code);
+    }
+
+    let updated: any;
+    try {
+      updated = await this.prisma.$transaction(async (tx: any) => {
+        // Re-check: the identifier could have been claimed between the add
+        // call and this one. `phone` carries no unique constraint, so this
+        // check — not the database — is what covers the phone case.
+        await this.assertIdentityFree(
+          identity.field,
+          identity.value,
+          user.id,
+          tx,
+        );
+        return tx.user.update({
+          where: { id: user.id },
+          data: { [identity.field]: identity.value },
+        });
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new ConflictException('IDENTITY_IN_USE');
+      }
+      throw error;
+    }
+
+    return {
+      user: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        phone: updated.phone,
+        role: updated.role,
+        restaurantId: updated.restaurantId,
+      },
     };
   }
 

@@ -1314,4 +1314,212 @@ describe('AuthService', () => {
       });
     });
   });
+
+  // ─── identity linking V1 ─────────────────────────────────────────────────────
+  //
+  // A second identifier may only ever be ADDED to an authenticated account —
+  // it must never CREATE one. See
+  // docs/superpowers/specs/2026-08-07-customer-identity-linking-design.md.
+
+  describe('identity linking', () => {
+    const PLACEHOLDER = 'phone-15550001111@phone.local';
+
+    const phoneFirstCustomer = (overrides: Record<string, unknown> = {}) =>
+      makeUser({
+        id: 'cust1',
+        role: 'CUSTOMER',
+        email: PLACEHOLDER,
+        phone: '+15550001111',
+        isActive: true,
+        disabledAt: null,
+        ...overrides,
+      });
+
+    const validToken = {
+      id: 'tok1',
+      code: 'hashed-code',
+      attempts: 0,
+      lockedUntil: null,
+    };
+
+    beforeEach(() => {
+      mockPrisma.user.findFirst = jest.fn().mockResolvedValue(null);
+      mockPrisma.user.findUnique.mockResolvedValue(phoneFirstCustomer());
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+    });
+
+    describe('addIdentity', () => {
+      it('issues a code to the new email and mutates nothing yet', async () => {
+        const result = await service.addIdentity('cust1', 'real@example.com');
+
+        expect(result.success).toBe(true);
+        expect(result.channel).toBe('email');
+        expect(mockPrisma.verificationToken.create).toHaveBeenCalled();
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses an email already held elsewhere without sending a code', async () => {
+        mockPrisma.user.findFirst.mockResolvedValue(makeUser({ id: 'other' }));
+
+        await expect(
+          service.addIdentity('cust1', 'taken@example.com'),
+        ).rejects.toThrow('IDENTITY_IN_USE');
+        expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+      });
+
+      it('requires exactly one identifier', async () => {
+        await expect(service.addIdentity('cust1')).rejects.toThrow(
+          HttpException,
+        );
+        await expect(
+          service.addIdentity('cust1', 'a@example.com', '+15550009999'),
+        ).rejects.toThrow(HttpException);
+        expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects an unknown user before issuing any code (no send-side probing)', async () => {
+        mockPrisma.user.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.addIdentity('ghost', 'real@example.com'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects a disabled account', async () => {
+        mockPrisma.user.findUnique.mockResolvedValue(
+          phoneFirstCustomer({ isActive: false, disabledAt: new Date() }),
+        );
+
+        await expect(
+          service.addIdentity('cust1', 'real@example.com'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects non-customer roles — staff change email through other flows', async () => {
+        mockPrisma.user.findUnique.mockResolvedValue(
+          phoneFirstCustomer({ role: 'OWNER' }),
+        );
+
+        await expect(
+          service.addIdentity('cust1', 'real@example.com'),
+        ).rejects.toThrow(ForbiddenException);
+        expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('verifyIdentity', () => {
+      it('writes the verified email onto the existing row, replacing the placeholder', async () => {
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(validToken);
+        mockCompare.mockResolvedValue(true);
+        mockPrisma.user.update.mockResolvedValue(
+          phoneFirstCustomer({ email: 'real@example.com' }),
+        );
+
+        const result = await service.verifyIdentity(
+          'cust1',
+          '123456',
+          'real@example.com',
+        );
+
+        expect(mockPrisma.user.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'cust1' },
+            data: { email: 'real@example.com' },
+          }),
+        );
+        expect(result.user.id).toBe('cust1');
+        expect(result.user.email).toBe('real@example.com');
+      });
+
+      it('keeps the account id stable so points survive the link', async () => {
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(validToken);
+        mockCompare.mockResolvedValue(true);
+        mockPrisma.user.update.mockResolvedValue(
+          phoneFirstCustomer({ email: 'real@example.com' }),
+        );
+
+        const linked = await service.verifyIdentity(
+          'cust1',
+          '123456',
+          'real@example.com',
+        );
+
+        // Regression: signing in later by the newly linked email must resolve
+        // to the same row, not mint a second account.
+        mockUsersService.findByEmail.mockResolvedValue(
+          phoneFirstCustomer({ email: 'real@example.com' }),
+        );
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(validToken);
+        const signIn = await service.verifyOtp('real@example.com', '123456');
+
+        expect(signIn.isNew).toBe(false);
+        expect(signIn.user.id).toBe(linked.user.id);
+        expect(mockUsersService.create).not.toHaveBeenCalled();
+      });
+
+      it('re-checks the collision inside the transaction and refuses', async () => {
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(validToken);
+        mockCompare.mockResolvedValue(true);
+        mockPrisma.user.findFirst.mockResolvedValue(makeUser({ id: 'other' }));
+
+        await expect(
+          service.verifyIdentity('cust1', '123456', 'taken@example.com'),
+        ).rejects.toThrow('IDENTITY_IN_USE');
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects an invalid code without touching the user row', async () => {
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(validToken);
+        mockCompare.mockResolvedValue(false);
+
+        await expect(
+          service.verifyIdentity('cust1', '000000', 'real@example.com'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects an expired or absent code', async () => {
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+
+        await expect(
+          service.verifyIdentity('cust1', '123456', 'real@example.com'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      });
+
+      it('adds a phone to an email-first account', async () => {
+        // Verify against our own DB rather than Twilio Verify — the outer
+        // beforeEach clears SMS_PROVIDER to keep the default path hermetic.
+        process.env.SMS_PROVIDER = 'smsgateway';
+        mockPrisma.user.findUnique.mockResolvedValue(
+          phoneFirstCustomer({ email: 'real@example.com', phone: null }),
+        );
+        mockPrisma.verificationToken.findFirst.mockResolvedValue(validToken);
+        mockCompare.mockResolvedValue(true);
+        mockPrisma.user.update.mockResolvedValue(
+          phoneFirstCustomer({
+            email: 'real@example.com',
+            phone: '+15550003333',
+          }),
+        );
+
+        const result = await service.verifyIdentity(
+          'cust1',
+          '123456',
+          undefined,
+          '+15550003333',
+        );
+
+        expect(mockPrisma.user.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'cust1' },
+            data: { phone: '+15550003333' },
+          }),
+        );
+        expect(result.user.phone).toBe('+15550003333');
+      });
+    });
+  });
 });

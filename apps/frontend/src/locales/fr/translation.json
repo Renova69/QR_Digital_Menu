@@ -1452,7 +1452,8 @@
       "noMatches": "Aucun avis ne correspond à ces filtres.",
       "sort": "Trier",
       "newest": "Plus récents d'abord",
-      "oldest": "Plus anciens d'abord"
+      "oldest": "Plus anciens d'abord",
+      "viewVisit": "Voir la visite"
     },
     "starLabel": "étoile",
     "positive": "Positif",
@@ -1756,7 +1757,18 @@
     "accountantTools": "Outils comptables",
     "generateCloseout": "Générer une liquidation",
     "avgOrder": "Montant moyen des commandes",
-    "orders": "Commandes"
+    "orders": "Commandes",
+    "visitDrawer": {
+      "title": "Détail de la visite",
+      "close": "Fermer",
+      "orderCount": "Commandes : {{n}}",
+      "orderLabel": "Commande {{number}}",
+      "sourcePos": "Caisse",
+      "sourceQr": "QR",
+      "tip": "Pourboire",
+      "error": "Impossible de charger cette visite.",
+      "noOrders": "Aucune commande enregistrée pour cette visite."
+    }
   },
   "tables": {
     "title": "Gérer les tables",
@@ -1933,7 +1945,36 @@
     "welcomeBack": "Bon retour parmi nous !",
     "namePlaceholder": "Votre nom",
     "nameSaved": "Enregistré !",
-    "saveName": "Enregistrer"
+    "saveName": "Enregistrer",
+    "linkIdentity": {
+      "title": {
+        "email": "Ajoutez votre e-mail",
+        "phone": "Ajoutez votre numéro de téléphone"
+      },
+      "description": {
+        "email": "Recevez vos reçus par e-mail — et conservez vos points même si vous changez de numéro.",
+        "phone": "Recevez les infos de commande par SMS — et conservez vos points même si vous changez d'e-mail."
+      },
+      "placeholder": {
+        "email": "vous@exemple.fr",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "Envoyer le code",
+      "codeSent": {
+        "email": "Nous avons envoyé un code à 6 chiffres à {{value}}.",
+        "phone": "Nous avons envoyé un code à 6 chiffres à {{value}}."
+      },
+      "codePlaceholder": "Code à 6 chiffres",
+      "codeLabel": "Code de vérification",
+      "confirm": "Confirmer",
+      "cancel": "Annuler",
+      "success": {
+        "email": "E-mail ajouté. Vos points restent les vôtres même si votre numéro change.",
+        "phone": "Numéro ajouté. Vos points restent les vôtres même si votre e-mail change."
+      },
+      "errorInUse": "Cela appartient déjà à un autre compte. Connectez-vous avec, ou essayez-en un autre.",
+      "errorGeneric": "Une erreur est survenue. Veuillez réessayer."
+    }
   },
   "landing": {
     "heroBadge": "Conçu pour les restaurants bulgares",

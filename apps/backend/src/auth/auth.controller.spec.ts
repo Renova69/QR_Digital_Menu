@@ -1,3 +1,4 @@
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -13,6 +14,8 @@ const mockAuthService = {
   verifyOtp: jest.fn(),
   validateGoogleUser: jest.fn(),
   exitImpersonation: jest.fn(),
+  addIdentity: jest.fn(),
+  verifyIdentity: jest.fn(),
 };
 
 const mockJwtAuthGuard = {
@@ -227,6 +230,50 @@ describe('AuthController', () => {
       );
       expect(res.redirect).toHaveBeenCalledWith(
         'http://localhost:3001/auth/callback',
+      );
+    });
+  });
+
+  describe('identity linking routes', () => {
+    const guardNames = (target: object | Function): string[] =>
+      (Reflect.getMetadata(GUARDS_METADATA, target) ?? []).map(
+        (guard: unknown) =>
+          typeof guard === 'function'
+            ? guard.name
+            : (guard as { constructor?: { name?: string } })?.constructor?.name,
+      );
+
+    // Acceptance criterion: an unauthenticated call is rejected before any OTP
+    // is sent, so no user enumeration is possible via send-side probing.
+    it('requires a JWT on both identity endpoints', () => {
+      expect(guardNames(AuthController.prototype.addIdentity)).toContain(
+        JwtAuthGuard.name,
+      );
+      expect(guardNames(AuthController.prototype.verifyIdentity)).toContain(
+        JwtAuthGuard.name,
+      );
+    });
+
+    it('scopes the mutation to the session user, not a body-supplied id', () => {
+      controller.addIdentity(
+        { user: { id: 'cust1' } },
+        { email: 'real@example.com' },
+      );
+      expect(mockAuthService.addIdentity).toHaveBeenCalledWith(
+        'cust1',
+        'real@example.com',
+        undefined,
+      );
+
+      controller.verifyIdentity(
+        { user: { id: 'cust1' } },
+        { code: '123456', email: 'real@example.com' },
+      );
+      expect(mockAuthService.verifyIdentity).toHaveBeenCalledWith(
+        'cust1',
+        '123456',
+        'real@example.com',
+        undefined,
       );
     });
   });

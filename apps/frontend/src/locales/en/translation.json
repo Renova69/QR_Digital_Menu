@@ -930,7 +930,8 @@
       "noMatches": "No reviews match these filters.",
       "sort": "Sort",
       "newest": "Newest first",
-      "oldest": "Oldest first"
+      "oldest": "Oldest first",
+      "viewVisit": "View the visit"
     },
     "starLabel": "star",
     "positive": "Positive",
@@ -1244,7 +1245,18 @@
       "epay": "ePay.bg"
     },
     "ofCollected": "of collected",
-    "noCustomerData": "No customer data in this period"
+    "noCustomerData": "No customer data in this period",
+    "visitDrawer": {
+      "title": "Visit detail",
+      "close": "Close",
+      "orderCount": "Orders: {{n}}",
+      "orderLabel": "Order {{number}}",
+      "sourcePos": "POS",
+      "sourceQr": "QR",
+      "tip": "Tip",
+      "error": "Could not load this visit.",
+      "noOrders": "No orders were recorded for this visit."
+    }
   },
   "tables": {
     "title": "Manage Tables",
@@ -1608,7 +1620,36 @@
     "welcomeBack": "Welcome back!",
     "namePlaceholder": "Your name",
     "nameSaved": "Saved!",
-    "saveName": "Save"
+    "saveName": "Save",
+    "linkIdentity": {
+      "title": {
+        "email": "Add your email",
+        "phone": "Add your phone number"
+      },
+      "description": {
+        "email": "Get receipts by email — and keep your points if you ever change phone number.",
+        "phone": "Get order updates by text — and keep your points if you ever change email."
+      },
+      "placeholder": {
+        "email": "you@example.com",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "Send code",
+      "codeSent": {
+        "email": "We sent a 6-digit code to {{value}}.",
+        "phone": "We sent a 6-digit code to {{value}}."
+      },
+      "codePlaceholder": "6-digit code",
+      "codeLabel": "Verification code",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "success": {
+        "email": "Email added. Your points stay with you even if your phone number changes.",
+        "phone": "Phone number added. Your points stay with you even if your email changes."
+      },
+      "errorInUse": "That already belongs to another account. Sign in with it instead, or try a different one.",
+      "errorGeneric": "Something went wrong. Please try again."
+    }
   },
   "landing": {
     "heroBadge": "Built for Bulgarian restaurants",

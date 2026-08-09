@@ -548,7 +548,36 @@
     "welcomeBack": "おかえりなさい！",
     "namePlaceholder": "お名前",
     "nameSaved": "保存しました！",
-    "saveName": "保存"
+    "saveName": "保存",
+    "linkIdentity": {
+      "title": {
+        "email": "メールアドレスを追加",
+        "phone": "電話番号を追加"
+      },
+      "description": {
+        "email": "領収書をメールで受け取れます。電話番号を変更してもポイントはそのままです。",
+        "phone": "注文の更新をSMSで受け取れます。メールアドレスを変更してもポイントはそのままです。"
+      },
+      "placeholder": {
+        "email": "you@example.jp",
+        "phone": "+359 88 123 4567"
+      },
+      "sendCode": "コードを送信",
+      "codeSent": {
+        "email": "{{value}} に6桁のコードを送信しました。",
+        "phone": "{{value}} に6桁のコードを送信しました。"
+      },
+      "codePlaceholder": "6桁のコード",
+      "codeLabel": "確認コード",
+      "confirm": "確認",
+      "cancel": "キャンセル",
+      "success": {
+        "email": "メールアドレスを追加しました。電話番号が変わってもポイントは引き継がれます。",
+        "phone": "電話番号を追加しました。メールアドレスが変わってもポイントは引き継がれます。"
+      },
+      "errorInUse": "すでに別のアカウントで使用されています。そちらでログインするか、別のものをお試しください。",
+      "errorGeneric": "エラーが発生しました。もう一度お試しください。"
+    }
   },
   "booking": {
     "loading": "読み込み中…",
@@ -812,7 +841,19 @@
       "noMatches": "この条件に一致するレビューはありません。",
       "sort": "並び順",
       "newest": "新しい順",
-      "oldest": "古い順"
+      "oldest": "古い順",
+      "viewVisit": "来店内容を見る"
+    },
+    "visitDrawer": {
+      "title": "来店の詳細",
+      "close": "閉じる",
+      "orderCount": "注文数: {{n}}",
+      "orderLabel": "注文 {{number}}",
+      "sourcePos": "POS",
+      "sourceQr": "QR",
+      "tip": "チップ",
+      "error": "この来店情報を読み込めませんでした。",
+      "noOrders": "この来店に記録された注文はありません。"
     }
   },
   "apiErrors": {

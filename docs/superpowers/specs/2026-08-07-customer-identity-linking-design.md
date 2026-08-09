@@ -1,7 +1,8 @@
 # Customer Identity Linking — V1 / V2 Design
 
 **Date:** 2026-08-07
-**Status:** Proposed — not started
+**Status:** V1 implemented 2026-08-09 (`POST /auth/identity/add`, `POST /auth/identity/verify`,
+`LinkIdentityCard` on `CustomerProfilePage`). V2 (merging accounts that already split) not started.
 **Related:** `2026-06-10-tier-enforcement-round2-design.md`, `17.07.REPORT.md § M6`
 
 ---
