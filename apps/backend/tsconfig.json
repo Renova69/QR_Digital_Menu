@@ -11,7 +11,8 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
-    "incremental": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsc-backend.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": true,
     "noImplicitAny": true,
@@ -19,8 +20,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "moduleResolution": "node",
-    "paths": {
-    }
+    "paths": {}
   },
   "exclude": ["node_modules", "dist", "prisma/seed.ts"]
 }
