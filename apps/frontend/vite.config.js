@@ -242,7 +242,7 @@ export default defineConfig(({ mode }) => {
         "default",
         [
           "tdd-guard-vitest",
-          { projectRoot: "F:/PROGRAMING/QR_Digital_Menu-main" },
+          { projectRoot: "C:/dev/QR_Digital_Menu-main" },
         ],
       ],
       coverage: {
