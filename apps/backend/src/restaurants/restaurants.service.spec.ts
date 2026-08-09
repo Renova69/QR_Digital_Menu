@@ -52,7 +52,7 @@ function mockPinnedHttpResponse(opts: {
       return req;
     },
   );
-  return { spy, options: () => spy.mock.calls[0]?.[0] as any };
+  return { spy, options: () => spy.mock.calls[0]?.[0] };
 }
 
 const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
@@ -174,7 +174,10 @@ describe('RestaurantsService', () => {
       ),
       hasFeature: jest.fn().mockReturnValue(true),
       restaurantHasFeature: jest.fn(function (
-        this: { hasFeature: Function; getEffectiveTier: Function },
+        this: {
+          hasFeature: (tier: string, flag: string) => boolean;
+          getEffectiveTier: (tier: string, force?: string | null) => string;
+        },
         r: { tier?: string; forceTier?: string | null },
         f: string,
       ) {
@@ -476,13 +479,9 @@ describe('RestaurantsService', () => {
         role: 'WAITER',
       });
 
-      await expect(
-        service.update(
-          'rest1',
-          {} as Parameters<typeof service.update>[1],
-          'waiter1',
-        ),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.update('rest1', {}, 'waiter1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('evicts shared-device sessions without revoking tokens when Shared Device Mode is disabled', async () => {
@@ -499,9 +498,7 @@ describe('RestaurantsService', () => {
 
       await service.update(
         'rest1',
-        { sharedDeviceModeEnabled: false } as Parameters<
-          typeof service.update
-        >[1],
+        { sharedDeviceModeEnabled: false },
         'user1',
       );
 
@@ -525,11 +522,7 @@ describe('RestaurantsService', () => {
         makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'ro' }),
       );
 
-      await service.update(
-        'rest1',
-        { menuSourceLanguage: 'ro' } as Parameters<typeof service.update>[1],
-        'user1',
-      );
+      await service.update('rest1', { menuSourceLanguage: 'ro' }, 'user1');
 
       expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
         where: { restaurantId: 'rest1', locale: { not: 'ro' } },
@@ -563,11 +556,7 @@ describe('RestaurantsService', () => {
         makeRestaurant({ menuSourceLanguage: 'ro' }),
       );
 
-      await service.update(
-        'rest1',
-        { menuSourceLanguage: 'ro' } as Parameters<typeof service.update>[1],
-        'user1',
-      );
+      await service.update('rest1', { menuSourceLanguage: 'ro' }, 'user1');
 
       for (const call of mockPrisma.menuTranslationState.updateMany.mock
         .calls) {
@@ -587,11 +576,7 @@ describe('RestaurantsService', () => {
         role: 'OWNER',
       });
 
-      await service.update(
-        'rest1',
-        { dashboardLanguage: 'ro' } as Parameters<typeof service.update>[1],
-        'user1',
-      );
+      await service.update('rest1', { dashboardLanguage: 'ro' }, 'user1');
 
       expect(mockPrisma.menuTranslationState.updateMany).not.toHaveBeenCalled();
       expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
@@ -1146,7 +1131,7 @@ describe('RestaurantsService', () => {
       });
       const lookupSpy = jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '169.254.169.254', family: 4 } as any);
+        .mockResolvedValue({ address: '169.254.169.254', family: 4 });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -1176,7 +1161,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: '::ffff:169.254.169.254',
         family: 6,
-      } as any);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -1191,7 +1176,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: '::ffff:a9fe:a9fe',
         family: 6,
-      } as dns.LookupAddress);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -1206,7 +1191,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: 'fe90::1',
         family: 6,
-      } as dns.LookupAddress);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -1221,7 +1206,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: '0:0:0:0:0:0:0:1',
         family: 6,
-      } as dns.LookupAddress);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -1235,7 +1220,7 @@ describe('RestaurantsService', () => {
       });
       jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       const { options } = mockPinnedHttpResponse({
         contentType: 'image/png',
         body: Buffer.from('logo-bytes'),
@@ -1262,7 +1247,7 @@ describe('RestaurantsService', () => {
       });
       const lookupSpy = jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       mockPinnedHttpResponse({ contentType: 'image/png' });
 
       await service.getLogoBase64('rest1', 'owner1');
@@ -1276,7 +1261,7 @@ describe('RestaurantsService', () => {
       });
       jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       mockPinnedHttpResponse({
         contentType: 'image/png',
         body: Buffer.alloc(6 * 1024 * 1024), // over the 5MB cap
@@ -1293,7 +1278,7 @@ describe('RestaurantsService', () => {
       });
       jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       mockPinnedHttpResponse({ statusCode: 404 });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
