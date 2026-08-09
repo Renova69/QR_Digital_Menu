@@ -15,6 +15,11 @@ concurrency:
 
 env:
   DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test
+  # schema.prisma declares `directUrl = env("DIRECT_URL")` for the unpooled
+  # Neon endpoint migrations need. Without it `prisma migrate deploy` fails
+  # validation (P1012) before it opens a connection. The CI Postgres service
+  # has no pooler in front of it, so both point at the same database.
+  DIRECT_URL: postgresql://ci:ci@localhost:5432/ci_test
   CONCURRENCY_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test
   JWT_SECRET: ci-jwt-secret-not-for-production
   FRONTEND_URL: http://localhost:3001
