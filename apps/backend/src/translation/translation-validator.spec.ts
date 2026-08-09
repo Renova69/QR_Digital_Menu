@@ -25,6 +25,13 @@ describe('isGarbageTranslation', () => {
         isGarbageTranslation('Шкембе на фурна', 'Шкембе на фурна', 'en'),
       ).toBe(true);
     });
+
+    it.each(['EN', 'en-US', ' en-us '])(
+      'normalizes locale variant %s before the identity check',
+      (locale) => {
+        expect(isGarbageTranslation('Луканка', 'Луканка', locale)).toBe(true);
+      },
+    );
   });
 
   describe('length ratio — real legitimate DeepL output must NOT be flagged (2026-07-25 rework)', () => {

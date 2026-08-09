@@ -33,6 +33,12 @@ export interface RestaurantTranslationProgress {
   runId: string | null;
 }
 
+type WorkerRunStatus =
+  | 'RUNNING'
+  | 'PARTIAL'
+  | 'COMPLETED'
+  | 'QUOTA_BLOCKED';
+
 // Fixed placeholder id for the synthetic category/item wrappers used to
 // isolate a single claimed ITEM or OPTION from its real siblings when
 // handed to MenuTranslationService.applyLazyTranslations (which expects a
@@ -296,7 +302,7 @@ export class MenuTranslationWorkerService {
   }
 
   /**
-   * done/total against ALL outstanding work for the restaurant, not just the
+   * Read-only done/total against ALL outstanding work for the restaurant, not just the
    * batch just processed. The old (NLLB-era) translateAll ran everything for
    * a restaurant in one synchronous request, so a batch's own size was the
    * run's whole total. The worker claims at most BATCH_LIMIT rows per tick
@@ -360,24 +366,13 @@ export class MenuTranslationWorkerService {
       const status: 'RUNNING' | 'PARTIAL' | 'COMPLETED' =
         pending > 0 ? 'RUNNING' : failed > 0 ? 'PARTIAL' : 'COMPLETED';
       const activeRun = ['QUEUED', 'RUNNING'].includes(latestRun.status);
-      if (activeRun) {
-        await this.prisma.translationRun.update({
-          where: { id: latestRun.id },
-          data: {
-            status,
-            doneUnits: done,
-            failedUnits: Math.min(failed, Math.max(0, total - done)),
-            ...(status === 'RUNNING' ? {} : { finishedAt: new Date() }),
-          },
-        });
-      }
       return {
         done,
         total,
         pending,
         failed,
         current,
-        active: pending > 0,
+        active: activeRun,
         status,
         runId: latestRun.id,
       };
@@ -391,7 +386,7 @@ export class MenuTranslationWorkerService {
       pending,
       failed,
       current,
-      active: pending > 0,
+      active: false,
       status:
         pending > 0
           ? 'RUNNING'
@@ -421,6 +416,7 @@ export class MenuTranslationWorkerService {
   private async markFailed(rows: ClaimedRow[], error: unknown): Promise<void> {
     if (rows.length === 0) return;
     const message = error instanceof Error ? error.message : String(error);
+    const needsReview = message.startsWith('Garbage translation detected');
     // Sequential, not Promise.all: each row needs a different backoffMinutes
     // (derived from its own failureCount), so this can't collapse into a
     // single updateMany. Up to BATCH_LIMIT (100) rows can land here in one
@@ -439,9 +435,11 @@ export class MenuTranslationWorkerService {
       await this.prisma.menuTranslationState.update({
         where: { id: row.id },
         data: {
-          status: 'FAILED',
+          status: needsReview ? 'NEEDS_REVIEW' : 'FAILED',
           failureCount: newFailureCount,
-          nextAttemptAt: new Date(Date.now() + backoffMinutes * 60_000),
+          nextAttemptAt: needsReview
+            ? null
+            : new Date(Date.now() + backoffMinutes * 60_000),
           lastError: message.slice(0, 500),
           claimedAt: null,
         },
@@ -570,20 +568,31 @@ export class MenuTranslationWorkerService {
     );
   }
 
-  /** Emits done/total against ALL outstanding work for the restaurant (see
-   * getProgressSnapshot) — called after each entity-type sub-batch within a
+  /** Persists the worker-owned run transition and emits done/total against
+   * ALL outstanding work for the restaurant — called after each entity-type sub-batch within a
    * claimed group, not just once per group, so a large Translate-All run
    * updates every few seconds instead of jumping once per batch. */
   private async emitProgress(
     restaurantId: string,
     phase: string,
-    statusOverride: string,
+    statusOverride: WorkerRunStatus,
   ): Promise<void> {
     const snapshot = await this.getRestaurantProgress(restaurantId);
-    const status =
+    const status: WorkerRunStatus =
       statusOverride === 'QUOTA_BLOCKED' || statusOverride === 'PARTIAL'
         ? statusOverride
-        : (snapshot.status ?? statusOverride);
+        : ((snapshot.status as WorkerRunStatus | null) ?? statusOverride);
+    if (snapshot.runId && snapshot.active) {
+      await this.prisma.translationRun.update({
+        where: { id: snapshot.runId },
+        data: {
+          status,
+          doneUnits: snapshot.done,
+          failedUnits: snapshot.failed,
+          ...(status === 'RUNNING' ? {} : { finishedAt: new Date() }),
+        },
+      });
+    }
     this.events.emitToRestaurant(restaurantId, 'translate:progress', {
       phase,
       done: snapshot.done,

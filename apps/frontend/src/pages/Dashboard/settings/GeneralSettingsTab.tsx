@@ -23,8 +23,8 @@ import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 // Poll fallback cadence while a translate-all run is active — the socket
 // carries live done/total updates, but its terminal phases are per-batch,
 // not per-run, so it alone can't tell us when ALL queued work is finished.
-// The poll checks the authoritative "is there still STALE/PENDING work"
-// signal instead. Also caps how long the UI keeps polling so a run that
+// The poll checks the authoritative persisted TranslationRun status instead.
+// Also caps how long the UI keeps polling so a run that
 // somehow never finishes doesn't spin the button forever.
 const TRANSLATION_POLL_INTERVAL_MS = 8_000;
 const TRANSLATION_POLL_MAX_MS = 10 * 60 * 1000;
@@ -156,7 +156,7 @@ const GeneralSettingsTab: React.FC = () => {
       setYoutubeUrl(activeRestaurant.youtubeUrl || "");
       setGoogleReviewUrl(activeRestaurant.googleReviewUrl || "");
       setTimezone(activeRestaurant.timezone || "Europe/Sofia");
-      const menuSourceLanguage = activeRestaurant.dashboardLanguage || "bg";
+      const menuSourceLanguage = activeRestaurant.menuSourceLanguage || "bg";
       setSourceLanguage(menuSourceLanguage);
       setTargetLanguages(
         (activeRestaurant.targetLanguages || []).filter(
@@ -289,7 +289,7 @@ const GeneralSettingsTab: React.FC = () => {
             error: t("settings.translateSomeFailedNotice", {
               count: freshFailed,
               defaultValue:
-                "Translation finished — {{count}} item(s) failed and will retry automatically.",
+                "Translation finished — {{count}} item(s) failed or require review.",
             }),
           }));
         } else if (result && !result.active) {
@@ -325,7 +325,7 @@ const GeneralSettingsTab: React.FC = () => {
         youtubeUrl: youtubeUrl || null,
         googleReviewUrl: googleReviewUrl.trim() || null,
         timezone,
-        dashboardLanguage: sourceLanguage,
+        menuSourceLanguage: sourceLanguage,
         targetLanguages: targetLanguages.filter((l) => l !== sourceLanguage),
       });
       await fetchRestaurants();
@@ -366,10 +366,10 @@ const GeneralSettingsTab: React.FC = () => {
         selectedTargets.length !== savedLangs.length ||
         selectedTargets.some((l: string) => !savedLangs.includes(l));
       const sourceChanged =
-        sourceLanguage !== (activeRestaurant.dashboardLanguage || "bg");
+        sourceLanguage !== (activeRestaurant.menuSourceLanguage || "bg");
       if (langsChanged || sourceChanged) {
         await updateRestaurant(activeRestaurant.id, {
-          dashboardLanguage: sourceLanguage,
+          menuSourceLanguage: sourceLanguage,
           targetLanguages: selectedTargets,
         });
         await fetchRestaurants();
@@ -857,7 +857,7 @@ const GeneralSettingsTab: React.FC = () => {
                             count:
                               translateProgress.total - translateProgress.done,
                             defaultValue:
-                              "Translation finished — {{count}} item(s) failed and will retry automatically.",
+                              "Translation finished — {{count}} item(s) failed or require review.",
                           })
                         : translatePhaseStatus === "COMPLETED" &&
                             translateSuccess

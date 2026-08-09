@@ -4,7 +4,9 @@ import {
   IsOptional,
   IsUrl,
   IsHexColor,
+  IsIn,
 } from 'class-validator';
+import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../restaurant-languages';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -82,4 +84,9 @@ export class CreateRestaurantDto {
   @IsString()
   @IsOptional()
   dashboardLanguage?: string;
+
+  @IsString()
+  @IsIn([...SUPPORTED_TARGET_LANGUAGE_CODES])
+  @IsOptional()
+  menuSourceLanguage?: string;
 }

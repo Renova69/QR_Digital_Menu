@@ -53,6 +53,8 @@ const mockRestaurant = {
   country: "Bulgaria",
   address: "1 Test Street",
   targetLanguages: ["en", "bg"],
+  dashboardLanguage: "en",
+  menuSourceLanguage: "bg",
   timezone: "Europe/Sofia",
 };
 
@@ -282,7 +284,7 @@ describe("GeneralSettingsTab - poll fallback", () => {
 
     expect(
       screen.getByText(
-        "Translation finished — 2 item(s) failed and will retry automatically.",
+        "Translation finished — 2 item(s) failed or require review.",
       ),
     ).toBeTruthy();
   });

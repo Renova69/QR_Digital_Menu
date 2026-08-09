@@ -34,6 +34,7 @@ export interface RestaurantContextType {
     name: string;
     city?: string;
     dashboardLanguage?: string;
+    menuSourceLanguage?: string;
   }) => Promise<void>;
   selectRestaurant: (restaurant: Restaurant | null) => void;
   fetchRestaurants: () => Promise<void>;
@@ -190,6 +191,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
       name: string;
       city?: string;
       dashboardLanguage?: string;
+      menuSourceLanguage?: string;
     }) => {
       const newRestaurant = await createRestaurantApi(restaurantData);
       setRestaurants((prev) => [...prev, newRestaurant]);

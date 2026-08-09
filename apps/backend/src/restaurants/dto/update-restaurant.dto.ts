@@ -51,6 +51,11 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   dashboardLanguage?: string;
 
   @IsString()
+  @IsIn([...SUPPORTED_TARGET_LANGUAGE_CODES])
+  @IsOptional()
+  menuSourceLanguage?: string;
+
+  @IsString()
   @IsOptional()
   timezone?: string;
 

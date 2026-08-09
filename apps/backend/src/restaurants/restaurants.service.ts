@@ -47,6 +47,7 @@ const RESTAURANT_READ_SELECT = {
   contactInfo: true,
   targetLanguages: true,
   dashboardLanguage: true,
+  menuSourceLanguage: true,
   timezone: true,
   ownerId: true,
   createdAt: true,
@@ -339,11 +340,11 @@ export class RestaurantsService {
       ? { ...updateRestaurantDto }
       : stripBrandingFields({ ...updateRestaurantDto });
     const sourceLanguageChanged =
-      typeof data.dashboardLanguage === 'string' &&
-      data.dashboardLanguage.trim().toLowerCase() !==
-        (restaurant.dashboardLanguage ?? 'bg').trim().toLowerCase();
+      typeof data.menuSourceLanguage === 'string' &&
+      data.menuSourceLanguage.trim().toLowerCase() !==
+        (restaurant.menuSourceLanguage ?? 'bg').trim().toLowerCase();
     const nextSourceLanguage = sourceLanguageChanged
-      ? data.dashboardLanguage.trim().toLowerCase()
+      ? data.menuSourceLanguage.trim().toLowerCase()
       : null;
 
     // Multi-language gating: strip targetLanguages if tier lacks multi-language feature
@@ -516,12 +517,16 @@ export class RestaurantsService {
       restaurant.targetLanguages.length === 0
     ) {
       return {
-        success: false,
-        message: 'No target languages configured.',
+        success: true,
+        message: 'No translation targets are configured.',
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
       };
     }
 
-    const sourceLang = restaurant.dashboardLanguage ?? 'bg';
+    const sourceLang = restaurant.menuSourceLanguage ?? 'bg';
     const targets = [
       ...new Set(
         restaurant.targetLanguages
@@ -533,8 +538,12 @@ export class RestaurantsService {
     ];
     if (targets.length === 0) {
       return {
-        success: false,
-        message: 'No target languages different from the menu source language.',
+        success: true,
+        message: 'The menu source is the only configured language.',
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
       };
     }
 
@@ -691,7 +700,7 @@ export class RestaurantsService {
 
     const pending =
       (byStatus.STALE ?? 0) + (byStatus.PENDING ?? 0) + (byStatus.SKIPPED ?? 0);
-    const failed = byStatus.FAILED ?? 0;
+    const failed = (byStatus.FAILED ?? 0) + (byStatus.NEEDS_REVIEW ?? 0);
     const current = byStatus.CURRENT ?? 0;
 
     const progress = await this.translationWorker.getRestaurantProgress(id);

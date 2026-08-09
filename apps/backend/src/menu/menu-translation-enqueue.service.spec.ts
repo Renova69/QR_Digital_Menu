@@ -48,6 +48,33 @@ describe('MenuTranslationEnqueueService', () => {
   });
 
   describe('enqueueItem', () => {
+    it('runs good-cache and forced-refresh upserts sequentially to avoid connection-pool bursts', async () => {
+      let inFlight = 0;
+      let maxInFlight = 0;
+      mockPrisma.$executeRaw.mockImplementation(async () => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await Promise.resolve();
+        inFlight--;
+        return 1;
+      });
+
+      await service.enqueueItem(
+        'rest-1',
+        {
+          id: 'item-1',
+          name: 'Soup',
+          description: 'Fresh daily',
+          translations: { en: { name: 'Soup' } },
+        },
+        ['en'],
+        'bg',
+      );
+
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(maxInFlight).toBe(1);
+    });
+
     it('enqueues NAME only when description/allergens/tags are absent', async () => {
       await service.enqueueItem(
         'rest-1',
@@ -181,6 +208,26 @@ describe('MenuTranslationEnqueueService', () => {
     };
     expect(query.strings.join(' ')).toContain(
       '"menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang"',
+    );
+  });
+
+  it('preserves NEEDS_REVIEW for the same source instead of forcing an endless retry loop', async () => {
+    await service.enqueueCategory(
+      'rest-1',
+      {
+        id: 'cat-1',
+        name: 'Луканка',
+        translations: { en: { name: 'Луканка' } },
+      },
+      ['en'],
+      'bg',
+    );
+
+    const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+    };
+    expect(query.strings.join(' ')).toContain(
+      `"menu_translation_state"."status" = 'NEEDS_REVIEW'`,
     );
   });
 

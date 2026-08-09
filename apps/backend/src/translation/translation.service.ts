@@ -121,7 +121,7 @@ export class TranslationService {
     // NOTE: this used to have a "glossary-only mode" branch here that
     // returned source text for anything not in the glossary whenever
     // sourceLanguage was known — which was every real call, since every
-    // caller passes restaurant.dashboardLanguage. That made the provider
+    // caller passes restaurant.menuSourceLanguage. That made the provider
     // below permanently unreachable and is the root cause the 2026-07-25
     // translation rework fixed (see "Dynamic Menu Translation
     // Architecture.md"). Do not reintroduce it — if a provider's model

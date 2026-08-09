@@ -41,6 +41,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import { DashboardProfileModal } from "../components/dashboard/DashboardProfileModal";
 import { buildMenuReturnUrl, normalizeRestaurantId } from "../lib/menuUrl";
 import { RenovaBrand } from "../components/brand/RenovaBrand";
+import { updateRestaurant } from "../lib/api";
 
 const AnalyticsView = lazy(() => import("./Dashboard/AnalyticsView"));
 const SettingsView = lazy(() => import("./Dashboard/SettingsView"));
@@ -131,6 +132,7 @@ const DashboardPage = () => {
   const {
     activeRestaurant,
     restaurants,
+    fetchRestaurants,
     loading: restaurantsLoading,
     error: restaurantsError,
   }: any = useContext(RestaurantContext);
@@ -179,6 +181,33 @@ const DashboardPage = () => {
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
+
+  useEffect(() => {
+    const configuredLanguage = activeRestaurant?.dashboardLanguage;
+    if (
+      configuredLanguage &&
+      DASHBOARD_LANGUAGES.some((language) => language.code === configuredLanguage) &&
+      !i18n.language?.startsWith(configuredLanguage)
+    ) {
+      void i18n.changeLanguage(configuredLanguage);
+    }
+  }, [activeRestaurant?.id, activeRestaurant?.dashboardLanguage, i18n]);
+
+  const changeDashboardLanguage = (language: string) => {
+    void i18n.changeLanguage(language);
+    if (
+      isStaff ||
+      !activeRestaurant?.id ||
+      activeRestaurant.dashboardLanguage === language
+    ) {
+      return;
+    }
+    void updateRestaurant(activeRestaurant.id, {
+      dashboardLanguage: language,
+    })
+      .then(() => fetchRestaurants?.())
+      .catch(() => undefined);
+  };
   const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
   const publicMenuUrl = activeRestaurantId
     ? buildMenuReturnUrl(activeRestaurantId, "1")
@@ -577,7 +606,7 @@ const DashboardPage = () => {
               value={i18n.language?.slice(0, 2) ?? "en"}
               onChange={(e) => {
                 const lang = e.target.value;
-                void i18n.changeLanguage(lang);
+                changeDashboardLanguage(lang);
               }}
               className="h-8 px-3 rounded-xl text-xs font-bold uppercase tracking-widest text-foreground/70 cursor-pointer bg-secondary border border-border hover:bg-muted transition-all"
             >
@@ -912,7 +941,7 @@ const DashboardPage = () => {
                   <button
                     key={l.code}
                     onClick={() => {
-                      void i18n.changeLanguage(l.code);
+                      changeDashboardLanguage(l.code);
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                       i18n.language?.startsWith(l.code)

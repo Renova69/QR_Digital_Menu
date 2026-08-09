@@ -86,6 +86,50 @@ describe('MenuTranslationWorkerService', () => {
     process.env = originalEnv;
   });
 
+  describe('getRestaurantProgress — read model', () => {
+    it('is read-only and treats a persisted RUNNING run as active even after its last state becomes current', async () => {
+      mockPrisma.translationRun.findFirst.mockResolvedValue({
+        id: 'run-1',
+        status: 'RUNNING',
+        totalUnits: 1,
+        locales: ['en'],
+        createdAt: new Date(),
+      });
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 1 } },
+      ]);
+
+      const result = await service.getRestaurantProgress('rest-1');
+
+      expect(result).toMatchObject({
+        active: true,
+        done: 1,
+        total: 1,
+        status: 'COMPLETED',
+        runId: 'run-1',
+      });
+      expect(mockPrisma.translationRun.update).not.toHaveBeenCalled();
+    });
+
+    it('does not call a completed run active merely because later work is stale', async () => {
+      mockPrisma.translationRun.findFirst.mockResolvedValue({
+        id: 'run-1',
+        status: 'COMPLETED',
+        totalUnits: 1,
+        locales: ['en'],
+        createdAt: new Date(),
+      });
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'STALE', _count: { _all: 1 } },
+      ]);
+
+      const result = await service.getRestaurantProgress('rest-1');
+
+      expect(result.active).toBe(false);
+      expect(mockPrisma.translationRun.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('tick / kick — kill switch', () => {
     it('tick does nothing when TRANSLATION_ENABLED is not "true"', async () => {
       delete process.env.TRANSLATION_ENABLED;
@@ -312,6 +356,28 @@ describe('MenuTranslationWorkerService', () => {
             status: 'FAILED',
             failureCount: 1,
             lastError: 'DeepL down',
+          }),
+        }),
+      );
+    });
+
+    it('marks deterministic garbage output NEEDS_REVIEW so it cannot burn quota forever', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([claimedRow()]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        { id: 'item-1', name: 'Луканка' },
+      ]);
+      mockMenuTranslation.applyLazyTranslations.mockRejectedValue(
+        new Error('Garbage translation detected for "Луканка" -> "Луканка"'),
+      );
+
+      await service.runOnce();
+
+      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'state-1' },
+          data: expect.objectContaining({
+            status: 'NEEDS_REVIEW',
+            nextAttemptAt: null,
           }),
         }),
       );

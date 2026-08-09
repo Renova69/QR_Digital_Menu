@@ -14,6 +14,7 @@ export interface Restaurant {
   country: string;
   ownerId: string;
   dashboardLanguage?: string;
+  menuSourceLanguage?: string;
   accentColor?: string;
   logoUrl?: string;
   logoThumbnailUrl?: string;
@@ -113,6 +114,7 @@ export const createRestaurant = async (restaurantData: {
   name: string;
   city?: string;
   dashboardLanguage?: string;
+  menuSourceLanguage?: string;
 }): Promise<Restaurant> => {
   try {
     const response = await api.post<Restaurant>("/restaurants", restaurantData);

@@ -83,6 +83,7 @@ model Restaurant {
   contactInfo                 String?
   targetLanguages             String[]                     @default([])
   dashboardLanguage           String?                      @default("en")
+  menuSourceLanguage          String                       @default("bg")
   // Support override for a single tenant's monthly DeepL character cap —
   // null means "use the tier default" (TranslationQuotaService.TIER_POLICY).
   translationCharCapOverride  Int?

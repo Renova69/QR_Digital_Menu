@@ -204,6 +204,26 @@ describe('TranslationService', () => {
       );
     });
 
+    it('sends a completely new food category to the provider when it is absent from the glossary', async () => {
+      mockGlossary.lookupBatch.mockResolvedValue(new Map());
+      mockProvider.translateBatch.mockResolvedValue(['Fermented specialties']);
+
+      const result = await service.translateTexts(
+        ['Ферментирали специалитети'],
+        'en',
+        'bg',
+        { context: 'Restaurant menu category name' },
+      );
+
+      expect(result).toEqual(['Fermented specialties']);
+      expect(mockProvider.translateBatch).toHaveBeenCalledWith(
+        ['Ферментирали специалитети'],
+        'en',
+        'bg',
+        { context: 'Restaurant menu category name' },
+      );
+    });
+
     it('matches glossary entries case-insensitively and trims whitespace', async () => {
       mockGlossary.lookupBatch.mockResolvedValue(new Map([['скара', 'Grill']]));
 
@@ -418,7 +438,7 @@ describe('TranslationService', () => {
 
       // A success resets the consecutive-failure counter.
       mockProvider.translateBatch.mockReset();
-      mockProvider.translateBatch.mockResolvedValue(['ok']);
+      mockProvider.translateBatch.mockResolvedValue(['добре']);
       await service.translateTexts(['x'], 'BG');
 
       // A single later failure must NOT re-open the breaker (counter was reset),

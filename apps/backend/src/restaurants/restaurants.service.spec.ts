@@ -62,6 +62,8 @@ const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
   stripeAccountId: null,
   stripeOnboarded: false,
   targetLanguages: [] as string[],
+  dashboardLanguage: 'en',
+  menuSourceLanguage: 'bg',
   isActive: true,
   deletedAt: null,
   ...overrides,
@@ -508,35 +510,56 @@ describe('RestaurantsService', () => {
 
     it('invalidates cached targets when the explicit menu source language changes', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
-        makeRestaurant({ dashboardLanguage: 'bg' }),
+        makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'bg' }),
       );
       mockPrisma.user.findUnique.mockResolvedValue({
         restaurantId: null,
         role: 'OWNER',
       });
       mockPrisma.restaurant.update.mockResolvedValue(
-        makeRestaurant({ dashboardLanguage: 'en' }),
+        makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'ro' }),
       );
 
       await service.update(
         'rest1',
-        { dashboardLanguage: 'en' } as Parameters<typeof service.update>[1],
+        { menuSourceLanguage: 'ro' } as Parameters<typeof service.update>[1],
         'user1',
       );
 
       expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
-        where: { restaurantId: 'rest1', locale: { not: 'en' } },
+        where: { restaurantId: 'rest1', locale: { not: 'ro' } },
         data: expect.objectContaining({
           status: 'STALE',
-          sourceLang: 'en',
+          sourceLang: 'ro',
           failureCount: 0,
         }),
       });
       expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
-        where: { restaurantId: 'rest1', locale: 'en' },
-        data: expect.objectContaining({ status: 'CURRENT', sourceLang: 'en' }),
+        where: { restaurantId: 'rest1', locale: 'ro' },
+        data: expect.objectContaining({ status: 'CURRENT', sourceLang: 'ro' }),
       });
       expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not invalidate menu translations when only dashboard language changes', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'bg' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+
+      await service.update(
+        'rest1',
+        { dashboardLanguage: 'ro' } as Parameters<typeof service.update>[1],
+        'user1',
+      );
+
+      expect(
+        mockPrisma.menuTranslationState.updateMany,
+      ).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
     });
   });
 
@@ -709,15 +732,63 @@ describe('RestaurantsService', () => {
       });
     });
 
-    it('returns error when targetLanguages is empty', async () => {
+    it('returns an idempotent completed result when targetLanguages is empty', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ targetLanguages: [] }),
       );
 
       const result = await service.enqueueTranslateAll('rest1', 'user1');
 
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('No target languages');
+      expect(result).toMatchObject({
+        success: true,
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
+      });
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+    });
+
+    it('returns completed when the only configured target is the menu source', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          menuSourceLanguage: 'bg',
+          targetLanguages: ['BG', ' bg '],
+        }),
+      );
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: true,
+        runId: null,
+        total: 0,
+        status: 'COMPLETED',
+      });
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+    });
+
+    it('does not create another run while the latest persisted run is active', async () => {
+      mockTranslationWorker.getRestaurantProgress.mockResolvedValue({
+        done: 2,
+        total: 10,
+        pending: 8,
+        failed: 0,
+        current: 2,
+        active: true,
+        status: 'RUNNING',
+        runId: 'run-active',
+      });
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: true,
+        runId: 'run-active',
+        status: 'RUNNING',
+      });
+      expect(mockPrisma.translationRun.create).not.toHaveBeenCalled();
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
     });
 
     it('returns error and enqueues nothing when the quota check denies the request', async () => {
@@ -769,13 +840,13 @@ describe('RestaurantsService', () => {
         'rest1',
         { id: 'cat1', name: 'Starters' },
         ['en', 'ro'],
-        expect.any(String),
+        'bg',
       );
       expect(mockTranslationEnqueue.enqueueItem).toHaveBeenCalledWith(
         'rest1',
         expect.objectContaining({ id: 'item1', name: 'Soup' }),
         ['en', 'ro'],
-        expect.any(String),
+        'bg',
       );
       expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
         'rest1',
@@ -785,7 +856,7 @@ describe('RestaurantsService', () => {
           translations: { en: { name: 'Size' } },
         }),
         ['en', 'ro'],
-        expect.any(String),
+        'bg',
       );
       expect(mockPrisma.translationRun.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -871,6 +942,17 @@ describe('RestaurantsService', () => {
         latestRunId: 'run-1',
         latestRunStatus: 'RUNNING',
       });
+    });
+
+    it('reports NEEDS_REVIEW as failed instead of hiding terminal translation issues', async () => {
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'NEEDS_REVIEW', _count: { _all: 2 } },
+        { status: 'CURRENT', _count: { _all: 40 } },
+      ]);
+
+      const result = await service.getTranslationStatus('rest1', 'user1');
+
+      expect(result.failed).toBe(2);
     });
 
     it('reports active=false and null run info when there is no outstanding work or run history', async () => {

@@ -36,6 +36,8 @@ export function isGarbageTranslation(
 ): boolean {
   if (!translation || translation.trim() === '') return true;
 
+  const normalizedTargetLang = targetLang.trim().toLowerCase().split('-')[0];
+
   const trimmedSource = source.trim();
   const trimmedTranslation = translation.trim();
 
@@ -47,7 +49,7 @@ export function isGarbageTranslation(
     const sourceHasCyrillic = /[\u0400-\u04FF]/.test(trimmedSource);
     const sourceHasLatin = /[a-zA-Z]/.test(trimmedSource);
     return (
-      LATIN_LANGUAGES.includes(targetLang) &&
+      LATIN_LANGUAGES.includes(normalizedTargetLang) &&
       sourceHasCyrillic &&
       !sourceHasLatin
     );
@@ -100,7 +102,7 @@ export function isGarbageTranslation(
     // translated content ("Стриди"). Genuine hallucination/failure-to-translate
     // produces zero characters in the target script, not merely a minority.
     if (
-      CYRILLIC_LANGUAGES.includes(targetLang) &&
+      CYRILLIC_LANGUAGES.includes(normalizedTargetLang) &&
       isPredominantlyLatin &&
       cyrillicCount === 0
     ) {
@@ -108,7 +110,7 @@ export function isGarbageTranslation(
     }
 
     if (
-      LATIN_LANGUAGES.includes(targetLang) &&
+      LATIN_LANGUAGES.includes(normalizedTargetLang) &&
       isPredominantlyCyrillic &&
       latinCount === 0
     ) {

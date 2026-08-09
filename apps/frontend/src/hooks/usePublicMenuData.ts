@@ -192,7 +192,7 @@ export function usePublicMenuData(
         // The public menu opens in the owner's default (dashboard) language —
         // not the first target language — unless a ?lang= deep-link overrides it.
         const available = buildPublicMenuLanguages(
-          data.restaurant?.dashboardLanguage,
+          data.restaurant?.menuSourceLanguage,
           data.restaurant?.targetLanguages,
         );
         const dashboardLang = available[0];

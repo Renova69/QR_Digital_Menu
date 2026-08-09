@@ -103,8 +103,18 @@ export class MenuTranslationEnqueueService {
         )`,
       ),
     );
+    const preserveNeedsReview = force
+      ? Prisma.sql`(
+          "menu_translation_state"."sourceHash" = EXCLUDED."sourceHash"
+          AND "menu_translation_state"."sourceLang" = EXCLUDED."sourceLang"
+          AND "menu_translation_state"."status" = 'NEEDS_REVIEW'
+        )`
+      : Prisma.sql`FALSE`;
     const nextStatus = force
-      ? Prisma.sql`'STALE'::"MenuTranslationStatus"`
+      ? Prisma.sql`(CASE
+          WHEN ${preserveNeedsReview} THEN 'NEEDS_REVIEW'
+          ELSE 'STALE'
+        END)::"MenuTranslationStatus"`
       : Prisma.sql`(CASE
           WHEN "menu_translation_state"."sourceHash" <> EXCLUDED."sourceHash" THEN 'STALE'
           WHEN "menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang" THEN 'STALE'
@@ -124,9 +134,12 @@ export class MenuTranslationEnqueueService {
             "sourceHash" = EXCLUDED."sourceHash",
             "sourceLang" = EXCLUDED."sourceLang",
             "status" = ${nextStatus},
-            "nextAttemptAt" = NULL,
-            "failureCount" = 0,
-            "lastError" = NULL,
+            "nextAttemptAt" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."nextAttemptAt" ELSE NULL END,
+            "failureCount" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."failureCount" ELSE 0 END,
+            "lastError" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."lastError" ELSE NULL END,
             "updatedAt" = now()
         `,
       );
@@ -139,8 +152,8 @@ export class MenuTranslationEnqueueService {
 
   // Collapse all fields/locales for one entity into at most two statements:
   // one for already-good cached values and one for missing/invalid values.
-  // With enqueueBatch's concurrency of eight this stays within PgBouncer's
-  // 17-connection pool while avoiding hundreds of sequential round-trips.
+  // Run those two sequentially so enqueueBatch's concurrency of eight means
+  // at most eight PgBouncer connections, not sixteen.
   private async upsertAll(specs: UpsertSpec[]): Promise<void> {
     const unique = new Map<string, UpsertSpec>();
     for (const spec of specs) {
@@ -150,16 +163,14 @@ export class MenuTranslationEnqueueService {
       );
     }
     const normalized = [...unique.values()];
-    await Promise.all([
-      this.upsertMany(
-        normalized.filter((spec) => !spec.force),
-        false,
-      ),
-      this.upsertMany(
-        normalized.filter((spec) => spec.force),
-        true,
-      ),
-    ]);
+    await this.upsertMany(
+      normalized.filter((spec) => !spec.force),
+      false,
+    );
+    await this.upsertMany(
+      normalized.filter((spec) => spec.force),
+      true,
+    );
   }
 
   async enqueueCategory(

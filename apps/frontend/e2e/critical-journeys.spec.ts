@@ -10,6 +10,7 @@ const menuMeta = {
     features: ["orders:receive"],
     paymentsEnabled: false,
     dashboardLanguage: "en",
+    menuSourceLanguage: "bg",
     targetLanguages: ["en"],
     defaultTheme: "light",
   },
