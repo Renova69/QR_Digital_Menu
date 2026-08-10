@@ -51,19 +51,27 @@ export function isGarbageTranslation(
   const trimmedTranslation = translation.trim();
 
   // Identity is valid for script-compatible proper nouns (Pizza -> Pizza),
-  // but Cyrillic source copied unchanged into a target that does not use
-  // Cyrillic is an obviously untranslated value. Treat it as stale so
-  // Translate All can repair cached source copies instead of preserving them
-  // as CURRENT forever.
+  // but Cyrillic surviving unchanged into a target that does not use Cyrillic
+  // is an obviously untranslated value. Treat it as stale so Translate All can
+  // repair cached source copies instead of preserving them as CURRENT forever.
+  //
+  // ANY Cyrillic is enough \u2014 the value does not have to be purely Cyrillic.
+  // This rule previously also required the source to contain no Latin, which
+  // exempted every mixed brand name: live Pro Dining data (2026-08-10) kept
+  // "\u0414\u0436\u0438\u043D Beefeater", "\u0420\u043E\u0437\u0435 Pinot Noir" and "\u0421\u0442\u0443\u0434\u0435\u043D \u0427\u0430\u0439 Lipton" as their own
+  // English translations, because the Latin brand made them "mixed script".
+  // An English menu should not read "\u0414\u0436\u0438\u043D".
+  //
+  // Pure-Latin names are unaffected: they contain no Cyrillic to match. If a
+  // value genuinely cannot be translated, the retry is bounded \u2014 the worker
+  // parks it in NEEDS_REVIEW, which claimBatch never picks up, so it costs one
+  // extra attempt rather than looping.
   if (trimmedSource === trimmedTranslation) {
     const sourceHasCyrillic = /[\u0400-\u04FF]/.test(trimmedSource);
-    const sourceHasLatin = /[a-zA-Z]/.test(trimmedSource);
     const targetRejectsCyrillicIdentity =
       LATIN_LANGUAGES.includes(normalizedTargetLang) ||
       OTHER_SCRIPT_LANGUAGES.includes(normalizedTargetLang);
-    return (
-      targetRejectsCyrillicIdentity && sourceHasCyrillic && !sourceHasLatin
-    );
+    return targetRejectsCyrillicIdentity && sourceHasCyrillic;
   }
 
   // 1. Length ratio check

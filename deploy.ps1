@@ -128,6 +128,42 @@ Invoke-Native -Description "Build" -Command {
 #
 # A failure aborts before any new revision exists, leaving $previousRevision
 # serving untouched.
+# Refuse to migrate a local database. prisma.config.ts loads dotenv, and dotenv
+# never overrides an already-set variable, so the step below targets
+# $env:DIRECT_URL when present and the .env value otherwise -- resolve it the
+# same way here. Without this, a developer .env still pointing at Docker makes
+# the migration "succeed" against localhost while the revision deployed below
+# boots against Neon, so the columns the new code expects are simply absent in
+# production and every affected endpoint 500s.
+$effectiveDirectUrl = $env:DIRECT_URL
+if (-not $effectiveDirectUrl) {
+    $envFile = Join-Path $PSScriptRoot "$SRC\.env"
+    if (Test-Path $envFile) {
+        $directUrlLine = Get-Content $envFile |
+            Where-Object { $_ -match '^\s*DIRECT_URL\s*=' } |
+            Select-Object -First 1
+        if ($directUrlLine) {
+            $effectiveDirectUrl = ($directUrlLine -split '=', 2)[1].Trim().Trim('"').Trim("'")
+        }
+    }
+}
+if (-not $effectiveDirectUrl) {
+    Write-Error "DIRECT_URL is set neither in the environment nor in $SRC/.env -- refusing to deploy, since migrations would have no defined target."
+    exit 1
+}
+if ($effectiveDirectUrl -match 'localhost|127\.0\.0\.1|\[::1\]') {
+    # Redact credentials before echoing the URL back.
+    $redacted = $effectiveDirectUrl -replace '://[^@/]*@', '://***@'
+    Write-Error @"
+DIRECT_URL resolves to a LOCAL database: $redacted
+Migrations would be applied there, while the revision deployed below serves
+production. Point this run at the unpooled Neon endpoint (no '-pooler' in the
+host) and re-run:
+  `$env:DIRECT_URL = "postgresql://USER:PASSWORD@ep-xxxx.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=30"
+"@
+    exit 1
+}
+
 Write-Host "==> Applying database migrations..."
 Push-Location (Join-Path $PSScriptRoot $SRC)
 try {

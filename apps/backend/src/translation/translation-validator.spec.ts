@@ -53,6 +53,35 @@ describe('isGarbageTranslation', () => {
       },
     );
 
+    // Live production values from Pro Dining (2026-08-10): DeepL returned each
+    // of these unchanged, and because the Latin brand made the source
+    // "mixed script" they were cached as valid English. An English menu should
+    // not read "Джин Beefeater".
+    it.each([
+      'Джин Beefeater',
+      'Мерло Yamantievs',
+      'Розе Pinot Noir',
+      'Студен Чай Lipton',
+    ])(
+      'flags mixed Cyrillic+Latin identity text "%s" for a Latin target',
+      (value) => {
+        expect(isGarbageTranslation(value, value, 'en')).toBe(true);
+      },
+    );
+
+    it('flags mixed-script identity for non-Latin targets too', () => {
+      expect(
+        isGarbageTranslation('Джин Beefeater', 'Джин Beefeater', 'el'),
+      ).toBe(true);
+    });
+
+    it('leaves mixed-script identity alone when the target itself is Cyrillic', () => {
+      // bg is a Cyrillic target, so Cyrillic surviving in the value is correct.
+      expect(
+        isGarbageTranslation('Джин Beefeater', 'Джин Beefeater', 'bg'),
+      ).toBe(false);
+    });
+
     it('does not flag identity for an unknown language code', () => {
       // Guard against widening the rule to "any target that is not Cyrillic":
       // an unrecognised code carries no script information, so the honest
