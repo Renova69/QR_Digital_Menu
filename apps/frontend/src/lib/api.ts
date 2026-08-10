@@ -2344,4 +2344,39 @@ export const updateReservationInternal = (
     })
     .then((r) => r.data);
 
+// ── Manual translation override ──────────────────────────────────────────
+
+export interface LocaleOverride {
+  locale: string;
+  value: string | null;
+  status: string;
+  sourceChanged: boolean;
+}
+
+export interface ItemTranslations {
+  itemId: string;
+  sourceLang: string;
+  sourceText: string;
+  locales: LocaleOverride[];
+}
+
+export const getItemTranslations = async (
+  itemId: string,
+): Promise<ItemTranslations> => {
+  const response = await api.get(`/items/${itemId}/translations`);
+  return response.data;
+};
+
+export const updateItemTranslation = async (
+  itemId: string,
+  locale: string,
+  value: string | null,
+): Promise<ItemTranslations> => {
+  const response = await api.patch(`/items/${itemId}/translations`, {
+    locale,
+    value,
+  });
+  return response.data;
+};
+
 export default api;
