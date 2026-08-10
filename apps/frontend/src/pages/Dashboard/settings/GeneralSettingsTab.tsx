@@ -23,8 +23,8 @@ import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 // Poll fallback cadence while a translate-all run is active — the socket
 // carries live done/total updates, but its terminal phases are per-batch,
 // not per-run, so it alone can't tell us when ALL queued work is finished.
-// The poll checks the authoritative "is there still STALE/PENDING work"
-// signal instead. Also caps how long the UI keeps polling so a run that
+// The poll checks the authoritative persisted TranslationRun status instead.
+// Also caps how long the UI keeps polling so a run that
 // somehow never finishes doesn't spin the button forever.
 const TRANSLATION_POLL_INTERVAL_MS = 8_000;
 const TRANSLATION_POLL_MAX_MS = 10 * 60 * 1000;
@@ -89,6 +89,7 @@ const GeneralSettingsTab: React.FC = () => {
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [addedSocialFields, setAddedSocialFields] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("Europe/Sofia");
+  const [sourceLanguage, setSourceLanguage] = useState("bg");
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const [status, setStatus] = useState({
     loading: false,
@@ -155,11 +156,28 @@ const GeneralSettingsTab: React.FC = () => {
       setYoutubeUrl(activeRestaurant.youtubeUrl || "");
       setGoogleReviewUrl(activeRestaurant.googleReviewUrl || "");
       setTimezone(activeRestaurant.timezone || "Europe/Sofia");
-      setTargetLanguages(activeRestaurant.targetLanguages || []);
+      const menuSourceLanguage = activeRestaurant.menuSourceLanguage || "bg";
+      setSourceLanguage(menuSourceLanguage);
+      setTargetLanguages(
+        (activeRestaurant.targetLanguages || []).filter(
+          (locale: string) => locale !== menuSourceLanguage,
+        ),
+      );
       setStatus({ loading: false, error: "", success: "" });
       if (canLanguages) {
         void refreshTranslationStatus(activeRestaurant.id).then((result) => {
-          if (result?.active) setTranslating(true);
+          if (result?.active) {
+            setTranslating(true);
+            setTranslatePhaseStatus(result.latestRunStatus ?? "RUNNING");
+            if (result.total > 0) {
+              setTranslateProgress({
+                phase: "in_progress",
+                done: result.done,
+                total: result.total,
+                status: result.latestRunStatus ?? "RUNNING",
+              });
+            }
+          }
         });
       }
     }
@@ -228,6 +246,17 @@ const GeneralSettingsTab: React.FC = () => {
     const poll = async () => {
       const result = await refreshTranslationStatus(restaurantId);
       if (!mountedRef.current) return;
+      if (result && result.total > 0) {
+        setTranslateProgress({
+          phase: result.active ? "in_progress" : "completed",
+          done: result.done,
+          total: result.total,
+          status: result.latestRunStatus ?? undefined,
+        });
+        if (result.latestRunStatus) {
+          setTranslatePhaseStatus(result.latestRunStatus);
+        }
+      }
       const timedOut = Date.now() - startedAt > TRANSLATION_POLL_MAX_MS;
       if (!result || !result.active || timedOut) {
         setTranslating(false);
@@ -260,7 +289,7 @@ const GeneralSettingsTab: React.FC = () => {
             error: t("settings.translateSomeFailedNotice", {
               count: freshFailed,
               defaultValue:
-                "Translation finished — {{count}} item(s) failed and will retry automatically.",
+                "Translation finished — {{count}} item(s) failed or require review.",
             }),
           }));
         } else if (result && !result.active) {
@@ -296,7 +325,8 @@ const GeneralSettingsTab: React.FC = () => {
         youtubeUrl: youtubeUrl || null,
         googleReviewUrl: googleReviewUrl.trim() || null,
         timezone,
-        targetLanguages,
+        menuSourceLanguage: sourceLanguage,
+        targetLanguages: targetLanguages.filter((l) => l !== sourceLanguage),
       });
       await fetchRestaurants();
       setStatus({
@@ -326,12 +356,22 @@ const GeneralSettingsTab: React.FC = () => {
     // stale failures left over from a prior run.
     baselineFailedRef.current = translationStatus?.failed ?? 0;
     try {
-      const savedLangs = activeRestaurant.targetLanguages || [];
+      const selectedTargets = targetLanguages.filter(
+        (locale) => locale !== sourceLanguage,
+      );
+      const savedLangs = (activeRestaurant.targetLanguages || []).filter(
+        (locale: string) => locale !== sourceLanguage,
+      );
       const langsChanged =
-        targetLanguages.length !== savedLangs.length ||
-        targetLanguages.some((l: string) => !savedLangs.includes(l));
-      if (langsChanged) {
-        await updateRestaurant(activeRestaurant.id, { targetLanguages });
+        selectedTargets.length !== savedLangs.length ||
+        selectedTargets.some((l: string) => !savedLangs.includes(l));
+      const sourceChanged =
+        sourceLanguage !== (activeRestaurant.menuSourceLanguage || "bg");
+      if (langsChanged || sourceChanged) {
+        await updateRestaurant(activeRestaurant.id, {
+          menuSourceLanguage: sourceLanguage,
+          targetLanguages: selectedTargets,
+        });
         await fetchRestaurants();
       }
       // translate-all now enqueues and returns immediately (202) — the
@@ -342,6 +382,41 @@ const GeneralSettingsTab: React.FC = () => {
       if (!res.success) {
         setStatus({ loading: false, error: res.message, success: "" });
         setTranslating(false);
+      } else if (typeof res.total === "number" && res.total > 0) {
+        setTranslateProgress({
+          phase: "queued",
+          done: typeof res.done === "number" ? res.done : 0,
+          total: res.total,
+          status: res.status ?? "RUNNING",
+        });
+        setTranslatePhaseStatus(res.status ?? "RUNNING");
+      } else if (res.status === "COMPLETED") {
+        setTranslating(false);
+        setTranslatePhaseStatus("COMPLETED");
+        // A run can complete with nothing queued because every remaining
+        // value is parked in NEEDS_REVIEW — terminal work, not pending work.
+        // Reporting plain success there contradicts the outdated/failed badge
+        // rendered right next to this message, so surface the count instead.
+        // The backend sends it as a number precisely because this branch
+        // renders localized copy and never displays res.message.
+        const needsReview =
+          typeof res.needsReview === "number" ? res.needsReview : 0;
+        setTranslateSuccess(needsReview === 0);
+        setStatus({
+          loading: false,
+          error:
+            needsReview > 0
+              ? t("settings.translateNeedsReviewNotice", {
+                  count: needsReview,
+                  defaultValue:
+                    "Nothing new to queue — {{count}} value(s) need manual review.",
+                })
+              : "",
+          success:
+            needsReview > 0
+              ? ""
+              : t("settings.translateSuccess", "✓ Translation complete!"),
+        });
       }
     } catch (err: any) {
       setStatus({
@@ -361,7 +436,9 @@ const GeneralSettingsTab: React.FC = () => {
 
   const tzLabel =
     TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone;
-  const langCount = targetLanguages.length;
+  const langCount = targetLanguages.filter(
+    (locale) => locale !== sourceLanguage,
+  ).length;
 
   const socialFields = [
     {
@@ -694,12 +771,42 @@ const GeneralSettingsTab: React.FC = () => {
             {t("settings.localizationDesc")}
           </p>
           <div className="space-y-4">
+            <div className="max-w-sm">
+              <label className="block text-sm font-medium text-foreground/80 mb-2">
+                {t("settings.menuSourceLanguage", "Menu source language")}
+              </label>
+              <select
+                value={sourceLanguage}
+                onChange={(event) => {
+                  const nextSource = event.target.value;
+                  setSourceLanguage(nextSource);
+                  setTargetLanguages((current) =>
+                    current.filter((locale) => locale !== nextSource),
+                  );
+                }}
+                className={inputCls}
+              >
+                {AVAILABLE_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {t(`language.${lang.code}`, lang.name)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {t(
+                  "settings.menuSourceLanguageHint",
+                  "The language used in your menu item names and descriptions.",
+                )}
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-foreground/80 mb-2">
                 {t("settings.targetLanguages")}
               </label>
               <div className="flex flex-wrap gap-2">
-                {AVAILABLE_LANGUAGES.map((lang) => (
+                {AVAILABLE_LANGUAGES.filter(
+                  (lang) => lang.code !== sourceLanguage,
+                ).map((lang) => (
                   <DashboardButton
                     density="compact"
                     key={lang.code}
@@ -768,7 +875,7 @@ const GeneralSettingsTab: React.FC = () => {
                             count:
                               translateProgress.total - translateProgress.done,
                             defaultValue:
-                              "Translation finished — {{count}} item(s) failed and will retry automatically.",
+                              "Translation finished — {{count}} item(s) failed or require review.",
                           })
                         : translatePhaseStatus === "COMPLETED" &&
                             translateSuccess
@@ -798,7 +905,13 @@ const GeneralSettingsTab: React.FC = () => {
                       })}
                     </span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className="h-2 w-full rounded-full bg-secondary overflow-hidden"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={translateProgress.total}
+                    aria-valuenow={translateProgress.done}
+                  >
                     <div
                       className={`h-full rounded-full transition-all duration-300 ease-out ${
                         translatePhaseStatus === "PARTIAL"

@@ -5,19 +5,19 @@ import {
 } from "../menuLanguage";
 
 describe("buildPublicMenuLanguages", () => {
-  it.each(["bg", "ro", "en"])(
-    "uses supported dashboard language %s as the public-menu default",
-    (dashboardLanguage) => {
-      const languages = buildPublicMenuLanguages(dashboardLanguage, [
+  it.each(["bg", "ro", "en", "de", "fr", "ja", "ar"])(
+    "uses supported menu source language %s as the public-menu default",
+    (menuSourceLanguage) => {
+      const languages = buildPublicMenuLanguages(menuSourceLanguage, [
         "fr",
         "de",
       ]);
 
-      expect(languages[0]).toBe(dashboardLanguage);
+      expect(languages[0]).toBe(menuSourceLanguage);
     },
   );
 
-  it("puts the normalized dashboard language first and deduplicates targets", () => {
+  it("puts the normalized menu source language first and deduplicates targets", () => {
     expect(buildPublicMenuLanguages("RO-ro", ["en", "ro", "bg"])).toEqual([
       "ro",
       "en",
@@ -25,8 +25,8 @@ describe("buildPublicMenuLanguages", () => {
     ]);
   });
 
-  it("falls back to Bulgarian when the dashboard language is unsupported", () => {
-    expect(buildPublicMenuLanguages("fr", ["fr", "en"])).toEqual([
+  it("falls back to Bulgarian when the menu source language is unsupported", () => {
+    expect(buildPublicMenuLanguages("xx", ["fr", "en"])).toEqual([
       "bg",
       "en",
       "fr",

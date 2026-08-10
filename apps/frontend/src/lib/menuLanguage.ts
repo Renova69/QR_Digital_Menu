@@ -4,32 +4,45 @@ function normalizeLanguageCode(language: string | null | undefined): string {
     .split("-")[0];
 }
 
-const DASHBOARD_LANGUAGES = new Set(["bg", "ro", "en"]);
+const SUPPORTED_MENU_LANGUAGES = new Set([
+  "en",
+  "bg",
+  "de",
+  "es",
+  "fr",
+  "it",
+  "ro",
+  "zh",
+  "el",
+  "ja",
+  "ru",
+  "ar",
+]);
 
 // Priority order for the public menu language selector (after the active language).
-// EN and BG are primary dashboard languages and appear before RO, then all others
+// EN and BG are common menu languages and appear before RO, then all others
 // follow in their configured order.
 const LANG_PRIORITY: Record<string, number> = { en: 0, bg: 1, ro: 2 };
 
 /**
  * Build the language list shown on a public menu.
  *
- * The owner's dashboard language is the default and therefore comes first.
+ * The menu source language is the default and therefore comes first.
  * Remaining languages are sorted by priority (EN → BG → RO) so common
  * languages surface near the top, with any additional target languages
  * appended in their configured order.
  */
 export function buildPublicMenuLanguages(
-  dashboardLanguage: string | null | undefined,
+  menuSourceLanguage: string | null | undefined,
   targetLanguages: readonly string[] | null | undefined,
 ): string[] {
-  const requestedDefault = normalizeLanguageCode(dashboardLanguage);
-  const dashboardDefault = DASHBOARD_LANGUAGES.has(requestedDefault)
+  const requestedDefault = normalizeLanguageCode(menuSourceLanguage);
+  const sourceDefault = SUPPORTED_MENU_LANGUAGES.has(requestedDefault)
     ? requestedDefault
     : "bg";
 
   const normalized = (targetLanguages ?? []).map(normalizeLanguageCode);
-  const [first, ...rest] = [...new Set([dashboardDefault, ...normalized])];
+  const [first, ...rest] = [...new Set([sourceDefault, ...normalized])];
 
   const prioritized = rest.filter((l) => l in LANG_PRIORITY);
   const others = rest.filter((l) => !(l in LANG_PRIORITY));

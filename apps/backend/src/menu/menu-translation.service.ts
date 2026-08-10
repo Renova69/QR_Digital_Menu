@@ -135,7 +135,7 @@ export class MenuTranslationService {
         this.logger.error(
           `Translation batch failed for lang=${lang}: ${err instanceof Error ? err.message : String(err)} — skipping DB writes`,
         );
-        return;
+        throw err;
       }
 
       // Phase 3: distribute results, update entity.translations, write DB in parallel
@@ -161,10 +161,12 @@ export class MenuTranslationService {
           dbWrites.push(
             this.prisma
               .$executeRaw`UPDATE "menu_category" SET translations = COALESCE(translations, '{}'::jsonb) || ${JSON.stringify({ [lang]: langEntry })}::jsonb WHERE id = ${entity.id}`.catch(
-              (e: unknown) =>
+              (e: unknown) => {
                 this.logger.warn(
                   `Category translation save failed: ${String(e)}`,
-                ),
+                );
+                throw e;
+              },
             ),
           );
         } else if (type === 'item') {
@@ -232,9 +234,10 @@ export class MenuTranslationService {
                   ) || ${JSON.stringify(tagFragment)}::jsonb
                 ),
                 true
-              ) WHERE id = ${entity.id}`.catch((e: unknown) =>
-              this.logger.warn(`Item translation save failed: ${String(e)}`),
-            ),
+              ) WHERE id = ${entity.id}`.catch((e: unknown) => {
+              this.logger.warn(`Item translation save failed: ${String(e)}`);
+              throw e;
+            }),
           );
         } else {
           const choicesFragment: Record<string, string> = {};
@@ -263,9 +266,10 @@ export class MenuTranslationService {
                     || ${JSON.stringify(choicesFragment)}::jsonb
                 ),
                 true
-              ) WHERE id = ${entity.id}`.catch((e: unknown) =>
-              this.logger.warn(`Option translation save failed: ${String(e)}`),
-            ),
+              ) WHERE id = ${entity.id}`.catch((e: unknown) => {
+              this.logger.warn(`Option translation save failed: ${String(e)}`);
+              throw e;
+            }),
           );
         }
       }

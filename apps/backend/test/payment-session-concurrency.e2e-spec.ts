@@ -20,6 +20,26 @@ const describeWithDatabase = concurrencyDatabaseUrl ? describe : describe.skip;
 
 jest.setTimeout(30_000);
 
+/**
+ * Prisma sizes its connection pool at `num_cpus * 2 + 1`, which is 3 on a
+ * single-vCPU CI runner. This suite holds two deliberately-contending
+ * transactions open at once AND polls pg_stat_activity from the same client to
+ * observe the lock waiters, so a pool of 3 starves the observer: it blocks for
+ * the 10s pool-acquire timeout while the two transactions sit on the row lock,
+ * and both then die with "Transaction already closed". That reads like a
+ * broken invariant but is pure harness starvation — pinning
+ * `connection_limit=3` locally reproduces it exactly, and the suite passes
+ * unchanged on a many-core machine, which is why it only ever failed in CI.
+ *
+ * The pool only has to exceed the number of concurrent actors, and this is
+ * scoped to the test client; the production PrismaService is untouched.
+ */
+function withTestPoolSize(url: string, connections: number): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set('connection_limit', String(connections));
+  return parsed.toString();
+}
+
 function assertIsolatedTestDatabase(url: string): void {
   const parsed = new URL(url);
   const isLocal = ['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname);
@@ -39,7 +59,9 @@ describeWithDatabase(
     beforeAll(async () => {
       assertIsolatedTestDatabase(concurrencyDatabaseUrl!);
       prisma = new PrismaClient({
-        datasources: { db: { url: concurrencyDatabaseUrl } },
+        datasources: {
+          db: { url: withTestPoolSize(concurrencyDatabaseUrl!, 10) },
+        },
       });
       await prisma.$connect();
     });

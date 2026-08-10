@@ -554,6 +554,10 @@ Use bounded retries with backoff only for transient failures.
 
 Do not retry permanent errors indefinitely.
 
+Deterministic garbage or untranslated identity output is isolated to the
+affected translation unit and persisted as `NEEDS_REVIEW`. That terminal
+state is not retried until the source text or source language changes.
+
 Persist failure state and a useful internal error reason.
 
 Do not expose DeepL secrets or raw provider errors to public users.

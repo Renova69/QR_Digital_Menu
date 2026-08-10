@@ -40,8 +40,10 @@ function delivery(overrides: Record<string, unknown> = {}) {
 }
 
 function build() {
-  let prisma: any;
-  prisma = {
+  // Self-referential by design: $transaction hands the same mock back as the
+  // transaction client. The reference resolves when the callback runs, not
+  // while the object literal is being built, so const is safe here.
+  const prisma: any = {
     $transaction: jest.fn(async (callback: (tx: unknown) => unknown) =>
       callback(prisma),
     ),

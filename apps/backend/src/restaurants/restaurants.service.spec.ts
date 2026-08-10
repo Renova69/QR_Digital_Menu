@@ -52,7 +52,7 @@ function mockPinnedHttpResponse(opts: {
       return req;
     },
   );
-  return { spy, options: () => spy.mock.calls[0]?.[0] as any };
+  return { spy, options: () => spy.mock.calls[0]?.[0] };
 }
 
 const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
@@ -62,6 +62,8 @@ const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
   stripeAccountId: null,
   stripeOnboarded: false,
   targetLanguages: [] as string[],
+  dashboardLanguage: 'en',
+  menuSourceLanguage: 'bg',
   isActive: true,
   deletedAt: null,
   ...overrides,
@@ -105,12 +107,19 @@ describe('RestaurantsService', () => {
         update: jest.fn().mockResolvedValue({}),
       },
       translationRun: {
-        create: jest.fn().mockResolvedValue({ id: 'run-1' }),
+        create: jest.fn().mockResolvedValue({
+          id: 'run-1',
+          createdAt: new Date('2026-08-09T10:00:00.000Z'),
+        }),
         update: jest.fn().mockResolvedValue({ id: 'run-1' }),
         findFirst: jest.fn().mockResolvedValue(null),
       },
       menuTranslationState: {
-        groupBy: jest.fn().mockResolvedValue([]),
+        groupBy: jest
+          .fn()
+          .mockResolvedValue([{ status: 'STALE', _count: { _all: 1 } }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
 
@@ -132,6 +141,17 @@ describe('RestaurantsService', () => {
 
     mockTranslationWorker = {
       kick: jest.fn(),
+      isAvailable: jest.fn().mockReturnValue(true),
+      getRestaurantProgress: jest.fn().mockResolvedValue({
+        done: 0,
+        total: 0,
+        pending: 0,
+        failed: 0,
+        current: 0,
+        active: false,
+        status: null,
+        runId: null,
+      }),
     };
 
     mockTranslationQuota = {
@@ -154,7 +174,10 @@ describe('RestaurantsService', () => {
       ),
       hasFeature: jest.fn().mockReturnValue(true),
       restaurantHasFeature: jest.fn(function (
-        this: { hasFeature: Function; getEffectiveTier: Function },
+        this: {
+          hasFeature: (tier: string, flag: string) => boolean;
+          getEffectiveTier: (tier: string, force?: string | null) => string;
+        },
         r: { tier?: string; forceTier?: string | null },
         f: string,
       ) {
@@ -456,13 +479,9 @@ describe('RestaurantsService', () => {
         role: 'WAITER',
       });
 
-      await expect(
-        service.update(
-          'rest1',
-          {} as Parameters<typeof service.update>[1],
-          'waiter1',
-        ),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.update('rest1', {}, 'waiter1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('evicts shared-device sessions without revoking tokens when Shared Device Mode is disabled', async () => {
@@ -479,9 +498,7 @@ describe('RestaurantsService', () => {
 
       await service.update(
         'rest1',
-        { sharedDeviceModeEnabled: false } as Parameters<
-          typeof service.update
-        >[1],
+        { sharedDeviceModeEnabled: false },
         'user1',
       );
 
@@ -491,6 +508,78 @@ describe('RestaurantsService', () => {
       expect(
         mockDeviceEnrollment.revokeRestaurantDevices,
       ).not.toHaveBeenCalled();
+    });
+
+    it('invalidates cached targets when the explicit menu source language changes', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'bg' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(
+        makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'ro' }),
+      );
+
+      await service.update('rest1', { menuSourceLanguage: 'ro' }, 'user1');
+
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
+        where: { restaurantId: 'rest1', locale: { not: 'ro' } },
+        data: expect.objectContaining({
+          status: 'STALE',
+          sourceLang: 'ro',
+          failureCount: 0,
+        }),
+      });
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith({
+        where: { restaurantId: 'rest1', locale: 'ro' },
+        data: expect.objectContaining({ status: 'CURRENT', sourceLang: 'ro' }),
+      });
+      expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
+
+    it('detaches re-queued units from their old run so a finished run cannot be re-opened', async () => {
+      // Run membership is owned by Translate All. A source-language change is
+      // an owner edit: it must not push units back into a run whose
+      // totalUnits is already frozen, or getRestaurantProgress recomputes
+      // done = total - outstanding downward and the bar walks backward on an
+      // already-COMPLETED run.
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ menuSourceLanguage: 'bg' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(
+        makeRestaurant({ menuSourceLanguage: 'ro' }),
+      );
+
+      await service.update('rest1', { menuSourceLanguage: 'ro' }, 'user1');
+
+      for (const call of mockPrisma.menuTranslationState.updateMany.mock
+        .calls) {
+        expect(call[0].data).toMatchObject({ runId: null });
+      }
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledTimes(
+        2,
+      );
+    });
+
+    it('does not invalidate menu translations when only dashboard language changes', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ dashboardLanguage: 'en', menuSourceLanguage: 'bg' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+
+      await service.update('rest1', { dashboardLanguage: 'ro' }, 'user1');
+
+      expect(mockPrisma.menuTranslationState.updateMany).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
     });
   });
 
@@ -663,15 +752,79 @@ describe('RestaurantsService', () => {
       });
     });
 
-    it('returns error when targetLanguages is empty', async () => {
+    it('returns an idempotent completed result when targetLanguages is empty', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ targetLanguages: [] }),
       );
 
       const result = await service.enqueueTranslateAll('rest1', 'user1');
 
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('No target languages');
+      expect(result).toMatchObject({
+        success: true,
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
+      });
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+    });
+
+    it('returns completed when the only configured target is the menu source', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          menuSourceLanguage: 'bg',
+          targetLanguages: ['BG', ' bg '],
+        }),
+      );
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: true,
+        runId: null,
+        total: 0,
+        status: 'COMPLETED',
+      });
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+    });
+
+    it('returns a clear error without creating a run when translation is unavailable', async () => {
+      mockTranslationWorker.isAvailable.mockReturnValue(false);
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: false,
+        runId: null,
+        status: 'FAILED',
+      });
+      expect(result.message).toContain('disabled or not configured');
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
+      expect(mockPrisma.translationRun.create).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
+    });
+
+    it('does not create another run while the latest persisted run is active', async () => {
+      mockTranslationWorker.getRestaurantProgress.mockResolvedValue({
+        done: 2,
+        total: 10,
+        pending: 8,
+        failed: 0,
+        current: 2,
+        active: true,
+        status: 'RUNNING',
+        runId: 'run-active',
+      });
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: true,
+        runId: 'run-active',
+        status: 'RUNNING',
+      });
+      expect(mockPrisma.translationRun.create).not.toHaveBeenCalled();
+      expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
     });
 
     it('returns error and enqueues nothing when the quota check denies the request', async () => {
@@ -683,8 +836,17 @@ describe('RestaurantsService', () => {
 
       const result = await service.enqueueTranslateAll('rest1', 'user1');
 
-      expect(result.success).toBe(false);
+      // Same envelope as every other early exit — the dashboard reads
+      // runId/done/total/status off this response without a shape check.
+      expect(result).toMatchObject({
+        success: false,
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'FAILED',
+      });
       expect(result.message).toContain('quota');
+      expect(mockPrisma.translationRun.create).not.toHaveBeenCalled();
       expect(mockTranslationEnqueue.enqueueCategory).not.toHaveBeenCalled();
       expect(mockTranslationEnqueue.enqueueItem).not.toHaveBeenCalled();
       expect(mockTranslationEnqueue.enqueueOption).not.toHaveBeenCalled();
@@ -709,6 +871,7 @@ describe('RestaurantsService', () => {
           id: 'opt1',
           name: 'Size',
           choices: [{ name: 'Large', priceModifier: 1 }],
+          translations: { en: { name: 'Size' } },
         },
       ]);
 
@@ -722,19 +885,26 @@ describe('RestaurantsService', () => {
         'rest1',
         { id: 'cat1', name: 'Starters' },
         ['en', 'ro'],
-        expect.any(String),
+        'bg',
+        'run-1',
       );
       expect(mockTranslationEnqueue.enqueueItem).toHaveBeenCalledWith(
         'rest1',
         expect.objectContaining({ id: 'item1', name: 'Soup' }),
         ['en', 'ro'],
-        expect.any(String),
+        'bg',
+        'run-1',
       );
       expect(mockTranslationEnqueue.enqueueOption).toHaveBeenCalledWith(
         'rest1',
-        expect.objectContaining({ id: 'opt1', name: 'Size' }),
+        expect.objectContaining({
+          id: 'opt1',
+          name: 'Size',
+          translations: { en: { name: 'Size' } },
+        }),
         ['en', 'ro'],
-        expect.any(String),
+        'bg',
+        'run-1',
       );
       expect(mockPrisma.translationRun.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -746,9 +916,86 @@ describe('RestaurantsService', () => {
           }),
         }),
       );
-      expect(mockPrisma.translationRun.update).toHaveBeenCalled();
+      expect(mockPrisma.translationRun.update).toHaveBeenCalledWith({
+        where: { id: 'run-1' },
+        data: expect.objectContaining({
+          status: 'RUNNING',
+          totalUnits: 1,
+          doneUnits: 0,
+        }),
+      });
+      expect(mockPrisma.menuTranslationState.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { runId: 'run-1' } }),
+      );
       expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
       expect(result.runId).toBe('run-1');
+    });
+
+    it('does not claim everything is current while values are parked for manual review', async () => {
+      // NEEDS_REVIEW rows are terminal, not queued, so they are detached from
+      // the run and never reach totalUnits. Reporting "already current" while
+      // the status badge shows failures is the owner-facing contradiction.
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 12 } },
+      ]);
+      mockPrisma.menuTranslationState.count.mockResolvedValue(2);
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(mockPrisma.menuTranslationState.count).toHaveBeenCalledWith({
+        where: {
+          restaurantId: 'rest1',
+          locale: { in: ['en', 'ro'] },
+          status: 'NEEDS_REVIEW',
+        },
+      });
+      expect(result).toMatchObject({
+        success: true,
+        runId: null,
+        total: 0,
+        status: 'COMPLETED',
+        // Machine-readable, because the dashboard renders its own localized
+        // copy — a prose-only message is dropped on this code path.
+        needsReview: 2,
+      });
+      expect(result.message).toContain('2');
+      expect(result.message).toMatch(/review/i);
+      expect(result.message).not.toContain('already current');
+    });
+
+    it('still reports everything current when nothing is queued and nothing needs review', async () => {
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'CURRENT', _count: { _all: 12 } },
+      ]);
+      mockPrisma.menuTranslationState.count.mockResolvedValue(0);
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result.message).toContain('already current');
+      expect(result).toMatchObject({
+        status: 'COMPLETED',
+        total: 0,
+        needsReview: 0,
+      });
+    });
+
+    it('returns the atomically winning active run when two Translate All requests race', async () => {
+      mockPrisma.translationRun.create.mockRejectedValueOnce({ code: 'P2002' });
+      mockPrisma.translationRun.findFirst.mockResolvedValueOnce({
+        id: 'run-winner',
+        status: 'QUEUED',
+        totalUnits: 0,
+      });
+
+      const result = await service.enqueueTranslateAll('rest1', 'user1');
+
+      expect(result).toMatchObject({
+        success: true,
+        runId: 'run-winner',
+        status: 'RUNNING',
+      });
+      expect(mockTranslationEnqueue.enqueueBatch).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
     });
 
     it('emits a queued translate:progress event with the run id', async () => {
@@ -757,7 +1004,7 @@ describe('RestaurantsService', () => {
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'translate:progress',
-        expect.objectContaining({ status: 'QUEUED', runId: 'run-1' }),
+        expect.objectContaining({ status: 'RUNNING', runId: 'run-1' }),
       );
     });
 
@@ -797,6 +1044,16 @@ describe('RestaurantsService', () => {
         status: 'RUNNING',
         createdAt: new Date(),
       });
+      mockTranslationWorker.getRestaurantProgress.mockResolvedValue({
+        done: 34,
+        total: 40,
+        pending: 5,
+        failed: 1,
+        current: 40,
+        active: true,
+        status: 'RUNNING',
+        runId: 'run-1',
+      });
 
       const result = await service.getTranslationStatus('rest1', 'user1');
 
@@ -808,6 +1065,17 @@ describe('RestaurantsService', () => {
         latestRunId: 'run-1',
         latestRunStatus: 'RUNNING',
       });
+    });
+
+    it('reports NEEDS_REVIEW as failed instead of hiding terminal translation issues', async () => {
+      mockPrisma.menuTranslationState.groupBy.mockResolvedValue([
+        { status: 'NEEDS_REVIEW', _count: { _all: 2 } },
+        { status: 'CURRENT', _count: { _all: 40 } },
+      ]);
+
+      const result = await service.getTranslationStatus('rest1', 'user1');
+
+      expect(result.failed).toBe(2);
     });
 
     it('reports active=false and null run info when there is no outstanding work or run history', async () => {
@@ -863,7 +1131,7 @@ describe('RestaurantsService', () => {
       });
       const lookupSpy = jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '169.254.169.254', family: 4 } as any);
+        .mockResolvedValue({ address: '169.254.169.254', family: 4 });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -893,7 +1161,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: '::ffff:169.254.169.254',
         family: 6,
-      } as any);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -908,7 +1176,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: '::ffff:a9fe:a9fe',
         family: 6,
-      } as dns.LookupAddress);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -923,7 +1191,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: 'fe90::1',
         family: 6,
-      } as dns.LookupAddress);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -938,7 +1206,7 @@ describe('RestaurantsService', () => {
       jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
         address: '0:0:0:0:0:0:0:1',
         family: 6,
-      } as dns.LookupAddress);
+      });
 
       const result = await service.getLogoBase64('rest1', 'owner1');
 
@@ -952,7 +1220,7 @@ describe('RestaurantsService', () => {
       });
       jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       const { options } = mockPinnedHttpResponse({
         contentType: 'image/png',
         body: Buffer.from('logo-bytes'),
@@ -979,7 +1247,7 @@ describe('RestaurantsService', () => {
       });
       const lookupSpy = jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       mockPinnedHttpResponse({ contentType: 'image/png' });
 
       await service.getLogoBase64('rest1', 'owner1');
@@ -993,7 +1261,7 @@ describe('RestaurantsService', () => {
       });
       jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       mockPinnedHttpResponse({
         contentType: 'image/png',
         body: Buffer.alloc(6 * 1024 * 1024), // over the 5MB cap
@@ -1010,7 +1278,7 @@ describe('RestaurantsService', () => {
       });
       jest
         .spyOn(dns.promises, 'lookup')
-        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 });
       mockPinnedHttpResponse({ statusCode: 404 });
 
       const result = await service.getLogoBase64('rest1', 'owner1');

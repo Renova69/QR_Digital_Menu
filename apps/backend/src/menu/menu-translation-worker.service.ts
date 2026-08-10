@@ -22,13 +22,30 @@ interface ClaimedRow {
   failureCount: number;
 }
 
+export interface RestaurantTranslationProgress {
+  done: number;
+  total: number;
+  pending: number;
+  failed: number;
+  current: number;
+  retryable: number;
+  active: boolean;
+  status: string | null;
+  runId: string | null;
+}
+
+type WorkerRunStatus = 'RUNNING' | 'PARTIAL' | 'COMPLETED' | 'QUOTA_BLOCKED';
+
 // Fixed placeholder id for the synthetic category/item wrappers used to
 // isolate a single claimed ITEM or OPTION from its real siblings when
 // handed to MenuTranslationService.applyLazyTranslations (which expects a
 // category tree). Never a real DB row — the atomic UPDATE...WHERE id=$X
-// inside applyLazyTranslations simply affects 0 rows for these and is
-// swallowed by its own per-write .catch(warn), same as the existing
-// "trending" fake-category trick in menu-crud.service.ts.
+// inside applyLazyTranslations matches 0 rows for these, which Postgres
+// reports as an affected-row count of 0 rather than an error, so it neither
+// writes anything nor trips the per-write rejection path (that path now
+// re-throws so a genuinely failed write can no longer be recorded as a
+// successful translation). Same trick as the "trending" fake category in
+// menu-crud.service.ts.
 const SYNTHETIC_ID = '__worker_synthetic__';
 
 /**
@@ -75,12 +92,19 @@ export class MenuTranslationWorkerService {
     return process.env.TRANSLATION_ENABLED === 'true';
   }
 
+  /** One capability check shared by the cron worker and owner-facing enqueue.
+   * A run must never be created when either the operational kill switch is
+   * off or the translation provider has no usable credentials. */
+  isAvailable(): boolean {
+    return this.isEnabled() && this.translationService.isEnabled();
+  }
+
   @Cron(CRON_EVERY_MINUTE.MENU_TRANSLATION_WORKER, {
     name: 'menuTranslationWorker',
     waitForCompletion: true,
   })
   async tick(): Promise<void> {
-    if (!this.isEnabled()) return;
+    if (!this.isAvailable()) return;
     await this.drain();
   }
 
@@ -91,7 +115,7 @@ export class MenuTranslationWorkerService {
    * or other kicks — runOnce's mutex simply skips an iteration if a run is
    * already in progress. */
   kick(): void {
-    if (!this.isEnabled()) return;
+    if (!this.isAvailable()) return;
     void this.drain().catch((err) =>
       this.logger.error(
         `Worker kick failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -109,13 +133,16 @@ export class MenuTranslationWorkerService {
     // real translation and mark the row CURRENT, silently poisoning it the
     // same way the old glossary-only gate did. Leave rows STALE untouched;
     // they're picked up the moment a key is configured.
-    if (!this.translationService.isEnabled()) return false;
+    if (!this.isAvailable()) return false;
     this.running = true;
     try {
       const claimed = await this.claimBatch(
         MenuTranslationWorkerService.BATCH_LIMIT,
       );
-      if (claimed.length === 0) return false;
+      if (claimed.length === 0) {
+        await this.reconcileIdleRuns();
+        return false;
+      }
 
       const groups = new Map<string, ClaimedRow[]>();
       for (const row of claimed) {
@@ -207,6 +234,79 @@ export class MenuTranslationWorkerService {
     ];
   }
 
+  private clearClaimedFields(
+    entities: any[],
+    rows: ClaimedRow[],
+    locale: string,
+  ): void {
+    const claimedById = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const fields = claimedById.get(row.entityId) ?? new Set<string>();
+      fields.add(row.field);
+      claimedById.set(row.entityId, fields);
+    }
+
+    for (const entity of entities) {
+      const claimed = claimedById.get(entity.id);
+      if (!claimed) continue;
+      const translations =
+        entity.translations && typeof entity.translations === 'object'
+          ? { ...entity.translations }
+          : {};
+      const localeEntry =
+        translations[locale] && typeof translations[locale] === 'object'
+          ? { ...translations[locale] }
+          : {};
+
+      const scopeText = (field: string, key: string, source: unknown): void => {
+        if (claimed.has(field)) {
+          delete localeEntry[key];
+        } else if (
+          typeof source === 'string' &&
+          source.trim() &&
+          !localeEntry[key]
+        ) {
+          // Source text is only an in-memory sentinel. It prevents the
+          // reused lazy-translation service from translating an unclaimed
+          // sibling field during garbage-output bisection; it is never
+          // written because that field is absent from the pending text map.
+          localeEntry[key] = source;
+        }
+      };
+      const scopeMap = (field: string, key: string, values: unknown): void => {
+        if (claimed.has(field)) {
+          delete localeEntry[key];
+          return;
+        }
+        if (!Array.isArray(values)) return;
+        const existing =
+          localeEntry[key] &&
+          typeof localeEntry[key] === 'object' &&
+          !Array.isArray(localeEntry[key])
+            ? { ...localeEntry[key] }
+            : {};
+        for (const value of values) {
+          const source =
+            typeof value === 'string'
+              ? value
+              : value && typeof value.name === 'string'
+                ? value.name
+                : null;
+          if (source && !existing[source]) existing[source] = source;
+        }
+        localeEntry[key] = existing;
+      };
+
+      scopeText('NAME', 'name', entity.name);
+      scopeText('DESCRIPTION', 'description', entity.description);
+      scopeMap('ALLERGENS', 'allergens', entity.allergens);
+      scopeMap('DIETARY_TAGS', 'dietaryTags', entity.dietaryTags);
+      scopeMap('CHOICES', 'choices', entity.choices);
+      translations[locale] = localeEntry;
+      entity.translations = translations;
+    }
+  }
+
   private async estimateChars(rows: ClaimedRow[]): Promise<number> {
     // Rough pre-flight estimate for the quota check — sums canonical text
     // lengths for the claimed entities. Deliberately approximate (doesn't
@@ -253,7 +353,7 @@ export class MenuTranslationWorkerService {
   }
 
   /**
-   * done/total against ALL outstanding work for the restaurant, not just the
+   * Read-only done/total against ALL outstanding work for the restaurant, not just the
    * batch just processed. The old (NLLB-era) translateAll ran everything for
    * a restaurant in one synchronous request, so a batch's own size was the
    * run's whole total. The worker claims at most BATCH_LIMIT rows per tick
@@ -262,26 +362,55 @@ export class MenuTranslationWorkerService {
    * look complete (e.g. "50/50") while most of the run was still queued
    * (2026-07-25 live-data finding, via manual dashboard testing).
    */
-  private async getProgressSnapshot(
+  async getRestaurantProgress(
     restaurantId: string,
-  ): Promise<{ done: number; total: number }> {
-    const counts = await this.prisma.menuTranslationState.groupBy({
-      by: ['status'],
-      where: { restaurantId },
-      _count: { _all: true },
-    });
+    runId?: string,
+  ): Promise<RestaurantTranslationProgress> {
+    const latestRun = runId
+      ? await this.prisma.translationRun.findUnique({ where: { id: runId } })
+      : await this.prisma.translationRun.findFirst({
+          where: { restaurantId },
+          orderBy: { createdAt: 'desc' },
+        });
+    const activeRun = Boolean(
+      latestRun && ['QUEUED', 'RUNNING'].includes(latestRun.status),
+    );
+    const stateWhere = latestRun
+      ? { restaurantId, runId: latestRun.id }
+      : { restaurantId };
+    const [counts, retryable] = await Promise.all([
+      this.prisma.menuTranslationState.groupBy({
+        by: ['status'],
+        where: stateWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.menuTranslationState.count({
+        where: {
+          ...stateWhere,
+          status: 'FAILED',
+          failureCount: {
+            lt: MenuTranslationWorkerService.MAX_FAILURE_COUNT,
+          },
+        },
+      }),
+    ]);
 
     let outstanding = 0;
+    let pending = 0;
+    let failed = 0;
     let current = 0;
     for (const row of counts) {
       if (row.status === 'CURRENT') {
         current += row._count._all;
+      } else if (row.status === 'FAILED' || row.status === 'NEEDS_REVIEW') {
+        failed += row._count._all;
+        outstanding += row._count._all;
       } else if (
         row.status === 'STALE' ||
         row.status === 'PENDING' ||
-        row.status === 'FAILED' ||
         row.status === 'SKIPPED'
       ) {
+        pending += row._count._all;
         outstanding += row._count._all;
       }
     }
@@ -293,19 +422,52 @@ export class MenuTranslationWorkerService {
     // this run and should not make the bar jump backward. When no run exists
     // (e.g. translations triggered by edit→save auto-enqueue), fall back to
     // the live counts so the bar has a meaningful denominator.
-    const latestRun = await this.prisma.translationRun.findFirst({
-      where: { restaurantId },
-      orderBy: { createdAt: 'desc' },
-    });
 
     if (latestRun) {
-      const total = latestRun.totalUnits;
+      const total =
+        typeof latestRun.totalUnits === 'number'
+          ? latestRun.totalUnits
+          : current + outstanding;
       const done = Math.max(0, total - outstanding);
-      return { done, total };
+      const liveStatus: WorkerRunStatus =
+        pending > 0 || retryable > 0
+          ? 'RUNNING'
+          : failed > 0
+            ? 'PARTIAL'
+            : 'COMPLETED';
+      return {
+        done,
+        total,
+        pending,
+        failed,
+        current,
+        retryable,
+        active: activeRun,
+        status: activeRun ? liveStatus : latestRun.status,
+        runId: latestRun.id,
+      };
     }
 
     // No run record — use live CURRENT + outstanding as the denominator.
-    return { done: current, total: current + outstanding };
+    const total = current + outstanding;
+    return {
+      done: current,
+      total,
+      pending,
+      failed,
+      current,
+      retryable,
+      active: false,
+      status:
+        pending > 0 || retryable > 0
+          ? 'RUNNING'
+          : failed > 0
+            ? 'PARTIAL'
+            : total > 0
+              ? 'COMPLETED'
+              : null,
+      runId: null,
+    };
   }
 
   private async markCurrent(ids: string[]): Promise<void> {
@@ -325,6 +487,7 @@ export class MenuTranslationWorkerService {
   private async markFailed(rows: ClaimedRow[], error: unknown): Promise<void> {
     if (rows.length === 0) return;
     const message = error instanceof Error ? error.message : String(error);
+    const needsReview = message.startsWith('Garbage translation detected');
     // Sequential, not Promise.all: each row needs a different backoffMinutes
     // (derived from its own failureCount), so this can't collapse into a
     // single updateMany. Up to BATCH_LIMIT (100) rows can land here in one
@@ -343,9 +506,11 @@ export class MenuTranslationWorkerService {
       await this.prisma.menuTranslationState.update({
         where: { id: row.id },
         data: {
-          status: 'FAILED',
+          status: needsReview ? 'NEEDS_REVIEW' : 'FAILED',
           failureCount: newFailureCount,
-          nextAttemptAt: new Date(Date.now() + backoffMinutes * 60_000),
+          nextAttemptAt: needsReview
+            ? null
+            : new Date(Date.now() + backoffMinutes * 60_000),
           lastError: message.slice(0, 500),
           claimedAt: null,
         },
@@ -359,6 +524,110 @@ export class MenuTranslationWorkerService {
       where: { id: { in: ids } },
       data: { status: 'STALE', claimedAt: null },
     });
+  }
+
+  /** A process can crash after the final state row is written CURRENT but
+   * before emitProgress persists the terminal run status. When the queue is
+   * idle, close any such run from the same read model used by polling. */
+  private async reconcileIdleRuns(): Promise<void> {
+    const activeRuns = await this.prisma.translationRun.findMany({
+      // QUEUED means the request is still attaching its units. Finalizing it
+      // here could race that enqueue phase; only RUNNING runs are drainable.
+      where: { status: 'RUNNING' },
+      select: { id: true, restaurantId: true },
+    });
+    for (const run of activeRuns) {
+      const snapshot = await this.getRestaurantProgress(
+        run.restaurantId,
+        run.id,
+      );
+      if (!snapshot.active || snapshot.pending > 0 || snapshot.retryable > 0) {
+        continue;
+      }
+      await this.emitProgress(
+        run.restaurantId,
+        snapshot.failed > 0 ? 'partial' : 'completed',
+        snapshot.failed > 0 ? 'PARTIAL' : 'COMPLETED',
+        snapshot.runId ?? undefined,
+      );
+    }
+  }
+
+  private isGarbageError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      error.message.startsWith('Garbage translation detected')
+    );
+  }
+
+  /**
+   * Translate one entity-type slice. If the provider returns deterministic
+   * garbage for a mixed batch, bisect it until only the affected queue unit
+   * is quarantined. The first failed batch has not written anything (the
+   * translation service validates before its DB phase), so valid siblings
+   * can be retried and committed safely here.
+   */
+  private async processClaimedRows(
+    rows: ClaimedRow[],
+    locale: string,
+    sourceLang: string,
+    opts: { restaurantId: string; glossaryId?: string },
+  ): Promise<boolean> {
+    if (rows.length === 0) return false;
+
+    const entityType = rows[0].entityType;
+    const ids = [...new Set(rows.map((row) => row.entityId))];
+    let entities: any[];
+    let categories: any[];
+
+    if (entityType === 'CATEGORY') {
+      entities = await this.prisma.menuCategory.findMany({
+        where: { id: { in: ids } },
+      });
+      categories = entities;
+    } else if (entityType === 'ITEM') {
+      entities = await this.prisma.menuItem.findMany({
+        where: { id: { in: ids } },
+      });
+      categories = this.wrapItemsAsCategory(entities, locale);
+    } else {
+      entities = await this.prisma.menuOption.findMany({
+        where: { id: { in: ids } },
+      });
+      categories = this.wrapOptionsAsCategory(entities, locale);
+    }
+
+    this.clearClaimedFields(entities, rows, locale);
+    try {
+      await this.menuTranslationService.applyLazyTranslations(
+        categories,
+        locale,
+        sourceLang,
+        opts,
+      );
+      await this.markCurrent(rows.map((row) => row.id));
+      return false;
+    } catch (error) {
+      if (this.isGarbageError(error) && rows.length > 1) {
+        const midpoint = Math.ceil(rows.length / 2);
+        const leftFailed = await this.processClaimedRows(
+          rows.slice(0, midpoint),
+          locale,
+          sourceLang,
+          opts,
+        );
+        const rightFailed = await this.processClaimedRows(
+          rows.slice(midpoint),
+          locale,
+          sourceLang,
+          opts,
+        );
+        return leftFailed || rightFailed;
+      }
+
+      await this.markFailed(rows, error);
+      return true;
+    }
   }
 
   private async processGroup(rows: ClaimedRow[]): Promise<void> {
@@ -405,62 +674,35 @@ export class MenuTranslationWorkerService {
     let hadFailure = false;
 
     if (byType.CATEGORY.length > 0) {
-      const ids = [...new Set(byType.CATEGORY.map((r) => r.entityId))];
-      const categories = await this.prisma.menuCategory.findMany({
-        where: { id: { in: ids } },
-      });
-      try {
-        await this.menuTranslationService.applyLazyTranslations(
-          categories,
+      hadFailure =
+        (await this.processClaimedRows(
+          byType.CATEGORY,
           locale,
           sourceLang,
           opts,
-        );
-        await this.markCurrent(byType.CATEGORY.map((r) => r.id));
-      } catch (err) {
-        hadFailure = true;
-        await this.markFailed(byType.CATEGORY, err);
-      }
+        )) || hadFailure;
       await this.emitProgress(restaurantId, 'in_progress', 'RUNNING');
     }
 
     if (byType.ITEM.length > 0) {
-      const ids = [...new Set(byType.ITEM.map((r) => r.entityId))];
-      const items = await this.prisma.menuItem.findMany({
-        where: { id: { in: ids } },
-      });
-      try {
-        await this.menuTranslationService.applyLazyTranslations(
-          this.wrapItemsAsCategory(items, locale),
+      hadFailure =
+        (await this.processClaimedRows(
+          byType.ITEM,
           locale,
           sourceLang,
           opts,
-        );
-        await this.markCurrent(byType.ITEM.map((r) => r.id));
-      } catch (err) {
-        hadFailure = true;
-        await this.markFailed(byType.ITEM, err);
-      }
+        )) || hadFailure;
       await this.emitProgress(restaurantId, 'in_progress', 'RUNNING');
     }
 
     if (byType.OPTION.length > 0) {
-      const ids = [...new Set(byType.OPTION.map((r) => r.entityId))];
-      const options = await this.prisma.menuOption.findMany({
-        where: { id: { in: ids } },
-      });
-      try {
-        await this.menuTranslationService.applyLazyTranslations(
-          this.wrapOptionsAsCategory(options, locale),
+      hadFailure =
+        (await this.processClaimedRows(
+          byType.OPTION,
           locale,
           sourceLang,
           opts,
-        );
-        await this.markCurrent(byType.OPTION.map((r) => r.id));
-      } catch (err) {
-        hadFailure = true;
-        await this.markFailed(byType.OPTION, err);
-      }
+        )) || hadFailure;
       await this.emitProgress(restaurantId, 'in_progress', 'RUNNING');
     }
 
@@ -471,21 +713,42 @@ export class MenuTranslationWorkerService {
     );
   }
 
-  /** Emits done/total against ALL outstanding work for the restaurant (see
-   * getProgressSnapshot) — called after each entity-type sub-batch within a
+  /** Persists the worker-owned run transition and emits done/total against
+   * ALL outstanding work for the restaurant — called after each entity-type sub-batch within a
    * claimed group, not just once per group, so a large Translate-All run
    * updates every few seconds instead of jumping once per batch. */
   private async emitProgress(
     restaurantId: string,
     phase: string,
-    status: string,
+    statusOverride: WorkerRunStatus,
+    runId?: string,
   ): Promise<void> {
-    const snapshot = await this.getProgressSnapshot(restaurantId);
+    const snapshot = await this.getRestaurantProgress(restaurantId, runId);
+    const status: WorkerRunStatus =
+      statusOverride === 'QUOTA_BLOCKED'
+        ? 'QUOTA_BLOCKED'
+        : snapshot.pending > 0 || snapshot.retryable > 0
+          ? 'RUNNING'
+          : snapshot.failed > 0
+            ? 'PARTIAL'
+            : 'COMPLETED';
+    if (snapshot.runId && snapshot.active) {
+      await this.prisma.translationRun.update({
+        where: { id: snapshot.runId },
+        data: {
+          status,
+          doneUnits: snapshot.done,
+          failedUnits: snapshot.failed,
+          ...(status === 'RUNNING' ? {} : { finishedAt: new Date() }),
+        },
+      });
+    }
     this.events.emitToRestaurant(restaurantId, 'translate:progress', {
-      phase,
+      phase: status === 'RUNNING' ? 'in_progress' : phase,
       done: snapshot.done,
       total: snapshot.total,
       status,
+      runId: snapshot.runId,
     });
   }
 
@@ -501,13 +764,28 @@ export class MenuTranslationWorkerService {
     const cutoff = new Date(
       Date.now() - MenuTranslationWorkerService.STUCK_PENDING_MINUTES * 60_000,
     );
-    const { count } = await this.prisma.menuTranslationState.updateMany({
-      where: { status: 'PENDING', claimedAt: { lt: cutoff } },
-      data: { status: 'STALE', claimedAt: null },
-    });
+    const [{ count }, { count: abandonedRunCount }] = await Promise.all([
+      this.prisma.menuTranslationState.updateMany({
+        where: { status: 'PENDING', claimedAt: { lt: cutoff } },
+        data: { status: 'STALE', claimedAt: null },
+      }),
+      this.prisma.translationRun.updateMany({
+        where: { status: 'QUEUED', updatedAt: { lt: cutoff } },
+        data: {
+          status: 'FAILED',
+          message: 'Translation enqueue was interrupted before it completed.',
+          finishedAt: new Date(),
+        },
+      }),
+    ]);
     if (count > 0) {
       this.logger.warn(
         `Reset ${count} stuck PENDING translation state row(s) to STALE`,
+      );
+    }
+    if (abandonedRunCount > 0) {
+      this.logger.warn(
+        `Failed ${abandonedRunCount} abandoned QUEUED translation run(s)`,
       );
     }
   }

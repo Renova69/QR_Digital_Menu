@@ -31,7 +31,24 @@ describe('MenuTranslationEnqueueService', () => {
         ['en', 'de'],
         'bg',
       );
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    });
+
+    it('attaches Translate All queue units to their explicit run', async () => {
+      await service.enqueueCategory(
+        'rest-1',
+        { id: 'cat-1', name: 'Нова категория' },
+        ['en'],
+        'bg',
+        'run-1',
+      );
+
+      const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+        strings: readonly string[];
+        values: unknown[];
+      };
+      expect(query.strings.join(' ')).toContain('"runId"');
+      expect(query.values).toContain('run-1');
     });
 
     it('does not throw when the DB write fails', async () => {
@@ -45,9 +62,77 @@ describe('MenuTranslationEnqueueService', () => {
         ),
       ).resolves.toBeUndefined();
     });
+
+    it('inserts a missing state row as CURRENT when a valid cached translation already exists', async () => {
+      await service.enqueueCategory(
+        'rest-1',
+        {
+          id: 'cat-1',
+          name: 'Супи',
+          translations: { en: { name: 'Soups' } },
+        },
+        ['en'],
+        'bg',
+      );
+
+      const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+        values: unknown[];
+      };
+      expect(query.values).toContain('CURRENT');
+      expect(query.values).not.toContain('STALE');
+    });
+
+    it('converges an existing failed or review state to CURRENT when its cached translation is now valid', async () => {
+      await service.enqueueCategory(
+        'rest-1',
+        {
+          id: 'cat-1',
+          name: 'Супи',
+          translations: { en: { name: 'Soups' } },
+        },
+        ['en'],
+        'bg',
+      );
+
+      const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+        strings: readonly string[];
+      };
+      const sql = query.strings.join(' ');
+      expect(sql).toContain(
+        'WHEN "menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang" THEN \'STALE\'',
+      );
+      expect(sql).toContain("ELSE 'CURRENT'");
+    });
   });
 
   describe('enqueueItem', () => {
+    it('runs good-cache and forced-refresh upserts sequentially to avoid connection-pool bursts', async () => {
+      let inFlight = 0;
+      let maxInFlight = 0;
+      mockPrisma.$executeRaw.mockImplementation(async () => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await Promise.resolve();
+        inFlight--;
+        return 1;
+      });
+
+      await service.enqueueItem(
+        'rest-1',
+        {
+          id: 'item-1',
+          name: 'Soup',
+          description: 'Fresh daily',
+          translations: { en: { name: 'Soup' } },
+        },
+        ['en'],
+        'bg',
+      );
+
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(maxInFlight).toBe(1);
+    });
+
     it('enqueues NAME only when description/allergens/tags are absent', async () => {
       await service.enqueueItem(
         'rest-1',
@@ -65,7 +150,7 @@ describe('MenuTranslationEnqueueService', () => {
         ['en'],
         'bg',
       );
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it('skips preset allergen/dietary keys entirely', async () => {
@@ -98,7 +183,7 @@ describe('MenuTranslationEnqueueService', () => {
         'bg',
       );
       // NAME + ALLERGENS (custom "Truffle" present) + DIETARY_TAGS = 3
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(3);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it('does not enqueue DESCRIPTION for a blank/whitespace-only description', async () => {
@@ -118,8 +203,8 @@ describe('MenuTranslationEnqueueService', () => {
         ['en', 'de', 'fr'],
         'bg',
       );
-      // 2 fields x 3 locales = 6
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(6);
+      // All six state rows are written in one database round-trip.
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -145,8 +230,66 @@ describe('MenuTranslationEnqueueService', () => {
         ['en'],
         'bg',
       );
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('deduplicates locales and never queues the source language', async () => {
+    await service.enqueueCategory(
+      'rest-1',
+      { id: 'cat-1', name: 'Мезета' },
+      ['bg', 'en', 'en'],
+      'bg',
+    );
+
+    expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const values = (
+      mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] }
+    ).values;
+    expect(values.filter((value) => value === 'en')).toHaveLength(1);
+  });
+
+  it('marks a row stale when its source language changes', async () => {
+    await service.enqueueCategory(
+      'rest-1',
+      {
+        id: 'cat-1',
+        name: 'Starters',
+        translations: { bg: { name: 'Предястия' } },
+      },
+      ['bg'],
+      'en',
+    );
+
+    const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+    };
+    expect(query.strings.join(' ')).toContain(
+      '"menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang"',
+    );
+  });
+
+  it('preserves NEEDS_REVIEW for the same source instead of forcing an endless retry loop', async () => {
+    await service.enqueueCategory(
+      'rest-1',
+      {
+        id: 'cat-1',
+        name: 'Луканка',
+        translations: { en: { name: 'Луканка' } },
+      },
+      ['en'],
+      'bg',
+    );
+
+    const query = mockPrisma.$executeRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+    };
+    expect(query.strings.join(' ')).toContain(
+      `"menu_translation_state"."status" = 'NEEDS_REVIEW'`,
+    );
+    expect(query.strings.join(' ')).toContain(
+      'THEN "menu_translation_state"."updatedAt" ELSE now() END',
+    );
   });
 
   describe('enqueueBatch', () => {

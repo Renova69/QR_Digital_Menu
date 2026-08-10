@@ -189,16 +189,17 @@ export function usePublicMenuData(
 
         setMenuMeta(data);
 
-        // The public menu opens in the owner's default (dashboard) language —
-        // not the first target language — unless a ?lang= deep-link overrides it.
+        // The public menu opens in the menu SOURCE language — the language the
+        // owner authors item names in — not the first target language and not
+        // the owner's dashboard UI language, which are separate settings.
+        // A ?lang= deep-link overrides it.
         const available = buildPublicMenuLanguages(
-          data.restaurant?.dashboardLanguage,
+          data.restaurant?.menuSourceLanguage,
           data.restaurant?.targetLanguages,
         );
-        const dashboardLang = available[0];
+        const sourceLang = available[0];
         const initialLang =
-          resolveInitialLanguage(available, params.get("lang")) ??
-          dashboardLang;
+          resolveInitialLanguage(available, params.get("lang")) ?? sourceLang;
         activeLanguageRef.current = initialLang;
         setSelectedLang(initialLang);
         void i18n.changeLanguage(initialLang);

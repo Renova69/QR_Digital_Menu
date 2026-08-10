@@ -36,6 +36,7 @@ import {
 } from './upsell/upsell-context';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { withEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
+import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../restaurants/restaurant-languages';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -74,25 +75,27 @@ export class MenuCrudService {
   >();
 
   /**
-   * Public-menu languages consist of the owner's dashboard language first,
-   * followed by configured translation targets. The dashboard language must be
+   * Public-menu languages consist of the menu source language first,
+   * followed by configured translation targets. The source language must be
    * eligible for menu-content translation even when it was not duplicated in
    * targetLanguages.
    */
   private buildPublicMenuLanguages(restaurant: {
-    dashboardLanguage?: string | null;
+    menuSourceLanguage?: string | null;
     targetLanguages?: string[] | null;
   }): string[] {
-    const requestedDefault = String(restaurant.dashboardLanguage || 'bg')
+    const requestedDefault = String(restaurant.menuSourceLanguage || 'bg')
       .toLowerCase()
       .split('-')[0];
-    const dashboardDefault = ['bg', 'ro', 'en'].includes(requestedDefault)
+    const sourceDefault = (
+      SUPPORTED_TARGET_LANGUAGE_CODES as readonly string[]
+    ).includes(requestedDefault)
       ? requestedDefault
       : 'bg';
     const targets = (restaurant.targetLanguages ?? [])
       .map((language) => language.toLowerCase().split('-')[0])
       .filter(Boolean);
-    return [...new Set([dashboardDefault, ...targets])];
+    return [...new Set([sourceDefault, ...targets])];
   }
 
   /** Resolve a requested language against the restaurant's public-menu
@@ -102,7 +105,7 @@ export class MenuCrudService {
   private resolveRequestedLang(
     restaurant: {
       targetLanguages?: string[] | null;
-      dashboardLanguage?: string | null;
+      menuSourceLanguage?: string | null;
     },
     tier: string,
     lang?: string,
@@ -132,7 +135,7 @@ export class MenuCrudService {
         tier: true,
         forceTier: true,
         targetLanguages: true,
-        dashboardLanguage: true,
+        menuSourceLanguage: true,
         loyaltyRedeemRate: true,
         isActive: true,
         deletedAt: true,
@@ -353,7 +356,7 @@ export class MenuCrudService {
         themeDarkCardColor: true,
         themeDarkAccentColor: true,
         targetLanguages: true,
-        dashboardLanguage: true,
+        menuSourceLanguage: true,
         timezone: true,
         defaultTheme: true,
         tier: true,
@@ -471,7 +474,7 @@ export class MenuCrudService {
         themeDarkCardColor: true,
         themeDarkAccentColor: true,
         targetLanguages: true,
-        dashboardLanguage: true,
+        menuSourceLanguage: true,
         timezone: true,
         defaultTheme: true,
         tier: true,
@@ -743,7 +746,7 @@ export class MenuCrudService {
         tier: true,
         forceTier: true,
         targetLanguages: true,
-        dashboardLanguage: true,
+        menuSourceLanguage: true,
         isActive: true,
         deletedAt: true,
         timezone: true,
@@ -909,7 +912,7 @@ export class MenuCrudService {
    * a throwaway category (pre-seeded so its own name is never sent to DeepL) and
    * reuses the shared menu translation pipeline, which also caches results to
    * the DB. No-op when multi-language is unavailable or `lang` is not enabled
-   * as either the dashboard default or a configured target.
+   * as either the menu source or a configured target.
    */
   private async applyTrendingTranslations(
     items: Partial<MenuItem>[],
@@ -917,7 +920,7 @@ export class MenuCrudService {
       tier?: string | null;
       forceTier?: string | null;
       targetLanguages?: string[] | null;
-      dashboardLanguage?: string | null;
+      menuSourceLanguage?: string | null;
       loyaltyRedeemRate?: number | null;
     },
     lang?: string,
@@ -1108,7 +1111,7 @@ export class MenuCrudService {
           restaurantId,
           category,
           restaurant.targetLanguages,
-          restaurant.dashboardLanguage ?? 'bg',
+          restaurant.menuSourceLanguage ?? 'bg',
         )
         .then(() => this.translationWorker.kick());
     }
@@ -1224,7 +1227,7 @@ export class MenuCrudService {
           category.restaurantId,
           updated,
           restaurant.targetLanguages,
-          restaurant.dashboardLanguage ?? 'bg',
+          restaurant.menuSourceLanguage ?? 'bg',
         )
         .then(() => this.translationWorker.kick());
     }
@@ -1367,7 +1370,7 @@ export class MenuCrudService {
           category.restaurantId,
           item,
           restaurant.targetLanguages,
-          restaurant.dashboardLanguage ?? 'bg',
+          restaurant.menuSourceLanguage ?? 'bg',
         )
         .then(() => this.translationWorker.kick());
     }
@@ -1541,7 +1544,7 @@ export class MenuCrudService {
           restaurant.id,
           updated,
           restaurant.targetLanguages,
-          restaurant.dashboardLanguage ?? 'bg',
+          restaurant.menuSourceLanguage ?? 'bg',
         )
         .then(() => this.translationWorker.kick());
     }
@@ -1707,7 +1710,7 @@ export class MenuCrudService {
           item.category.restaurantId,
           { id: option.id, name: option.name, choices: choices as any },
           restaurant.targetLanguages,
-          restaurant.dashboardLanguage ?? 'bg',
+          restaurant.menuSourceLanguage ?? 'bg',
         )
         .then(() => this.translationWorker.kick());
     }
@@ -1767,7 +1770,7 @@ export class MenuCrudService {
           option.menuItem.category.restaurantId,
           { id: optionId, name: updated.name, choices: updated.choices as any },
           restaurant.targetLanguages,
-          restaurant.dashboardLanguage ?? 'bg',
+          restaurant.menuSourceLanguage ?? 'bg',
         )
         .then(() => this.translationWorker.kick());
     }

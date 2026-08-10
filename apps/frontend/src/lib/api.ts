@@ -282,6 +282,8 @@ export interface TranslationStatus {
   pending: number;
   failed: number;
   current: number;
+  done: number;
+  total: number;
   active: boolean;
   latestRunId: string | null;
   latestRunStatus: string | null;

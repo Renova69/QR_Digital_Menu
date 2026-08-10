@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { isGarbageTranslation } from '../translation/translation-validator';
 import { isPresetTagKey } from './menu-tags';
 import {
   computeSourceHash,
@@ -16,22 +18,26 @@ interface ItemLike {
   description?: string | null;
   allergens?: string[] | null;
   dietaryTags?: string[] | null;
+  translations?: unknown;
 }
 
 interface OptionLike {
   id: string;
   name: string;
   choices?: Array<{ name: string }> | null;
+  translations?: unknown;
 }
 
 interface UpsertSpec {
   restaurantId: string;
+  runId?: string;
   entityType: EntityType;
   entityId: string;
   field: Field;
   locale: string;
   sourceLang: string;
   sourceHash: string;
+  force?: boolean;
 }
 
 /**
@@ -57,67 +63,138 @@ export class MenuTranslationEnqueueService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  private async upsert(params: UpsertSpec): Promise<void> {
-    try {
-      await this.prisma.$executeRaw`
-        INSERT INTO "menu_translation_state" (
-          "id", "restaurantId", "entityType", "entityId", "field", "locale",
-          "sourceLang", "sourceHash", "status", "createdAt", "updatedAt"
-        )
-        VALUES (
+  private normalizeLocales(locales: string[], sourceLang: string): string[] {
+    const source = sourceLang.trim().toLowerCase();
+    return [
+      ...new Set(
+        locales
+          .map((locale) => locale.trim().toLowerCase())
+          .filter((locale) => locale && locale !== source),
+      ),
+    ];
+  }
+
+  private translationEntry(raw: unknown, locale: string): Record<string, any> {
+    if (!raw || typeof raw !== 'object') return {};
+    const entry = (raw as Record<string, unknown>)[locale];
+    return entry && typeof entry === 'object'
+      ? (entry as Record<string, any>)
+      : {};
+  }
+
+  private needsRefresh(
+    source: string,
+    translated: unknown,
+    locale: string,
+  ): boolean {
+    return (
+      typeof translated !== 'string' ||
+      isGarbageTranslation(source, translated, locale)
+    );
+  }
+
+  private async upsertMany(specs: UpsertSpec[], force: boolean): Promise<void> {
+    if (specs.length === 0) return;
+    const values = Prisma.join(
+      specs.map(
+        (params) => Prisma.sql`(
           ${randomUUID()}, ${params.restaurantId}, ${params.entityType}::"MenuTranslationEntity",
           ${params.entityId}, ${params.field}::"MenuTranslationField", ${params.locale},
-          ${params.sourceLang}, ${params.sourceHash}, 'STALE'::"MenuTranslationStatus", now(), now()
-        )
-        ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
-          "sourceHash" = EXCLUDED."sourceHash",
-          "sourceLang" = EXCLUDED."sourceLang",
-          "status" = (CASE
-            WHEN "menu_translation_state"."sourceHash" <> EXCLUDED."sourceHash" THEN 'STALE'
-            WHEN "menu_translation_state"."status" = 'CURRENT' THEN 'CURRENT'
-            ELSE 'STALE'
-          END)::"MenuTranslationStatus",
-          "nextAttemptAt" = NULL,
-          "failureCount" = 0,
-          "updatedAt" = now()
-      `;
+          ${params.sourceLang}, ${params.sourceHash}, ${force ? 'STALE' : 'CURRENT'}::"MenuTranslationStatus",
+          ${params.runId ?? null}, now(), now()
+        )`,
+      ),
+    );
+    const preserveNeedsReview = force
+      ? Prisma.sql`(
+          "menu_translation_state"."sourceHash" = EXCLUDED."sourceHash"
+          AND "menu_translation_state"."sourceLang" = EXCLUDED."sourceLang"
+          AND "menu_translation_state"."status" = 'NEEDS_REVIEW'
+        )`
+      : Prisma.sql`FALSE`;
+    const nextStatus = force
+      ? Prisma.sql`(CASE
+          WHEN ${preserveNeedsReview} THEN 'NEEDS_REVIEW'
+          ELSE 'STALE'
+        END)::"MenuTranslationStatus"`
+      : Prisma.sql`(CASE
+          WHEN "menu_translation_state"."sourceHash" <> EXCLUDED."sourceHash" THEN 'STALE'
+          WHEN "menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang" THEN 'STALE'
+          ELSE 'CURRENT'
+        END)::"MenuTranslationStatus"`;
+
+    try {
+      await this.prisma.$executeRaw(
+        Prisma.sql`
+          INSERT INTO "menu_translation_state" (
+            "id", "restaurantId", "entityType", "entityId", "field", "locale",
+            "sourceLang", "sourceHash", "status", "runId", "createdAt", "updatedAt"
+          )
+          VALUES ${values}
+          ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
+            "sourceHash" = EXCLUDED."sourceHash",
+            "sourceLang" = EXCLUDED."sourceLang",
+            "status" = ${nextStatus},
+            "runId" = CASE WHEN ${nextStatus} = 'STALE'
+              THEN EXCLUDED."runId" ELSE NULL END,
+            "nextAttemptAt" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."nextAttemptAt" ELSE NULL END,
+            "failureCount" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."failureCount" ELSE 0 END,
+            "lastError" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."lastError" ELSE NULL END,
+            "updatedAt" = CASE WHEN ${preserveNeedsReview}
+              THEN "menu_translation_state"."updatedAt" ELSE now() END
+        `,
+      );
     } catch (err) {
-      // Enqueue failures must never block the owner's save — the entity
-      // write already succeeded by the time enqueue runs. Worst case, this
-      // field is picked up on a later enqueue (e.g. the next edit) instead.
       this.logger.warn(
-        `Failed to enqueue ${params.entityType}/${params.entityId}/${params.field}/${params.locale}: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to enqueue ${specs.length} translation unit(s): ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
 
-  // Sequential, not Promise.all — a single entity has at most a handful of
-  // (field, locale) upserts, but enqueueTranslateAll fans this out across
-  // every category/item/option in the restaurant concurrently. Unbounded
-  // parallelism per-entity multiplies into thousands of simultaneous raw SQL
-  // calls against PgBouncer's connection pool (17 by default) for any
-  // realistically-sized multi-language menu, and most of them just time out
-  // waiting for a connection (2026-07-25 production finding — a 157-item/
-  // 12-language restaurant's enqueue silently dropped ~80% of its rows).
-  // Each upsert is a cheap indexed UPSERT; doing them one at a time per
-  // entity is fast enough, and it's enqueueTranslateAll's job (not this
-  // service's) to bound cross-entity concurrency.
+  // Collapse all fields/locales for one entity into at most two statements:
+  // one for already-good cached values and one for missing/invalid values.
+  // Run those two sequentially so enqueueBatch's concurrency of eight means
+  // at most eight PgBouncer connections, not sixteen.
   private async upsertAll(specs: UpsertSpec[]): Promise<void> {
+    const unique = new Map<string, UpsertSpec>();
     for (const spec of specs) {
-      await this.upsert(spec);
+      unique.set(
+        `${spec.entityType}:${spec.entityId}:${spec.field}:${spec.locale}`,
+        spec,
+      );
     }
+    const normalized = [...unique.values()];
+    await this.upsertMany(
+      normalized.filter((spec) => !spec.force),
+      false,
+    );
+    await this.upsertMany(
+      normalized.filter((spec) => spec.force),
+      true,
+    );
   }
 
   async enqueueCategory(
     restaurantId: string,
-    category: { id: string; name: string },
+    category: { id: string; name: string; translations?: unknown },
     locales: string[],
     sourceLang: string,
+    runId?: string,
   ): Promise<void> {
+    const normalizedLocales = this.normalizeLocales(locales, sourceLang);
     const hash = computeSourceHash(category.name);
     await this.upsertAll(
-      locales.map((locale) => ({
+      normalizedLocales.map((locale) => ({
+        force: this.needsRefresh(
+          category.name,
+          this.translationEntry(category.translations, locale).name,
+          locale,
+        ),
         restaurantId,
+        runId,
         entityType: 'CATEGORY' as const,
         entityId: category.id,
         field: 'NAME' as const,
@@ -133,10 +210,18 @@ export class MenuTranslationEnqueueService {
     item: ItemLike,
     locales: string[],
     sourceLang: string,
+    runId?: string,
   ): Promise<void> {
+    const normalizedLocales = this.normalizeLocales(locales, sourceLang);
     const nameHash = computeSourceHash(item.name);
-    const specs: UpsertSpec[] = locales.map((locale) => ({
+    const specs: UpsertSpec[] = normalizedLocales.map((locale) => ({
+      force: this.needsRefresh(
+        item.name,
+        this.translationEntry(item.translations, locale).name,
+        locale,
+      ),
       restaurantId,
+      runId,
       entityType: 'ITEM' as const,
       entityId: item.id,
       field: 'NAME' as const,
@@ -148,8 +233,14 @@ export class MenuTranslationEnqueueService {
     if (item.description && item.description.trim()) {
       const descHash = computeSourceHash(item.description);
       specs.push(
-        ...locales.map((locale) => ({
+        ...normalizedLocales.map((locale) => ({
+          force: this.needsRefresh(
+            item.description!,
+            this.translationEntry(item.translations, locale).description,
+            locale,
+          ),
           restaurantId,
+          runId,
           entityType: 'ITEM' as const,
           entityId: item.id,
           field: 'DESCRIPTION' as const,
@@ -168,8 +259,18 @@ export class MenuTranslationEnqueueService {
     if (customAllergens.length > 0) {
       const hash = computeSetHash(customAllergens);
       specs.push(
-        ...locales.map((locale) => ({
+        ...normalizedLocales.map((locale) => ({
+          force: customAllergens.some((allergen) =>
+            this.needsRefresh(
+              allergen,
+              this.translationEntry(item.translations, locale).allergens?.[
+                allergen
+              ],
+              locale,
+            ),
+          ),
           restaurantId,
+          runId,
           entityType: 'ITEM' as const,
           entityId: item.id,
           field: 'ALLERGENS' as const,
@@ -186,8 +287,18 @@ export class MenuTranslationEnqueueService {
     if (customTags.length > 0) {
       const hash = computeSetHash(customTags);
       specs.push(
-        ...locales.map((locale) => ({
+        ...normalizedLocales.map((locale) => ({
+          force: customTags.some((tag) =>
+            this.needsRefresh(
+              tag,
+              this.translationEntry(item.translations, locale).dietaryTags?.[
+                tag
+              ],
+              locale,
+            ),
+          ),
           restaurantId,
+          runId,
           entityType: 'ITEM' as const,
           entityId: item.id,
           field: 'DIETARY_TAGS' as const,
@@ -232,10 +343,18 @@ export class MenuTranslationEnqueueService {
     option: OptionLike,
     locales: string[],
     sourceLang: string,
+    runId?: string,
   ): Promise<void> {
+    const normalizedLocales = this.normalizeLocales(locales, sourceLang);
     const nameHash = computeSourceHash(option.name);
-    const specs: UpsertSpec[] = locales.map((locale) => ({
+    const specs: UpsertSpec[] = normalizedLocales.map((locale) => ({
+      force: this.needsRefresh(
+        option.name,
+        this.translationEntry(option.translations, locale).name,
+        locale,
+      ),
       restaurantId,
+      runId,
       entityType: 'OPTION' as const,
       entityId: option.id,
       field: 'NAME' as const,
@@ -250,8 +369,18 @@ export class MenuTranslationEnqueueService {
     if (choiceNames.length > 0) {
       const hash = computeSetHash(choiceNames);
       specs.push(
-        ...locales.map((locale) => ({
+        ...normalizedLocales.map((locale) => ({
+          force: choiceNames.some((choice) =>
+            this.needsRefresh(
+              choice,
+              this.translationEntry(option.translations, locale).choices?.[
+                choice
+              ],
+              locale,
+            ),
+          ),
           restaurantId,
+          runId,
           entityType: 'OPTION' as const,
           entityId: option.id,
           field: 'CHOICES' as const,

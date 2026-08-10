@@ -19,6 +19,15 @@ const LATIN_LANGUAGES = [
   'sk',
   'hu',
 ];
+// Supported target locales written in neither Latin nor Cyrillic script.
+// They take part in the identity check below (Cyrillic copied through
+// unchanged is untranslated for a Greek/Japanese/Chinese/Arabic menu just as
+// it is for an English one) but deliberately NOT in the predominance analysis
+// further down, which only knows how to count Latin and Cyrillic characters.
+// Enumerated rather than expressed as "any target that is not Cyrillic" so an
+// unrecognised language code makes no claim about script and is never flagged
+// on identity alone.
+const OTHER_SCRIPT_LANGUAGES = ['el', 'ja', 'zh', 'ar'];
 
 /**
  * Detects if the translation provided by a model (like NLLB) is likely hallucinated garbage.
@@ -36,14 +45,25 @@ export function isGarbageTranslation(
 ): boolean {
   if (!translation || translation.trim() === '') return true;
 
+  const normalizedTargetLang = targetLang.trim().toLowerCase().split('-')[0];
+
   const trimmedSource = source.trim();
   const trimmedTranslation = translation.trim();
 
-  // 4. Identity check
-  // If the translation is identical to the source, it's not a hallucination, just an un-translated string.
-  // We return false here to let other parts of the system handle it (e.g. fallback).
+  // Identity is valid for script-compatible proper nouns (Pizza -> Pizza),
+  // but Cyrillic source copied unchanged into a target that does not use
+  // Cyrillic is an obviously untranslated value. Treat it as stale so
+  // Translate All can repair cached source copies instead of preserving them
+  // as CURRENT forever.
   if (trimmedSource === trimmedTranslation) {
-    return false;
+    const sourceHasCyrillic = /[\u0400-\u04FF]/.test(trimmedSource);
+    const sourceHasLatin = /[a-zA-Z]/.test(trimmedSource);
+    const targetRejectsCyrillicIdentity =
+      LATIN_LANGUAGES.includes(normalizedTargetLang) ||
+      OTHER_SCRIPT_LANGUAGES.includes(normalizedTargetLang);
+    return (
+      targetRejectsCyrillicIdentity && sourceHasCyrillic && !sourceHasLatin
+    );
   }
 
   // 1. Length ratio check
@@ -93,7 +113,7 @@ export function isGarbageTranslation(
     // translated content ("Стриди"). Genuine hallucination/failure-to-translate
     // produces zero characters in the target script, not merely a minority.
     if (
-      CYRILLIC_LANGUAGES.includes(targetLang) &&
+      CYRILLIC_LANGUAGES.includes(normalizedTargetLang) &&
       isPredominantlyLatin &&
       cyrillicCount === 0
     ) {
@@ -101,7 +121,7 @@ export function isGarbageTranslation(
     }
 
     if (
-      LATIN_LANGUAGES.includes(targetLang) &&
+      LATIN_LANGUAGES.includes(normalizedTargetLang) &&
       isPredominantlyCyrillic &&
       latinCount === 0
     ) {

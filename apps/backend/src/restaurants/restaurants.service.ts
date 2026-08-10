@@ -47,6 +47,7 @@ const RESTAURANT_READ_SELECT = {
   contactInfo: true,
   targetLanguages: true,
   dashboardLanguage: true,
+  menuSourceLanguage: true,
   timezone: true,
   ownerId: true,
   createdAt: true,
@@ -338,6 +339,13 @@ export class RestaurantsService {
     )
       ? { ...updateRestaurantDto }
       : stripBrandingFields({ ...updateRestaurantDto });
+    const sourceLanguageChanged =
+      typeof data.menuSourceLanguage === 'string' &&
+      data.menuSourceLanguage.trim().toLowerCase() !==
+        (restaurant.menuSourceLanguage ?? 'bg').trim().toLowerCase();
+    const nextSourceLanguage = sourceLanguageChanged
+      ? data.menuSourceLanguage.trim().toLowerCase()
+      : null;
 
     // Multi-language gating: strip targetLanguages if tier lacks multi-language feature
     if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
@@ -405,6 +413,45 @@ export class RestaurantsService {
       select: RESTAURANT_READ_SELECT,
       data,
     });
+
+    if (nextSourceLanguage) {
+      // runId is cleared alongside the status reset. Run membership is
+      // explicit and owned by enqueueTranslateAll (see the
+      // translation_run_membership migration): only units a Translate All
+      // queued carry a runId. Leaving the old id attached here would re-open
+      // an already-finished run's denominator — its frozen totalUnits with
+      // freshly outstanding units makes getRestaurantProgress recompute
+      // done downward, so the dashboard bar jumps backward on a COMPLETED
+      // run. These units are re-queued by an owner edit, not by that run.
+      await Promise.all([
+        this.prisma.menuTranslationState.updateMany({
+          where: {
+            restaurantId: id,
+            locale: { not: nextSourceLanguage },
+          },
+          data: {
+            status: 'STALE',
+            sourceLang: nextSourceLanguage,
+            runId: null,
+            failureCount: 0,
+            nextAttemptAt: null,
+            lastError: null,
+          },
+        }),
+        this.prisma.menuTranslationState.updateMany({
+          where: { restaurantId: id, locale: nextSourceLanguage },
+          data: {
+            status: 'CURRENT',
+            sourceLang: nextSourceLanguage,
+            runId: null,
+            failureCount: 0,
+            nextAttemptAt: null,
+            lastError: null,
+          },
+        }),
+      ]);
+      this.translationWorker.kick();
+    }
 
     if (shouldEvictSharedDevices) {
       await this.deviceEnrollmentService.evictRestaurantDevices(id);
@@ -480,13 +527,60 @@ export class RestaurantsService {
       restaurant.targetLanguages.length === 0
     ) {
       return {
-        success: false,
-        message: 'No target languages configured.',
+        success: true,
+        message: 'No translation targets are configured.',
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
       };
     }
 
-    const targets = restaurant.targetLanguages;
-    const sourceLang = restaurant.dashboardLanguage ?? 'bg';
+    const sourceLang = restaurant.menuSourceLanguage ?? 'bg';
+    const targets = [
+      ...new Set(
+        restaurant.targetLanguages
+          .map((locale) => locale.trim().toLowerCase())
+          .filter(
+            (locale) => locale && locale !== sourceLang.trim().toLowerCase(),
+          ),
+      ),
+    ];
+    if (targets.length === 0) {
+      return {
+        success: true,
+        message: 'The menu source is the only configured language.',
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'COMPLETED',
+      };
+    }
+
+    if (!this.translationWorker.isAvailable()) {
+      return {
+        success: false,
+        message: 'Translation is disabled or not configured.',
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'FAILED',
+      };
+    }
+
+    const existingProgress =
+      await this.translationWorker.getRestaurantProgress(id);
+    if (existingProgress.active) {
+      this.translationWorker.kick();
+      return {
+        success: true,
+        message: 'Translation is already running.',
+        runId: existingProgress.runId,
+        done: existingProgress.done,
+        total: existingProgress.total,
+        status: existingProgress.status,
+      };
+    }
 
     const [items, categories, options] = await Promise.all([
       this.prisma.menuItem.findMany({
@@ -518,85 +612,197 @@ export class RestaurantsService {
       return {
         success: false,
         message: `Translation quota exceeded (${quotaCheck.reason === 'platform_quota_exceeded' ? 'platform-wide limit' : "this restaurant's monthly limit"}). ${quotaCheck.remaining} characters remaining this period.`,
+        runId: null,
+        done: 0,
+        total: 0,
+        status: 'FAILED',
       };
     }
 
-    const run = await this.prisma.translationRun.create({
-      data: {
-        restaurantId: id,
-        requestedById: userId,
-        status: 'QUEUED',
-        locales: targets,
-      },
-    });
+    let run: { id: string; createdAt?: Date };
+    try {
+      run = await this.prisma.translationRun.create({
+        data: {
+          restaurantId: id,
+          requestedById: userId,
+          status: 'QUEUED',
+          locales: targets,
+          totalUnits: 0,
+          doneUnits: 0,
+          startedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      if ((error as { code?: string })?.code !== 'P2002') throw error;
+      const winningRun = await this.prisma.translationRun.findFirst({
+        where: {
+          restaurantId: id,
+          status: { in: ['QUEUED', 'RUNNING'] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!winningRun) throw error;
+      // A QUEUED winner is still attaching state rows. Its own request will
+      // kick after switching to RUNNING; kicking here could let idle
+      // reconciliation finish it prematurely at 0/0.
+      if (winningRun.status === 'RUNNING') this.translationWorker.kick();
+      return {
+        success: true,
+        message: 'Translation is already running.',
+        runId: winningRun.id,
+        done: winningRun.doneUnits,
+        total: winningRun.totalUnits,
+        status: winningRun.status === 'QUEUED' ? 'RUNNING' : winningRun.status,
+      };
+    }
 
     // Bounded concurrency (not Promise.all across every entity) — a large
     // multi-language menu is hundreds of categories/items/options, each
     // issuing its own DB upsert(s); unbounded fan-out exhausts PgBouncer's
     // connection pool and silently drops most of the enqueue (2026-07-25
     // production finding).
-    await this.translationEnqueue.enqueueBatch([
-      ...categories.map(
-        (c) => () =>
-          this.translationEnqueue.enqueueCategory(id, c, targets, sourceLang),
-      ),
-      ...items.map(
-        (i) => () =>
-          this.translationEnqueue.enqueueItem(id, i, targets, sourceLang),
-      ),
-      ...options.map(
-        (o) => () =>
-          this.translationEnqueue.enqueueOption(
-            id,
-            { id: o.id, name: o.name, choices: o.choices as any },
-            targets,
-            sourceLang,
-          ),
-      ),
-    ]);
+    try {
+      await this.translationEnqueue.enqueueBatch([
+        ...categories.map(
+          (c) => () =>
+            this.translationEnqueue.enqueueCategory(
+              id,
+              c,
+              targets,
+              sourceLang,
+              run.id,
+            ),
+        ),
+        ...items.map(
+          (i) => () =>
+            this.translationEnqueue.enqueueItem(
+              id,
+              i,
+              targets,
+              sourceLang,
+              run.id,
+            ),
+        ),
+        ...options.map(
+          (o) => () =>
+            this.translationEnqueue.enqueueOption(
+              id,
+              {
+                id: o.id,
+                name: o.name,
+                choices: o.choices as any,
+                translations: o.translations,
+              },
+              targets,
+              sourceLang,
+              run.id,
+            ),
+        ),
+      ]);
 
-    const stateCounts = await this.prisma.menuTranslationState.groupBy({
-      by: ['status'],
-      where: { restaurantId: id },
-      _count: { _all: true },
-    });
-    let actualEnqueued = 0;
-    for (const row of stateCounts) {
-      if (['STALE', 'PENDING', 'FAILED'].includes(row.status)) {
-        actualEnqueued += row._count._all;
+      const stateCounts = await this.prisma.menuTranslationState.groupBy({
+        by: ['status'],
+        where: { runId: run.id },
+        _count: { _all: true },
+      });
+      let actualEnqueued = 0;
+      for (const row of stateCounts) {
+        if (['STALE', 'PENDING', 'FAILED'].includes(row.status)) {
+          actualEnqueued += row._count._all;
+        }
       }
+      const totalUnits = actualEnqueued;
+      if (totalUnits === 0) {
+        // NEEDS_REVIEW rows are terminal rather than queued: the enqueue path
+        // deliberately preserves them (unchanged source hash + language) and
+        // detaches them from the run, so they never reach actualEnqueued.
+        // Counting them separately keeps this message honest — "already
+        // current" contradicts the dashboard's failed badge when values are
+        // sitting there waiting for a human.
+        const needsReview = await this.prisma.menuTranslationState.count({
+          where: {
+            restaurantId: id,
+            locale: { in: targets },
+            status: 'NEEDS_REVIEW',
+          },
+        });
+        await this.prisma.translationRun.update({
+          where: { id: run.id },
+          data: {
+            status: 'COMPLETED',
+            doneUnits: 0,
+            failedUnits: 0,
+            finishedAt: new Date(),
+          },
+        });
+        return {
+          success: true,
+          // `message` is the API-level explanation. `needsReview` is what the
+          // dashboard actually branches on: it renders its own localized copy
+          // for this path and never displays this string, so the count has to
+          // travel as data rather than prose.
+          message:
+            needsReview > 0
+              ? `Nothing new to queue. ${needsReview} value(s) need manual review before they can be translated.`
+              : 'All configured translations are already current.',
+          runId: null,
+          done: 0,
+          total: 0,
+          status: 'COMPLETED',
+          needsReview,
+        };
+      }
+
+      await this.prisma.translationRun.update({
+        where: { id: run.id },
+        data: {
+          status: 'RUNNING',
+          totalUnits,
+          doneUnits: 0,
+        },
+      });
+
+      this.eventsGateway.emitToRestaurant(id, 'translate:progress', {
+        phase: 'queued',
+        done: 0,
+        total: totalUnits,
+        runId: run.id,
+        status: 'RUNNING',
+      });
+
+      this.translationWorker.kick();
+
+      return {
+        success: true,
+        message: `Queued ${categories.length} categories, ${items.length} items, and ${options.length} options for translation into ${targets.length} language(s).`,
+        runId: run.id,
+        done: 0,
+        total: totalUnits,
+        status: 'RUNNING',
+      };
+    } catch (error) {
+      await this.prisma.translationRun
+        .update({
+          where: { id: run.id },
+          data: {
+            status: 'FAILED',
+            message:
+              error instanceof Error
+                ? error.message.slice(0, 500)
+                : 'Enqueue failed',
+            finishedAt: new Date(),
+          },
+        })
+        .catch(() => undefined);
+      throw error;
     }
-    const totalUnits = actualEnqueued;
-
-    await this.prisma.translationRun.update({
-      where: { id: run.id },
-      data: { totalUnits, status: 'RUNNING', startedAt: new Date() },
-    });
-
-    this.eventsGateway.emitToRestaurant(id, 'translate:progress', {
-      phase: 'queued',
-      done: 0,
-      total: totalUnits,
-      runId: run.id,
-      status: 'QUEUED',
-    });
-
-    this.translationWorker.kick();
-
-    return {
-      success: true,
-      message: `Queued ${categories.length} categories, ${items.length} items, and ${options.length} options for translation into ${targets.length} language(s).`,
-      runId: run.id,
-    };
   }
 
   /**
    * Aggregate translation-queue status for the dashboard's poll fallback and
    * outdated/failed badge. Deliberately restaurant-wide rather than scoped
-   * to a single TranslationRun — MenuTranslationState has no runId column
-   * (a unit can be re-enqueued by a later edit and outlive the run that
-   * first queued it), so "how much work is outstanding right now" is a
-   * simpler and more honest signal than trying to track one run's progress.
+   * to a single TranslationRun. The badge is the restaurant-wide health
+   * signal, while the progress bar below uses explicit run membership.
    */
   async getTranslationStatus(id: string, userId: string) {
     await this.findOneForManagement(id, userId);
@@ -611,22 +817,20 @@ export class RestaurantsService {
 
     const pending =
       (byStatus.STALE ?? 0) + (byStatus.PENDING ?? 0) + (byStatus.SKIPPED ?? 0);
-    const failed = byStatus.FAILED ?? 0;
+    const failed = (byStatus.FAILED ?? 0) + (byStatus.NEEDS_REVIEW ?? 0);
     const current = byStatus.CURRENT ?? 0;
 
-    const latestRun = await this.prisma.translationRun.findFirst({
-      where: { restaurantId: id },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, status: true, createdAt: true },
-    });
+    const progress = await this.translationWorker.getRestaurantProgress(id);
 
     return {
       pending,
       failed,
       current,
-      active: pending > 0,
-      latestRunId: latestRun?.id ?? null,
-      latestRunStatus: latestRun?.status ?? null,
+      active: progress.active,
+      done: progress.done,
+      total: progress.total,
+      latestRunId: progress.runId,
+      latestRunStatus: progress.runId ? progress.status : null,
     };
   }
 

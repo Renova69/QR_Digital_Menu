@@ -153,15 +153,26 @@ export class DeepLGlossaryService {
     targetLang: string,
   ): Promise<string | undefined> {
     if (!this.apiKey) return undefined;
+
+    const existing = await this.prisma.deepLGlossary.findUnique({
+      where: { sourceLang_targetLang: { sourceLang, targetLang } },
+    });
+    const failureCooldownMs = 60 * 60 * 1000;
+    if (
+      !existing?.deeplGlossaryId &&
+      existing?.lastError &&
+      existing.updatedAt instanceof Date &&
+      Date.now() - existing.updatedAt.getTime() < failureCooldownMs
+    ) {
+      return undefined;
+    }
+
     if (!(await this.isPairSupported(sourceLang, targetLang))) return undefined;
 
     const { tsv, count } = await this.buildEntries(sourceLang, targetLang);
     if (count === 0) return undefined;
     const hash = this.contentHash(tsv);
 
-    const existing = await this.prisma.deepLGlossary.findUnique({
-      where: { sourceLang_targetLang: { sourceLang, targetLang } },
-    });
     if (existing?.deeplGlossaryId && existing.contentHash === hash) {
       return existing.deeplGlossaryId;
     }

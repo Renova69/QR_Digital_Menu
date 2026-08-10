@@ -329,7 +329,12 @@ describe('UsersService', () => {
         });
         expect(result.rawPin).toMatch(/^\d{4}$/);
       }
-    });
+      // createStaffMember bcrypt-hashes both the PIN and the always-random
+      // password column, so 20 samples is ~40 hashes. That fits inside Jest's
+      // 5s default on a warm machine but not under `--coverage`, where
+      // instrumentation pushes it over and the suite fails only in CI. Sample
+      // count is the point of the test, so raise the budget rather than thin it.
+    }, 30_000);
 
     it('padStart preserves leading zeros (42 → "0042")', () => {
       // Unit-level assertion: the padStart formula used in the service is correct

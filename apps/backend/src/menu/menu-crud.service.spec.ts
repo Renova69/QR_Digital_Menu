@@ -80,7 +80,8 @@ const BASE_RESTAURANT = {
   themeTextColor: '#000000',
   themeCardColor: '#F5F5F5',
   targetLanguages: ['en', 'bg'],
-  dashboardLanguage: 'bg',
+  dashboardLanguage: 'en',
+  menuSourceLanguage: 'bg',
   city: 'Sofia',
   timezone: 'Europe/Sofia',
   defaultTheme: 'light',
@@ -315,10 +316,10 @@ describe('MenuCrudService', () => {
       ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
-    it('translates the full menu into the dashboard language without requiring multi-language targets', async () => {
+    it('translates the full menu into the menu source language without requiring multi-language targets', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
-        dashboardLanguage: 'en',
+        menuSourceLanguage: 'en',
         targetLanguages: ['fr'],
         tier: 'FREE',
       });
@@ -365,7 +366,7 @@ describe('MenuCrudService', () => {
 
       expect(result).toHaveProperty('restaurant');
       expect(result.restaurant).toMatchObject({
-        dashboardLanguage: 'bg',
+        menuSourceLanguage: 'bg',
         city: 'Sofia',
       });
       expect(result).toHaveProperty('categories');
@@ -373,7 +374,7 @@ describe('MenuCrudService', () => {
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.objectContaining({
-            dashboardLanguage: true,
+            menuSourceLanguage: true,
             city: true,
           }),
         }),
@@ -438,10 +439,10 @@ describe('MenuCrudService', () => {
       ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
-    it('uses the dashboard language by default without requiring multi-language targets', async () => {
+    it('uses the menu source language by default without requiring multi-language targets', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
-        dashboardLanguage: 'en',
+        menuSourceLanguage: 'en',
         targetLanguages: ['fr'],
         tier: 'FREE',
       });
@@ -454,7 +455,7 @@ describe('MenuCrudService', () => {
       ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
 
-    it('uses the dashboard language when lang is not a target language', async () => {
+    it('uses the menu source language when lang is not a target language', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -506,10 +507,10 @@ describe('MenuCrudService', () => {
       expect(result[0].id).toBe('item-1');
     });
 
-    it('translates items into the dashboard language without requiring multi-language targets', async () => {
+    it('translates items into the menu source language without requiring multi-language targets', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
-        dashboardLanguage: 'en',
+        menuSourceLanguage: 'en',
         targetLanguages: ['fr'],
         tier: 'FREE',
       });
@@ -523,7 +524,7 @@ describe('MenuCrudService', () => {
       ).toHaveBeenCalledWith(expect.any(Array), 'en');
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
-          select: expect.objectContaining({ dashboardLanguage: true }),
+          select: expect.objectContaining({ menuSourceLanguage: true }),
         }),
       );
     });
@@ -1136,13 +1137,13 @@ describe('MenuCrudService', () => {
       ).toHaveBeenCalledWith(expect.any(Array), 'bg');
     });
 
-    it('translates trending items into the dashboard language when it is not a target language', async () => {
+    it('translates trending items into the menu source language when it is not a target language', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         trendingMode: 'MANUAL',
         id: 'rest-1',
         tier: 'PROFESSIONAL',
         forceTier: null,
-        dashboardLanguage: 'ro',
+        menuSourceLanguage: 'ro',
         targetLanguages: ['fr'],
       });
       mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);

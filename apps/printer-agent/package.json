@@ -38,6 +38,7 @@
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "expo-modules-core": "~56.0.22",
     "globals": "^16.5.0",
     "jest": "~29.7.0",
     "jest-expo": "~56.0.5",
