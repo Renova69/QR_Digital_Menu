@@ -73,7 +73,11 @@ describe("mobile-first dashboard UX contracts", () => {
   it("scopes legacy dashboard buttons to the 14px control system", () => {
     const dashboard = readSource("./pages/DashboardPage.tsx");
     const menuEditor = readSource("./pages/MenuEditorPage.tsx");
-    const modal = readSource("./components/ui/Modal.tsx");
+    // Lowercase filename, matching how the file is tracked in git (the
+    // shadcn/ui convention the rest of components/ui follows). Windows and
+    // macOS open "Modal.tsx" regardless, so a capitalised reference here
+    // passes locally and only ENOENTs on Linux CI.
+    const modal = readSource("./components/ui/modal.tsx");
     const styles = readSource("./index.css");
 
     expect(dashboard).toContain("dashboard-ui");
@@ -105,7 +109,9 @@ describe("mobile-first dashboard UX contracts", () => {
 
     expect(itemList).toContain('<Edit className="h-5 w-5');
     expect(categoryList).toContain('aria-label={t("menuAdmin.editCategory"');
-    expect(categoryList).toContain('aria-label={t("menuAdmin.categorySettings"');
+    expect(categoryList).toContain(
+      'aria-label={t("menuAdmin.categorySettings"',
+    );
     expect(button).toContain('icon: "h-11 w-11 p-0"');
     expect(styles).toContain(
       "button.whitespace-nowrap.uppercase.tracking-wider:not(.p-0)",
