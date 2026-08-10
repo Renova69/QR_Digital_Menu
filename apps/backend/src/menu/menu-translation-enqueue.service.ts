@@ -112,12 +112,19 @@ export class MenuTranslationEnqueueService {
           AND "menu_translation_state"."status" = 'NEEDS_REVIEW'
         )`
       : Prisma.sql`FALSE`;
+    // An owner-authored translation outranks everything the pipeline believes.
+    // This applies on BOTH the force and non-force paths and survives a source
+    // edit, because silently discarding words a human typed is the one
+    // behaviour guaranteed to make owners distrust the feature.
+    const preserveManual = Prisma.sql`("menu_translation_state"."status" = 'MANUAL')`;
     const nextStatus = force
       ? Prisma.sql`(CASE
+          WHEN ${preserveManual} THEN 'MANUAL'
           WHEN ${preserveNeedsReview} THEN 'NEEDS_REVIEW'
           ELSE 'STALE'
         END)::"MenuTranslationStatus"`
       : Prisma.sql`(CASE
+          WHEN ${preserveManual} THEN 'MANUAL'
           WHEN "menu_translation_state"."sourceHash" <> EXCLUDED."sourceHash" THEN 'STALE'
           WHEN "menu_translation_state"."sourceLang" <> EXCLUDED."sourceLang" THEN 'STALE'
           ELSE 'CURRENT'
@@ -132,7 +139,8 @@ export class MenuTranslationEnqueueService {
           )
           VALUES ${values}
           ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
-            "sourceHash" = EXCLUDED."sourceHash",
+            "sourceHash" = CASE WHEN ${preserveManual}
+              THEN "menu_translation_state"."sourceHash" ELSE EXCLUDED."sourceHash" END,
             "sourceLang" = EXCLUDED."sourceLang",
             "status" = ${nextStatus},
             "runId" = CASE WHEN ${nextStatus} = 'STALE'

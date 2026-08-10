@@ -202,6 +202,14 @@ describe('MenuTranslationWorkerService', () => {
       expect(mockPrisma.restaurant.findUnique).not.toHaveBeenCalled();
     });
 
+    it('never claims MANUAL or NEEDS_REVIEW rows', async () => {
+      await service.runOnce();
+
+      const claimSql = String(mockPrisma.$queryRawUnsafe.mock.calls[0][0]);
+      expect(claimSql).toContain(`"status" IN ('STALE', 'FAILED')`);
+      expect(claimSql).not.toContain('MANUAL');
+    });
+
     it('reconciles a RUNNING run after a crash saved its final row but missed finalization', async () => {
       const startedAt = new Date('2026-08-09T10:00:00.000Z');
       mockPrisma.$queryRawUnsafe.mockResolvedValue([]);

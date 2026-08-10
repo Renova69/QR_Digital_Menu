@@ -1817,6 +1817,38 @@ describe('MenuCrudService', () => {
 
       expect(mockTranslationEnqueue.enqueueItem).not.toHaveBeenCalled();
     });
+
+    it('purging stale cached translations never removes a name override', async () => {
+      // Regression guard for the MANUAL translation override feature: the
+      // stale-cache purge loop below only ever deletes `allergens`,
+      // `dietaryTags`, and `description` keys from cached translations —
+      // never `name`. That gap is the only reason a MANUAL name override
+      // survives an ordinary allergen/tag/description edit. If a future
+      // field added to that loop starts touching `name`, this test must
+      // fail loudly rather than silently eating an owner's override.
+      mockPrisma.menuItem.findUnique.mockResolvedValue(
+        makeItem({
+          name: 'Джин Beefeater',
+          allergens: ['nuts'],
+          translations: {
+            en: { name: 'Beefeater Gin', allergens: { nuts: 'Nuts' } },
+          },
+        }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.update.mockResolvedValue(makeItem({ allergens: [] }));
+
+      await service.updateItem('item-1', { allergens: [] }, 'user-1');
+
+      const purgeCall = mockPrisma.menuItem.update.mock.calls.find(
+        (call: any[]) => call[0]?.data?.translations,
+      );
+      expect(purgeCall).toBeDefined();
+      expect(purgeCall![0].data.translations.en.name).toBe('Beefeater Gin');
+      expect(purgeCall![0].data.translations.en).not.toHaveProperty(
+        'allergens',
+      );
+    });
   });
 
   describe('updateItemImage', () => {

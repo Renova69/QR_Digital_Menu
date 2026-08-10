@@ -292,6 +292,48 @@ describe('MenuTranslationEnqueueService', () => {
     );
   });
 
+  describe('MANUAL overrides', () => {
+    it('never downgrades a MANUAL row, on either the force or non-force path', async () => {
+      await service.enqueueItem(
+        'rest-1',
+        { id: 'item-1', name: 'Джин Beefeater', translations: {} },
+        ['en'],
+        'bg',
+      );
+
+      const sql = mockPrisma.$executeRaw.mock.calls
+        .map((call) =>
+          String(
+            (call[0] as { strings?: readonly string[] })?.strings?.join('') ??
+              call[0],
+          ),
+        )
+        .join('\n');
+
+      expect(sql).toContain(`"menu_translation_state"."status" = 'MANUAL'`);
+    });
+
+    it('freezes sourceHash on MANUAL rows so source drift stays detectable', async () => {
+      await service.enqueueItem(
+        'rest-1',
+        { id: 'item-1', name: 'Джин Beefeater', translations: {} },
+        ['en'],
+        'bg',
+      );
+
+      const sql = mockPrisma.$executeRaw.mock.calls
+        .map((call) =>
+          String(
+            (call[0] as { strings?: readonly string[] })?.strings?.join('') ??
+              call[0],
+          ),
+        )
+        .join('\n');
+
+      expect(sql).toMatch(/"sourceHash" = CASE WHEN[\s\S]*?'MANUAL'/);
+    });
+  });
+
   describe('enqueueBatch', () => {
     it('runs all thunks to completion', async () => {
       const calls: number[] = [];
