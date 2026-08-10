@@ -136,8 +136,7 @@ async function mockPublicApi(page: Page): Promise<void> {
     }
 
     if (
-      path ===
-        `/api/v1/reservations/public/${RESTAURANT_ID}/availability` &&
+      path === `/api/v1/reservations/public/${RESTAURANT_ID}/availability` &&
       request.method() === "GET"
     ) {
       await fulfillJson(route, {
@@ -238,6 +237,11 @@ test("new owner is prompted to verify registration", async ({ page }) => {
 
   await page.getByLabel("Email").fill("new-owner@example.com");
   await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  // Registration is gated on the terms checkbox — LoginDialog keeps the submit
+  // button disabled until it is ticked. Without this the click just waits for
+  // an element that never becomes actionable and the test dies on timeout
+  // rather than on a real assertion.
+  await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(
