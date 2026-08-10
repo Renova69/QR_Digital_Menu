@@ -1375,6 +1375,10 @@ enum MenuTranslationStatus {
   FAILED
   SKIPPED
   NEEDS_REVIEW
+  // Owner-authored translation. Terminal, exactly like NEEDS_REVIEW:
+  // claimBatch only claims STALE/FAILED, so the worker never touches it, and
+  // the enqueue ON CONFLICT preserves it (see menu-translation-enqueue.service).
+  MANUAL
 }
 
 model MenuTranslationState {
