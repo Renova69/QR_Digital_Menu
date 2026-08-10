@@ -20,6 +20,26 @@ const describeWithDatabase = concurrencyDatabaseUrl ? describe : describe.skip;
 
 jest.setTimeout(30_000);
 
+/**
+ * Prisma sizes its connection pool at `num_cpus * 2 + 1`, which is 3 on a
+ * single-vCPU CI runner. This suite holds two deliberately-contending
+ * transactions open at once AND polls pg_stat_activity from the same client to
+ * observe the lock waiters, so a pool of 3 starves the observer: it blocks for
+ * the 10s pool-acquire timeout while the two transactions sit on the row lock,
+ * and both then die with "Transaction already closed". That reads like a
+ * broken invariant but is pure harness starvation — pinning
+ * `connection_limit=3` locally reproduces it exactly, and the suite passes
+ * unchanged on a many-core machine, which is why it only ever failed in CI.
+ *
+ * The pool only has to exceed the number of concurrent actors, and this is
+ * scoped to the test client; the production PrismaService is untouched.
+ */
+function withTestPoolSize(url: string, connections: number): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set('connection_limit', String(connections));
+  return parsed.toString();
+}
+
 function assertIsolatedTestDatabase(url: string): void {
   const parsed = new URL(url);
   const isLocal = ['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname);
@@ -39,16 +59,9 @@ describeWithDatabase(
     beforeAll(async () => {
       assertIsolatedTestDatabase(concurrencyDatabaseUrl!);
       prisma = new PrismaClient({
-        datasources: { db: { url: concurrencyDatabaseUrl } },
-        // These tests deliberately make two transactions contend for the same
-        // session row, so one of them sits blocked on the lock by design.
-        // Prisma's 5s default interactive-transaction timeout is under that
-        // contention window on a slow CI runner, and the commit then fails with
-        // "Transaction already closed" — a timeout of the harness, not a real
-        // invariant violation. Same allowance the sibling
-        // preproduction-concurrency spec already makes. Test client only; the
-        // production PrismaService keeps its own defaults.
-        transactionOptions: { maxWait: 5_000, timeout: 15_000 },
+        datasources: {
+          db: { url: withTestPoolSize(concurrencyDatabaseUrl!, 10) },
+        },
       });
       await prisma.$connect();
     });
