@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ItemController, ItemDetailController } from './item.controller';
 import { MenuCrudService } from './menu-crud.service';
 import { StorageService } from '../storage/storage.service';
+import { MenuTranslationOverrideService } from './menu-translation-override.service';
 
 describe('ItemController', () => {
   let controller: ItemController;
@@ -60,6 +61,10 @@ describe('ItemDetailController', () => {
     updateItemImage: jest.fn(),
   };
   const mockStorage = { uploadWithThumbnail: jest.fn(), delete: jest.fn() };
+  const mockOverrides = {
+    getForItem: jest.fn(),
+    setOverride: jest.fn(),
+  };
 
   beforeEach(async () => {
     const m = await Test.createTestingModule({
@@ -67,6 +72,10 @@ describe('ItemDetailController', () => {
       providers: [
         { provide: MenuCrudService, useValue: mockCrud },
         { provide: StorageService, useValue: mockStorage },
+        {
+          provide: MenuTranslationOverrideService,
+          useValue: mockOverrides,
+        },
       ],
     }).compile();
     controller = m.get<ItemDetailController>(ItemDetailController);
@@ -90,6 +99,39 @@ describe('ItemDetailController', () => {
     const r = await controller.remove('i1', req);
     expect(mockCrud.removeItem).toHaveBeenCalledWith('i1', 'u1');
     expect(r).toEqual({ deleted: true });
+  });
+
+  it('reads translations for the authenticated owner', async () => {
+    mockOverrides.getForItem.mockResolvedValue({
+      itemId: 'item-1',
+      locales: [],
+    });
+
+    await controller.getTranslations('item-1', {
+      user: { id: 'user-1' },
+    });
+
+    expect(mockOverrides.getForItem).toHaveBeenCalledWith('item-1', 'user-1');
+  });
+
+  it('writes an override for the authenticated owner', async () => {
+    mockOverrides.setOverride.mockResolvedValue({
+      itemId: 'item-1',
+      locales: [],
+    });
+
+    await controller.updateTranslation(
+      'item-1',
+      { locale: 'en', value: 'Beefeater Gin' },
+      { user: { id: 'user-1' } },
+    );
+
+    expect(mockOverrides.setOverride).toHaveBeenCalledWith(
+      'item-1',
+      'en',
+      'Beefeater Gin',
+      'user-1',
+    );
   });
 
   it('uploadImage throws when no file', async () => {

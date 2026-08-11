@@ -21,7 +21,9 @@ import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
+import { UpdateItemTranslationDto } from './dto/update-item-translation.dto';
 import { StorageService } from '../storage/storage.service';
+import { MenuTranslationOverrideService } from './menu-translation-override.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('categories/:categoryId/items')
@@ -63,7 +65,24 @@ export class ItemDetailController {
   constructor(
     private readonly crud: MenuCrudService,
     private readonly storageService: StorageService,
+    private readonly overrides: MenuTranslationOverrideService,
   ) {}
+
+  @Get(':id/translations')
+  getTranslations(@Param('id') id: string, @Request() req: any) {
+    return this.overrides.getForItem(id, req.user.id);
+  }
+
+  // Owner-authored text only — no DeepL call, so the create/update cost guard
+  // does not apply here.
+  @Patch(':id/translations')
+  updateTranslation(
+    @Param('id') id: string,
+    @Body(ValidationPipe) dto: UpdateItemTranslationDto,
+    @Request() req: any,
+  ) {
+    return this.overrides.setOverride(id, dto.locale, dto.value, req.user.id);
+  }
 
   // Same DeepL cost guard as item create (#30).
   @Throttle({ default: { limit: 30, ttl: 60000 } })

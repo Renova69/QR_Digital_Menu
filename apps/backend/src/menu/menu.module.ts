@@ -22,6 +22,7 @@ import { MenuAuditController } from './audit.controller';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { BulkItemController } from './bulk-item.controller';
 import { MenuBulkEditService } from './menu-bulk-edit.service';
+import { MenuTranslationOverrideService } from './menu-translation-override.service';
 
 @Module({
   imports: [PrismaModule, TranslationModule],
@@ -45,6 +46,7 @@ import { MenuBulkEditService } from './menu-bulk-edit.service';
     MenuAuditService,
     WeatherUpsellService,
     MenuBulkEditService,
+    MenuTranslationOverrideService,
   ],
   exports: [
     MenuCrudService,
@@ -53,6 +55,7 @@ import { MenuBulkEditService } from './menu-bulk-edit.service';
     MenuTranslationEnqueueService,
     MenuTranslationWorkerService,
     MenuAuditService,
+    MenuTranslationOverrideService,
   ],
 })
 export class MenuModule {}
