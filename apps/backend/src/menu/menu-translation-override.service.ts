@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuCrudService } from './menu-crud.service';
 import { computeSourceHash } from './menu-translation-hash.util';
@@ -124,5 +129,80 @@ export class MenuTranslationOverrideService {
         };
       }),
     };
+  }
+
+  /**
+   * Write or clear one owner-authored locale value. The JSON mutation and the
+   * queue-state transition commit together so a partial failure cannot leave
+   * an unprotected manual value or a MANUAL row without its value.
+   */
+  async setOverride(
+    itemId: string,
+    locale: string,
+    value: string | null,
+    userId: string,
+  ): Promise<ItemTranslations> {
+    const item = await this.loadItem(itemId, userId);
+    const { sourceLang, locales } = this.editableLocales(item);
+    const normalized = locale.trim().toLowerCase();
+
+    if (!locales.includes(normalized)) {
+      throw new BadRequestException(
+        `"${locale}" is not a configured target language for this restaurant.`,
+      );
+    }
+
+    const trimmed = value?.trim() || null;
+    const hash = computeSourceHash(item.name);
+    const status = trimmed ? 'MANUAL' : 'STALE';
+
+    await this.prisma.$transaction(async (tx) => {
+      if (trimmed) {
+        await tx.$executeRaw`
+          UPDATE "menu_item"
+          SET translations = jsonb_set(
+            COALESCE(translations, '{}'::jsonb),
+            ARRAY[${normalized}],
+            COALESCE(
+              CASE
+                WHEN jsonb_typeof(translations -> ${normalized}) = 'object'
+                  THEN translations -> ${normalized}
+              END,
+              '{}'::jsonb
+            ) || jsonb_build_object('name', ${trimmed}::text),
+            true
+          )
+          WHERE id = ${itemId}`;
+      } else {
+        await tx.$executeRaw`
+          UPDATE "menu_item"
+          SET translations = COALESCE(translations, '{}'::jsonb)
+            #- ARRAY[${normalized}, 'name']
+          WHERE id = ${itemId}`;
+      }
+
+      await tx.$executeRaw`
+        INSERT INTO "menu_translation_state" (
+          "id", "restaurantId", "entityType", "entityId", "field", "locale",
+          "sourceLang", "sourceHash", "status", "reviewedAt", "createdAt", "updatedAt"
+        )
+        VALUES (
+          ${randomUUID()}, ${item.category.restaurantId}, 'ITEM'::"MenuTranslationEntity",
+          ${itemId}, 'NAME'::"MenuTranslationField", ${normalized},
+          ${sourceLang}, ${hash}, ${status}::"MenuTranslationStatus", now(), now(), now()
+        )
+        ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
+          "status" = ${status}::"MenuTranslationStatus",
+          "sourceHash" = ${hash},
+          "sourceLang" = ${sourceLang},
+          "runId" = NULL,
+          "failureCount" = 0,
+          "nextAttemptAt" = NULL,
+          "lastError" = NULL,
+          "reviewedAt" = now(),
+          "updatedAt" = now()`;
+    });
+
+    return this.getForItem(itemId, userId);
   }
 }

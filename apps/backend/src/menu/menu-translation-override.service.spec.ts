@@ -12,6 +12,7 @@ describe('MenuTranslationOverrideService', () => {
       menuTranslationState: { findMany: jest.fn().mockResolvedValue([]) },
       $executeRaw: jest.fn().mockResolvedValue(1),
     };
+    prisma.$transaction = jest.fn((operation) => operation(prisma));
     crud = {
       verifyRestaurantOwnership: jest
         .fn()
@@ -90,5 +91,77 @@ describe('MenuTranslationOverrideService', () => {
     await expect(service.getForItem('nope', 'user-1')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  describe('setOverride', () => {
+    const executedSql = () =>
+      prisma.$executeRaw.mock.calls
+        .map(([query]: any[]) =>
+          Array.isArray(query)
+            ? query.join('')
+            : String(query?.strings?.join('') ?? query),
+        )
+        .join('\n');
+    const executedValues = () =>
+      prisma.$executeRaw.mock.calls.flatMap((call: any[]) => call.slice(1));
+
+    beforeEach(() => {
+      prisma.menuItem.findUnique.mockResolvedValue({
+        id: 'item-1',
+        name: 'Джин Beefeater',
+        translations: { en: { name: 'Джин Beefeater' } },
+        category: {
+          restaurantId: 'rest-1',
+          restaurant: { menuSourceLanguage: 'bg', targetLanguages: ['en'] },
+        },
+      });
+    });
+
+    it('writes the value atomically and creates missing locale objects', async () => {
+      await service.setOverride(
+        'item-1',
+        'en',
+        'Beefeater Gin',
+        'user-1',
+      );
+
+      const sql = executedSql();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(sql).toContain('jsonb_set');
+      expect(sql).toContain('jsonb_build_object');
+      expect(sql).toContain('"menu_item"');
+    });
+
+    it('marks the queue row MANUAL so the worker leaves it alone', async () => {
+      await service.setOverride(
+        'item-1',
+        'en',
+        'Beefeater Gin',
+        'user-1',
+      );
+
+      const sql = executedSql();
+      expect(sql).toContain('menu_translation_state');
+      expect(executedValues()).toContain('MANUAL');
+    });
+
+    it('rejects a locale that is not a configured target', async () => {
+      await expect(
+        service.setOverride('item-1', 'fr', 'Gin', 'user-1'),
+      ).rejects.toThrow(/not a configured target language/i);
+    });
+
+    it('rejects the source language', async () => {
+      await expect(
+        service.setOverride('item-1', 'bg', 'Джин', 'user-1'),
+      ).rejects.toThrow(/not a configured target language/i);
+    });
+
+    it('clearing an override returns the row to STALE so it gets retranslated', async () => {
+      await service.setOverride('item-1', 'en', null, 'user-1');
+
+      expect(executedValues()).toContain('STALE');
+      expect(executedValues()).not.toContain('MANUAL');
+    });
   });
 });
