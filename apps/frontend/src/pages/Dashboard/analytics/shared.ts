@@ -8,7 +8,7 @@
 import i18n from "i18next";
 
 export const CHART_COLORS = [
-  "hsl(var(--color-primary))",
+  "var(--color-primary)",
   "#10b981",
   "#f59e0b",
   "#38bdf8",

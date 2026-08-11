@@ -322,12 +322,12 @@ const AnalyticsView = () => {
                   >
                     <stop
                       offset="5%"
-                      stopColor="hsl(var(--color-primary))"
+                      stopColor="var(--color-primary)"
                       stopOpacity={0.32}
                     />
                     <stop
                       offset="95%"
-                      stopColor="hsl(var(--color-primary))"
+                      stopColor="var(--color-primary)"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -365,7 +365,7 @@ const AnalyticsView = () => {
                   type="monotone"
                   dataKey="revenue"
                   name={t("analytics.revenue", "Revenue")}
-                  stroke="hsl(var(--color-primary))"
+                  stroke="var(--color-primary)"
                   strokeWidth={3}
                   fill="url(#analyticsRevenue)"
                 />

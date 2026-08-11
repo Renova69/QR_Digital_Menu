@@ -7,6 +7,28 @@ vi.mock("react-i18next", () => ({
 }));
 
 describe("CategoryMix", () => {
+  it("renders a visible color marker for the first category", () => {
+    render(
+      <CategoryMix
+        categories={[
+          {
+            category: "Salads",
+            categoryType: "CATEGORY",
+            revenue: 100,
+          },
+        ]}
+      />,
+    );
+
+    const marker = screen.getByText("Salads").previousElementSibling as
+      | HTMLElement
+      | null;
+
+    expect(marker).not.toBeNull();
+    expect(marker?.style.backgroundColor).not.toBe("");
+    expect(marker?.style.backgroundColor).toBe("var(--color-primary)");
+  });
+
   it("labels deleted-menu revenue separately from uncategorized revenue", () => {
     render(
       <CategoryMix
