@@ -1,24 +1,41 @@
 import { NotFoundException } from '@nestjs/common';
+import type { PrismaService } from '../prisma/prisma.service';
+import type { MenuCrudService } from './menu-crud.service';
 import { MenuTranslationOverrideService } from './menu-translation-override.service';
+
+interface MockPrisma {
+  menuItem: { findUnique: jest.Mock };
+  menuTranslationState: { findMany: jest.Mock };
+  $executeRaw: jest.Mock;
+  $transaction: jest.Mock;
+}
+
+interface MockCrud {
+  verifyRestaurantOwnership: jest.Mock;
+}
 
 describe('MenuTranslationOverrideService', () => {
   let service: MenuTranslationOverrideService;
-  let prisma: any;
-  let crud: any;
+  let prisma: MockPrisma;
+  let crud: MockCrud;
 
   beforeEach(() => {
     prisma = {
       menuItem: { findUnique: jest.fn() },
       menuTranslationState: { findMany: jest.fn().mockResolvedValue([]) },
       $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(),
     };
-    prisma.$transaction = jest.fn((operation) => operation(prisma));
+    prisma.$transaction.mockImplementation(
+      (operation: (transaction: MockPrisma) => unknown) => operation(prisma),
+    );
     crud = {
-      verifyRestaurantOwnership: jest
-        .fn()
-        .mockResolvedValue({ id: 'rest-1' }),
+      verifyRestaurantOwnership: jest.fn().mockResolvedValue({ id: 'rest-1' }),
     };
-    service = new MenuTranslationOverrideService(prisma, crud);
+    service = new MenuTranslationOverrideService(
+      prisma as unknown as PrismaService,
+      crud as unknown as MenuCrudService,
+    );
   });
 
   it('returns one entry per target language, with the stored value', async () => {
@@ -96,14 +113,16 @@ describe('MenuTranslationOverrideService', () => {
   describe('setOverride', () => {
     const executedSql = () =>
       prisma.$executeRaw.mock.calls
-        .map(([query]: any[]) =>
-          Array.isArray(query)
-            ? query.join('')
-            : String(query?.strings?.join('') ?? query),
-        )
+        .map((call: unknown[]) => {
+          const [query] = call;
+          if (Array.isArray(query)) return query.join('');
+
+          const strings = (query as { strings?: unknown } | null)?.strings;
+          return Array.isArray(strings) ? strings.join('') : '';
+        })
         .join('\n');
     const executedValues = () =>
-      prisma.$executeRaw.mock.calls.flatMap((call: any[]) => call.slice(1));
+      prisma.$executeRaw.mock.calls.flatMap((call: unknown[]) => call.slice(1));
 
     beforeEach(() => {
       prisma.menuItem.findUnique.mockResolvedValue({
@@ -118,12 +137,7 @@ describe('MenuTranslationOverrideService', () => {
     });
 
     it('writes the value atomically and creates missing locale objects', async () => {
-      await service.setOverride(
-        'item-1',
-        'en',
-        'Beefeater Gin',
-        'user-1',
-      );
+      await service.setOverride('item-1', 'en', 'Beefeater Gin', 'user-1');
 
       const sql = executedSql();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -133,12 +147,7 @@ describe('MenuTranslationOverrideService', () => {
     });
 
     it('marks the queue row MANUAL so the worker leaves it alone', async () => {
-      await service.setOverride(
-        'item-1',
-        'en',
-        'Beefeater Gin',
-        'user-1',
-      );
+      await service.setOverride('item-1', 'en', 'Beefeater Gin', 'user-1');
 
       const sql = executedSql();
       expect(sql).toContain('menu_translation_state');

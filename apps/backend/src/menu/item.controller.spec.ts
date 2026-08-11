@@ -4,6 +4,8 @@ import { ItemController, ItemDetailController } from './item.controller';
 import { MenuCrudService } from './menu-crud.service';
 import { StorageService } from '../storage/storage.service';
 import { MenuTranslationOverrideService } from './menu-translation-override.service';
+import { CreateItemDto } from './dto/create-item.dto';
+import { UpdateItemDto } from './dto/update-item.dto';
 
 describe('ItemController', () => {
   let controller: ItemController;
@@ -26,7 +28,7 @@ describe('ItemController', () => {
 
   it('create delegates to crud.createItem', async () => {
     const req = { user: { id: 'u1' } };
-    const dto = { name: 'Burger' } as any;
+    const dto = { name: 'Burger' } as CreateItemDto;
     mockCrud.createItem.mockResolvedValue({ id: 'i1' });
     const r = await controller.create('cat-1', dto, req);
     expect(mockCrud.createItem).toHaveBeenCalledWith('cat-1', dto, 'u1');
@@ -86,7 +88,7 @@ describe('ItemDetailController', () => {
 
   it('update delegates to crud.updateItem', async () => {
     const req = { user: { id: 'u1' } };
-    const dto = { name: 'Updated' } as any;
+    const dto = { name: 'Updated' } as UpdateItemDto;
     mockCrud.updateItem.mockResolvedValue({ id: 'i1' });
     const r = await controller.update('i1', dto, req);
     expect(mockCrud.updateItem).toHaveBeenCalledWith('i1', dto, 'u1');
@@ -136,7 +138,11 @@ describe('ItemDetailController', () => {
 
   it('uploadImage throws when no file', async () => {
     await expect(
-      controller.uploadImage('i1', undefined as any, { user: { id: 'u1' } }),
+      controller.uploadImage(
+        'i1',
+        undefined as unknown as Express.Multer.File,
+        { user: { id: 'u1' } },
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 });

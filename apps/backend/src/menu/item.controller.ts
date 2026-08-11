@@ -25,6 +25,10 @@ import { UpdateItemTranslationDto } from './dto/update-item-translation.dto';
 import { StorageService } from '../storage/storage.service';
 import { MenuTranslationOverrideService } from './menu-translation-override.service';
 
+interface AuthenticatedRequest {
+  user: { id: string };
+}
+
 @UseGuards(JwtAuthGuard)
 @Controller('categories/:categoryId/items')
 export class ItemController {
@@ -69,7 +73,10 @@ export class ItemDetailController {
   ) {}
 
   @Get(':id/translations')
-  getTranslations(@Param('id') id: string, @Request() req: any) {
+  getTranslations(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.overrides.getForItem(id, req.user.id);
   }
 
@@ -79,7 +86,7 @@ export class ItemDetailController {
   updateTranslation(
     @Param('id') id: string,
     @Body(ValidationPipe) dto: UpdateItemTranslationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.overrides.setOverride(id, dto.locale, dto.value, req.user.id);
   }
