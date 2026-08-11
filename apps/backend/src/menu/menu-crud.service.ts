@@ -76,9 +76,8 @@ export class MenuCrudService {
 
   /**
    * Public-menu languages consist of the menu source language first,
-   * followed by configured translation targets. The source language must be
-   * eligible for menu-content translation even when it was not duplicated in
-   * targetLanguages.
+   * followed by configured translation targets. The source language remains
+   * available even when it was not duplicated in targetLanguages.
    */
   private buildPublicMenuLanguages(restaurant: {
     menuSourceLanguage?: string | null;
@@ -98,11 +97,11 @@ export class MenuCrudService {
     return [...new Set([sourceDefault, ...targets])];
   }
 
-  /** Resolve a requested language against the restaurant's public-menu
-   *  languages (dashboard default + targets, targets gated by LANGUAGES_MULTI).
-   *  Returns the canonical enabled code, or undefined when `lang` is absent or
-   *  not enabled. Shared by the single-category and batched item endpoints. */
-  private resolveRequestedLang(
+  /** Resolve a requested target language whose stored translation may replace
+   *  canonical menu fields. The source language deliberately resolves to
+   *  undefined: owner-authored fields are authoritative and must never be
+   *  replaced by a stale translations[sourceLang] snapshot. */
+  private resolveStoredTranslationLang(
     restaurant: {
       targetLanguages?: string[] | null;
       menuSourceLanguage?: string | null;
@@ -118,10 +117,14 @@ export class MenuCrudService {
     const languageConfig = hasMultiLanguage
       ? restaurant
       : { ...restaurant, targetLanguages: [] };
-    return this.buildPublicMenuLanguages(languageConfig).find(
+    const languages = this.buildPublicMenuLanguages(languageConfig);
+    const requestedLang = languages.find(
       (candidate) =>
         candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
     );
+    return requestedLang && requestedLang !== languages[0]
+      ? requestedLang
+      : undefined;
   }
 
   /** Fetch the public-facing restaurant context (effective tier + timezone +
@@ -417,7 +420,7 @@ export class MenuCrudService {
       restaurantClone.targetLanguages = [];
     }
 
-    const requestedLang = this.resolveRequestedLang(
+    const requestedLang = this.resolveStoredTranslationLang(
       restaurantClone,
       restaurantClone.tier ?? 'FREE',
       lang,
@@ -543,25 +546,18 @@ export class MenuCrudService {
       restaurantClone.tier ?? 'FREE',
     );
 
-    // Apply cached category-name translations so the navigation/pills render
-    // in the requested language on first paint. Read-only: no ?lang= means
-    // effectiveLang falls back to the owner's own dashboard language, in
-    // which case there is no translations[lang] entry and this is a no-op —
-    // it is a display choice, not a translation trigger.
-    const requestedLang = this.resolveRequestedLang(
+    // Apply cached target-language category names on first paint. Source-
+    // language fields stay canonical so stale translations[sourceLang]
+    // snapshots cannot hide an owner's latest edit.
+    const requestedLang = this.resolveStoredTranslationLang(
       restaurantClone,
       restaurantClone.tier ?? 'FREE',
       lang,
     );
-    // Before this response arrives, the frontend cannot know the owner's
-    // dashboard language. Keep the first-paint category translation aligned
-    // with that public-menu default instead of targetLanguages[0].
-    const effectiveLang =
-      requestedLang ?? this.buildPublicMenuLanguages(restaurantClone)[0];
-    if (effectiveLang) {
+    if (requestedLang) {
       this.menuTranslationRead.applyStoredTranslations(
         filteredCategories,
-        effectiveLang,
+        requestedLang,
       );
     }
 
@@ -614,7 +610,11 @@ export class MenuCrudService {
       include: { options: true },
     });
 
-    const requestedLang = this.resolveRequestedLang(restaurant, tier, lang);
+    const requestedLang = this.resolveStoredTranslationLang(
+      restaurant,
+      tier,
+      lang,
+    );
     if (requestedLang) {
       const fakeCategory = { ...category, items };
       this.menuTranslationRead.applyStoredTranslations(
@@ -665,7 +665,11 @@ export class MenuCrudService {
       tier,
     );
 
-    const requestedLang = this.resolveRequestedLang(restaurant, tier, lang);
+    const requestedLang = this.resolveStoredTranslationLang(
+      restaurant,
+      tier,
+      lang,
+    );
     if (requestedLang) {
       this.menuTranslationRead.applyStoredTranslations(
         filtered as any[],
@@ -925,19 +929,11 @@ export class MenuCrudService {
     },
     lang?: string,
   ): Promise<Partial<MenuItem>[]> {
-    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+    const requestedLang = this.resolveStoredTranslationLang(
       restaurant,
-      FeatureFlag.LANGUAGES_MULTI,
+      restaurant.forceTier ?? restaurant.tier ?? 'FREE',
+      lang,
     );
-    const languageConfig = hasMultiLanguage
-      ? restaurant
-      : { ...restaurant, targetLanguages: [] };
-    const requestedLang = lang
-      ? this.buildPublicMenuLanguages(languageConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
-        )
-      : undefined;
     if (requestedLang && items.length > 0) {
       this.menuTranslationRead.applyStoredTranslations(
         [

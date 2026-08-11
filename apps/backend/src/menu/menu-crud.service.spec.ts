@@ -306,21 +306,21 @@ describe('MenuCrudService', () => {
       expect(result.categories[0]?.id).toBe('cat-1');
     });
 
-    it('calls applyLazyTranslations when lang in targetLanguages and translation provider enabled', async () => {
+    it('applies stored translations when lang is an enabled target', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
       }); // targetLanguages: ['en','bg']
       mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
 
-      await service.getPublicMenu('rest-1', 'bg');
+      await service.getPublicMenu('rest-1', 'en');
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
 
-    it('translates the full menu into the menu source language without requiring multi-language targets', async () => {
+    it('keeps canonical fields for the full menu source language', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         menuSourceLanguage: 'en',
@@ -333,7 +333,7 @@ describe('MenuCrudService', () => {
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'en');
+      ).not.toHaveBeenCalled();
     });
 
     it('does not call applyLazyTranslations when lang not in targetLanguages', async () => {
@@ -436,14 +436,14 @@ describe('MenuCrudService', () => {
       });
       mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
 
-      await service.getPublicMenuMeta('rest-1', 'bg');
+      await service.getPublicMenuMeta('rest-1', 'en');
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
 
-    it('uses the menu source language by default without requiring multi-language targets', async () => {
+    it('keeps canonical category names in the menu source language by default', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         menuSourceLanguage: 'en',
@@ -456,10 +456,10 @@ describe('MenuCrudService', () => {
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'en');
+      ).not.toHaveBeenCalled();
     });
 
-    it('uses the menu source language when lang is not a target language', async () => {
+    it('keeps canonical category names when lang is not enabled', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -470,7 +470,7 @@ describe('MenuCrudService', () => {
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
+      ).not.toHaveBeenCalled();
     });
 
     it('matches a requested target language case-insensitively', async () => {
@@ -480,11 +480,11 @@ describe('MenuCrudService', () => {
       });
       mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
 
-      await service.getPublicMenuMeta('rest-1', 'BG');
+      await service.getPublicMenuMeta('rest-1', 'EN');
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
   });
 
@@ -511,7 +511,7 @@ describe('MenuCrudService', () => {
       expect(result[0].id).toBe('item-1');
     });
 
-    it('translates items into the menu source language without requiring multi-language targets', async () => {
+    it('keeps canonical items in the menu source language', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         menuSourceLanguage: 'en',
@@ -525,7 +525,7 @@ describe('MenuCrudService', () => {
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'en');
+      ).not.toHaveBeenCalled();
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.objectContaining({ menuSourceLanguage: true }),
@@ -619,6 +619,72 @@ describe('MenuCrudService', () => {
       expect(result['cat-2'][0].id).toBe('item-2');
     });
 
+    it('keeps owner-edited source fields while still applying target overrides', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        makeCategory({
+          items: [
+            makeItem({
+              name: 'Картофки на Дядо TEST',
+              description: 'Прясно описание TEST',
+              translations: {
+                bg: {
+                  name: 'Картофки на Дядо',
+                  description: 'Прясно описание',
+                },
+                en: {
+                  name: "Grandpa's Potatoes TEST",
+                  description: 'Fresh description TEST',
+                },
+              },
+            }),
+          ],
+        }),
+      ]);
+      mockMenuTranslationRead.applyStoredTranslations.mockImplementation(
+        (
+          categories: Array<{
+            items: Array<{
+              name: string;
+              description: string;
+              translations: Record<
+                string,
+                { name: string; description: string }
+              >;
+            }>;
+          }>,
+          lang: string,
+        ) => {
+          const item = categories[0]?.items[0];
+          item.name = item.translations[lang].name;
+          item.description = item.translations[lang].description;
+        },
+      );
+
+      const result = await service.getPublicMenuItems('rest-1', 'bg');
+
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).not.toHaveBeenCalled();
+      expect(result['cat-1'][0]).toMatchObject({
+        name: 'Картофки на Дядо TEST',
+        description: 'Прясно описание TEST',
+      });
+
+      const translated = await service.getPublicMenuItems('rest-1', 'en');
+
+      expect(
+        mockMenuTranslationRead.applyStoredTranslations,
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
+      expect(translated['cat-1'][0]).toMatchObject({
+        name: "Grandpa's Potatoes TEST",
+        description: 'Fresh description TEST',
+      });
+    });
+
     it('returns the effective automatic reward price from restaurant settings', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
@@ -674,20 +740,23 @@ describe('MenuCrudService', () => {
       );
     });
 
-    it('calls applyLazyTranslations once for the whole menu when lang valid and DEEPL key set', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+    it('applies stored translations once for the whole menu when target lang is valid', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
       mockPrisma.menuCategory.findMany.mockResolvedValue([
         makeCategory({ items: [makeItem()] }),
       ]);
 
-      await service.getPublicMenuItems('rest-1', 'bg');
+      await service.getPublicMenuItems('rest-1', 'en');
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
       ).toHaveBeenCalledTimes(1);
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
   });
 
@@ -1134,14 +1203,14 @@ describe('MenuCrudService', () => {
       });
       mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
 
-      await service.getTrendingItems('rest-1', 'bg');
+      await service.getTrendingItems('rest-1', 'en');
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'bg');
+      ).toHaveBeenCalledWith(expect.any(Array), 'en');
     });
 
-    it('translates trending items into the menu source language when it is not a target language', async () => {
+    it('keeps canonical trending items in the menu source language', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         trendingMode: 'MANUAL',
         id: 'rest-1',
@@ -1156,7 +1225,7 @@ describe('MenuCrudService', () => {
 
       expect(
         mockMenuTranslationRead.applyStoredTranslations,
-      ).toHaveBeenCalledWith(expect.any(Array), 'ro');
+      ).not.toHaveBeenCalled();
     });
 
     it('does not translate trending items when lang is not a target language', async () => {
