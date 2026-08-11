@@ -35,6 +35,9 @@ interface ItemWithOptionsProps {
   lang?: string;
 }
 
+const getOptionSelectionKey = (option: MenuOption, choice: OptionChoice) =>
+  option.type === "VARIATION" ? option.id : `${option.id}:${choice.name}`;
+
 export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   item,
   perfectPairings,
@@ -173,18 +176,16 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const getImageUrl = resolveImageUrl;
 
   const buildMainCartItem = () => {
-    const optionsWithDetails = Object.entries(selectedOptions).map(
-      ([optionId, choice]) => {
-        const option = item.options?.find((o) => o.id === optionId);
-        return {
-          optionId: optionId,
-          optionName: option?.name || "Option",
-          choiceName: choice.choiceName,
-          priceModifier: choice.priceModifier || 0,
-          translations: (option?.translations as Record<string, any>) ?? null,
-        };
-      },
-    );
+    const optionsWithDetails = Object.values(selectedOptions).map((choice) => {
+      const option = item.options?.find((o) => o.id === choice.optionId);
+      return {
+        optionId: choice.optionId,
+        optionName: option?.name || "Option",
+        choiceName: choice.choiceName,
+        priceModifier: choice.priceModifier || 0,
+        translations: (option?.translations as Record<string, any>) ?? null,
+      };
+    });
 
     // Generate a unique ID for this specific combination of item + options
     const cartId =
@@ -255,6 +256,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
     choice: OptionChoice,
   ) => {
     setSelectedOptions((prev) => {
+      const selectionKey = getOptionSelectionKey(option, choice);
       if (option.type === "VARIATION") {
         // VARIATION: pick exactly one
         return {
@@ -268,14 +270,14 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
         };
       }
       // ADDON: toggle on/off
-      const current = prev[option.id];
+      const current = prev[selectionKey];
       if (current && current.choiceName === choice.name) {
-        const { [option.id]: _, ...rest } = prev;
+        const { [selectionKey]: _, ...rest } = prev;
         return rest;
       }
       return {
         ...prev,
-        [option.id]: {
+        [selectionKey]: {
           optionId: option.id,
           optionName: option.name,
           choiceName: choice.name,
@@ -648,8 +650,12 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                       <div className="space-y-1.5">
                         {choices.map((choice, idx) => {
                           const choiceLabel = getChoiceLabel(option, choice);
+                          const selectionKey = getOptionSelectionKey(
+                            option,
+                            choice,
+                          );
                           const isSelected =
-                            selectedOptions[option.id]?.choiceName ===
+                            selectedOptions[selectionKey]?.choiceName ===
                             choice.name;
                           return (
                             <button
