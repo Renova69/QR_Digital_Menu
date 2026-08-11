@@ -41,31 +41,74 @@ const createChoiceInput = (
 
 const PRESETS = {
   SIZE: {
-    name: "Size",
+    nameKey: "menuAdmin.optionPreset.sizeName",
+    fallbackName: "Size",
     type: "VARIATION" as OptionType,
     choices: [
-      { name: "Small", priceModifier: 0 },
-      { name: "Medium", priceModifier: 2 },
-      { name: "Large", priceModifier: 4 },
+      {
+        nameKey: "menuAdmin.optionPreset.sizeSmall",
+        fallbackName: "Small",
+        priceModifier: 0,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.sizeMedium",
+        fallbackName: "Medium",
+        priceModifier: 2,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.sizeLarge",
+        fallbackName: "Large",
+        priceModifier: 4,
+      },
     ],
   },
   DONENESS: {
-    name: "Steak Doneness",
+    nameKey: "menuAdmin.optionPreset.donenessName",
+    fallbackName: "Steak Doneness",
     type: "VARIATION" as OptionType,
     choices: [
-      { name: "Rare", priceModifier: 0 },
-      { name: "Medium Rare", priceModifier: 0 },
-      { name: "Medium", priceModifier: 0 },
-      { name: "Medium Well", priceModifier: 0 },
-      { name: "Well Done", priceModifier: 0 },
+      {
+        nameKey: "menuAdmin.optionPreset.donenessRare",
+        fallbackName: "Rare",
+        priceModifier: 0,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.donenessMediumRare",
+        fallbackName: "Medium Rare",
+        priceModifier: 0,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.donenessMedium",
+        fallbackName: "Medium",
+        priceModifier: 0,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.donenessMediumWell",
+        fallbackName: "Medium Well",
+        priceModifier: 0,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.donenessWellDone",
+        fallbackName: "Well Done",
+        priceModifier: 0,
+      },
     ],
   },
   QUANTITY: {
-    name: "Quantity",
+    nameKey: "menuAdmin.optionPreset.quantityName",
+    fallbackName: "Quantity",
     type: "VARIATION" as OptionType,
     choices: [
-      { name: "Half dozen", priceModifier: 0 },
-      { name: "Full dozen", priceModifier: 10 },
+      {
+        nameKey: "menuAdmin.optionPreset.halfDozen",
+        fallbackName: "Half dozen",
+        priceModifier: 0,
+      },
+      {
+        nameKey: "menuAdmin.optionPreset.fullDozen",
+        fallbackName: "Full dozen",
+        priceModifier: 10,
+      },
     ],
   },
 };
@@ -75,8 +118,13 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [options, setOptions] = useState<MenuOption[]>(item.options || []);
+  const dashboardLanguage = (
+    i18n.resolvedLanguage ||
+    i18n.language ||
+    "en"
+  ).split("-")[0];
 
   // New Option State
   const [isAdding, setIsAdding] = useState(false);
@@ -89,9 +137,16 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
 
   const handleApplyPreset = (presetKey: keyof typeof PRESETS) => {
     const preset = PRESETS[presetKey];
-    setNewOptionName(preset.name);
+    setNewOptionName(t(preset.nameKey, preset.fallbackName));
     setNewOptionType(preset.type);
-    setChoices(preset.choices.map((choice) => createChoiceInput(choice)));
+    setChoices(
+      preset.choices.map((choice) =>
+        createChoiceInput({
+          name: t(choice.nameKey, choice.fallbackName),
+          priceModifier: choice.priceModifier,
+        }),
+      ),
+    );
     setEditingId(null);
     setIsAdding(true);
     setErrorMsg(null);
@@ -270,6 +325,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
             const parsedChoices = Array.isArray(option.choices)
               ? option.choices
               : [];
+            const localizedOption = option.translations?.[dashboardLanguage];
             return (
               <div
                 key={option.id}
@@ -279,7 +335,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   <div className="min-w-0 w-full">
                     <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                       <h3 className="min-w-0 break-words text-base font-bold sm:text-lg">
-                        {option.name}
+                        {localizedOption?.name || option.name}
                       </h3>
                       <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
                         {option.type === "VARIATION"
@@ -318,7 +374,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                       className="flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
                     >
                       <span className="min-w-0 break-words font-medium">
-                        {choice.name}
+                        {localizedOption?.choices?.[choice.name] || choice.name}
                       </span>
                       {choice.priceModifier !== 0 && (
                         <span className="text-primary font-bold">
