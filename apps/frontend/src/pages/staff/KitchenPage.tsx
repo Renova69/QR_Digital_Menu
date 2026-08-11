@@ -74,6 +74,50 @@ interface FailedStatusUpdate {
   fromStatus: OrderStatus;
 }
 
+interface KdsSelectedOption {
+  optionName: string;
+  choiceName: string;
+}
+
+function groupKdsSelectedOptions(
+  selectedOptions: KdsSelectedOption[] | undefined,
+): string[] {
+  const groups = new Map<string, string[]>();
+
+  for (const option of selectedOptions ?? []) {
+    const optionName = option.optionName?.trim();
+    const choiceName = option.choiceName?.trim();
+    if (!choiceName) continue;
+
+    const choices = groups.get(optionName) ?? [];
+    choices.push(choiceName);
+    groups.set(optionName, choices);
+  }
+
+  return Array.from(groups, ([optionName, choices]) =>
+    optionName ? `${optionName}: ${choices.join(", ")}` : choices.join(", "),
+  );
+}
+
+function KdsSelectedOptions({
+  selectedOptions,
+  className,
+}: {
+  selectedOptions: KdsSelectedOption[] | undefined;
+  className: string;
+}) {
+  const summaries = groupKdsSelectedOptions(selectedOptions);
+  if (summaries.length === 0) return null;
+
+  return (
+    <ul className={className}>
+      {summaries.map((summary) => (
+        <li key={summary}>{summary}</li>
+      ))}
+    </ul>
+  );
+}
+
 function withLocationPrefix(raw: string, prefix: string, english: string) {
   const normalized = raw.toLocaleLowerCase();
   const translatedPrefix = prefix.toLocaleLowerCase();
@@ -297,14 +341,15 @@ export default function KitchenPage() {
                       </div>
                       <ul className="space-y-1 mb-1">
                         {order.items.map((item) => (
-                          <li
-                            key={item.id}
-                            className="text-xs text-gray-400 flex justify-between"
-                          >
-                            <span>
+                          <li key={item.id} className="text-xs text-gray-400">
+                            <div>
                               {item.quantity}x{" "}
                               {item.menuItem?.name ?? item.itemName ?? "Item"}
-                            </span>
+                            </div>
+                            <KdsSelectedOptions
+                              selectedOptions={item.selectedOptions}
+                              className="mt-0.5 space-y-0.5 pl-4 text-[10px] text-gray-500"
+                            />
                           </li>
                         ))}
                       </ul>
@@ -434,14 +479,15 @@ export default function KitchenPage() {
                       {/* Items */}
                       <ul className="space-y-1.5 mb-2">
                         {order.items.map((item) => (
-                          <li
-                            key={item.id}
-                            className="text-sm flex justify-between"
-                          >
-                            <span className="text-gray-200 font-medium">
+                          <li key={item.id} className="text-sm">
+                            <div className="text-gray-200 font-medium">
                               {item.quantity}x{" "}
                               {item.menuItem?.name ?? item.itemName ?? "Item"}
-                            </span>
+                            </div>
+                            <KdsSelectedOptions
+                              selectedOptions={item.selectedOptions}
+                              className="mt-1 space-y-0.5 border-l-2 border-blue-400/40 pl-3 text-xs font-semibold text-blue-200"
+                            />
                           </li>
                         ))}
                       </ul>

@@ -217,6 +217,63 @@ describe("PaymentModal hosted provider choices", () => {
     vi.restoreAllMocks();
   });
 
+  it("itemizes selected options while keeping the option-inclusive line total", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(["STRIPE"]),
+      orders: [
+        {
+          id: "pizza-order",
+          source: "CUSTOMER",
+          customerName: "Maria Petrova",
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 15,
+          items: [
+            {
+              orderItemId: "pizza-item",
+              name: "Make your own",
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 12,
+              unitPriceWithOptions: 15,
+              selectedOptions: [
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Olives",
+                  priceModifier: 1,
+                },
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Cheese",
+                  priceModifier: 2,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      subtotal: 15,
+      remaining: 15,
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Toppings: Olives")).toBeDefined();
+    expect(screen.getByText("Toppings: Cheese")).toBeDefined();
+    expect(screen.getByText("+1.00 €")).toBeDefined();
+    expect(screen.getByText("+2.00 €")).toBeDefined();
+    expect(screen.getAllByText("15.00 €").length).toBeGreaterThan(0);
+  });
+
   it("shows the ePay option only when the bill advertises EPAY", async () => {
     apiMocks.getSessionBill.mockResolvedValueOnce(
       billWithProviders(["STRIPE", "EPAY"]),

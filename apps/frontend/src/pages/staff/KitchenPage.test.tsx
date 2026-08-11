@@ -99,6 +99,44 @@ describe("KitchenPage", () => {
     expect(screen.getByText("2x Burger")).toBeDefined();
   });
 
+  it("shows selected options on kitchen order cards", () => {
+    (useOrders as Mock).mockReturnValue({
+      orders: [
+        {
+          id: "pizza-order",
+          status: "NEW",
+          items: [
+            {
+              id: "pizza-item",
+              quantity: 1,
+              menuItem: { name: "Make your own" },
+              selectedOptions: [
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Olives",
+                  priceModifier: 1,
+                },
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Mushrooms",
+                  priceModifier: 1,
+                },
+              ],
+            },
+          ],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      updateOrderStatus: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText("Toppings: Olives, Mushrooms")).toBeDefined();
+  });
+
   it("distinguishes a room number from a table with the same number", () => {
     (useOrders as Mock).mockReturnValue({
       orders: [

@@ -57,6 +57,13 @@ interface PaymentModalProps {
 
 type Step = "tip" | "pay" | "redirect";
 
+interface BillItemOption {
+  optionId?: string;
+  optionName?: string;
+  choiceName?: string;
+  priceModifier?: number;
+}
+
 interface BillItem {
   orderItemId: string;
   name: string;
@@ -66,7 +73,7 @@ interface BillItem {
   unitPriceWithOptions: number;
   originalUnitPriceWithOptions?: number;
   redeemedWithPoints?: boolean;
-  selectedOptions: any[];
+  selectedOptions: BillItemOption[];
 }
 
 interface BillOrder {
@@ -262,6 +269,65 @@ function BillItemPrice({
         {formatEuro(effectiveTotal)}
       </span>
     </span>
+  );
+}
+
+function formatOptionModifier(priceModifier: number | undefined) {
+  if (
+    typeof priceModifier !== "number" ||
+    !Number.isFinite(priceModifier) ||
+    priceModifier === 0
+  ) {
+    return null;
+  }
+
+  const sign = priceModifier > 0 ? "+" : "−";
+  return `${sign}${formatEuro(Math.abs(priceModifier))}`;
+}
+
+function BillItemRow({ item }: { item: BillItem }) {
+  const remainingQuantity = getBillItemRemainingQuantity(item);
+
+  return (
+    <div className="flex items-start justify-between gap-3 py-0.5 text-xs">
+      <span className="min-w-0 flex-1 text-gray-700">
+        <span className="block">
+          {item.name} ×{remainingQuantity}
+        </span>
+        {Array.isArray(item.selectedOptions) &&
+          item.selectedOptions.length > 0 && (
+            <span
+              role="list"
+              className="mt-1 block space-y-0.5 border-l-2 border-primary/20 pl-2 text-[11px] text-gray-500"
+            >
+              {item.selectedOptions.map((option, index) => {
+                const choiceName = option.choiceName?.trim();
+                if (!choiceName) return null;
+                const optionName = option.optionName?.trim();
+                const modifier = formatOptionModifier(option.priceModifier);
+
+                return (
+                  <span
+                    role="listitem"
+                    key={`${option.optionId ?? "option"}:${choiceName}:${index}`}
+                    className="flex items-baseline justify-between gap-3"
+                  >
+                    <span className="min-w-0 break-words">
+                      {optionName ? `${optionName}: ${choiceName}` : choiceName}
+                    </span>
+                    {modifier && (
+                      <span className="shrink-0 whitespace-nowrap font-medium text-gray-600">
+                        {modifier}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </span>
+          )}
+      </span>
+      <BillItemPrice item={item} remainingQuantity={remainingQuantity} />
+    </div>
   );
 }
 
@@ -1117,20 +1183,7 @@ export function PaymentModal({
                           (item) => getBillItemRemainingQuantity(item) > 0,
                         )
                         .map((item) => (
-                          <div
-                            key={item.orderItemId}
-                            className="flex justify-between text-xs py-0.5"
-                          >
-                            <span className="text-gray-700 min-w-0 mr-2">
-                              {item.name} ×{getBillItemRemainingQuantity(item)}
-                            </span>
-                            <BillItemPrice
-                              item={item}
-                              remainingQuantity={getBillItemRemainingQuantity(
-                                item,
-                              )}
-                            />
-                          </div>
+                          <BillItemRow key={item.orderItemId} item={item} />
                         ))}
                     </div>
                   ))}
@@ -1142,20 +1195,7 @@ export function PaymentModal({
                     order.items
                       .filter((item) => getBillItemRemainingQuantity(item) > 0)
                       .map((item) => (
-                        <div
-                          key={item.orderItemId}
-                          className="flex justify-between text-xs py-0.5"
-                        >
-                          <span className="text-gray-700 min-w-0 mr-2">
-                            {item.name} ×{getBillItemRemainingQuantity(item)}
-                          </span>
-                          <BillItemPrice
-                            item={item}
-                            remainingQuantity={getBillItemRemainingQuantity(
-                              item,
-                            )}
-                          />
-                        </div>
+                        <BillItemRow key={item.orderItemId} item={item} />
                       )),
                   )}
                   <hr className="border-gray-200" />
