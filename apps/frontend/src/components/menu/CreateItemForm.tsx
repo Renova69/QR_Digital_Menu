@@ -79,7 +79,10 @@ export const CreateItemForm: React.FC = () => {
         relatedItemIds,
         imageFile,
       });
-      showToast("Item created successfully", "success");
+      showToast(
+        t("menuAdmin.itemCreated", "Item created successfully"),
+        "success",
+      );
       resetForm();
       setOpen(false);
     } catch (error: any) {
@@ -100,7 +103,11 @@ export const CreateItemForm: React.FC = () => {
           if (!open) resetForm();
         }}
         title={t("menuAdmin.addItem", "Create Item")}
-        description={`Add a new item to the "${selectedCategory?.name}" category.`}
+        description={t(
+          "menuAdmin.addItemToCategory",
+          'Add a new item to the "{{categoryName}}" category.',
+          { categoryName: selectedCategory?.name ?? "" },
+        )}
         trigger={
           <Button disabled={!selectedCategory}>
             {t("menuAdmin.addItem", "Add Item")}
@@ -285,7 +292,9 @@ export const CreateItemForm: React.FC = () => {
           />
 
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? "Creating..." : t("forms.create", "Create Item")}
+            {isSubmitting
+              ? t("menuAdmin.creating", "Creating...")
+              : t("forms.create", "Create Item")}
           </Button>
         </form>
       </Modal>

@@ -125,6 +125,7 @@ describe("ItemList action localization", () => {
   it("updates state-aware hover and accessible labels with the dashboard language", async () => {
     const instance = await renderItemList("bg");
 
+    expectActionLabel("Редактирай", 2);
     expectActionLabel("Редактиране на преводите", 2);
     expectActionLabel("Добавяне към препоръчани");
     expectActionLabel("Премахване от препоръчани");
@@ -139,6 +140,7 @@ describe("ItemList action localization", () => {
     await waitFor(() =>
       expect(screen.getAllByTitle("Editează traducerile")).toHaveLength(2),
     );
+    expectActionLabel("Editează", 2);
     expectActionLabel("Editează traducerile", 2);
     expectActionLabel("Adaugă la recomandate");
     expectActionLabel("Elimină din recomandate");

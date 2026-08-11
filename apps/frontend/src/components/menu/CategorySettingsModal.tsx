@@ -21,7 +21,7 @@ interface CategorySettingsModalProps {
   onClose: () => void;
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
   category,
@@ -83,7 +83,10 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
         ...(imageRemoved && { imageUrl: null, thumbnailUrl: null }),
       });
 
-      showToast("Category settings saved successfully", "success");
+      showToast(
+        t("menuAdmin.categorySettingsSaved", "Category settings saved"),
+        "success",
+      );
       onClose();
     } catch (error: any) {
       showToast(t(getApiError(error)), "error");
@@ -99,7 +102,11 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
         dashboardUi
         open={isOpen}
         onOpenChange={(open) => !open && onClose()}
-        title={`Availability: ${category.name}`}
+        title={t(
+          "menuAdmin.categoryAvailabilityTitle",
+          "Availability: {{categoryName}}",
+          { categoryName: category.name },
+        )}
       >
         <div className="space-y-6 py-4">
           <ImageUploadInput
@@ -197,19 +204,24 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                   {t("auto.activeDays", "Active Days")}
                 </label>
                 <div className="flex justify-between gap-1">
-                  {DAYS.map((day, index) => (
-                    <button
-                      key={day}
-                      onClick={() => toggleDay(index)}
-                      className={`flex-1 h-10 rounded-xl text-xs font-bold transition-all ${
-                        daysOfWeek.includes(index)
-                          ? "bg-foreground text-background shadow-md"
-                          : "bg-muted text-muted-foreground hover:bg-muted/70"
-                      }`}
-                    >
-                      {day[0]}
-                    </button>
-                  ))}
+                  {DAYS.map((day, index) => {
+                    const dayLabel = t(`reservations.weekdays.${day}`, day);
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => toggleDay(index)}
+                        className={`flex-1 h-10 rounded-xl text-xs font-bold transition-all ${
+                          daysOfWeek.includes(index)
+                            ? "bg-foreground text-background shadow-md"
+                            : "bg-muted text-muted-foreground hover:bg-muted/70"
+                        }`}
+                        title={dayLabel}
+                        aria-label={dayLabel}
+                      >
+                        {dayLabel.slice(0, 1)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -284,7 +296,9 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                 onChange={(e) => setPrintStationId(e.target.value || null)}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">None (no printing)</option>
+                <option value="">
+                  {t("menuAdmin.noPrintStation", "None (no printing)")}
+                </option>
                 {printStations.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} — {s.printerIp}
@@ -307,7 +321,9 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
               disabled={isSaving}
               className="flex-1 rounded-xl h-11 bg-foreground text-background hover:bg-foreground/90 transition-all font-bold"
             >
-              {isSaving ? "Saving..." : "Save Settings"}
+              {isSaving
+                ? t("menuAdmin.saving", "Saving...")
+                : t("menuAdmin.saveSettings", "Save settings")}
             </Button>
           </div>
         </div>

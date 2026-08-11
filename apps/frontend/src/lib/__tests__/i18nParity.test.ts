@@ -38,12 +38,42 @@ const PUBLIC_ROOTS = [
 // Owner-facing subtrees that live under an otherwise-public root.
 const NON_PUBLIC_PREFIXES = ["payment.settings"];
 const MENU_EDIT_KEYS = [
+  "menuAdmin.edit",
+  "menuAdmin.save",
+  "menuAdmin.categorySettings",
+  "menuAdmin.editCategory",
   "menuAdmin.editTranslations",
+  "menuAdmin.editNames",
+  "menuAdmin.editDescriptions",
+  "menuAdmin.sourceName",
+  "menuAdmin.sourceDescription",
+  "menuAdmin.translationNameInput",
+  "menuAdmin.translationDescriptionInput",
+  "menuAdmin.translationsLoadFailed",
+  "menuAdmin.translationsSaveFailed",
+  "menuAdmin.manualOverride",
+  "menuAdmin.sourceChangedSinceOverride",
   "menuAdmin.featureItem",
   "menuAdmin.unfeatureItem",
   "menuAdmin.markOutOfStock",
   "menuAdmin.markAvailable",
   "menuAdmin.outOfStock",
+  "menuAdmin.categoryAvailabilityTitle",
+  "menuAdmin.categorySettingsSaved",
+  "menuAdmin.noPrintStation",
+  "menuAdmin.saving",
+  "menuAdmin.saveSettings",
+  "menuAdmin.itemCreated",
+  "menuAdmin.addItemToCategory",
+  "menuAdmin.creating",
+  "menuAdmin.deleteOptionConfirm",
+  "menuAdmin.editOption",
+  "menuAdmin.createNewOption",
+  "menuAdmin.updateOption",
+  "menuAdmin.saveOption",
+  "menuAdmin.removeChoice",
+  "menuAdmin.optionTypeVariation",
+  "menuAdmin.optionTypeAddon",
   "forms.upsellContexts",
   "forms.upsellContext.MORNING",
   "forms.upsellContext.LUNCH",
@@ -68,6 +98,32 @@ const MENU_EDIT_KEYS = [
   "forms.rewardAutomaticFormula",
   "forms.rewardCustomPoints",
   "forms.rewardCustomHint",
+];
+const MENU_EDITOR_TRANSLATED_KEYS = [
+  "auto.CategoryWillBeAutomaticallyHidden",
+  "auto.activeDays",
+  "auto.addChoice",
+  "auto.addOnCustomerCanChooseMultiple",
+  "auto.always",
+  "auto.cancel",
+  "auto.categoryImage",
+  "auto.categoryIsManuallyHiddenAndWonTAp",
+  "auto.categoryIsVisible247OnThePublicM",
+  "auto.choiceNameEGSmallRare",
+  "auto.choices",
+  "auto.eGSizeDonenessExtras",
+  "auto.endTime",
+  "auto.freshIngredientsOlivesFeta",
+  "auto.hidden",
+  "auto.noOptionsConfiguredForThisItemYet",
+  "auto.optionName",
+  "auto.schedule",
+  "auto.schedulesAreDisabledOnThisPlan",
+  "auto.startTime",
+  "auto.toUseDayparting",
+  "auto.type",
+  "auto.upgradeToProfessional",
+  "auto.variationCustomerChoosesOne",
 ];
 const GENERAL_SETTINGS_KEYS = [
   "settings.city",
@@ -176,6 +232,18 @@ function readLocale(language: string): unknown {
   );
 }
 
+function readTranslation(locale: unknown, key: string): unknown {
+  return key
+    .split(".")
+    .reduce<unknown>(
+      (value, segment) =>
+        value && typeof value === "object"
+          ? (value as Record<string, unknown>)[segment]
+          : undefined,
+      locale,
+    );
+}
+
 describe("public locale bundles", () => {
   it.each(SUPPORTED_LANGUAGES)(
     "%s contains every customer-facing English key",
@@ -207,6 +275,21 @@ describe("menu edit locale bundles", () => {
       );
     },
   );
+
+  it.each(["bg", "ro"])(
+    "%s translates owner-facing menu copy instead of retaining English",
+    (language) => {
+      const english = readLocale("en");
+      const localized = readLocale(language);
+
+      expect(
+        MENU_EDITOR_TRANSLATED_KEYS.filter(
+          (key) =>
+            readTranslation(localized, key) === readTranslation(english, key),
+        ),
+      ).toEqual([]);
+    },
+  );
 });
 
 describe("general settings locale bundles", () => {
@@ -228,9 +311,9 @@ describe("dashboard UI locale bundles", () => {
     (language) => {
       const localizedKeys = new Set(flatten(readLocale(language)));
 
-      expect(DASHBOARD_UI_KEYS.filter((key) => !localizedKeys.has(key))).toEqual(
-        [],
-      );
+      expect(
+        DASHBOARD_UI_KEYS.filter((key) => !localizedKeys.has(key)),
+      ).toEqual([]);
     },
   );
 });

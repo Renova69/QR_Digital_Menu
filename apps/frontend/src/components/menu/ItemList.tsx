@@ -198,6 +198,7 @@ const ItemRow = ({
     "menuAdmin.editTranslations",
     "Edit translations",
   );
+  const editItemLabel = t("menuAdmin.edit", "Edit");
   const featuredLabel = item.isFeatured
     ? t("menuAdmin.unfeatureItem", "Remove from featured")
     : t("menuAdmin.featureItem", "Feature item");
@@ -361,7 +362,13 @@ const ItemRow = ({
             <EditItemForm
               item={item}
               trigger={
-                <Button variant="outline" size="icon" className="h-10 w-10">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10"
+                  title={editItemLabel}
+                  aria-label={editItemLabel}
+                >
                   <Edit className="h-5 w-5 text-muted-foreground" />
                 </Button>
               }
@@ -379,6 +386,8 @@ const ItemRow = ({
               size="icon"
               className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
               onClick={onRequestDelete}
+              title={t("common.delete", "Delete")}
+              aria-label={t("common.delete", "Delete")}
             >
               <Trash2 className="h-4 w-4" />
             </Button>

@@ -178,7 +178,15 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    if (!confirm("Are you sure you want to delete this option?")) return;
+    if (
+      !window.confirm(
+        t(
+          "menuAdmin.deleteOptionConfirm",
+          "Are you sure you want to delete this option?",
+        ),
+      )
+    )
+      return;
     try {
       await api.delete(`/options/${optionId}`);
       setOptions(options.filter((opt) => opt.id !== optionId));
@@ -274,7 +282,9 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                         {option.name}
                       </h3>
                       <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
-                        {option.type}
+                        {option.type === "VARIATION"
+                          ? t("menuAdmin.optionTypeVariation", "Variation")
+                          : t("menuAdmin.optionTypeAddon", "Add-on")}
                       </span>
                     </div>
                   </div>
@@ -284,6 +294,8 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                       size="sm"
                       onClick={() => handleStartEdit(option)}
                       className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      title={t("menuAdmin.editOption", "Edit option")}
+                      aria-label={t("menuAdmin.editOption", "Edit option")}
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -292,6 +304,8 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                       size="sm"
                       onClick={() => handleDeleteOption(option.id)}
                       className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                      title={t("common.delete", "Delete")}
+                      aria-label={t("common.delete", "Delete")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -325,7 +339,9 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
           <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-secondary/20 p-3 sm:p-6">
             <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
               <h3 className="min-w-0 break-words text-base font-bold sm:text-lg">
-                {editingId ? "Edit Option" : "Create New Option"}
+                {editingId
+                  ? t("menuAdmin.editOption", "Edit option")
+                  : t("menuAdmin.createNewOption", "Create new option")}
               </h3>
               <Button
                 variant="ghost"
@@ -334,6 +350,8 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   setIsAdding(false);
                   setEditingId(null);
                 }}
+                title={t("common.close", "Close")}
+                aria-label={t("common.close", "Close")}
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -428,6 +446,8 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                     onClick={() => handleRemoveChoiceRow(index)}
                     disabled={choices.length === 1}
                     className="self-end text-muted-foreground hover:text-red-500 sm:self-auto"
+                    title={t("menuAdmin.removeChoice", "Remove choice")}
+                    aria-label={t("menuAdmin.removeChoice", "Remove choice")}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -468,10 +488,10 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({
                   className="w-full whitespace-normal px-3 text-center sm:w-auto sm:px-6"
                 >
                   {isSaving
-                    ? "Saving..."
+                    ? t("menuAdmin.saving", "Saving...")
                     : editingId
-                      ? "Update Option"
-                      : "Save Option"}
+                      ? t("menuAdmin.updateOption", "Update option")
+                      : t("menuAdmin.saveOption", "Save option")}
                 </Button>
               </div>
             </div>

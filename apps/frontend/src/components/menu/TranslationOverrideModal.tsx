@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X, AlertTriangle } from "lucide-react";
 import { Button } from "../ui/button";
@@ -89,18 +90,34 @@ export const TranslationOverrideModal: React.FC<Props> = ({
 
   const activeKey = activeField === "NAME" ? "name" : "description";
   const editingDescriptions = activeField === "DESCRIPTION";
+  const titleId = "translation-override-title";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-background p-5 shadow-xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-background p-5 shadow-xl"
+      >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-foreground">
+            <h2 id={titleId} className="text-base font-bold text-foreground">
               {t("menuAdmin.editTranslations", "Edit translations")}
             </h2>
             {data && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {data.sourceLang.toUpperCase()} {activeKey}:{" "}
+                {t(
+                  editingDescriptions
+                    ? "menuAdmin.sourceDescription"
+                    : "menuAdmin.sourceName",
+                  {
+                    locale: data.sourceLang.toUpperCase(),
+                    defaultValue: editingDescriptions
+                      ? "{{locale}} description:"
+                      : "{{locale}} name:",
+                  },
+                )}{" "}
                 {data.source[activeKey]}
               </p>
             )}
@@ -137,7 +154,17 @@ export const TranslationOverrideModal: React.FC<Props> = ({
           {data?.locales.map((entry) => {
             const override = entry[activeKey];
             const inputId = `xlate-${activeKey}-${entry.locale}`;
-            const inputLabel = `${entry.locale} ${activeKey}`;
+            const inputLabel = t(
+              editingDescriptions
+                ? "menuAdmin.translationDescriptionInput"
+                : "menuAdmin.translationNameInput",
+              {
+                locale: entry.locale,
+                defaultValue: editingDescriptions
+                  ? "{{locale}} description"
+                  : "{{locale}} name",
+              },
+            );
             const saving = savingKey === `${activeField}:${entry.locale}`;
 
             return (
@@ -189,7 +216,7 @@ export const TranslationOverrideModal: React.FC<Props> = ({
                     disabled={saving}
                     onClick={() => save(entry.locale)}
                   >
-                    {t("common.save", "Save")}
+                    {t("menuAdmin.save", "Save")}
                   </Button>
                 </div>
                 {override.status === "MANUAL" && (
@@ -214,6 +241,7 @@ export const TranslationOverrideModal: React.FC<Props> = ({
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

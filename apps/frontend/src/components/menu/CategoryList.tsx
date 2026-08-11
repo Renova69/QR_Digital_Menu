@@ -228,6 +228,8 @@ const CategoryRow = ({
             size="icon"
             className="h-6 w-6 text-green-600"
             onClick={(e) => onSaveEdit(e, category.id)}
+            title={t("menuAdmin.save", "Save")}
+            aria-label={t("menuAdmin.save", "Save")}
           >
             <Check className="h-3 w-3" />
           </Button>
@@ -236,6 +238,8 @@ const CategoryRow = ({
             size="icon"
             className="h-6 w-6 text-red-600"
             onClick={onCancelEdit}
+            title={t("common.cancel", "Cancel")}
+            aria-label={t("common.cancel", "Cancel")}
           >
             <X className="h-3 w-3" />
           </Button>
@@ -264,6 +268,7 @@ const CategoryRow = ({
               size="icon"
               className={`h-6 w-6 ${isSelected ? "hover:bg-white/20 text-white" : "hover:bg-muted text-muted-foreground"}`}
               onClick={onOpenSettings}
+              title={t("menuAdmin.categorySettings", "Category settings")}
               aria-label={t("menuAdmin.categorySettings", "Category settings")}
             >
               <Clock className="h-3 w-3" />
@@ -273,6 +278,7 @@ const CategoryRow = ({
               size="icon"
               className={`h-6 w-6 ${isSelected ? "hover:bg-white/20 text-white" : "hover:bg-muted text-muted-foreground"}`}
               onClick={(e) => onStartEdit(e, category.id, category.name)}
+              title={t("menuAdmin.editCategory", "Edit category")}
               aria-label={t("menuAdmin.editCategory", "Edit category")}
             >
               <Pencil className="h-3 w-3" />
@@ -282,6 +288,7 @@ const CategoryRow = ({
               size="icon"
               className={`h-6 w-6 ${isSelected ? "hover:bg-red-500 text-white" : "hover:bg-red-50 dark:hover:bg-red-900/40 text-red-400"}`}
               onClick={(e) => onDelete(e, category.id, category.name)}
+              title={t("menuAdmin.deleteCategory", "Delete category")}
               aria-label={t("menuAdmin.deleteCategory", "Delete category")}
             >
               <Trash2 className="h-3 w-3" />
