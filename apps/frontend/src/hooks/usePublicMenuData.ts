@@ -9,6 +9,7 @@ import {
   buildPublicMenuLanguages,
   resolveInitialLanguage,
 } from "../lib/menuLanguage";
+import { preserveCanonicalSourceFields } from "../lib/translation";
 import { useCart } from "../context/CartContext";
 
 export interface PublicMenuMeta {
@@ -88,6 +89,7 @@ export function usePublicMenuData(
   const loadAllCategoryItems = (
     categories: any[],
     lang: string | undefined,
+    sourceLang: string,
     cancelled: { v: boolean },
     resetFirst = true,
   ) => {
@@ -112,7 +114,21 @@ export function usePublicMenuData(
       Object.fromEntries(
         categories.map((c: any) => [
           c.id,
-          Array.isArray(itemsByCategory[c.id]) ? itemsByCategory[c.id] : [],
+          Array.isArray(itemsByCategory[c.id])
+            ? itemsByCategory[c.id].map((item: any) => {
+                const canonicalItem = preserveCanonicalSourceFields(
+                  item,
+                  lang,
+                  sourceLang,
+                );
+                return {
+                  ...canonicalItem,
+                  options: (canonicalItem.options ?? []).map((option: any) =>
+                    preserveCanonicalSourceFields(option, lang, sourceLang),
+                  ),
+                };
+              })
+            : [],
         ]),
       );
 
@@ -187,8 +203,6 @@ export function usePublicMenuData(
           return;
         }
 
-        setMenuMeta(data);
-
         // The public menu opens in the menu SOURCE language — the language the
         // owner authors item names in — not the first target language and not
         // the owner's dashboard UI language, which are separate settings.
@@ -200,11 +214,15 @@ export function usePublicMenuData(
         const sourceLang = available[0];
         const initialLang =
           resolveInitialLanguage(available, params.get("lang")) ?? sourceLang;
+        const categories = data.categories.map((category: any) =>
+          preserveCanonicalSourceFields(category, initialLang, sourceLang),
+        );
+        setMenuMeta({ ...data, categories });
         activeLanguageRef.current = initialLang;
         setSelectedLang(initialLang);
         void i18n.changeLanguage(initialLang);
 
-        loadAllCategoryItems(data.categories, initialLang, cancelled);
+        loadAllCategoryItems(categories, initialLang, sourceLang, cancelled);
       } catch (err) {
         if (!cancelled.v) {
           console.error("Public Menu Fetch Error:", err);
@@ -261,7 +279,17 @@ export function usePublicMenuData(
     langFetchDebounce.current = setTimeout(() => {
       if (menuMeta?.categories?.length && restaurantId) {
         const cancelled = { v: false };
-        loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
+        const sourceLang = buildPublicMenuLanguages(
+          menuMeta.restaurant.menuSourceLanguage,
+          menuMeta.restaurant.targetLanguages,
+        )[0];
+        loadAllCategoryItems(
+          menuMeta.categories,
+          code,
+          sourceLang,
+          cancelled,
+          false,
+        );
         void getMenuMeta(restaurantId, code)
           .then((translatedMeta) => {
             if (
@@ -277,7 +305,9 @@ export function usePublicMenuData(
                       ...current.restaurant,
                       ...translatedMeta.restaurant,
                     },
-                    categories: translatedMeta.categories,
+                    categories: translatedMeta.categories.map((category: any) =>
+                      preserveCanonicalSourceFields(category, code, sourceLang),
+                    ),
                   }
                 : (translatedMeta as PublicMenuMeta),
             );

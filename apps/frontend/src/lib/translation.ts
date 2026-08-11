@@ -4,6 +4,54 @@ interface Translatable {
   translations?: MenuTranslationMap | null;
 }
 
+const SOURCE_CONTENT_FIELDS = new Set(["name", "description", "choices"]);
+
+const normalizeLanguageCode = (language: string | null | undefined): string =>
+  String(language || "bg")
+    .toLowerCase()
+    .split("-")[0];
+
+/**
+ * Public APIs already resolve source-language name/description fields from the
+ * canonical owner-authored columns. Remove only those duplicated fields from
+ * the source locale's translation block so downstream display components
+ * cannot overlay an older snapshot. Allergen/dietary-tag translations remain.
+ */
+export function preserveCanonicalSourceFields<T extends Translatable>(
+  obj: T,
+  requestedLang: string | null | undefined,
+  sourceLang: string | null | undefined,
+): T {
+  if (
+    normalizeLanguageCode(requestedLang) !== normalizeLanguageCode(sourceLang)
+  ) {
+    return obj;
+  }
+
+  const translations = obj.translations;
+  if (!translations) return obj;
+
+  const sourceKey = Object.keys(translations).find(
+    (key) => normalizeLanguageCode(key) === normalizeLanguageCode(sourceLang),
+  );
+  if (!sourceKey) return obj;
+
+  const sourceEntry = translations[sourceKey];
+  const preservedEntry = Object.fromEntries(
+    Object.entries(sourceEntry).filter(
+      ([field]) => !SOURCE_CONTENT_FIELDS.has(field),
+    ),
+  );
+
+  return {
+    ...obj,
+    translations: {
+      ...translations,
+      [sourceKey]: preservedEntry,
+    },
+  };
+}
+
 export function getTranslatedField<T extends Translatable>(
   obj: T,
   lang: string | null | undefined,

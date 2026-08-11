@@ -90,7 +90,12 @@ vi.mock("../components/menu/TopBar", () => ({
 }));
 vi.mock("../components/menu/ItemWithOptions", () => ({
   ItemWithOptions: (props: any) => (
-    <div data-testid="menu-item">{props.item.name}</div>
+    <div
+      data-testid="menu-item"
+      data-description={props.item.description ?? ""}
+    >
+      {props.item.name}
+    </div>
   ),
 }));
 vi.mock("../components/menu/FilterPanel", () => ({ FilterPanel: () => null }));
@@ -216,6 +221,76 @@ describe("PublicMenuPage", () => {
     expect(apiMocks.getAllCategoryItems).toHaveBeenCalledWith(
       "rest-1",
       "bg",
+      expect.anything(),
+    );
+  });
+
+  it("renders canonical owner edits when the selected language is the menu source", async () => {
+    apiMocks.getAllCategoryItems.mockResolvedValue({
+      "cat-1": [
+        {
+          ...ITEMS["cat-1"][0],
+          name: "Картофки на Дядо TEST TEST TEST",
+          description: "Прясно описание TEST",
+          translations: {
+            bg: {
+              name: "Картофки на Дядо",
+              description: "Прясно описание",
+            },
+            en: {
+              name: "Grandpa's Potatoes TEST",
+              description: "Fresh description TEST",
+            },
+          },
+        },
+      ],
+    });
+
+    renderMenu();
+
+    expect(
+      await screen.findByText("Картофки на Дядо TEST TEST TEST"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Картофки на Дядо")).toBeNull();
+    expect(screen.getByTestId("menu-item")).toHaveAttribute(
+      "data-description",
+      "Прясно описание TEST",
+    );
+  });
+
+  it("still renders protected target-language title and description overrides", async () => {
+    apiMocks.getAllCategoryItems.mockResolvedValue({
+      "cat-1": [
+        {
+          ...ITEMS["cat-1"][0],
+          name: "Grandpa's Potatoes TEST",
+          description: "Fresh description TEST",
+          originalName: "Картофки на Дядо TEST TEST TEST",
+          originalDescription: "Прясно описание TEST",
+          translations: {
+            bg: {
+              name: "Картофки на Дядо",
+              description: "Прясно описание",
+            },
+            en: {
+              name: "Grandpa's Potatoes TEST",
+              description: "Fresh description TEST",
+            },
+          },
+        },
+      ],
+    });
+
+    renderMenu("/menu/rest-1?lang=en");
+
+    expect(await screen.findByText("Grandpa's Potatoes TEST")).toBeTruthy();
+    expect(screen.getByTestId("menu-item")).toHaveAttribute(
+      "data-description",
+      "Fresh description TEST",
+    );
+    expect(apiMocks.getAllCategoryItems).toHaveBeenCalledWith(
+      "rest-1",
+      "en",
       expect.anything(),
     );
   });

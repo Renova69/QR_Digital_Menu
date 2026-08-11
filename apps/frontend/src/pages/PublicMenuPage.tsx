@@ -890,6 +890,7 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
                       restaurantId={restaurantId}
                       allMenuItems={allLoadedItems}
                       selectedLang={selectedLang}
+                      sourceLang={menuMeta.restaurant.menuSourceLanguage}
                     />
                   </div>
                 )}

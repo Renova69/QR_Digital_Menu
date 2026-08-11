@@ -3,19 +3,24 @@ import { getTrendingItems } from "../../lib/api";
 import { Item } from "../../types";
 import { ItemWithOptions } from "./ItemWithOptions";
 import { useTranslation } from "react-i18next";
-import { getTranslatedField } from "../../lib/translation";
+import {
+  getTranslatedField,
+  preserveCanonicalSourceFields,
+} from "../../lib/translation";
 
 interface TrendingCarouselProps {
   restaurantId: string;
   allMenuItems: Item[];
   /** Menu's selected target language — drives content translation, not the UI locale. */
   selectedLang?: string;
+  sourceLang?: string;
 }
 
 export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
   restaurantId,
   allMenuItems,
   selectedLang,
+  sourceLang,
 }) => {
   const [trendingItems, setTrendingItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,8 +31,22 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
     const fetchTrending = async () => {
       setLoading(true);
       try {
-        const items = await getTrendingItems(restaurantId, lang);
-        setTrendingItems(items || []);
+        const items = (await getTrendingItems(restaurantId, lang)) as Item[];
+        setTrendingItems(
+          (items || []).map((item) => {
+            const canonicalItem = preserveCanonicalSourceFields(
+              item,
+              lang,
+              sourceLang,
+            );
+            return {
+              ...canonicalItem,
+              options: (canonicalItem.options ?? []).map((option) =>
+                preserveCanonicalSourceFields(option, lang, sourceLang),
+              ),
+            };
+          }),
+        );
       } catch (err) {
         console.error("Failed to load trending items:", err);
       } finally {
@@ -36,7 +55,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
     };
 
     fetchTrending();
-  }, [restaurantId, lang]);
+  }, [restaurantId, lang, sourceLang]);
 
   if (loading) {
     return (
