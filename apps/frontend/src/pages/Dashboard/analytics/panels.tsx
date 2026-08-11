@@ -14,6 +14,7 @@ import {
 import { ExternalLink, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatEuro } from "../../../lib/currency";
+import type { CategoryBreakdown } from "../../../hooks/useAnalytics";
 import { Panel } from "./Panel";
 import { CustomTooltip, EmptyState } from "./primitives";
 import {
@@ -431,13 +432,15 @@ export const MenuEngineering = ({
 export const CategoryMix = ({
   categories,
 }: {
-  categories: Array<{ category: string; revenue: number }>;
+  categories: CategoryBreakdown[];
 }) => {
   const { t } = useTranslation();
   const displayCategories = categories.map((category) => ({
     ...category,
     category:
-      category.category || t("analytics.uncategorized", "Uncategorized"),
+      category.categoryType === "HISTORICAL_MENU"
+        ? t("analytics.historicalMenu", "Previous menu")
+        : category.category || t("analytics.uncategorized", "Uncategorized"),
   }));
   const total = displayCategories.reduce(
     (sum, category) => sum + category.revenue,

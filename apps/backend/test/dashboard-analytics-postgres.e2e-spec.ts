@@ -18,6 +18,11 @@ interface AnalyticsResult {
   period: number;
   topItems: Array<{ name: string }>;
   peakHours: Array<{ hour: number; orders: number }>;
+  categoryBreakdown: Array<{
+    category: string;
+    categoryType: 'CATEGORY' | 'HISTORICAL_MENU' | 'UNCATEGORIZED';
+    revenue: number;
+  }>;
   cancelAnalytics: {
     cancelRateByItem: Array<{ itemName: string; cancelRate: number }>;
   };
@@ -83,6 +88,25 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
         order: 1,
       },
     });
+    const deletedCategory = await prisma.menuCategory.create({
+      data: {
+        name: 'Deleted category source',
+        translations: { bg: { name: 'Изтрита категория' } },
+        restaurantId,
+        order: 2,
+        daysOfWeek: [],
+      },
+    });
+    const deletedCategoryItem = await prisma.menuItem.create({
+      data: {
+        name: 'Deleted category item',
+        price: 21,
+        costPrice: 7,
+        currency: Currency.EUR,
+        categoryId: deletedCategory.id,
+        order: 1,
+      },
+    });
     const localNine = DateTime.now()
       .setZone('Europe/Sofia')
       .minus({ days: 1 })
@@ -145,6 +169,28 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
         },
       },
     });
+    await prisma.order.create({
+      data: {
+        customerName: 'Deleted category customer',
+        restaurantId,
+        status: OrderStatus.COMPLETED,
+        totalPrice: 21,
+        items: {
+          create: {
+            menuItemId: deletedCategoryItem.id,
+            itemName: deletedCategoryItem.name,
+            categoryIdSnapshot: deletedCategory.id,
+            categoryName: deletedCategory.name,
+            categoryTranslations: deletedCategory.translations ?? undefined,
+            quantity: 1,
+            unitPrice: 21,
+            unitPriceWithOptions: 21,
+            selectedOptions: [],
+          },
+        },
+      },
+    });
+    await prisma.menuCategory.delete({ where: { id: deletedCategory.id } });
 
     service = new DashboardService(
       prisma as never,
@@ -186,7 +232,7 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
           }),
         ]),
       );
-      expect(result.menuProfitability.summary.missingCostItems).toBe(1);
+      expect(result.menuProfitability.summary.missingCostItems).toBe(2);
     },
   );
 
@@ -204,5 +250,46 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
       1,
     );
     expect(result.peakHours.find((hour) => hour.hour === 9)?.orders).toBe(1);
+  });
+
+  it('identifies revenue whose original menu category is no longer available', async () => {
+    const result = (await service.getAnalytics(
+      restaurantId,
+      1,
+      undefined,
+      undefined,
+      true,
+      'bg',
+    )) as AnalyticsResult;
+
+    expect(result.categoryBreakdown).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: '',
+          categoryType: 'HISTORICAL_MENU',
+        }),
+      ]),
+    );
+  });
+
+  it('keeps the order-time category after its menu category is deleted', async () => {
+    const result = (await service.getAnalytics(
+      restaurantId,
+      1,
+      undefined,
+      undefined,
+      true,
+      'bg',
+    )) as AnalyticsResult;
+
+    expect(result.categoryBreakdown).toEqual(
+      expect.arrayContaining([
+        {
+          category: 'Изтрита категория',
+          categoryType: 'CATEGORY',
+          revenue: 21,
+        },
+      ]),
+    );
   });
 });

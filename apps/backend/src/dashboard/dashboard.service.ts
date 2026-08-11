@@ -760,13 +760,28 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     end: Date,
     language?: string,
   ) {
-    type Row = { category: string; revenue: number };
+    type Row = {
+      category: string;
+      categoryType: 'CATEGORY' | 'HISTORICAL_MENU' | 'UNCATEGORIZED';
+      revenue: number;
+    };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT COALESCE(
+               NULLIF(oi."categoryTranslations" #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
+               NULLIF(oi."categoryName", ''),
                NULLIF(mc.translations #>> ARRAY[${language ?? ''}, 'name']::text[], ''),
                mc.name,
                ''
              ) AS category,
+             CASE
+               WHEN NULLIF(BTRIM(oi."categoryName"), '') IS NOT NULL
+                 OR mc.id IS NOT NULL
+                 THEN 'CATEGORY'
+               WHEN NULLIF(BTRIM(oi."itemName"), '') IS NOT NULL
+                 AND oi."itemName" <> 'Unknown item'
+                 THEN 'HISTORICAL_MENU'
+               ELSE 'UNCATEGORIZED'
+             END AS "categoryType",
              COALESCE(SUM(oi."unitPriceWithOptions" * oi.quantity), 0)::float AS revenue
       FROM order_item oi
       JOIN customer_order  o  ON oi."orderId"    = o.id
@@ -776,11 +791,14 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         AND o.status         NOT IN ('CANCELED', 'PENDING_PAYMENT')
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
-      GROUP BY mc.id, mc.name, mc.translations
+      GROUP BY oi."categoryIdSnapshot", oi."categoryName",
+               oi."categoryTranslations", mc.id, mc.name, mc.translations,
+               "categoryType"
       ORDER BY SUM(oi."unitPriceWithOptions" * oi.quantity) DESC
     `;
     return rows.map((r) => ({
       category: r.category,
+      categoryType: r.categoryType,
       revenue: Math.round(Number(r.revenue) * 100) / 100,
     }));
   }

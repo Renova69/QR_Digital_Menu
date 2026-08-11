@@ -451,6 +451,37 @@ describe('OrdersService', () => {
       );
     });
 
+    it('snapshots the order-time category for historical analytics', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({
+          category: {
+            id: 'category-1',
+            name: 'Main dishes',
+            translations: { bg: { name: 'Основни ястия' } },
+            restaurantId: 'rest-1',
+          },
+        }),
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as unknown as CreateOrderDto);
+
+      const createdItem = tx.order.create.mock.calls[0][0].data.items.create[0];
+      expect(createdItem).toEqual(
+        expect.objectContaining({
+          categoryIdSnapshot: 'category-1',
+          categoryName: 'Main dishes',
+          categoryTranslations: { bg: { name: 'Основни ястия' } },
+        }),
+      );
+    });
+
     it('attributes the order to CUSTOMER when the caller is not restaurant staff (#4)', async () => {
       const tx = makeTx();
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);

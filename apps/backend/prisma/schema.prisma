@@ -486,6 +486,12 @@ model OrderItem {
   // orders/receipts/reporting keep showing what was actually ordered even after
   // the MenuItem is renamed or deleted (menuItemId -> SetNull orphans this row).
   itemName             String              @default("Unknown item")
+  // Immutable category identity and display snapshot captured at order time.
+  // Analytics must not lose category attribution when a menu is replaced and
+  // the live MenuItem/MenuCategory relations are deleted.
+  categoryIdSnapshot   String?
+  categoryName         String?
+  categoryTranslations Json?
   menuItem             MenuItem?           @relation(fields: [menuItemId], references: [id])
   order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   allocations          PaymentAllocation[]

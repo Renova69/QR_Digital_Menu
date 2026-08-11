@@ -525,8 +525,11 @@ const AnalyticsView = () => {
       {canFullAnalytics && (
         <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
           <Panel
-            title={t("analytics.categoryMix", "Category mix")}
-            eyebrow={t("analytics.categoryBreakdown", "Category breakdown")}
+            title={t("analytics.categoryMix", "Revenue by category")}
+            eyebrow={t(
+              "analytics.categoryBreakdown",
+              "Revenue breakdown by category",
+            )}
           >
             <CategoryMix categories={data.categoryBreakdown ?? []} />
           </Panel>

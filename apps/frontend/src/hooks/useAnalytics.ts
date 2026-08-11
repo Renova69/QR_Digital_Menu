@@ -33,6 +33,7 @@ export interface OrderStatusBreakdown {
 
 export interface CategoryBreakdown {
   category: string;
+  categoryType?: "CATEGORY" | "HISTORICAL_MENU" | "UNCATEGORIZED";
   revenue: number;
 }
 

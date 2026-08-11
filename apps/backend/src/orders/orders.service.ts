@@ -649,6 +649,9 @@ export class OrdersService {
     const itemsData: {
       menuItemId: string;
       itemName: string;
+      categoryIdSnapshot: string;
+      categoryName: string;
+      categoryTranslations?: Prisma.InputJsonValue;
       quantity: number;
       unitPrice: number;
       unitPriceWithOptions: number;
@@ -890,6 +893,12 @@ export class OrdersService {
       itemsData.push({
         menuItemId: item.menuItemId,
         itemName: dbItem.name,
+        categoryIdSnapshot: dbItem.category.id,
+        categoryName: dbItem.category.name,
+        categoryTranslations:
+          dbItem.category.translations === null
+            ? undefined
+            : dbItem.category.translations,
         quantity: item.quantity,
         unitPrice,
         unitPriceWithOptions,
