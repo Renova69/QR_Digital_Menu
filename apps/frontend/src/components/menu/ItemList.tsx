@@ -174,6 +174,16 @@ const ItemRow = ({
   const hasMenuTags = Boolean(
     item.dietaryTags?.length || item.allergens?.length,
   );
+  const editTranslationsLabel = t(
+    "menuAdmin.editTranslations",
+    "Edit translations",
+  );
+  const featuredLabel = item.isFeatured
+    ? t("menuAdmin.unfeatureItem", "Remove from featured")
+    : t("menuAdmin.featureItem", "Feature item");
+  const stockLabel = item.isOutOfStock
+    ? t("menuAdmin.markAvailable", "Mark as available")
+    : t("menuAdmin.markOutOfStock", "Mark out of stock (86)");
 
   return (
     <div className="group flex min-w-0 flex-col items-start justify-between gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 sm:flex-row sm:items-center">
@@ -296,7 +306,8 @@ const ItemRow = ({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-primary"
-              title={t("menuAdmin.editTranslations", "Edit translations")}
+              title={editTranslationsLabel}
+              aria-label={editTranslationsLabel}
               onClick={() => onEditTranslations(item.id)}
             >
               <Languages className="h-4 w-4" />
@@ -306,7 +317,8 @@ const ItemRow = ({
               variant="ghost"
               size="icon"
               className={`h-8 w-8 ${item.isFeatured ? "text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50" : "text-muted-foreground hover:text-yellow-500"}`}
-              title={t("auto.featureItem", "Feature Item")}
+              title={featuredLabel}
+              aria-label={featuredLabel}
               onClick={() => onToggleFeatured(item)}
             >
               <Star
@@ -319,10 +331,8 @@ const ItemRow = ({
               variant="ghost"
               size="icon"
               className={`h-8 w-8 ${item.isOutOfStock ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-muted-foreground hover:text-red-600"}`}
-              title={t(
-                "menuAdmin.toggleOutOfStock",
-                "Toggle out of stock (86)",
-              )}
+              title={stockLabel}
+              aria-label={stockLabel}
               onClick={() => onToggleOutOfStock(item)}
             >
               <Ban className="h-4 w-4" />

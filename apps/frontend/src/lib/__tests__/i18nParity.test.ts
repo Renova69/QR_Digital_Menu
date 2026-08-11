@@ -38,6 +38,11 @@ const PUBLIC_ROOTS = [
 // Owner-facing subtrees that live under an otherwise-public root.
 const NON_PUBLIC_PREFIXES = ["payment.settings"];
 const MENU_EDIT_KEYS = [
+  "menuAdmin.editTranslations",
+  "menuAdmin.featureItem",
+  "menuAdmin.unfeatureItem",
+  "menuAdmin.markOutOfStock",
+  "menuAdmin.markAvailable",
   "forms.upsellContexts",
   "forms.upsellContext.MORNING",
   "forms.upsellContext.LUNCH",
