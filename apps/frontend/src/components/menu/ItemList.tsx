@@ -8,6 +8,7 @@ import { SortableItem } from "../ui/SortableItem";
 import { Button } from "../ui/button";
 import { ManageOptionsModal } from "./ManageOptionsModal";
 import { EditItemForm } from "./EditItemForm";
+import { TranslationOverrideModal } from "./TranslationOverrideModal";
 import { Item } from "../../types";
 import {
   Trash2,
@@ -16,6 +17,7 @@ import {
   GripVertical,
   Star,
   Ban,
+  Languages,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveTag } from "../../lib/menuTags";
@@ -25,6 +27,9 @@ export const ItemList: React.FC = () => {
     useMenuContext();
   const [selectedItemForOptions, setSelectedItemForOptions] =
     useState<Item | null>(null);
+  const [translatingItemId, setTranslatingItemId] = useState<string | null>(
+    null,
+  );
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(
     null,
   );
@@ -93,6 +98,7 @@ export const ItemList: React.FC = () => {
                   item={item}
                   onDelete={handleDelete}
                   onOpenOptions={setSelectedItemForOptions}
+                  onEditTranslations={setTranslatingItemId}
                   onToggleFeatured={handleToggleFeatured}
                   onToggleOutOfStock={handleToggleOutOfStock}
                   isConfirmingDelete={confirmingDeleteId === item.id}
@@ -128,6 +134,13 @@ export const ItemList: React.FC = () => {
           onOpenChange={(open) => !open && setSelectedItemForOptions(null)}
         />
       )}
+
+      {translatingItemId && (
+        <TranslationOverrideModal
+          itemId={translatingItemId}
+          onClose={() => setTranslatingItemId(null)}
+        />
+      )}
     </>
   );
 };
@@ -137,6 +150,7 @@ const ItemRow = ({
   item,
   onDelete,
   onOpenOptions,
+  onEditTranslations,
   onToggleFeatured,
   onToggleOutOfStock,
   isConfirmingDelete,
@@ -148,6 +162,7 @@ const ItemRow = ({
   item: Item;
   onDelete: (id: string) => void;
   onOpenOptions: (item: Item) => void;
+  onEditTranslations: (id: string) => void;
   onToggleFeatured: (item: Item) => void;
   onToggleOutOfStock: (item: Item) => void;
   isConfirmingDelete: boolean;
@@ -277,6 +292,16 @@ const ItemRow = ({
           </>
         ) : (
           <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              title={t("menuAdmin.editTranslations", "Edit translations")}
+              onClick={() => onEditTranslations(item.id)}
+            >
+              <Languages className="h-4 w-4" />
+            </Button>
+
             <Button
               variant="ghost"
               size="icon"
