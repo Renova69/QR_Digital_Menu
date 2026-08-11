@@ -272,7 +272,10 @@ function BillItemPrice({
   );
 }
 
-function formatOptionModifier(priceModifier: number | undefined) {
+function formatOptionModifier(
+  priceModifier: number | undefined,
+  quantity: number,
+) {
   if (
     typeof priceModifier !== "number" ||
     !Number.isFinite(priceModifier) ||
@@ -282,11 +285,37 @@ function formatOptionModifier(priceModifier: number | undefined) {
   }
 
   const sign = priceModifier > 0 ? "+" : "−";
-  return `${sign}${formatEuro(Math.abs(priceModifier))}`;
+  return `${sign}${formatEuro(Math.abs(priceModifier) * quantity)}`;
+}
+
+function BillItemDisplayPrice({
+  item,
+  remainingQuantity,
+  showsOptionBreakdown,
+}: {
+  item: BillItem;
+  remainingQuantity: number;
+  showsOptionBreakdown: boolean;
+}) {
+  if (!showsOptionBreakdown || item.redeemedWithPoints) {
+    return (
+      <BillItemPrice item={item} remainingQuantity={remainingQuantity} />
+    );
+  }
+
+  return (
+    <span className="shrink-0 whitespace-nowrap text-gray-700">
+      {formatEuro(item.unitPrice * remainingQuantity)}
+    </span>
+  );
 }
 
 function BillItemRow({ item }: { item: BillItem }) {
   const remainingQuantity = getBillItemRemainingQuantity(item);
+  const visibleOptions = Array.isArray(item.selectedOptions)
+    ? item.selectedOptions.filter((option) => option.choiceName?.trim())
+    : [];
+  const showsOptionBreakdown = visibleOptions.length > 0;
 
   return (
     <div className="flex items-start justify-between gap-3 py-0.5 text-xs">
@@ -294,39 +323,47 @@ function BillItemRow({ item }: { item: BillItem }) {
         <span className="block">
           {item.name} ×{remainingQuantity}
         </span>
-        {Array.isArray(item.selectedOptions) &&
-          item.selectedOptions.length > 0 && (
-            <span
-              role="list"
-              className="mt-1 block space-y-0.5 border-l-2 border-primary/20 pl-2 text-[11px] text-gray-500"
-            >
-              {item.selectedOptions.map((option, index) => {
-                const choiceName = option.choiceName?.trim();
-                if (!choiceName) return null;
-                const optionName = option.optionName?.trim();
-                const modifier = formatOptionModifier(option.priceModifier);
+        {showsOptionBreakdown && (
+          <span
+            role="list"
+            className="mt-1 block space-y-0.5 border-l-2 border-primary/20 pl-2 text-[11px] text-gray-500"
+          >
+            {visibleOptions.map((option, index) => {
+              const choiceName = option.choiceName?.trim();
+              if (!choiceName) return null;
+              const optionName = option.optionName?.trim();
+              const modifier = item.redeemedWithPoints
+                ? null
+                : formatOptionModifier(
+                    option.priceModifier,
+                    remainingQuantity,
+                  );
 
-                return (
-                  <span
-                    role="listitem"
-                    key={`${option.optionId ?? "option"}:${choiceName}:${index}`}
-                    className="flex items-baseline justify-between gap-3"
-                  >
-                    <span className="min-w-0 break-words">
-                      {optionName ? `${optionName}: ${choiceName}` : choiceName}
-                    </span>
-                    {modifier && (
-                      <span className="shrink-0 whitespace-nowrap font-medium text-gray-600">
-                        {modifier}
-                      </span>
-                    )}
+              return (
+                <span
+                  role="listitem"
+                  key={`${option.optionId ?? "option"}:${choiceName}:${index}`}
+                  className="flex items-baseline justify-between gap-3"
+                >
+                  <span className="min-w-0 break-words">
+                    {optionName ? `${optionName}: ${choiceName}` : choiceName}
                   </span>
-                );
-              })}
-            </span>
-          )}
+                  {modifier && (
+                    <span className="shrink-0 whitespace-nowrap font-medium text-gray-600">
+                      {modifier}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+          </span>
+        )}
       </span>
-      <BillItemPrice item={item} remainingQuantity={remainingQuantity} />
+      <BillItemDisplayPrice
+        item={item}
+        remainingQuantity={remainingQuantity}
+        showsOptionBreakdown={showsOptionBreakdown}
+      />
     </div>
   );
 }

@@ -217,7 +217,7 @@ describe("PaymentModal hosted provider choices", () => {
     vi.restoreAllMocks();
   });
 
-  it("itemizes selected options while keeping the option-inclusive line total", async () => {
+  it("shows the base item price beside itemized modifiers and keeps the option-inclusive bill total", async () => {
     apiMocks.getSessionBill.mockResolvedValueOnce({
       ...billWithProviders(["STRIPE"]),
       orders: [
@@ -267,11 +267,75 @@ describe("PaymentModal hosted provider choices", () => {
       />,
     );
 
-    expect(await screen.findByText("Toppings: Olives")).toBeDefined();
+    const itemName = await screen.findByText("Make your own ×1");
+    const itemRow = itemName.closest("div") as HTMLElement;
+
+    expect(within(itemRow).getByText("12.00 €")).toBeDefined();
+    expect(within(itemRow).queryByText("15.00 €")).toBeNull();
+    expect(screen.getByText("Toppings: Olives")).toBeDefined();
     expect(screen.getByText("Toppings: Cheese")).toBeDefined();
     expect(screen.getByText("+1.00 €")).toBeDefined();
     expect(screen.getByText("+2.00 €")).toBeDefined();
-    expect(screen.getAllByText("15.00 €").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("15.00 €")).toHaveLength(1);
+  });
+
+  it("scales the visible base price and modifiers with the unpaid quantity", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(["STRIPE"]),
+      orders: [
+        {
+          id: "pizza-order",
+          source: "CUSTOMER",
+          customerName: "Maria Petrova",
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 30,
+          items: [
+            {
+              orderItemId: "pizza-item",
+              name: "Make your own",
+              quantity: 2,
+              paidQuantity: 0,
+              unitPrice: 12,
+              unitPriceWithOptions: 15,
+              selectedOptions: [
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Olives",
+                  priceModifier: 1,
+                },
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Cheese",
+                  priceModifier: 2,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      subtotal: 30,
+      remaining: 30,
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    const itemName = await screen.findByText("Make your own ×2");
+    const itemRow = itemName.closest("div") as HTMLElement;
+
+    expect(within(itemRow).getByText("24.00 €")).toBeDefined();
+    expect(within(itemRow).getByText("+2.00 €")).toBeDefined();
+    expect(within(itemRow).getByText("+4.00 €")).toBeDefined();
+    expect(screen.getAllByText("30.00 €")).toHaveLength(1);
   });
 
   it("shows the ePay option only when the bill advertises EPAY", async () => {
