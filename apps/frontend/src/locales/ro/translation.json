@@ -595,6 +595,7 @@
     "unfeatureItem": "Elimină din recomandate",
     "markOutOfStock": "Marchează ca indisponibil (86)",
     "markAvailable": "Marchează ca disponibil",
+    "outOfStock": "Indisponibil",
     "noCategory": "Nicio categorie selectată",
     "selectCategoryPrompt": "Selectați o categorie din stânga pentru a gestiona articolele.",
     "emptyCategory": "Această categorie este goală.",

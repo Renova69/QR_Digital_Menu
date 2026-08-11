@@ -595,6 +595,7 @@
     "unfeatureItem": "Remove from featured",
     "markOutOfStock": "Mark out of stock (86)",
     "markAvailable": "Mark as available",
+    "outOfStock": "Out of stock",
     "noCategory": "No Category Selected",
     "selectCategoryPrompt": "Select a category on the left to manage its menu items.",
     "emptyCategory": "This category is currently empty.",

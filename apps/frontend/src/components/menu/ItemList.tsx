@@ -23,8 +23,14 @@ import { useTranslation } from "react-i18next";
 import { resolveTag } from "../../lib/menuTags";
 
 export const ItemList: React.FC = () => {
-  const { items, isLoadingItems, selectedCategory, deleteItem, updateItem } =
-    useMenuContext();
+  const {
+    items,
+    isLoadingItems,
+    selectedCategory,
+    deleteItem,
+    updateItem,
+    setItems,
+  } = useMenuContext();
   const [selectedItemForOptions, setSelectedItemForOptions] =
     useState<Item | null>(null);
   const [translatingItemId, setTranslatingItemId] = useState<string | null>(
@@ -50,9 +56,23 @@ export const ItemList: React.FC = () => {
 
   // "86" toggle — operational out-of-stock switch (item-availability gap).
   const handleToggleOutOfStock = async (item: Item) => {
+    const previousOutOfStock = Boolean(item.isOutOfStock);
+    const nextOutOfStock = !previousOutOfStock;
+    const updateCachedState = (isOutOfStock: boolean) => {
+      setItems((currentItems) =>
+        (currentItems ?? []).map((currentItem) =>
+          currentItem.id === item.id
+            ? { ...currentItem, isOutOfStock }
+            : currentItem,
+        ),
+      );
+    };
+
+    updateCachedState(nextOutOfStock);
     try {
-      await updateItem(item.id, { isOutOfStock: !item.isOutOfStock });
+      await updateItem(item.id, { isOutOfStock: nextOutOfStock });
     } catch (error) {
+      updateCachedState(previousOutOfStock);
       console.error("Failed to toggle out-of-stock status", error);
     }
   };

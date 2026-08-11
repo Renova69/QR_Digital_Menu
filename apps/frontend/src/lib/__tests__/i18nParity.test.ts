@@ -43,6 +43,7 @@ const MENU_EDIT_KEYS = [
   "menuAdmin.unfeatureItem",
   "menuAdmin.markOutOfStock",
   "menuAdmin.markAvailable",
+  "menuAdmin.outOfStock",
   "forms.upsellContexts",
   "forms.upsellContext.MORNING",
   "forms.upsellContext.LUNCH",

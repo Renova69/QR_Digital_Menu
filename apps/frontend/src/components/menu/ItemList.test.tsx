@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import i18next from "i18next";
-import { act } from "react";
+import { act, useState } from "react";
 import { I18nextProvider, initReactI18next } from "react-i18next";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import bgTranslation from "../../locales/bg/translation.json";
 import enTranslation from "../../locales/en/translation.json";
 import roTranslation from "../../locales/ro/translation.json";
@@ -36,11 +37,29 @@ const { menuContext } = vi.hoisted(() => ({
     selectedCategory: { id: "category-1" },
     deleteItem: vi.fn(),
     updateItem: vi.fn(),
+    setItems: vi.fn(),
   },
 }));
+const initialItems = menuContext.items.map((item) => ({ ...item }));
+
+type MockItem = (typeof menuContext.items)[number];
+type ItemsUpdater = (old: MockItem[] | undefined) => MockItem[];
+
+function useMockMenuContext() {
+  const [items, setItems] = useState(menuContext.items);
+
+  return {
+    ...menuContext,
+    items,
+    setItems: (updater: ItemsUpdater) => {
+      menuContext.setItems(updater);
+      setItems((old) => updater(old));
+    },
+  };
+}
 
 vi.mock("../../context/MenuContext", () => ({
-  useMenuContext: () => menuContext,
+  useMenuContext: () => useMockMenuContext(),
 }));
 
 vi.mock("@dnd-kit/sortable", () => ({
@@ -92,6 +111,16 @@ function expectActionLabel(label: string, count = 1) {
   );
 }
 
+beforeEach(() => {
+  menuContext.items.splice(
+    0,
+    menuContext.items.length,
+    ...initialItems.map((item) => ({ ...item })),
+  );
+  menuContext.updateItem.mockReset();
+  menuContext.setItems.mockReset();
+});
+
 describe("ItemList action localization", () => {
   it("updates state-aware hover and accessible labels with the dashboard language", async () => {
     const instance = await renderItemList("bg");
@@ -101,6 +130,7 @@ describe("ItemList action localization", () => {
     expectActionLabel("Премахване от препоръчани");
     expectActionLabel("Маркиране като изчерпан (86)");
     expectActionLabel("Маркиране като наличен");
+    expect(screen.getByText("Изчерпан")).toBeInTheDocument();
 
     await act(async () => {
       await instance.changeLanguage("ro");
@@ -114,5 +144,40 @@ describe("ItemList action localization", () => {
     expectActionLabel("Elimină din recomandate");
     expectActionLabel("Marchează ca indisponibil (86)");
     expectActionLabel("Marchează ca disponibil");
+    expect(screen.getByText("Indisponibil")).toBeInTheDocument();
+  });
+
+  it("shows the pending stock state immediately and rolls it back on failure", async () => {
+    const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    let failUpdate: (() => void) | undefined;
+    const pendingUpdate = new Promise<void>((_resolve, reject) => {
+      failUpdate = () => reject(new Error("network failure"));
+    });
+    menuContext.items.splice(1);
+    menuContext.updateItem.mockReturnValue(pendingUpdate);
+    await renderItemList("en");
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark out of stock (86)" }),
+    );
+
+    try {
+      expect(
+        screen.getByRole("button", { name: "Mark as available" }),
+      ).toBeInTheDocument();
+
+      failUpdate?.();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Mark out of stock (86)" }),
+        ).toBeInTheDocument(),
+      );
+    } finally {
+      failUpdate?.();
+      consoleError.mockRestore();
+    }
   });
 });
