@@ -412,6 +412,65 @@ describe("CheckoutPage", () => {
     });
   });
 
+  it("strips cart-only option translations from the order request", async () => {
+    (useCart as Mock).mockReturnValue({
+      items: [
+        {
+          id: "make-your-own",
+          cartId: "make-your-own-toppings",
+          quantity: 1,
+          price: 10,
+          selectedOptions: [
+            {
+              optionId: "toppings",
+              optionName: "Toppings",
+              choiceName: "Olives",
+              priceModifier: 1,
+              translations: {
+                bg: {
+                  name: "Добавки",
+                  choices: { Olives: "Маслини" },
+                },
+              },
+            },
+          ],
+          rewardPointsPrice: 0,
+        },
+      ],
+      tableNumber: "5",
+      getTotal: () => 11,
+      clearCart: vi.fn(),
+    });
+
+    render(<CheckoutPage />);
+    fireEvent.change(screen.getByLabelText(/checkout.name/i), {
+      target: { value: "Pizza customer" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /checkout.placeOrder/i }),
+    );
+
+    await waitFor(() =>
+      expect(api.createOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [
+            expect.objectContaining({
+              selectedOptions: [
+                {
+                  optionId: "toppings",
+                  optionName: "Toppings",
+                  choiceName: "Olives",
+                  priceModifier: 1,
+                },
+              ],
+            }),
+          ],
+        }),
+        expect.any(String),
+      ),
+    );
+  });
+
   it("shows tier progress bar and points-to-next-tier for a Silver member", async () => {
     (useAuth as Mock).mockReturnValue({ user: { id: "u1", name: "Jane" } });
     (api.default.post as Mock).mockImplementation((url: string) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useCart } from "../context/CartContext";
+import { useCart, type SelectedOption } from "../context/CartContext";
 import api, {
   createOrder,
   abandonCheckout,
@@ -57,6 +57,21 @@ const FIELD_FEEDBACK_CLASSES: Record<FieldState, string> = {
     "border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/40",
   invalid: "border-red-500 focus:border-red-500 focus:ring-red-500/40",
 };
+
+// Cart selections retain translations for localised display. The order command
+// sends only the DTO fields; the backend resolves and snapshots authoritative
+// option names and prices from the menu.
+const toOrderSelectedOption = ({
+  optionId,
+  optionName,
+  choiceName,
+  priceModifier,
+}: SelectedOption) => ({
+  optionId,
+  optionName,
+  choiceName,
+  priceModifier,
+});
 
 const PAYMENT_PARTNERS = [
   {
@@ -636,7 +651,9 @@ const CheckoutPage = () => {
         menuItemId: item.id,
         cartId: item.cartId,
         quantity: item.quantity,
-        selectedOptions: item.selectedOptions,
+        selectedOptions: (item.selectedOptions ?? []).map(
+          toOrderSelectedOption,
+        ),
       })),
       specialRequests,
       // Send the stable cartId-keyed set so the backend comps the specific line
