@@ -88,7 +88,13 @@ export class ItemDetailController {
     @Body(ValidationPipe) dto: UpdateItemTranslationDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.overrides.setOverride(id, dto.locale, dto.value, req.user.id);
+    return this.overrides.setOverride(
+      id,
+      dto.field,
+      dto.locale,
+      dto.value,
+      req.user.id,
+    );
   }
 
   // Same DeepL cost guard as item create (#30).

@@ -116,7 +116,7 @@ describe('ItemDetailController', () => {
     expect(mockOverrides.getForItem).toHaveBeenCalledWith('item-1', 'user-1');
   });
 
-  it('writes an override for the authenticated owner', async () => {
+  it('writes a description override for the authenticated owner', async () => {
     mockOverrides.setOverride.mockResolvedValue({
       itemId: 'item-1',
       locales: [],
@@ -124,14 +124,19 @@ describe('ItemDetailController', () => {
 
     await controller.updateTranslation(
       'item-1',
-      { locale: 'en', value: 'Beefeater Gin' },
+      {
+        field: 'DESCRIPTION',
+        locale: 'en',
+        value: 'Classic London dry gin',
+      },
       { user: { id: 'user-1' } },
     );
 
     expect(mockOverrides.setOverride).toHaveBeenCalledWith(
       'item-1',
+      'DESCRIPTION',
       'en',
-      'Beefeater Gin',
+      'Classic London dry gin',
       'user-1',
     );
   });

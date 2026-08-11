@@ -38,29 +38,59 @@ describe('MenuTranslationOverrideService', () => {
     );
   });
 
-  it('returns one entry per target language, with the stored value', async () => {
+  it('returns independent name and description state for each target language', async () => {
     prisma.menuItem.findUnique.mockResolvedValue({
       id: 'item-1',
       name: 'Джин Beefeater',
-      translations: { en: { name: 'Beefeater Gin' }, de: {} },
+      description: 'Лондонски сух джин',
+      translations: {
+        en: { name: 'Beefeater Gin', description: 'London dry gin' },
+        de: {},
+      },
       category: {
         restaurantId: 'rest-1',
         restaurant: { menuSourceLanguage: 'bg', targetLanguages: ['en', 'de'] },
       },
     });
+    prisma.menuTranslationState.findMany.mockResolvedValue([
+      {
+        field: 'DESCRIPTION',
+        locale: 'en',
+        status: 'MANUAL',
+        sourceHash: 'hash-of-the-description',
+      },
+    ]);
 
     const result = await service.getForItem('item-1', 'user-1');
 
     expect(result.sourceLang).toBe('bg');
-    expect(result.sourceText).toBe('Джин Beefeater');
+    expect(result.source).toEqual({
+      name: 'Джин Beefeater',
+      description: 'Лондонски сух джин',
+    });
     expect(result.locales).toEqual([
       {
         locale: 'en',
-        value: 'Beefeater Gin',
-        status: 'CURRENT',
-        sourceChanged: false,
+        name: {
+          value: 'Beefeater Gin',
+          status: 'CURRENT',
+          sourceChanged: false,
+        },
+        description: {
+          value: 'London dry gin',
+          status: 'MANUAL',
+          sourceChanged: true,
+        },
       },
-      { locale: 'de', value: null, status: 'CURRENT', sourceChanged: false },
+      {
+        locale: 'de',
+        name: { value: null, status: 'CURRENT', sourceChanged: false },
+        description: {
+          value: null,
+          status: 'CURRENT',
+          sourceChanged: false,
+        },
+      },
     ]);
   });
 
@@ -91,12 +121,17 @@ describe('MenuTranslationOverrideService', () => {
       },
     });
     prisma.menuTranslationState.findMany.mockResolvedValue([
-      { locale: 'en', status: 'MANUAL', sourceHash: 'hash-of-the-old-name' },
+      {
+        field: 'NAME',
+        locale: 'en',
+        status: 'MANUAL',
+        sourceHash: 'hash-of-the-old-name',
+      },
     ]);
 
     const result = await service.getForItem('item-1', 'user-1');
 
-    expect(result.locales[0]).toMatchObject({
+    expect(result.locales[0].name).toMatchObject({
       status: 'MANUAL',
       sourceChanged: true,
     });
@@ -137,7 +172,13 @@ describe('MenuTranslationOverrideService', () => {
     });
 
     it('writes the value atomically and creates missing locale objects', async () => {
-      await service.setOverride('item-1', 'en', 'Beefeater Gin', 'user-1');
+      await service.setOverride(
+        'item-1',
+        'NAME',
+        'en',
+        'Beefeater Gin',
+        'user-1',
+      );
 
       const sql = executedSql();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -147,27 +188,74 @@ describe('MenuTranslationOverrideService', () => {
     });
 
     it('marks the queue row MANUAL so the worker leaves it alone', async () => {
-      await service.setOverride('item-1', 'en', 'Beefeater Gin', 'user-1');
+      await service.setOverride(
+        'item-1',
+        'NAME',
+        'en',
+        'Beefeater Gin',
+        'user-1',
+      );
 
       const sql = executedSql();
       expect(sql).toContain('menu_translation_state');
       expect(executedValues()).toContain('MANUAL');
     });
 
+    it('locks the state row before writing item JSON so an in-flight worker cannot overtake the owner', async () => {
+      await service.setOverride(
+        'item-1',
+        'NAME',
+        'en',
+        'Beefeater Gin',
+        'user-1',
+      );
+
+      const statements = prisma.$executeRaw.mock.calls.map(
+        (call: unknown[]) => {
+          const [query] = call;
+          if (Array.isArray(query)) return query.join('');
+          const strings = (query as { strings?: unknown } | null)?.strings;
+          return Array.isArray(strings) ? strings.join('') : '';
+        },
+      );
+
+      expect(statements[0]).toContain('menu_translation_state');
+      expect(statements[1]).toContain('menu_item');
+    });
+
+    it('writes a description override to its own JSON key and queue field', async () => {
+      await service.setOverride(
+        'item-1',
+        'DESCRIPTION',
+        'en',
+        'Classic London dry gin',
+        'user-1',
+      );
+
+      expect(executedValues()).toEqual(
+        expect.arrayContaining([
+          'description',
+          'DESCRIPTION',
+          'Classic London dry gin',
+          'MANUAL',
+        ]),
+      );
+    });
+
     it('rejects a locale that is not a configured target', async () => {
       await expect(
-        service.setOverride('item-1', 'fr', 'Gin', 'user-1'),
+        service.setOverride('item-1', 'NAME', 'fr', 'Gin', 'user-1'),
       ).rejects.toThrow(/not a configured target language/i);
     });
 
     it('rejects the source language', async () => {
       await expect(
-        service.setOverride('item-1', 'bg', 'Джин', 'user-1'),
+        service.setOverride('item-1', 'NAME', 'bg', 'Джин', 'user-1'),
       ).rejects.toThrow(/not a configured target language/i);
     });
 
     it('clearing an override returns the row to STALE so it gets retranslated', async () => {
-      await service.setOverride('item-1', 'en', null, 'user-1');
+      await service.setOverride('item-1', 'NAME', 'en', null, 'user-1');
 
       expect(executedValues()).toContain('STALE');
       expect(executedValues()).not.toContain('MANUAL');

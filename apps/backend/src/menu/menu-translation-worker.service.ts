@@ -472,8 +472,10 @@ export class MenuTranslationWorkerService {
 
   private async markCurrent(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    // An owner can change a claimed row to MANUAL while the provider call is
+    // in flight. Only the still-owned PENDING rows may complete as CURRENT.
     await this.prisma.menuTranslationState.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, status: 'PENDING' },
       data: {
         status: 'CURRENT',
         translatedAt: new Date(),
@@ -503,8 +505,8 @@ export class MenuTranslationWorkerService {
           MenuTranslationWorkerService.MAX_FAILURE_COUNT,
         ),
       );
-      await this.prisma.menuTranslationState.update({
-        where: { id: row.id },
+      await this.prisma.menuTranslationState.updateMany({
+        where: { id: row.id, status: 'PENDING' },
         data: {
           status: needsReview ? 'NEEDS_REVIEW' : 'FAILED',
           failureCount: newFailureCount,
@@ -521,7 +523,7 @@ export class MenuTranslationWorkerService {
   private async releaseToStale(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await this.prisma.menuTranslationState.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, status: 'PENDING' },
       data: { status: 'STALE', claimedAt: null },
     });
   }

@@ -1489,6 +1489,23 @@ export class MenuCrudService {
       item.translations &&
       typeof item.translations === 'object'
     ) {
+      const manualDescriptionLocales = new Set<string>();
+      if (descCleared) {
+        const manualDescriptions =
+          await this.prisma.menuTranslationState.findMany({
+            where: {
+              entityType: 'ITEM',
+              entityId: itemId,
+              field: 'DESCRIPTION',
+              status: 'MANUAL',
+            },
+            select: { locale: true },
+          });
+        for (const state of manualDescriptions) {
+          manualDescriptionLocales.add(state.locale.toLowerCase());
+        }
+      }
+
       const cached: any = { ...(item.translations as Record<string, any>) };
       let dirty = false;
       for (const langKey of Object.keys(cached)) {
@@ -1510,6 +1527,7 @@ export class MenuCrudService {
         }
         if (
           descCleared &&
+          !manualDescriptionLocales.has(langKey.toLowerCase()) &&
           cached[langKey] &&
           'description' in cached[langKey]
         ) {

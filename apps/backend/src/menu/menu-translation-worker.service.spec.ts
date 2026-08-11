@@ -412,7 +412,25 @@ describe('MenuTranslationWorkerService', () => {
 
       expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: { in: ['state-1'] } },
+          where: { id: { in: ['state-1'] }, status: 'PENDING' },
+          data: expect.objectContaining({ status: 'CURRENT' }),
+        }),
+      );
+    });
+
+    it('cannot demote an owner description that becomes MANUAL while translation is in flight', async () => {
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([
+        claimedRow({ field: 'DESCRIPTION' }),
+      ]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        { id: 'item-1', name: 'X', description: 'Source description' },
+      ]);
+
+      await service.runOnce();
+
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['state-1'] }, status: 'PENDING' },
           data: expect.objectContaining({ status: 'CURRENT' }),
         }),
       );
@@ -431,9 +449,9 @@ describe('MenuTranslationWorkerService', () => {
 
       await service.runOnce();
 
-      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'state-1' },
+          where: { id: 'state-1', status: 'PENDING' },
           data: expect.objectContaining({
             status: 'FAILED',
             failureCount: 1,
@@ -454,9 +472,9 @@ describe('MenuTranslationWorkerService', () => {
 
       await service.runOnce();
 
-      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'state-1' },
+          where: { id: 'state-1', status: 'PENDING' },
           data: expect.objectContaining({
             status: 'NEEDS_REVIEW',
             nextAttemptAt: null,
@@ -491,13 +509,13 @@ describe('MenuTranslationWorkerService', () => {
 
       expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: { in: ['state-good'] } },
+          where: { id: { in: ['state-good'] }, status: 'PENDING' },
           data: expect.objectContaining({ status: 'CURRENT' }),
         }),
       );
-      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'state-bad' },
+          where: { id: 'state-bad', status: 'PENDING' },
           data: expect.objectContaining({ status: 'NEEDS_REVIEW' }),
         }),
       );
@@ -532,13 +550,13 @@ describe('MenuTranslationWorkerService', () => {
 
       expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: { in: ['state-name'] } },
+          where: { id: { in: ['state-name'] }, status: 'PENDING' },
           data: expect.objectContaining({ status: 'CURRENT' }),
         }),
       );
-      expect(mockPrisma.menuTranslationState.update).toHaveBeenCalledWith(
+      expect(mockPrisma.menuTranslationState.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'state-description' },
+          where: { id: 'state-description', status: 'PENDING' },
           data: expect.objectContaining({ status: 'NEEDS_REVIEW' }),
         }),
       );

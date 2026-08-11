@@ -2346,17 +2346,27 @@ export const updateReservationInternal = (
 
 // ── Manual translation override ──────────────────────────────────────────
 
-export interface LocaleOverride {
-  locale: string;
+export type TranslationOverrideField = "NAME" | "DESCRIPTION";
+
+export interface TranslationOverrideValue {
   value: string | null;
   status: string;
   sourceChanged: boolean;
 }
 
+export interface LocaleOverride {
+  locale: string;
+  name: TranslationOverrideValue;
+  description: TranslationOverrideValue;
+}
+
 export interface ItemTranslations {
   itemId: string;
   sourceLang: string;
-  sourceText: string;
+  source: {
+    name: string;
+    description: string;
+  };
   locales: LocaleOverride[];
 }
 
@@ -2369,10 +2379,12 @@ export const getItemTranslations = async (
 
 export const updateItemTranslation = async (
   itemId: string,
+  field: TranslationOverrideField,
   locale: string,
   value: string | null,
 ): Promise<ItemTranslations> => {
   const response = await api.patch(`/items/${itemId}/translations`, {
+    field,
     locale,
     value,
   });

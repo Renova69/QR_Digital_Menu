@@ -8,23 +8,34 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MenuCrudService } from './menu-crud.service';
 import { computeSourceHash } from './menu-translation-hash.util';
 
-export interface LocaleOverride {
-  locale: string;
+export interface OverrideValue {
   value: string | null;
   status: string;
   /** The item's source text changed after this override was written. */
   sourceChanged: boolean;
 }
 
+export type OverrideField = 'NAME' | 'DESCRIPTION';
+
+export interface LocaleOverride {
+  locale: string;
+  name: OverrideValue;
+  description: OverrideValue;
+}
+
 export interface ItemTranslations {
   itemId: string;
   sourceLang: string;
-  sourceText: string;
+  source: {
+    name: string;
+    description: string;
+  };
   locales: LocaleOverride[];
 }
 
 /**
- * Owner-facing read/write for a single menu item's name translations.
+ * Owner-facing read/write for a single menu item's name and description
+ * translations.
  *
  * Kept out of menu-crud.service.ts because this is a self-contained concern:
  * it reads the same MenuItem.translations JSON the public menu renders, and
@@ -43,6 +54,7 @@ export class MenuTranslationOverrideService {
       select: {
         id: true,
         name: true,
+        description: true,
         translations: true,
         category: {
           select: {
@@ -100,34 +112,53 @@ export class MenuTranslationOverrideService {
       where: {
         entityType: 'ITEM',
         entityId: itemId,
-        field: 'NAME',
+        field: { in: ['NAME', 'DESCRIPTION'] },
         locale: { in: locales },
       },
-      select: { locale: true, status: true, sourceHash: true },
+      select: { field: true, locale: true, status: true, sourceHash: true },
     });
-    const byLocale = new Map(states.map((state) => [state.locale, state]));
-    const currentHash = computeSourceHash(item.name);
+    const byFieldAndLocale = new Map(
+      states.map((state) => [`${state.field}:${state.locale}`, state]),
+    );
+    const source = {
+      name: item.name,
+      description: item.description ?? '',
+    };
+    const currentHashes = {
+      NAME: computeSourceHash(source.name),
+      DESCRIPTION: computeSourceHash(source.description),
+    };
     const translations = (item.translations ?? {}) as Record<
       string,
-      { name?: string } | undefined
+      { name?: string; description?: string } | undefined
     >;
+
+    const valueFor = (
+      field: 'NAME' | 'DESCRIPTION',
+      locale: string,
+    ): OverrideValue => {
+      const state = byFieldAndLocale.get(`${field}:${locale}`);
+      const key = field === 'NAME' ? 'name' : 'description';
+      const value = translations[locale]?.[key] ?? null;
+
+      return {
+        value: typeof value === 'string' ? value : null,
+        status: state?.status ?? 'CURRENT',
+        sourceChanged:
+          state?.status === 'MANUAL' &&
+          state.sourceHash !== currentHashes[field],
+      };
+    };
 
     return {
       itemId: item.id,
       sourceLang,
-      sourceText: item.name,
-      locales: locales.map((locale) => {
-        const state = byLocale.get(locale);
-        const value = translations[locale]?.name ?? null;
-
-        return {
-          locale,
-          value: typeof value === 'string' ? value : null,
-          status: state?.status ?? 'CURRENT',
-          sourceChanged:
-            state?.status === 'MANUAL' && state.sourceHash !== currentHash,
-        };
-      }),
+      source,
+      locales: locales.map((locale) => ({
+        locale,
+        name: valueFor('NAME', locale),
+        description: valueFor('DESCRIPTION', locale),
+      })),
     };
   }
 
@@ -138,6 +169,7 @@ export class MenuTranslationOverrideService {
    */
   async setOverride(
     itemId: string,
+    field: OverrideField,
     locale: string,
     value: string | null,
     userId: string,
@@ -153,10 +185,37 @@ export class MenuTranslationOverrideService {
     }
 
     const trimmed = value?.trim() || null;
-    const hash = computeSourceHash(item.name);
+    const jsonKey = field === 'NAME' ? 'name' : 'description';
+    const sourceText = field === 'NAME' ? item.name : (item.description ?? '');
+    const hash = computeSourceHash(sourceText);
     const status = trimmed ? 'MANUAL' : 'STALE';
 
     await this.prisma.$transaction(async (tx) => {
+      // Lock/update the queue state before the menu item. The worker takes
+      // the same state-first lock order before writing provider output, so
+      // whichever transaction wins leaves the owner's MANUAL value last.
+      await tx.$executeRaw`
+        INSERT INTO "menu_translation_state" (
+          "id", "restaurantId", "entityType", "entityId", "field", "locale",
+          "sourceLang", "sourceHash", "status", "reviewedAt", "createdAt", "updatedAt"
+        )
+        VALUES (
+          ${randomUUID()}, ${item.category.restaurantId}, 'ITEM'::"MenuTranslationEntity",
+          ${itemId}, ${field}::"MenuTranslationField", ${normalized},
+          ${sourceLang}, ${hash}, ${status}::"MenuTranslationStatus", now(), now(), now()
+        )
+        ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
+          "status" = ${status}::"MenuTranslationStatus",
+          "sourceHash" = ${hash},
+          "sourceLang" = ${sourceLang},
+          "runId" = NULL,
+          "claimedAt" = NULL,
+          "failureCount" = 0,
+          "nextAttemptAt" = NULL,
+          "lastError" = NULL,
+          "reviewedAt" = now(),
+          "updatedAt" = now()`;
+
       if (trimmed) {
         await tx.$executeRaw`
           UPDATE "menu_item"
@@ -169,7 +228,7 @@ export class MenuTranslationOverrideService {
                   THEN translations -> ${normalized}
               END,
               '{}'::jsonb
-            ) || jsonb_build_object('name', ${trimmed}::text),
+            ) || jsonb_build_object(${jsonKey}::text, ${trimmed}::text),
             true
           )
           WHERE id = ${itemId}`;
@@ -177,30 +236,9 @@ export class MenuTranslationOverrideService {
         await tx.$executeRaw`
           UPDATE "menu_item"
           SET translations = COALESCE(translations, '{}'::jsonb)
-            #- ARRAY[${normalized}, 'name']
+            #- ARRAY[${normalized}, ${jsonKey}]
           WHERE id = ${itemId}`;
       }
-
-      await tx.$executeRaw`
-        INSERT INTO "menu_translation_state" (
-          "id", "restaurantId", "entityType", "entityId", "field", "locale",
-          "sourceLang", "sourceHash", "status", "reviewedAt", "createdAt", "updatedAt"
-        )
-        VALUES (
-          ${randomUUID()}, ${item.category.restaurantId}, 'ITEM'::"MenuTranslationEntity",
-          ${itemId}, 'NAME'::"MenuTranslationField", ${normalized},
-          ${sourceLang}, ${hash}, ${status}::"MenuTranslationStatus", now(), now(), now()
-        )
-        ON CONFLICT ("entityType", "entityId", "field", "locale") DO UPDATE SET
-          "status" = ${status}::"MenuTranslationStatus",
-          "sourceHash" = ${hash},
-          "sourceLang" = ${sourceLang},
-          "runId" = NULL,
-          "failureCount" = 0,
-          "nextAttemptAt" = NULL,
-          "lastError" = NULL,
-          "reviewedAt" = now(),
-          "updatedAt" = now()`;
     });
 
     return this.getForItem(itemId, userId);

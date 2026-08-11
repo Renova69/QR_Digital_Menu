@@ -46,6 +46,9 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  menuTranslationState: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   orderItem: { groupBy: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -167,6 +170,7 @@ describe('MenuCrudService', () => {
     mockStorage.delete.mockResolvedValue(undefined);
     mockStorage.deleteExact.mockResolvedValue(undefined);
     mockWeatherUpsell.getContexts.mockResolvedValue(new Set());
+    mockPrisma.menuTranslationState.findMany.mockResolvedValue([]);
     mockPrisma.$transaction.mockResolvedValue([]);
   });
 
@@ -1848,6 +1852,53 @@ describe('MenuCrudService', () => {
       expect(purgeCall![0].data.translations.en).not.toHaveProperty(
         'allergens',
       );
+    });
+
+    it('clearing the source description preserves MANUAL descriptions only', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue(
+        makeItem({
+          description: 'London dry gin',
+          translations: {
+            en: {
+              name: 'Beefeater Gin',
+              description: 'Owner-authored English description',
+            },
+            de: {
+              name: 'Beefeater Gin DE',
+              description: 'Automatically translated description',
+            },
+          },
+        }),
+      );
+      mockPrisma.menuTranslationState.findMany.mockResolvedValue([
+        { locale: 'en' },
+      ]);
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.update.mockResolvedValue(
+        makeItem({ description: null }),
+      );
+
+      await service.updateItem('item-1', { description: '' }, 'user-1');
+
+      const purgeCall = mockPrisma.menuItem.update.mock.calls.find(
+        (call: any[]) => call[0]?.data?.translations,
+      );
+      expect(purgeCall).toBeDefined();
+      expect(purgeCall![0].data.translations.en.description).toBe(
+        'Owner-authored English description',
+      );
+      expect(purgeCall![0].data.translations.de).not.toHaveProperty(
+        'description',
+      );
+      expect(mockPrisma.menuTranslationState.findMany).toHaveBeenCalledWith({
+        where: {
+          entityType: 'ITEM',
+          entityId: 'item-1',
+          field: 'DESCRIPTION',
+          status: 'MANUAL',
+        },
+        select: { locale: true },
+      });
     });
   });
 

@@ -211,15 +211,42 @@ export class MenuTranslationService {
           // merge only the fields they fetched instead of one clobbering the
           // other's fragment via a full lang-object replace. `jsonb_typeof`
           // guards discard the legacy array format for allergens/dietaryTags
-          // exactly like the old JS `Array.isArray` check did.
+          // exactly like the old JS `Array.isArray` check did. The locking CTE
+          // also serializes against an owner override saved while the provider
+          // call was in flight; MANUAL name/description fields are read from
+          // the current row instead of accepting the provider's stale result.
           dbWrites.push(
             this.prisma
-              .$executeRaw`UPDATE "menu_item" SET translations = jsonb_set(
+              .$executeRaw`WITH "locked_translation_states" AS MATERIALIZED (
+                SELECT "field", "status"
+                FROM "menu_translation_state"
+                WHERE "entityType" = 'ITEM'::"MenuTranslationEntity"
+                  AND "entityId" = ${entity.id}
+                  AND "locale" = ${lang}
+                FOR UPDATE
+              )
+              UPDATE "menu_item" SET translations = jsonb_set(
                 COALESCE(translations, '{}'::jsonb),
                 ARRAY[${lang}]::text[],
                 jsonb_build_object(
-                  'name', COALESCE(to_jsonb(${nameOrNull}::text), translations #> ARRAY[${lang}, 'name']::text[]),
-                  'description', COALESCE(to_jsonb(${descOrNull}::text), translations #> ARRAY[${lang}, 'description']::text[]),
+                  'name', CASE WHEN EXISTS (
+                    SELECT 1 FROM "locked_translation_states"
+                    WHERE "field" = 'NAME'::"MenuTranslationField"
+                      AND "status" = 'MANUAL'::"MenuTranslationStatus"
+                  ) THEN translations #> ARRAY[${lang}, 'name']::text[]
+                  ELSE COALESCE(
+                    to_jsonb(${nameOrNull}::text),
+                    translations #> ARRAY[${lang}, 'name']::text[]
+                  ) END,
+                  'description', CASE WHEN EXISTS (
+                    SELECT 1 FROM "locked_translation_states"
+                    WHERE "field" = 'DESCRIPTION'::"MenuTranslationField"
+                      AND "status" = 'MANUAL'::"MenuTranslationStatus"
+                  ) THEN translations #> ARRAY[${lang}, 'description']::text[]
+                  ELSE COALESCE(
+                    to_jsonb(${descOrNull}::text),
+                    translations #> ARRAY[${lang}, 'description']::text[]
+                  ) END,
                   'allergens', (
                     CASE WHEN jsonb_typeof(translations #> ARRAY[${lang}, 'allergens']::text[]) = 'object'
                       THEN translations #> ARRAY[${lang}, 'allergens']::text[]

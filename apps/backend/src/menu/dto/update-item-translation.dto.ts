@@ -9,6 +9,10 @@ import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../../restaurants/restaurant-la
 
 export class UpdateItemTranslationDto {
   @IsString()
+  @IsIn(['NAME', 'DESCRIPTION'])
+  field!: 'NAME' | 'DESCRIPTION';
+
+  @IsString()
   @IsIn([...SUPPORTED_TARGET_LANGUAGE_CODES])
   locale!: string;
 
@@ -16,6 +20,6 @@ export class UpdateItemTranslationDto {
   @ValidateIf((_, value) => value !== null)
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(1000)
   value!: string | null;
 }

@@ -12,7 +12,7 @@ const mockPrisma = {
 
 const rawCallsFor = (table: string) =>
   mockPrisma.$executeRaw.mock.calls.filter((call: any[]) =>
-    (call[0] as TemplateStringsArray)[0].includes(table),
+    [...(call[0] as TemplateStringsArray)].join('').includes(table),
   );
 
 const rawJsonFragmentFor = (table: string, index = 0): any => {
@@ -205,7 +205,7 @@ describe('MenuTranslationService', () => {
     it('does not throw when item DB write fails — logs warning only', async () => {
       mockPrisma.$executeRaw.mockImplementation(
         (strings: TemplateStringsArray) =>
-          strings[0].includes('menu_item')
+          [...strings].join('').includes('menu_item')
             ? Promise.reject(new Error('Item DB error'))
             : Promise.resolve(0),
       );
@@ -220,7 +220,7 @@ describe('MenuTranslationService', () => {
     it('does not throw when option DB write fails — logs warning only', async () => {
       mockPrisma.$executeRaw.mockImplementation(
         (strings: TemplateStringsArray) =>
-          strings[0].includes('menu_option')
+          [...strings].join('').includes('menu_option')
             ? Promise.reject(new Error('Option DB error'))
             : Promise.resolve(0),
       );
@@ -310,6 +310,20 @@ describe('MenuTranslationService', () => {
         (item as unknown as { translations?: Record<string, unknown> })
           .translations,
       ).toEqual(expect.objectContaining({ ro: expect.any(Object) }));
+    });
+
+    it('locks live state and preserves MANUAL item names and descriptions at write time', async () => {
+      const item = makeItem({ description: 'Hot' });
+      const category = makeCategory({ items: [item] });
+
+      await service.applyLazyTranslations([category], 'en');
+
+      const [call] = rawCallsFor('menu_item');
+      const sql = [...(call[0] as TemplateStringsArray)].join('');
+      expect(sql).toContain('FOR UPDATE');
+      expect(sql).toContain("'MANUAL'");
+      expect(sql).toContain("'NAME'");
+      expect(sql).toContain("'DESCRIPTION'");
     });
 
     it('handles item with null allergens, dietaryTags, options, and empty description', async () => {
