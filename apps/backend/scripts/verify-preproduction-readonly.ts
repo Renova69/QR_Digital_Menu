@@ -32,6 +32,7 @@ const RELEVANT_MIGRATIONS = [
   '20260701120000_add_refund_pending_status',
   '20260702090000_add_refund_attempt',
   '20260813193000_align_consent_and_legal_schema',
+  '20260813200000_align_translation_schema_metadata',
 ] as const;
 
 const prisma = new PrismaClient();
@@ -147,7 +148,8 @@ async function main(): Promise<void> {
             '20260620120000_architecture_todo_fixes',
             '20260701120000_add_refund_pending_status',
             '20260702090000_add_refund_attempt',
-            '20260813193000_align_consent_and_legal_schema'
+            '20260813193000_align_consent_and_legal_schema',
+            '20260813200000_align_translation_schema_metadata'
           )
           ORDER BY migration_name
         `),
