@@ -1402,6 +1402,8 @@
     "partialCashPaid": "Articolele dvs. au fost plătite: {{amount}}",
     "remainingTableBalance": "Soldul rămas al mesei: {{amount}}",
     "continueToMypos": "Plătește cu cardul (myPOS)",
+    "releasing": "Se eliberează...",
+    "abandonFailed": "Această încercare de plată nu a putut fi eliberată. Verifică conexiunea și încearcă din nou.",
     "requestingCash": "Se anunță personalul...",
     "cashRequested": "Solicitarea de numerar a fost trimisă",
     "payCashToWaiter": "Plătește numerar ospătarului",

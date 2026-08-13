@@ -2493,6 +2493,47 @@ describe('PaymentService', () => {
       expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
     });
 
+    it('releases an expired unsubmitted intent before creating a fresh checkout', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-expired',
+          provider: 'STRIPE',
+          status: 'PENDING',
+          stripePaymentIntentId: 'pi_expired',
+          providerReference: 'stripe:sess-1:2000:0:eur',
+          amount: 20,
+          createdAt: new Date(Date.now() - 6 * 60 * 1000),
+        },
+      ]);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
+        clientSecret: 'cs_expired',
+        status: 'requires_payment_method',
+      });
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+      mockStripeProvider.createPaymentIntent!.mockResolvedValue({
+        clientSecret: 'cs_new',
+        paymentIntentId: 'pi_new',
+      });
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      const result = await service.createPaymentIntent('tok1', 0);
+
+      expect(mockStripeProvider.cancelPaymentIntent).toHaveBeenCalledWith(
+        'pi_expired',
+        'abandoned',
+      );
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-expired', status: 'PENDING' },
+        data: {
+          status: 'ABANDONED',
+          providerStatus: 'LEASE_EXPIRED',
+          providerReference: null,
+        },
+      });
+      expect(result.clientSecret).toBe('cs_new');
+      expect(result.paymentId).toBe('pay-new');
+    });
+
     it('abandons a matching DB row when Stripe says its intent is missing', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([
         {
@@ -3668,6 +3709,17 @@ describe('PaymentService', () => {
       stripePaymentIntentId: 'pi_recover',
     };
 
+    it('only queries Stripe attempts whose five-minute checkout lease has expired', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([]);
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      const query = mockPrisma.payment.findMany.mock.calls[0][0];
+      const staleBefore = query.where.createdAt.lt as Date;
+      const ageMs = Date.now() - staleBefore.getTime();
+      expect(ageMs).toBeGreaterThanOrEqual(5 * 60 * 1000);
+      expect(ageMs).toBeLessThan(6 * 60 * 1000);
+    });
+
     it('recovers a succeeded-but-unclaimed intent (lost webhook) by claiming it', async () => {
       mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
       mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
@@ -3751,6 +3803,30 @@ describe('PaymentService', () => {
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
     });
 
+    it('cancels and abandons a lease-expired intent that is still awaiting a payment method', async () => {
+      mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
+        clientSecret: 'cs',
+        status: 'requires_payment_method',
+      });
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await buildStripeCheckout().reconcilePendingPayments();
+
+      expect(mockStripeProvider.cancelPaymentIntent).toHaveBeenCalledWith(
+        'pi_recover',
+        'abandoned',
+      );
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-recover', status: 'PENDING' },
+        data: {
+          status: 'ABANDONED',
+          providerStatus: 'LEASE_EXPIRED',
+          providerReference: null,
+        },
+      });
+    });
+
     it('leaves the payment PENDING on a transient retrieve error', async () => {
       mockPrisma.payment.findMany.mockResolvedValueOnce([stalePending]);
       mockStripeProvider.retrievePaymentIntent!.mockRejectedValue(
@@ -3810,6 +3886,27 @@ describe('PaymentService', () => {
       await expect(
         service.reconcileStuckSession('bad', 'owner1'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('abandonCheckout', () => {
+    it('reports failure when Stripe cannot cancel and the payment remains pending', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      const pendingPayment = {
+        id: 'pay-pending',
+        provider: 'STRIPE',
+        stripePaymentIntentId: 'pi_pending',
+      };
+      mockPrisma.payment.findMany.mockResolvedValue([pendingPayment]);
+      mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
+      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(
+        new Error('Stripe unavailable'),
+      );
+
+      await expect(service.abandonCheckout('tok1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
     });
   });
 

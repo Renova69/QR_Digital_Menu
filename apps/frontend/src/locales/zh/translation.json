@@ -574,6 +574,8 @@
     "partialCashPaid": "您的餐品已付款：{{amount}}",
     "remainingTableBalance": "餐桌剩余金额：{{amount}}",
     "continueToMypos": "银行卡支付（myPOS）",
+    "releasing": "正在释放...",
+    "abandonFailed": "无法释放此次付款尝试。请检查网络连接后重试。",
     "requestingCash": "正在通知工作人员...",
     "cashRequested": "现金支付请求已发送",
     "payCashToWaiter": "向服务员支付现金",

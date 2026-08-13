@@ -540,7 +540,6 @@ export class PaymentSessionService {
           tx,
           session.id,
           abandonedIds,
-          false,
         );
       return { sessionId: session.id, abandonedPaymentIds };
     });

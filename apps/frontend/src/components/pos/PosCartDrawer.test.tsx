@@ -14,6 +14,7 @@ import RestaurantContext from "../../context/RestaurantContext";
 import { usePosTheme } from "../../context/PosThemeContext";
 import * as api from "../../lib/api";
 import * as offlineOrders from "../../lib/posOfflineOrders";
+import * as clientLogger from "../../lib/clientLogger";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -63,6 +64,10 @@ vi.mock("../../lib/api", () => ({
   closeSessionWithCash: vi.fn(),
   getSessionBill: vi.fn(),
   getOrCreateSession: vi.fn(),
+}));
+
+vi.mock("../../lib/clientLogger", () => ({
+  sendClientLog: vi.fn(),
 }));
 
 vi.mock("../../lib/posOfflineOrders", () => ({
@@ -173,6 +178,14 @@ describe("PosCartDrawer", () => {
     expect(openBtn).toBeInTheDocument();
     fireEvent.click(openBtn);
     expect(screen.getByText(/pos.tableLabel/i)).toBeInTheDocument();
+  });
+
+  it("labels the POS card settlement action as myPOS", () => {
+    renderWithContext(<PosCartDrawer itemCount={2} total={20} />);
+    fireEvent.click(screen.getByRole("button", { name: /item/i }));
+
+    expect(screen.getByText("payment.continueToMypos")).toBeInTheDocument();
+    expect(screen.queryByText("pos.split.payCard")).not.toBeInTheDocument();
   });
 
   it("allows modifying quantity of items", () => {
@@ -494,7 +507,7 @@ describe("PosCartDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: /queued/i }));
 
     expect(
-      screen.getByRole("button", { name: /pos.closeCardTotal/i }),
+      screen.getByRole("button", { name: /payment.continueToMypos/i }),
     ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: /pos.closeCashTotal/i }),
@@ -550,6 +563,115 @@ describe("PosCartDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: /pos.allSent/i }));
 
     expect(screen.getAllByText(/68\.24/).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the last valid bill visible and blocks payment until refresh retry succeeds", async () => {
+    socketMocks.state.socket = socketMocks.socket;
+    socketMocks.state.isConnected = true;
+    const bill = {
+      sessionId: "session-1",
+      tableId: "t1",
+      tableName: "Table 1",
+      restaurantId: "r1",
+      orders: [],
+      subtotal: 13.5,
+      paidSubtotal: 0,
+      remaining: 13.5,
+      splitItemsAvailable: true,
+      tipsEnabled: false,
+      tipOptions: [],
+      paymentProviders: [],
+      pendingPayment: null,
+    };
+    const refreshedBill = { ...bill, subtotal: 12.25, remaining: 12.25 };
+    const setHistoryItems = vi.fn();
+    (api.getSessionBill as Mock)
+      .mockReset()
+      .mockResolvedValueOnce(bill)
+      .mockRejectedValueOnce(new Error("Network Error"))
+      .mockResolvedValueOnce(refreshedBill);
+    (usePos as Mock).mockImplementation(() => {
+      const [sessionBill, setSessionBill] = React.useState(null);
+      const [historyLoading, setHistoryLoading] = React.useState(false);
+      const [historyError, setHistoryError] = React.useState<string | null>(
+        null,
+      );
+      return {
+        items: [
+          {
+            cartId: "submitted-item",
+            menuItemId: "m1",
+            name: "Burger",
+            quantity: 1,
+            price: 13.5,
+            selectedOptions: [],
+            submitted: true,
+          },
+        ],
+        session: {
+          sessionToken: "token123",
+          sessionId: "session-1",
+          localSessionId: "local-session-1",
+          tableName: "Table 1",
+          tableId: "t1",
+        },
+        sessionBill,
+        setSessionBill,
+        setSession: vi.fn(),
+        setHistoryItems,
+        setHistoryLoading,
+        setHistoryError,
+        removeItem: vi.fn(),
+        updateQuantity: vi.fn(),
+        updateNote: vi.fn(),
+        markAsSubmitted: vi.fn(),
+        markAsQueued: vi.fn(),
+        clearSession: vi.fn(),
+        getPendingTotal: () => 0,
+        buildSpecialRequests: () => "",
+        historyLoading,
+        historyError,
+      };
+    });
+
+    renderWithContext(<PosCartDrawer itemCount={1} total={13.5} />);
+    fireEvent.click(screen.getByRole("button", { name: /pos.allSent/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/13\.50/).length).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      socketMocks.handlers["bill:updated"][0]({
+        tableSessionId: "session-1",
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Showing the last known bill/i),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getAllByText(/13\.50/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: /payment.continueToMypos/i }),
+    ).toBeDisabled();
+    expect(clientLogger.sendClientLog).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "pos_bill_refresh_failed" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /pos.retryHistory/i }));
+
+    await waitFor(() => {
+      expect(api.getSessionBill).toHaveBeenCalledTimes(3);
+      expect(screen.getAllByText(/12\.25/).length).toBeGreaterThan(0);
+    });
+    expect(
+      screen.queryByText(/Showing the last known bill/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /payment.continueToMypos/i }),
+    ).toBeEnabled();
   });
 
   it("marks item-scoped payments and charges only the authoritative remainder", async () => {

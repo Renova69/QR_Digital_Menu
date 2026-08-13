@@ -212,6 +212,8 @@
     "partialCashPaid": "تم دفع ثمن أصنافك: {{amount}}",
     "remainingTableBalance": "الرصيد المتبقي للطاولة: {{amount}}",
     "continueToMypos": "الدفع بالبطاقة (myPOS)",
+    "releasing": "جارٍ الإلغاء...",
+    "abandonFailed": "تعذر تحرير محاولة الدفع هذه. تحقق من اتصالك وحاول مرة أخرى.",
     "requestingCash": "جاري إبلاغ الموظفين...",
     "cashRequested": "تم إرسال طلب الدفع النقدي",
     "payCashToWaiter": "الدفع نقداً للنادل",

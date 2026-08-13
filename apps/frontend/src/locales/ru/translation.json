@@ -167,6 +167,8 @@
     "partialCashPaid": "Ваши позиции оплачены: {{amount}}",
     "remainingTableBalance": "Остаток по счёту стола: {{amount}}",
     "continueToMypos": "Оплатить картой (myPOS)",
+    "releasing": "Освобождение...",
+    "abandonFailed": "Не удалось освободить эту попытку оплаты. Проверьте подключение и повторите попытку.",
     "requestingCash": "Вызываем сотрудника...",
     "cashRequested": "Запрос на оплату наличными отправлен",
     "payCashToWaiter": "Оплатить наличными официанту",

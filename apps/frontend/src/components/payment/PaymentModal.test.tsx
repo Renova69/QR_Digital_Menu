@@ -420,6 +420,41 @@ describe("PaymentModal hosted provider choices", () => {
     });
   });
 
+  it("keeps checkout open and shows a retryable error when Stripe abandonment fails", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(
+      billWithProviders(["STRIPE"]),
+    );
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: "STRIPE",
+      paymentId: "pay-stripe",
+      clientSecret: "secret",
+      total: 20,
+      tipAmount: 0,
+    });
+    apiMocks.abandonCheckout.mockRejectedValueOnce(new Error("network"));
+    const onClose = vi.fn();
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={onClose}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("payment-continue-button"));
+    await screen.findByTestId("payment-element");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(
+      await screen.findByText(
+        "Could not release this payment attempt. Check your connection and try again.",
+      ),
+    ).toBeTruthy();
+    expect(apiMocks.abandonCheckout).toHaveBeenCalledWith("tok1");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("shows an actionable insufficient-funds message from Stripe", async () => {
     apiMocks.getSessionBill.mockResolvedValueOnce(
       billWithProviders(["STRIPE"]),

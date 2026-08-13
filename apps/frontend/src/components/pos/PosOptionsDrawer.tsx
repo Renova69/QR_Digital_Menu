@@ -19,6 +19,15 @@ interface ItemWithOptions {
   options?: MenuOption[];
 }
 
+type PosOptionSelection = {
+  optionId: string;
+  choiceName: string;
+  priceModifier: number;
+};
+
+const getSelectionKey = (option: MenuOption, choiceName: string) =>
+  option.type === "VARIATION" ? option.id : `${option.id}:${choiceName}`;
+
 export default function PosOptionsDrawer() {
   const { t } = useTranslation();
   // Carry the POS scoped theme onto the portalled dialog (see PosSplitDrawer).
@@ -27,7 +36,7 @@ export default function PosOptionsDrawer() {
   const [item, setItem] = useState<ItemWithOptions | null>(null);
   const [open, setOpen] = useState(false);
   const [selections, setSelections] = useState<
-    Record<string, { choiceName: string; priceModifier: number }>
+    Record<string, PosOptionSelection>
   >({});
   const [itemNote, setItemNote] = useState("");
 
@@ -36,15 +45,14 @@ export default function PosOptionsDrawer() {
       const detail = (e as CustomEvent).detail as ItemWithOptions;
       setItem(detail);
       setOpen(true);
-      const defaults: Record<
-        string,
-        { choiceName: string; priceModifier: number }
-      > = {};
+      const defaults: Record<string, PosOptionSelection> = {};
       for (const opt of detail.options ?? []) {
         if (opt.required && opt.choices.length > 0) {
-          defaults[opt.id] = {
-            choiceName: opt.choices[0].name,
-            priceModifier: opt.choices[0].priceModifier,
+          const firstChoice = opt.choices[0];
+          defaults[getSelectionKey(opt, firstChoice.name)] = {
+            optionId: opt.id,
+            choiceName: firstChoice.name,
+            priceModifier: firstChoice.priceModifier,
           };
         }
       }
@@ -67,24 +75,22 @@ export default function PosOptionsDrawer() {
   ) => {
     setSelections((prev) => ({
       ...prev,
-      [optionId]: { choiceName, priceModifier },
+      [optionId]: { optionId, choiceName, priceModifier },
     }));
   };
 
   const handleAddToCart = () => {
     if (!item) return;
 
-    const selectedOptions = Object.entries(selections).map(
-      ([optionId, sel]) => {
-        const opt = item.options?.find((o) => o.id === optionId);
-        return {
-          optionId,
-          optionName: opt?.name ?? "",
-          choiceName: sel.choiceName,
-          priceModifier: sel.priceModifier,
-        };
-      },
-    );
+    const selectedOptions = Object.values(selections).map((sel) => {
+      const opt = item.options?.find((o) => o.id === sel.optionId);
+      return {
+        optionId: sel.optionId,
+        optionName: opt?.name ?? "",
+        choiceName: sel.choiceName,
+        priceModifier: sel.priceModifier,
+      };
+    });
 
     addItem({
       menuItemId: item.id,
@@ -131,8 +137,9 @@ export default function PosOptionsDrawer() {
                   {opt.type === "VARIATION" ? (
                     <div className="flex flex-wrap gap-2">
                       {opt.choices.map((choice) => {
+                        const selectionKey = getSelectionKey(opt, choice.name);
                         const isSelected =
-                          selections[opt.id]?.choiceName === choice.name;
+                          selections[selectionKey]?.choiceName === choice.name;
                         return (
                           <button
                             key={choice.name}
@@ -161,8 +168,9 @@ export default function PosOptionsDrawer() {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {opt.choices.map((choice) => {
+                        const selectionKey = getSelectionKey(opt, choice.name);
                         const isSelected =
-                          selections[opt.id]?.choiceName === choice.name;
+                          selections[selectionKey]?.choiceName === choice.name;
                         return (
                           <button
                             key={choice.name}
@@ -170,13 +178,14 @@ export default function PosOptionsDrawer() {
                             onClick={() => {
                               if (isSelected) {
                                 setSelections((prev) => {
-                                  const { [opt.id]: _, ...rest } = prev;
+                                  const { [selectionKey]: _, ...rest } = prev;
                                   return rest;
                                 });
                               } else {
                                 setSelections((prev) => ({
                                   ...prev,
-                                  [opt.id]: {
+                                  [selectionKey]: {
+                                    optionId: opt.id,
                                     choiceName: choice.name,
                                     priceModifier: choice.priceModifier,
                                   },

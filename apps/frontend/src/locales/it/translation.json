@@ -574,6 +574,8 @@
     "partialCashPaid": "I tuoi articoli sono stati pagati: {{amount}}",
     "remainingTableBalance": "Saldo restante del tavolo: {{amount}}",
     "continueToMypos": "Paga con carta (myPOS)",
+    "releasing": "Rilascio in corso...",
+    "abandonFailed": "Impossibile rilasciare questo tentativo di pagamento. Controlla la connessione e riprova.",
     "requestingCash": "Avviso del personale...",
     "cashRequested": "Richiesta di contanti inviata",
     "payCashToWaiter": "Paga in contanti al cameriere",

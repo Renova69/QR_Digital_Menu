@@ -574,6 +574,8 @@
     "partialCashPaid": "Ihre Artikel wurden bezahlt: {{amount}}",
     "remainingTableBalance": "Verbleibender Tischbetrag: {{amount}}",
     "continueToMypos": "Mit Karte bezahlen (myPOS)",
+    "releasing": "Wird freigegeben...",
+    "abandonFailed": "Dieser Zahlungsversuch konnte nicht freigegeben werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     "requestingCash": "Personal wird gerufen...",
     "cashRequested": "Barzahlungsanfrage gesendet",
     "payCashToWaiter": "Bar bei der Bedienung bezahlen",

@@ -57,6 +57,15 @@ type RefundPaymentContext = {
   stripePaymentIntentId: string | null;
 };
 
+const STRIPE_CHECKOUT_LEASE_MINUTES = 5;
+const STRIPE_CHECKOUT_LEASE_MS = STRIPE_CHECKOUT_LEASE_MINUTES * 60 * 1000;
+
+function stripeCheckoutLeaseExpired(createdAt: Date | undefined): boolean {
+  return (
+    !!createdAt && Date.now() - createdAt.getTime() >= STRIPE_CHECKOUT_LEASE_MS
+  );
+}
+
 @Injectable()
 export class StripeCheckoutService {
   private readonly logger = new Logger(StripeCheckoutService.name);
@@ -171,7 +180,29 @@ export class StripeCheckoutService {
       const existing = await this.stripe.retrievePaymentIntent(
         matchingIntent.stripePaymentIntentId,
       );
-      if (existing?.clientSecret) {
+      if (
+        existing?.status === 'requires_payment_method' &&
+        stripeCheckoutLeaseExpired(matchingIntent.createdAt)
+      ) {
+        await this.stripe.cancelPaymentIntent(
+          matchingIntent.stripePaymentIntentId,
+          'abandoned',
+        );
+        await this.prisma.payment.updateMany({
+          where: { id: matchingIntent.id, status: 'PENDING' },
+          data: {
+            status: 'ABANDONED',
+            providerStatus: 'LEASE_EXPIRED',
+            providerReference: null,
+          },
+        });
+        this.core.emitBillPaymentCleared(
+          session.id,
+          matchingIntent.id,
+          'ONLINE_PAYMENT',
+        );
+        ignoredPendingPaymentIds.push(matchingIntent.id);
+      } else if (existing?.clientSecret) {
         this.core.emitPendingBillPayment(
           this.core.formatPendingPayment({
             ...matchingIntent,
@@ -184,21 +215,22 @@ export class StripeCheckoutService {
           total,
           tipAmount,
         };
+      } else {
+        await this.prisma.payment.updateMany({
+          where: { id: matchingIntent.id, status: 'PENDING' },
+          data: {
+            status: 'ABANDONED',
+            providerStatus: 'ABANDONED',
+            providerReference: null,
+          },
+        });
+        this.core.emitBillPaymentCleared(
+          session.id,
+          matchingIntent.id,
+          'ONLINE_PAYMENT',
+        );
+        ignoredPendingPaymentIds.push(matchingIntent.id);
       }
-      await this.prisma.payment.updateMany({
-        where: { id: matchingIntent.id, status: 'PENDING' },
-        data: {
-          status: 'ABANDONED',
-          providerStatus: 'ABANDONED',
-          providerReference: null,
-        },
-      });
-      this.core.emitBillPaymentCleared(
-        session.id,
-        matchingIntent.id,
-        'ONLINE_PAYMENT',
-      );
-      ignoredPendingPaymentIds.push(matchingIntent.id);
     }
 
     let payment: { id: string };
@@ -214,6 +246,7 @@ export class StripeCheckoutService {
           platformFeeAmount,
           currency: 'eur',
           status: 'PENDING',
+          providerStatus: 'AWAITING_PAYMENT_METHOD',
           provider: 'STRIPE',
           providerReference: stripeCheckoutKey,
           providerPayload: checkoutScopePayload(resolvedCheckoutScope) as any,
@@ -1228,9 +1261,33 @@ export class StripeCheckoutService {
       return 'expired';
     }
 
-    // requires_payment_method / requires_action / processing → still live; a
-    // capture could still land, so leave PENDING and let the webhook or the next
-    // cron tick resolve it.
+    if (intent.status === 'requires_payment_method') {
+      try {
+        await this.stripe.cancelPaymentIntent(
+          payment.stripePaymentIntentId,
+          'abandoned',
+        );
+      } catch {
+        // The intent may have advanced or Stripe may be temporarily
+        // unavailable. Keep the payment blocking until Stripe can confirm a
+        // safe terminal state; the next reconciliation pass will retry.
+        return 'pending';
+      }
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: {
+          status: 'ABANDONED',
+          providerStatus: 'LEASE_EXPIRED',
+          providerReference: null,
+        },
+      });
+      clearBill();
+      return 'expired';
+    }
+
+    // requires_action / requires_confirmation / processing / requires_capture
+    // may still complete. Leave them PENDING and let Stripe webhooks or the next
+    // reconciliation pass resolve the authoritative outcome.
     return 'pending';
   }
 
@@ -1252,8 +1309,7 @@ export class StripeCheckoutService {
     }),
   )
   async reconcilePendingPayments(): Promise<void> {
-    const STALE_MINUTES = 15;
-    const staleBefore = new Date(Date.now() - STALE_MINUTES * 60 * 1000);
+    const staleBefore = new Date(Date.now() - STRIPE_CHECKOUT_LEASE_MS);
     const stuck = await this.prisma.payment.findMany({
       where: {
         provider: 'STRIPE',

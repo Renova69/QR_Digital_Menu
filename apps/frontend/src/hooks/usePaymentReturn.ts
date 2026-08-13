@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { abandonCheckout } from "../lib/api";
@@ -9,6 +9,7 @@ import {
   hostedCheckoutStorageKey,
 } from "../lib/tableSessionCredential";
 import { storePaymentConfirmationContext } from "../lib/paymentConfirmationContext";
+import { sendClientLog } from "../lib/clientLogger";
 
 export interface PaymentBanner {
   ok: boolean;
@@ -62,6 +63,29 @@ export function usePaymentReturn({
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  const reportAbandonFailure = useCallback(
+    (error: unknown, source: string) => {
+      setPaymentBanner({
+        ok: false,
+        text: t(
+          "payment.abandonFailed",
+          "Could not release this payment attempt. Check your connection and try again.",
+        ),
+      });
+      sendClientLog({
+        level: "warn",
+        type: "payment_abandon_failed",
+        message: "Could not release a hosted payment attempt",
+        context: {
+          source,
+          restaurantId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    },
+    [restaurantId, setPaymentBanner, t],
+  );
 
   // Handle hosted-checkout return params. Runs once on mount and on URL change.
   // Strips provider params to keep the URL clean.
@@ -150,9 +174,14 @@ export function usePaymentReturn({
       // Payment was cancelled — abandon any PENDING payment row so the customer
       // can choose a different provider without hitting the "already processing" guard.
       if (storedToken) {
-        abandonCheckout(storedToken).catch(() => {});
+        void abandonCheckout(storedToken)
+          .then(() => clearHostedCheckoutMarker(storedToken))
+          .catch((error: unknown) =>
+            reportAbandonFailure(error, "provider_return"),
+          );
+      } else {
+        clearHostedCheckoutMarker(storedToken);
       }
-      clearHostedCheckoutMarker(storedToken);
       setIsPaymentModalOpen(false);
       setPaymentBanner({
         ok: false,
@@ -174,7 +203,7 @@ export function usePaymentReturn({
   }, [location.search]);
 
   useEffect(() => {
-    const abandonHostedCheckoutIfReturned = () => {
+    const abandonHostedCheckoutIfReturned = async () => {
       const params = new URLSearchParams(window.location.search);
       if (params.get("payment") || params.get("redirect_status")) return;
 
@@ -186,14 +215,26 @@ export function usePaymentReturn({
 
       if (!storedToken || !hasHostedCheckoutMarker(storedToken)) return;
 
-      clearHostedCheckoutMarker(storedToken);
       setIsPaymentModalOpen(false);
-      abandonCheckout(storedToken).catch(() => {});
+      try {
+        await abandonCheckout(storedToken);
+        clearHostedCheckoutMarker(storedToken);
+      } catch (error: unknown) {
+        reportAbandonFailure(error, "browser_return");
+      }
     };
 
-    abandonHostedCheckoutIfReturned();
-    window.addEventListener("pageshow", abandonHostedCheckoutIfReturned);
-    return () =>
-      window.removeEventListener("pageshow", abandonHostedCheckoutIfReturned);
-  }, [restaurantId, sessionToken, location.search]);
+    const handlePageShow = () => {
+      void abandonHostedCheckoutIfReturned();
+    };
+    handlePageShow();
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [
+    restaurantId,
+    sessionToken,
+    location.search,
+    reportAbandonFailure,
+    setIsPaymentModalOpen,
+  ]);
 }

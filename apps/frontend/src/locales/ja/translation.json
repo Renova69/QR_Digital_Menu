@@ -167,6 +167,8 @@
     "partialCashPaid": "商品の支払いが完了しました：{{amount}}",
     "remainingTableBalance": "テーブルの残額：{{amount}}",
     "continueToMypos": "カードで支払う（myPOS）",
+    "releasing": "解除しています...",
+    "abandonFailed": "この支払い試行を解除できませんでした。接続を確認して、もう一度お試しください。",
     "requestingCash": "スタッフに連絡中...",
     "cashRequested": "現金支払いリクエストを送信しました",
     "payCashToWaiter": "スタッフに現金で支払う",

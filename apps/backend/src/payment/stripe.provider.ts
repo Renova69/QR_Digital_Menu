@@ -72,8 +72,17 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     return { clientSecret: intent.client_secret!, paymentIntentId: intent.id };
   }
 
-  async cancelPaymentIntent(paymentIntentId: string): Promise<void> {
-    await this.stripe.paymentIntents.cancel(paymentIntentId);
+  async cancelPaymentIntent(
+    paymentIntentId: string,
+    cancellationReason:
+      | 'abandoned'
+      | 'duplicate'
+      | 'fraudulent'
+      | 'requested_by_customer' = 'abandoned',
+  ): Promise<void> {
+    await this.stripe.paymentIntents.cancel(paymentIntentId, {
+      cancellation_reason: cancellationReason,
+    });
   }
 
   private isResourceMissingError(err: unknown): boolean {

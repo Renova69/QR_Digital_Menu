@@ -43,6 +43,7 @@ import PosQRBill from "./PosQRBill";
 import { usePosTheme } from "../../context/PosThemeContext";
 import { useSocket } from "../../context/SocketContext";
 import { mapSessionBillToPosHistoryItems } from "./posSessionBill";
+import { sendClientLog } from "../../lib/clientLogger";
 
 interface PosCartDrawerProps {
   itemCount: number;
@@ -51,7 +52,7 @@ interface PosCartDrawerProps {
 
 type ConfirmAction =
   | { type: "submit"; total: number }
-  | { type: "card"; total: number }
+  | { type: "mypos"; total: number }
   | { type: "cash"; total: number }
   | { type: "force" }
   | null;
@@ -61,6 +62,20 @@ const SEAT_LABEL_KEYS: Record<string, string> = {
   "Seat 2": "pos.seat2",
   "Seat 3": "pos.seat3",
   Shared: "pos.seatShared",
+};
+
+type BillRefreshFailure = {
+  response?: {
+    status?: number;
+    headers?: Record<string, string | undefined>;
+  };
+};
+
+const describeBillRefreshFailure = (error: unknown) => {
+  const status = (error as BillRefreshFailure)?.response?.status;
+  if (!status) return "Network connection unavailable.";
+  if (status >= 500) return `Server temporarily unavailable (HTTP ${status}).`;
+  return `Bill request failed (HTTP ${status}).`;
 };
 
 export default function PosCartDrawer({
@@ -105,6 +120,7 @@ export default function PosCartDrawer({
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [splitOpen, setSplitOpen] = useState(false);
   const billRequestVersion = useRef(0);
+  const lastValidBillSessionId = useRef<string | null>(null);
 
   // Note editing
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -157,6 +173,8 @@ export default function PosCartDrawer({
   const hasAuthoritativeBill =
     !!sessionBill &&
     (!session?.sessionId || sessionBill.sessionId === session.sessionId);
+  const billUnavailableForPayment =
+    historyLoading || !!historyError || !hasAuthoritativeBill;
   const submittedTotal = hasAuthoritativeBill
     ? Math.max(0, sessionBill.remaining)
     : submittedGrossTotal;
@@ -192,32 +210,64 @@ export default function PosCartDrawer({
       try {
         const nextBill = await getSessionBill(token);
         if (requestVersion !== billRequestVersion.current) return;
+        lastValidBillSessionId.current = nextBill.sessionId;
         setSessionBill(nextBill);
         setHistoryItems?.(mapSessionBillToPosHistoryItems(nextBill));
-      } catch {
+      } catch (error: unknown) {
         if (requestVersion !== billRequestVersion.current) return;
-        setSessionBill(null);
+        const reason = describeBillRefreshFailure(error);
+        const showingLastKnownBill =
+          !!session?.sessionId &&
+          lastValidBillSessionId.current === session.sessionId;
         setHistoryError?.(
-          "Could not refresh the current bill. Reconnect before taking payment.",
+          showingLastKnownBill
+            ? `Could not refresh the current bill. Showing the last known bill. ${reason} Retry before taking payment.`
+            : `Could not load the current bill. ${reason} Retry before taking payment.`,
         );
+        const failure = error as BillRefreshFailure;
+        sendClientLog({
+          level: "warn",
+          type: "pos_bill_refresh_failed",
+          message: showingLastKnownBill
+            ? "POS bill refresh failed; preserving the last known bill"
+            : "POS bill load failed",
+          context: {
+            sessionId: session?.sessionId,
+            tableId: session?.tableId,
+            status: failure?.response?.status,
+            backendRequestId:
+              failure?.response?.headers?.["x-request-id"] ??
+              failure?.response?.headers?.["X-Request-Id"],
+            reason,
+          },
+        });
       } finally {
         if (requestVersion === billRequestVersion.current) {
           setHistoryLoading?.(false);
         }
       }
     },
-    [setHistoryError, setHistoryItems, setHistoryLoading, setSessionBill],
+    [
+      session?.sessionId,
+      session?.tableId,
+      setHistoryError,
+      setHistoryItems,
+      setHistoryLoading,
+      setSessionBill,
+    ],
   );
 
   useEffect(() => {
     if (!session?.sessionToken) {
       billRequestVersion.current += 1;
+      lastValidBillSessionId.current = null;
       setSessionBill(null);
       return;
     }
+    lastValidBillSessionId.current = null;
     setSessionBill(null);
     void refreshSessionBill(session.sessionToken);
-  }, [refreshSessionBill, session?.sessionToken]);
+  }, [refreshSessionBill, session?.sessionToken, setSessionBill]);
 
   useEffect(() => {
     if (!socket || !session?.sessionId || !session.sessionToken) return;
@@ -357,9 +407,15 @@ export default function PosCartDrawer({
     }
   };
 
-  const handleCardPayment = async () => {
+  const handleMyposPayment = async () => {
     // Reentrancy guard (Bug 1a) — see handleSubmit.
-    if (closing || !session?.sessionToken || !activeRestaurant || hasUnsynced)
+    if (
+      closing ||
+      !session?.sessionToken ||
+      !activeRestaurant ||
+      hasUnsynced ||
+      billUnavailableForPayment
+    )
       return;
     setConfirmAction(null);
     setClosing(true);
@@ -377,7 +433,13 @@ export default function PosCartDrawer({
 
   const handleCashPayment = async () => {
     // Reentrancy guard (Bug 1a) — see handleSubmit.
-    if (closing || !session?.sessionToken || !activeRestaurant || hasUnsynced)
+    if (
+      closing ||
+      !session?.sessionToken ||
+      !activeRestaurant ||
+      hasUnsynced ||
+      billUnavailableForPayment
+    )
       return;
     setConfirmAction(null);
     setClosing(true);
@@ -888,11 +950,12 @@ export default function PosCartDrawer({
                     <span>{historyError}</span>
                     <button
                       type="button"
-                      onClick={() =>
-                        window.dispatchEvent(
-                          new CustomEvent("pos:open-table-modal"),
-                        )
-                      }
+                      onClick={() => {
+                        if (session?.sessionToken) {
+                          void refreshSessionBill(session.sessionToken);
+                        }
+                      }}
+                      disabled={historyLoading || !session?.sessionToken}
                       className="underline text-xs font-medium ml-2 shrink-0 min-h-[32px]"
                     >
                       {t("pos.retryHistory", "Retry")}
@@ -953,20 +1016,21 @@ export default function PosCartDrawer({
                       aria-label={
                         closing
                           ? t("pos.closing", "Closing...")
-                          : t("pos.closeCardTotal", {
-                              total: submittedTotal.toFixed(2),
-                            })
+                          : `${t(
+                              "payment.continueToMypos",
+                              "Pay by card (myPOS)",
+                            )} — €${submittedTotal.toFixed(2)}`
                       }
                       onClick={() =>
                         setConfirmAction({
-                          type: "card",
+                          type: "mypos",
                           total: submittedTotal,
                         })
                       }
                       disabled={
                         closing ||
                         !hasServerSubmitted ||
-                        !hasAuthoritativeBill ||
+                        billUnavailableForPayment ||
                         submittedTotal <= 0 ||
                         hasPending ||
                         hasUnsynced
@@ -996,7 +1060,10 @@ export default function PosCartDrawer({
                         <span className="text-xs font-semibold leading-tight">
                           {closing
                             ? t("pos.closing", "Closing...")
-                            : t("pos.split.payCard", "Card")}
+                            : t(
+                                "payment.continueToMypos",
+                                "Pay by card (myPOS)",
+                              )}
                         </span>
                         {!closing && (
                           <span className="mt-0.5 text-sm font-bold leading-tight tabular-nums">
@@ -1021,7 +1088,7 @@ export default function PosCartDrawer({
                     disabled={
                       closing ||
                       !hasServerSubmitted ||
-                      !hasAuthoritativeBill ||
+                      billUnavailableForPayment ||
                       submittedTotal <= 0 ||
                       hasPending ||
                       hasUnsynced
@@ -1069,6 +1136,7 @@ export default function PosCartDrawer({
                   disabled={
                     closing ||
                     !session?.sessionToken ||
+                    billUnavailableForPayment ||
                     submittedTotal <= 0 ||
                     hasPending ||
                     hasUnsynced
@@ -1132,8 +1200,8 @@ export default function PosCartDrawer({
             <Dialog.Title className="text-lg font-bold mb-2">
               {confirmAction?.type === "submit" &&
                 t("pos.confirmSubmitTitle", "Submit Order")}
-              {confirmAction?.type === "card" &&
-                t("pos.confirmCardTitle", "Close Table — Paid by Card")}
+              {confirmAction?.type === "mypos" &&
+                t("payment.continueToMypos", "Pay by card (myPOS)")}
               {confirmAction?.type === "cash" &&
                 t("pos.confirmCashTitle", "Close Table — Paid by Cash")}
               {confirmAction?.type === "force" &&
@@ -1149,7 +1217,7 @@ export default function PosCartDrawer({
                       : t("pos.items", "items"),
                   total: confirmAction.total.toFixed(2),
                 })}
-              {confirmAction?.type === "card" &&
+              {confirmAction?.type === "mypos" &&
                 t("pos.confirmCardDesc", {
                   total: confirmAction.total.toFixed(2),
                 })}
@@ -1176,14 +1244,15 @@ export default function PosCartDrawer({
                 disabled={submitting || closing}
                 onClick={() => {
                   if (confirmAction?.type === "submit") handleSubmit();
-                  else if (confirmAction?.type === "card") handleCardPayment();
+                  else if (confirmAction?.type === "mypos")
+                    handleMyposPayment();
                   else if (confirmAction?.type === "cash") handleCashPayment();
                   else if (confirmAction?.type === "force") handleForceClose();
                 }}
                 className={`flex-1 py-3 rounded-xl font-semibold min-h-[44px] disabled:opacity-40 ${
                   confirmAction?.type === "force"
                     ? "bg-destructive text-destructive-foreground"
-                    : confirmAction?.type === "card"
+                    : confirmAction?.type === "mypos"
                       ? "bg-warning text-warning-foreground"
                       : confirmAction?.type === "cash"
                         ? "bg-success text-success-foreground"
@@ -1191,7 +1260,7 @@ export default function PosCartDrawer({
                 }`}
               >
                 {confirmAction?.type === "submit" && t("pos.submit", "Submit")}
-                {confirmAction?.type === "card" &&
+                {confirmAction?.type === "mypos" &&
                   t("pos.confirmPaid", "Confirm Paid")}
                 {confirmAction?.type === "cash" &&
                   t("pos.confirmCash", "Confirm Cash")}

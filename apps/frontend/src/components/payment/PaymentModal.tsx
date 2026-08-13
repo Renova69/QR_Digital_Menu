@@ -298,9 +298,7 @@ function BillItemDisplayPrice({
   showsOptionBreakdown: boolean;
 }) {
   if (!showsOptionBreakdown || item.redeemedWithPoints) {
-    return (
-      <BillItemPrice item={item} remainingQuantity={remainingQuantity} />
-    );
+    return <BillItemPrice item={item} remainingQuantity={remainingQuantity} />;
   }
 
   return (
@@ -334,10 +332,7 @@ function BillItemRow({ item }: { item: BillItem }) {
               const optionName = option.optionName?.trim();
               const modifier = item.redeemedWithPoints
                 ? null
-                : formatOptionModifier(
-                    option.priceModifier,
-                    remainingQuantity,
-                  );
+                : formatOptionModifier(option.priceModifier, remainingQuantity);
 
               return (
                 <span
@@ -398,6 +393,7 @@ function PaymentForm({
   markerContext,
   onSuccess,
   onClose,
+  closing,
 }: {
   clientSecret: string;
   paymentId: string;
@@ -407,6 +403,7 @@ function PaymentForm({
   markerContext: PaymentMarkerContext;
   onSuccess: () => void;
   onClose: () => void;
+  closing: boolean;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -533,14 +530,16 @@ function PaymentForm({
           type="button"
           variant="outline"
           onClick={onClose}
-          disabled={processing}
+          disabled={processing || closing}
         >
-          {t("common.cancel", "Cancel")}
+          {closing
+            ? t("payment.releasing", "Releasing...")
+            : t("common.cancel", "Cancel")}
         </Button>
         <Button
           type="submit"
           className="flex-1"
-          disabled={processing || !stripe}
+          disabled={processing || closing || !stripe}
         >
           {processing
             ? t("payment.processing", "Processing...")
@@ -582,6 +581,8 @@ export function PaymentModal({
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [abandoning, setAbandoning] = useState(false);
+  const [abandonError, setAbandonError] = useState<string | null>(null);
   const [cashRequesting, setCashRequesting] = useState(false);
   const [cashRequested, setCashRequested] = useState(false);
   const [cashRequestId, setCashRequestId] = useState<string | null>(null);
@@ -1091,13 +1092,28 @@ export function PaymentModal({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    if (abandoning) return;
+    setAbandonError(null);
     if (paymentInitiated) {
-      abandonCheckout(sessionToken).catch(() => {});
+      setAbandoning(true);
+      try {
+        await abandonCheckout(sessionToken);
+      } catch {
+        setAbandonError(
+          t(
+            "payment.abandonFailed",
+            "Could not release this payment attempt. Check your connection and try again.",
+          ),
+        );
+        setAbandoning(false);
+        return;
+      }
     }
     try {
       sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
     } catch {}
+    setAbandoning(false);
     onClose();
   };
 
@@ -1112,11 +1128,19 @@ export function PaymentModal({
           </h2>
           <button
             onClick={handleClose}
+            disabled={abandoning}
+            aria-label={t("common.close", "Close")}
             className="text-muted-foreground hover:text-foreground"
           >
             <X size={20} />
           </button>
         </div>
+
+        {abandonError && (
+          <p role="alert" className="text-sm text-red-500">
+            {abandonError}
+          </p>
+        )}
 
         {/* Fix H-8 — bill load failure: visible error + retry, modal stays open */}
         {step === "tip" && billError && (
@@ -1478,6 +1502,7 @@ export function PaymentModal({
                 })
               }
               onClose={handleClose}
+              closing={abandoning}
             />
           </Elements>
         )}

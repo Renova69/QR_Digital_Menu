@@ -1402,6 +1402,8 @@
     "partialCashPaid": "Your items were paid: {{amount}}",
     "remainingTableBalance": "Remaining table balance: {{amount}}",
     "continueToMypos": "Pay by card (myPOS)",
+    "releasing": "Releasing...",
+    "abandonFailed": "Could not release this payment attempt. Check your connection and try again.",
     "requestingCash": "Asking staff...",
     "cashRequested": "Cash request sent",
     "payCashToWaiter": "Pay cash to waiter",

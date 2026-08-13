@@ -7,6 +7,7 @@ describe('StripeProvider', () => {
     paymentIntents: {
       create: jest.Mock;
       retrieve: jest.Mock;
+      cancel: jest.Mock;
     };
     webhooks: {
       constructEvent: jest.Mock;
@@ -36,6 +37,7 @@ describe('StripeProvider', () => {
           client_secret: 'cs_reused_secret',
           status: 'requires_payment_method',
         }),
+        cancel: jest.fn().mockResolvedValue({ id: 'pi_cancelled' }),
       },
       webhooks: {
         constructEvent: jest
@@ -122,6 +124,17 @@ describe('StripeProvider', () => {
       await expect(
         provider.retrievePaymentIntent('pi_existing'),
       ).rejects.toThrow('stripe timeout');
+    });
+  });
+
+  describe('cancelPaymentIntent', () => {
+    it('marks the PaymentIntent as abandoned at Stripe', async () => {
+      await provider.cancelPaymentIntent('pi_abandoned', 'abandoned');
+
+      expect(mockStripe.paymentIntents.cancel).toHaveBeenCalledWith(
+        'pi_abandoned',
+        { cancellation_reason: 'abandoned' },
+      );
     });
   });
 
