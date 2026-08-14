@@ -46,4 +46,18 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
     },
   },
+  {
+    files: [
+      '**/*.spec.ts',
+      '**/*.test.ts',
+      '**/__tests__/**/*.ts',
+      'test/**/*.ts',
+    ],
+    rules: {
+      // Jest spies are intentionally passed as method references and partial
+      // mocks sometimes need escape hatches that production code must avoid.
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 );

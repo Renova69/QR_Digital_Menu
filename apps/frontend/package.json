@@ -62,7 +62,7 @@
     "start": "serve -s dist -l 3002",
     "build": "vite build",
     "preview": "serve -s dist -l 3002",
-    "lint": "eslint src e2e scripts vite.config.js playwright.config.ts --max-warnings 455",
+    "lint": "eslint src e2e scripts vite.config.js playwright.config.ts --max-warnings 415",
     "lint:report": "eslint src e2e scripts vite.config.js playwright.config.ts",
     "lint:fix": "eslint src e2e scripts vite.config.js playwright.config.ts --fix",
     "typecheck": "tsc --noEmit",

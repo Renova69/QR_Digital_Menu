@@ -73,6 +73,10 @@ jobs:
           --to-schema-datamodel=prisma/schema.prisma
           --exit-code
 
+      - name: Verify migration integrity and production data blockers
+        working-directory: apps/backend
+        run: npx ts-node scripts/verify-preproduction-readonly.ts
+
       - name: Prisma raw-query guard
         run: npm run guard:prisma-raw-void
 

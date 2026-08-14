@@ -37,9 +37,15 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/**/*.test.ts"],
+    files: [
+      "src/**/*.{spec,test}.{ts,tsx}",
+      "src/**/__tests__/**/*.{ts,tsx}",
+      "e2e/**/*.ts",
+    ],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/unbound-method": "off",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   eslintConfigPrettier,

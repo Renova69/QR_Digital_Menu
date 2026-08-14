@@ -191,11 +191,19 @@ export class MenuTranslationWorkerService {
       `UPDATE "menu_translation_state"
        SET "status" = 'PENDING', "claimedAt" = now(), "updatedAt" = now()
        WHERE "id" IN (
-         SELECT "id" FROM "menu_translation_state"
-         WHERE "status" IN ('STALE', 'FAILED')
-           AND "failureCount" < $1
-           AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= now())
-         ORDER BY "updatedAt" ASC
+         SELECT state."id" FROM "menu_translation_state" AS state
+         WHERE state."status" IN ('STALE', 'FAILED')
+           AND state."failureCount" < $1
+           AND (state."nextAttemptAt" IS NULL OR state."nextAttemptAt" <= now())
+           AND (
+             state."runId" IS NULL
+             OR EXISTS (
+               SELECT 1 FROM "translation_run" AS active_run
+               WHERE active_run."id" = state."runId"
+                 AND active_run."status" = 'RUNNING'
+             )
+           )
+         ORDER BY state."updatedAt" ASC
          LIMIT $2
          FOR UPDATE SKIP LOCKED
        )

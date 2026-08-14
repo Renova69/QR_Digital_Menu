@@ -95,6 +95,7 @@ export class MenuTranslationEnqueueService {
 
   private async upsertMany(specs: UpsertSpec[], force: boolean): Promise<void> {
     if (specs.length === 0) return;
+    const isExplicitRun = specs.some((spec) => spec.runId != null);
     const values = Prisma.join(
       specs.map(
         (params) => Prisma.sql`(
@@ -159,6 +160,7 @@ export class MenuTranslationEnqueueService {
       this.logger.warn(
         `Failed to enqueue ${specs.length} translation unit(s): ${err instanceof Error ? err.message : String(err)}`,
       );
+      if (isExplicitRun) throw err;
     }
   }
 

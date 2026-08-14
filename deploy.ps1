@@ -167,8 +167,18 @@ host) and re-run:
 Write-Host "==> Applying database migrations..."
 Push-Location (Join-Path $PSScriptRoot $SRC)
 try {
+    Write-Host "==> Verifying applied migration integrity before migration..."
+    Invoke-Native -Description "Pre-migration integrity verification" -Command {
+        & npx ts-node scripts/verify-preproduction-readonly.ts --allow-pending-migrations
+    }
+
     Invoke-Native -Description "Database migration" -Command {
         & npx prisma migrate deploy
+    }
+
+    Write-Host "==> Verifying migrated database..."
+    Invoke-Native -Description "Post-migration verification" -Command {
+        & npx ts-node scripts/verify-preproduction-readonly.ts
     }
 } finally {
     Pop-Location

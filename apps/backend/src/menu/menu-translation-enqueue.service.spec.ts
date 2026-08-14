@@ -63,6 +63,20 @@ describe('MenuTranslationEnqueueService', () => {
       ).resolves.toBeUndefined();
     });
 
+    it('propagates a DB write failure for an explicit Translate All run', async () => {
+      mockPrisma.$executeRaw.mockRejectedValue(new Error('DB down'));
+
+      await expect(
+        service.enqueueCategory(
+          'rest-1',
+          { id: 'cat-1', name: 'X' },
+          ['en'],
+          'bg',
+          'run-1',
+        ),
+      ).rejects.toThrow('DB down');
+    });
+
     it('inserts a missing state row as CURRENT when a valid cached translation already exists', async () => {
       await service.enqueueCategory(
         'rest-1',
