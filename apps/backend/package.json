@@ -13,6 +13,7 @@
     "seed": "npm run build && npx ts-node prisma/seed.ts",
     "migrate:dev": "node scripts/prisma-migrate-guard.js && npx prisma migrate dev --create-only",
     "migrate:deploy": "npx prisma migrate deploy",
+    "migrate:repair-checksum": "npx ts-node scripts/repair-migration-checksum.ts",
     "migrate:payment-secrets": "node dist/payment/payment-secret-migration.cli.js",
     "migrate:reset": "node scripts/prisma-migrate-guard.js --allow-reset && npx prisma migrate reset",
     "db:backup": "node scripts/db-backup.js",

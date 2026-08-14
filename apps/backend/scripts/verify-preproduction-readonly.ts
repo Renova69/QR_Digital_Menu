@@ -60,6 +60,17 @@ export function sha256Migration(contents: Buffer): string {
   return createHash('sha256').update(contents).digest('hex');
 }
 
+export function assertCanonicalMigrationBytes(
+  name: string,
+  contents: Buffer,
+): void {
+  if (contents.includes(0x0d)) {
+    throw new Error(
+      `Migration ${name} contains carriage returns. Prisma records exact file bytes, so production migration SQL must use canonical LF line endings. Re-check out the repository after applying .gitattributes before continuing.`,
+    );
+  }
+}
+
 export function assessMigrationIntegrity(
   expectedChecksums: ReadonlyMap<string, string>,
   rows: readonly MigrationRow[],
@@ -126,6 +137,7 @@ async function main(): Promise<void> {
     const sql = await readFile(
       join(process.cwd(), 'prisma', 'migrations', name, 'migration.sql'),
     );
+    assertCanonicalMigrationBytes(name, sql);
     migrationChecksums.set(name, sha256Migration(sql));
   }
 
