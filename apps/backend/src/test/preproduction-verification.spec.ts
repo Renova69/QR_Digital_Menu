@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import {
+  assertCanonicalMigrationBytes,
   assessMigrationIntegrity,
   countFailedDatabasePostconditions,
   countMigrationIntegrityBlockers,
@@ -8,16 +9,25 @@ import {
 } from '../../scripts/verify-preproduction-readonly';
 
 describe('pre-production migration verification', () => {
-  it('hashes the exact migration bytes Prisma records', () => {
-    const migration = Buffer.from('SELECT 1;\r\nSELECT 2;\r\n', 'utf8');
+  it('hashes the exact canonical migration bytes Prisma records', () => {
+    const migration = Buffer.from('SELECT 1;\nSELECT 2;\n', 'utf8');
 
+    expect(() =>
+      assertCanonicalMigrationBytes('canonical', migration),
+    ).not.toThrow();
     expect(sha256Migration(migration)).toBe(
       createHash('sha256').update(migration).digest('hex'),
     );
-    expect(sha256Migration(migration)).not.toBe(
-      createHash('sha256')
-        .update(migration.toString('utf8').replace(/\r\n/g, '\n'))
-        .digest('hex'),
+  });
+
+  it('rejects platform-dependent migration line endings before hashing', () => {
+    expect(() =>
+      assertCanonicalMigrationBytes(
+        'windows.sql',
+        Buffer.from('SELECT 1;\r\n', 'utf8'),
+      ),
+    ).toThrow(
+      'Migration windows.sql contains carriage returns. Prisma records exact file bytes',
     );
   });
 
