@@ -31,6 +31,10 @@ $SERVICE       = "qr-menu-backend"
 $REGION        = "europe-west1"
 $GCLOUD        = "C:\google-cloud-sdk\bin\gcloud.cmd"
 $SRC           = "apps/backend"
+$GITHUB_REPOSITORY = "Renova69/QR_Digital_Menu"
+$REQUIRED_BRANCH   = "main"
+$REQUIRED_CHECK    = "verify"
+$GITHUB_API_VERSION = "2026-03-10"
 $SMOKE_RETRIES = 10
 $SMOKE_DELAY_SECONDS = 3
 
@@ -79,7 +83,91 @@ function Invoke-Native {
     }
 }
 
-# --- 0. Identify what's currently serving, before anything changes --------
+# --- 0. Prove this exact source revision passed mandatory CI ---------------
+# Production deploys must come from the clean, current origin/main commit.
+# The GitHub check lookup is intentionally fail-closed: no network, stale
+# origin/main, a missing check, or any non-success conclusion stops before the
+# build, migration, revision creation, or traffic change. GITHUB_TOKEN is
+# optional now that the repository is public; when present it only raises the
+# GitHub API rate limit.
+$gitBranch = (Invoke-Native -Description "Reading current git branch" -Command {
+    & git branch --show-current
+} | Out-String).Trim()
+if ($gitBranch -ne $REQUIRED_BRANCH) {
+    Write-Error "Current branch is '$gitBranch'; production deploys are allowed only from '$REQUIRED_BRANCH'."
+    exit 1
+}
+
+$gitStatus = Invoke-Native -Description "Reading git working tree status" -Command {
+    & git status --porcelain --untracked-files=all
+}
+if ($gitStatus) {
+    Write-Error "Working tree has uncommitted or untracked files -- refusing to deploy source that does not exactly match a commit."
+    exit 1
+}
+
+Write-Host "==> Refreshing origin/$REQUIRED_BRANCH..."
+Invoke-Native -Description "Refreshing origin/$REQUIRED_BRANCH" -Command {
+    & git fetch --quiet origin "+refs/heads/${REQUIRED_BRANCH}:refs/remotes/origin/${REQUIRED_BRANCH}"
+}
+
+$gitFullSha = (Invoke-Native -Description "Resolving HEAD" -Command {
+    & git rev-parse HEAD
+} | Out-String).Trim()
+$originFullSha = (Invoke-Native -Description "Resolving origin/$REQUIRED_BRANCH" -Command {
+    & git rev-parse "origin/$REQUIRED_BRANCH"
+} | Out-String).Trim()
+if (-not $gitFullSha -or $gitFullSha -ne $originFullSha) {
+    Write-Error "HEAD ($gitFullSha) does not match origin/$REQUIRED_BRANCH ($originFullSha) -- refusing to deploy stale or unmerged code."
+    exit 1
+}
+
+Write-Host "==> Verifying GitHub Actions '$REQUIRED_CHECK' for $gitFullSha..."
+$githubHeaders = @{
+    Accept                 = "application/vnd.github+json"
+    "User-Agent"           = "QR-Digital-Menu-deploy-preflight"
+    "X-GitHub-Api-Version" = $GITHUB_API_VERSION
+}
+if ($env:GITHUB_TOKEN) {
+    $githubHeaders.Authorization = "Bearer $($env:GITHUB_TOKEN)"
+}
+
+$checkRunsUrl = "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$gitFullSha/check-runs?check_name=$REQUIRED_CHECK&filter=latest&per_page=100"
+try {
+    $checkRunsResponse = Invoke-RestMethod `
+        -Method Get `
+        -Uri $checkRunsUrl `
+        -Headers $githubHeaders
+} catch {
+    Write-Error "Could not verify GitHub Actions for $gitFullSha -- refusing to deploy. $($_.Exception.Message)"
+    exit 1
+}
+
+$successfulCheck = @($checkRunsResponse.check_runs) |
+    Where-Object {
+        $_.name -eq $REQUIRED_CHECK -and
+        $_.head_sha -eq $gitFullSha -and
+        $_.status -eq "completed" -and
+        $_.conclusion -eq "success" -and
+        $_.app.slug -eq "github-actions"
+    } |
+    Select-Object -First 1
+if (-not $successfulCheck) {
+    $observedChecks = @($checkRunsResponse.check_runs) |
+        ForEach-Object { "$($_.name):$($_.app.slug):$($_.status):$($_.conclusion)" }
+    $observedSummary = if ($observedChecks) { $observedChecks -join ", " } else { "none" }
+    Write-Error "Required GitHub Actions check '$REQUIRED_CHECK' is not successful for $gitFullSha (observed: $observedSummary) -- refusing to deploy."
+    exit 1
+}
+Write-Host "==> Mandatory CI verified: $($successfulCheck.details_url)"
+
+$gitSha = $gitFullSha.Substring(0, 12)
+# Cloud Run traffic tags must start with a letter; git SHAs are hex and can
+# start with a digit, so both tags below are prefixed.
+$IMAGE       = "gcr.io/$PROJECT/$SERVICE`:sha-$gitSha"
+$revisionTag = "rev-$gitSha"
+
+# --- 1. Identify what's currently serving, before anything changes --------
 Write-Host "==> Checking current traffic..."
 $currentTrafficJson = Invoke-Native -Description "Reading current service state" -Command {
     & $GCLOUD run services describe $SERVICE `
@@ -89,24 +177,6 @@ $currentTrafficJson = Invoke-Native -Description "Reading current service state"
 $currentTraffic = ($currentTrafficJson | Out-String | ConvertFrom-Json).status.traffic
 $previousRevision = ($currentTraffic | Where-Object { $_.percent -gt 0 } | Select-Object -First 1).revisionName
 Write-Host "==> Currently serving: $previousRevision"
-
-# --- 1. Warn (not block) on an uncommitted working tree --------------------
-# No 2>&1: it would both trip the NativeCommandError behaviour described in
-# Invoke-Native and fold any git warning into $gitStatus, producing a false
-# "uncommitted changes" warning on a clean tree.
-$gitStatus = git status --porcelain
-if ($gitStatus) {
-    Write-Warning "Working tree has uncommitted changes -- deploying whatever is on disk in $SRC, which may not match any commit."
-}
-$gitSha = (git rev-parse --short=12 HEAD).Trim()
-if (-not $gitSha) {
-    Write-Error "Could not resolve a git commit SHA -- refusing to deploy an untraceable image."
-    exit 1
-}
-# Cloud Run traffic tags must start with a letter; git SHAs are hex and can
-# start with a digit, so both tags below are prefixed.
-$IMAGE       = "gcr.io/$PROJECT/$SERVICE`:sha-$gitSha"
-$revisionTag = "rev-$gitSha"
 
 # --- 2. Build -- tagged by commit, never :latest ----------------------------
 Write-Host "==> Building image $IMAGE ..."
@@ -167,8 +237,18 @@ host) and re-run:
 Write-Host "==> Applying database migrations..."
 Push-Location (Join-Path $PSScriptRoot $SRC)
 try {
+    Write-Host "==> Verifying applied migration integrity before migration..."
+    Invoke-Native -Description "Pre-migration integrity verification" -Command {
+        & npx ts-node scripts/verify-preproduction-readonly.ts --allow-pending-migrations
+    }
+
     Invoke-Native -Description "Database migration" -Command {
         & npx prisma migrate deploy
+    }
+
+    Write-Host "==> Verifying migrated database..."
+    Invoke-Native -Description "Post-migration verification" -Command {
+        & npx ts-node scripts/verify-preproduction-readonly.ts
     }
 } finally {
     Pop-Location

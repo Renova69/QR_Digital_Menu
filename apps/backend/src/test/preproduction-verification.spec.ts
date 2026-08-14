@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import {
   assessMigrationIntegrity,
+  countFailedDatabasePostconditions,
   countMigrationIntegrityBlockers,
   sha256Migration,
   type MigrationRow,
@@ -60,5 +61,16 @@ describe('pre-production migration verification', () => {
       }),
     ]);
     expect(countMigrationIntegrityBlockers(audit)).toBe(4);
+    expect(countMigrationIntegrityBlockers(audit, true)).toBe(3);
+  });
+
+  it('counts only failed database postconditions as blockers', () => {
+    expect(
+      countFailedDatabasePostconditions([
+        { checkName: 'extension', passed: true, details: null },
+        { checkName: 'column', passed: false, details: 'missing' },
+        { checkName: 'index', passed: false, details: null },
+      ]),
+    ).toBe(2);
   });
 });

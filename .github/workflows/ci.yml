@@ -54,6 +54,21 @@ jobs:
           node-version: "24.18.0"
           cache: "npm"
 
+      - name: Validate deployment script syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path './deploy.ps1'),
+            [ref]$tokens,
+            [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            throw "deploy.ps1 contains PowerShell parse errors"
+          }
+
       - name: Install dependencies
         run: npm ci
 
@@ -72,6 +87,10 @@ jobs:
           --from-schema-datasource=prisma/schema.prisma
           --to-schema-datamodel=prisma/schema.prisma
           --exit-code
+
+      - name: Verify migration integrity and production data blockers
+        working-directory: apps/backend
+        run: npx ts-node scripts/verify-preproduction-readonly.ts
 
       - name: Prisma raw-query guard
         run: npm run guard:prisma-raw-void

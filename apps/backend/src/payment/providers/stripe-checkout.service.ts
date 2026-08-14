@@ -15,11 +15,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EventsGateway } from '../../events/events.gateway';
 import { FeatureService } from '../../subscription/feature.service';
 import { FeatureFlag } from '../../subscription/feature-flag.enum';
-import { StripeProvider } from '../stripe.provider';
+import { StripeProvider, StripeWebhookEvent } from '../stripe.provider';
 import { PaymentCoreService } from '../core/payment-core.service';
 import { PaymentProviderConfigService } from '../payment-provider-config.service';
 import {
   PaymentProvider,
+  PaymentReconciliationReason,
   PaymentStatus,
   Prisma,
   TableSessionStatus,
@@ -56,6 +57,15 @@ type RefundPaymentContext = {
   providerReference: string | null;
   stripePaymentIntentId: string | null;
 };
+
+type StripeChargeRefundedEvent = Extract<
+  StripeWebhookEvent,
+  { type: 'charge.refunded' }
+>;
+type StripeDisputeEvent = Extract<
+  StripeWebhookEvent,
+  { type: 'charge.dispute.created' | 'charge.dispute.closed' }
+>;
 
 const STRIPE_CHECKOUT_LEASE_MINUTES = 5;
 const STRIPE_CHECKOUT_LEASE_MS = STRIPE_CHECKOUT_LEASE_MINUTES * 60 * 1000;
@@ -428,6 +438,371 @@ export class StripeCheckoutService {
     if (event.type === 'refund.updated' || event.type === 'refund.failed') {
       await this.handleRefundWebhook(event);
     }
+
+    if (event.type === 'charge.refunded') {
+      await this.handleChargeRefundedWebhook(event);
+    }
+
+    if (
+      event.type === 'charge.dispute.created' ||
+      event.type === 'charge.dispute.closed'
+    ) {
+      await this.handleDisputeWebhook(event);
+    }
+  }
+
+  private stripeObjectId(
+    value: string | { id: string } | null | undefined,
+  ): string | undefined {
+    return typeof value === 'string' ? value : value?.id;
+  }
+
+  private async upsertStripeReconciliationIssue(
+    tx: Prisma.TransactionClient,
+    payment: RefundPaymentContext,
+    input: {
+      reason: PaymentReconciliationReason;
+      amount: number;
+      providerReference: string | null;
+      providerStatus: string;
+      details: Prisma.InputJsonValue;
+      resolved?: boolean;
+      resolutionNote?: string | null;
+    },
+  ): Promise<void> {
+    const resolvedAt = input.resolved ? new Date() : null;
+    await tx.paymentReconciliationIssue.upsert({
+      where: { paymentId: payment.id },
+      create: {
+        paymentId: payment.id,
+        restaurantId: payment.restaurantId,
+        tableSessionId: payment.tableSessionId,
+        provider: PaymentProvider.STRIPE,
+        reason: input.reason,
+        status: input.resolved ? 'RESOLVED' : 'OPEN',
+        amount: input.amount,
+        currency: payment.currency,
+        providerReference: input.providerReference,
+        providerStatus: input.providerStatus,
+        details: input.details,
+        resolutionNote: input.resolutionNote ?? null,
+        resolvedAt,
+      },
+      update: {
+        reason: input.reason,
+        status: input.resolved ? 'RESOLVED' : 'OPEN',
+        amount: input.amount,
+        currency: payment.currency,
+        providerReference: input.providerReference,
+        providerStatus: input.providerStatus,
+        details: input.details,
+        resolvedById: null,
+        resolutionNote: input.resolutionNote ?? null,
+        resolvedAt,
+      },
+    });
+  }
+
+  private async recordStripeReconciliationIssue(
+    event: StripeWebhookEvent,
+    payment: RefundPaymentContext,
+    input: Parameters<
+      StripeCheckoutService['upsertStripeReconciliationIssue']
+    >[2],
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const recorded = await this.core.recordProviderEvent(
+        tx,
+        PaymentProvider.STRIPE,
+        event.id,
+        {
+          paymentId: payment.id,
+          restaurantId: payment.restaurantId,
+          payload: {
+            type: event.type,
+            providerReference: input.providerReference,
+            providerStatus: input.providerStatus,
+          },
+        },
+      );
+      if (!recorded) return;
+      await this.upsertStripeReconciliationIssue(tx, payment, input);
+    });
+  }
+
+  /**
+   * Stripe emits charge.refunded for both partial and full refunds, including
+   * refunds created directly in the Dashboard. A full, amount/currency-matched
+   * refund can safely reuse the existing RefundAttempt finalization path. A
+   * partial or mismatched adjustment is surfaced for staff reconciliation and
+   * never guesses how to reverse item allocations.
+   */
+  private async handleChargeRefundedWebhook(
+    event: StripeChargeRefundedEvent,
+  ): Promise<void> {
+    const charge = event.data.object;
+    const paymentIntentId = this.stripeObjectId(charge.payment_intent);
+    if (!paymentIntentId) return;
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        provider: PaymentProvider.STRIPE,
+        stripePaymentIntentId: paymentIntentId,
+      },
+      include: {
+        allocations: {
+          select: { orderItemId: true, quantity: true, amount: true },
+        },
+        refundAttempts: {
+          select: {
+            id: true,
+            status: true,
+            providerRefundId: true,
+            allocationSnapshot: true,
+            reason: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        tableSession: {
+          include: { table: { select: { name: true } } },
+        },
+      },
+    });
+    if (!payment) return;
+
+    const expectedAmountCents = Math.round(payment.amount * 100);
+    const amountMatches = charge.amount === expectedAmountCents;
+    const currencyMatches =
+      charge.currency.toUpperCase() === payment.currency.toUpperCase();
+    const isFullRefund =
+      charge.refunded &&
+      charge.amount_refunded === expectedAmountCents &&
+      amountMatches &&
+      currencyMatches;
+
+    if (!isFullRefund) {
+      const isPartial =
+        charge.amount_refunded > 0 &&
+        charge.amount_refunded < expectedAmountCents &&
+        amountMatches &&
+        currencyMatches;
+      await this.recordStripeReconciliationIssue(event, payment, {
+        reason: PaymentReconciliationReason.PROVIDER_CONFIRMATION_MISMATCH,
+        amount: charge.amount_refunded / 100,
+        providerReference: charge.id,
+        providerStatus: isPartial
+          ? 'STRIPE_PARTIAL_REFUND'
+          : 'STRIPE_REFUND_MISMATCH',
+        details: {
+          eventType: event.type,
+          chargeId: charge.id,
+          paymentIntentId,
+          chargeAmountCents: charge.amount,
+          refundedAmountCents: charge.amount_refunded,
+          expectedAmountCents,
+          chargeCurrency: charge.currency,
+          paymentCurrency: payment.currency,
+          fullyRefunded: charge.refunded,
+        },
+      });
+      return;
+    }
+
+    const existingAttempt = payment.refundAttempts[0];
+    const refunds = charge.refunds?.data ?? [];
+    const matchingRefund =
+      refunds.find(
+        (refund) =>
+          refund.status === 'succeeded' &&
+          !!existingAttempt &&
+          (refund.id === existingAttempt.providerRefundId ||
+            refund.metadata?.refundAttemptId === existingAttempt.id),
+      ) ??
+      (refunds.length === 1 && refunds[0].status === 'succeeded'
+        ? refunds[0]
+        : undefined);
+    const providerRefundId =
+      matchingRefund?.id ?? existingAttempt?.providerRefundId ?? null;
+
+    let snapshot: AllocationSnapshot[];
+    try {
+      snapshot =
+        existingAttempt?.status === 'PENDING'
+          ? this.parseAllocationSnapshot(existingAttempt.allocationSnapshot)
+          : payment.allocations.map((allocation) => ({
+              orderItemId: allocation.orderItemId,
+              quantity: allocation.quantity,
+              amount: allocation.amount,
+            }));
+    } catch (error) {
+      await this.recordStripeReconciliationIssue(event, payment, {
+        reason: PaymentReconciliationReason.PROVIDER_CONFIRMATION_MISMATCH,
+        amount: charge.amount_refunded / 100,
+        providerReference: charge.id,
+        providerStatus: 'STRIPE_REFUND_SNAPSHOT_INVALID',
+        details: {
+          eventType: event.type,
+          chargeId: charge.id,
+          paymentIntentId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      return;
+    }
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const recorded = await this.core.recordProviderEvent(
+        tx,
+        PaymentProvider.STRIPE,
+        event.id,
+        {
+          paymentId: payment.id,
+          restaurantId: payment.restaurantId,
+          payload: {
+            type: event.type,
+            chargeId: charge.id,
+            refundId: providerRefundId,
+            paymentIntentId,
+            amountRefunded: charge.amount_refunded,
+          },
+        },
+      );
+      if (!recorded) return { recorded: false, finalized: false };
+      if (payment.status === PaymentStatus.REFUNDED) {
+        return { recorded: true, finalized: false };
+      }
+      if (payment.status !== PaymentStatus.SUCCEEDED) {
+        await this.upsertStripeReconciliationIssue(tx, payment, {
+          reason: PaymentReconciliationReason.PROVIDER_CONFIRMATION_MISMATCH,
+          amount: charge.amount_refunded / 100,
+          providerReference: charge.id,
+          providerStatus: `STRIPE_FULL_REFUND_PAYMENT_${payment.status}`,
+          details: {
+            eventType: event.type,
+            chargeId: charge.id,
+            paymentIntentId,
+            localPaymentStatus: payment.status,
+          },
+        });
+        return { recorded: true, finalized: false };
+      }
+
+      let attemptId = existingAttempt?.id;
+      if (attemptId) {
+        await tx.refundAttempt.updateMany({
+          where: { id: attemptId },
+          data: {
+            status: 'PENDING',
+            providerRefundId,
+            allocationSnapshot: snapshot as Prisma.InputJsonValue,
+            reason:
+              existingAttempt.reason ??
+              `External Stripe refund observed on charge ${charge.id}`,
+          },
+        });
+      } else {
+        const attempt = await tx.refundAttempt.create({
+          data: {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            provider: PaymentProvider.STRIPE,
+            amount: payment.amount,
+            idempotencyKey: `refund_${payment.id}`,
+            providerRefundId,
+            status: 'PENDING',
+            reason: `External Stripe refund observed on charge ${charge.id}`,
+            allocationSnapshot: snapshot as Prisma.InputJsonValue,
+          },
+          select: { id: true },
+        });
+        attemptId = attempt.id;
+      }
+
+      const finalized = await this.finalizeRefundSuccessTx(
+        tx,
+        payment,
+        snapshot,
+        attemptId,
+        providerRefundId,
+      );
+      if (finalized) {
+        await tx.paymentReconciliationIssue.updateMany({
+          where: {
+            paymentId: payment.id,
+            status: 'OPEN',
+            providerReference: charge.id,
+            providerStatus: {
+              in: [
+                'STRIPE_PARTIAL_REFUND',
+                'STRIPE_REFUND_MISMATCH',
+                'STRIPE_REFUND_SNAPSHOT_INVALID',
+              ],
+            },
+          },
+          data: {
+            status: 'RESOLVED',
+            resolutionNote:
+              'Stripe later confirmed the charge as fully refunded',
+            resolvedAt: new Date(),
+          },
+        });
+      }
+      return { recorded: true, finalized };
+    });
+
+    if (outcome.recorded && outcome.finalized) {
+      this.events.emitToRestaurant(payment.restaurantId, 'payment:refunded', {
+        paymentId: payment.id,
+        tableSessionId: payment.tableSessionId,
+        amount: payment.amount,
+        tableNumber: payment.tableSession?.table?.name ?? null,
+        refundId: providerRefundId,
+      });
+    }
+  }
+
+  /**
+   * A dispute is a provider-side financial exception, not proof that the guest
+   * bill should be reopened. Keep the settled payment and allocations intact,
+   * while recording the event in the existing staff reconciliation queue.
+   */
+  private async handleDisputeWebhook(event: StripeDisputeEvent): Promise<void> {
+    const dispute = event.data.object;
+    const paymentIntentId = this.stripeObjectId(dispute.payment_intent);
+    if (!paymentIntentId) return;
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        provider: PaymentProvider.STRIPE,
+        stripePaymentIntentId: paymentIntentId,
+      },
+    });
+    if (!payment) return;
+
+    const resolved =
+      event.type === 'charge.dispute.closed' &&
+      (dispute.status === 'won' || dispute.status === 'warning_closed');
+    const providerStatus = `STRIPE_DISPUTE_${dispute.status.toUpperCase()}`;
+    await this.recordStripeReconciliationIssue(event, payment, {
+      reason: PaymentReconciliationReason.PROVIDER_STATUS_UNKNOWN,
+      amount: dispute.amount / 100,
+      providerReference: dispute.id,
+      providerStatus,
+      details: {
+        eventType: event.type,
+        disputeId: dispute.id,
+        paymentIntentId,
+        amountCents: dispute.amount,
+        currency: dispute.currency,
+        reason: dispute.reason,
+        status: dispute.status,
+      },
+      resolved,
+      resolutionNote: resolved
+        ? `Stripe dispute closed as ${dispute.status}`
+        : null,
+    });
   }
 
   private async handleRefundWebhook(event: {
@@ -895,7 +1270,7 @@ export class StripeCheckoutService {
     payment: RefundPaymentContext,
     snapshot: AllocationSnapshot[],
     attemptId: string,
-    refundId: string,
+    refundId: string | null,
   ): Promise<boolean> {
     return this.prisma.$transaction((tx) =>
       this.finalizeRefundSuccessTx(tx, payment, snapshot, attemptId, refundId),
@@ -914,7 +1289,7 @@ export class StripeCheckoutService {
     payment: RefundPaymentContext,
     snapshot: AllocationSnapshot[],
     attemptId: string,
-    refundId: string,
+    refundId: string | null,
   ): Promise<boolean> {
     const paymentId = payment.id;
     const claim = await tx.payment.updateMany({

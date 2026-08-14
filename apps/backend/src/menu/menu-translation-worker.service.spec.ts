@@ -210,6 +210,14 @@ describe('MenuTranslationWorkerService', () => {
       expect(claimSql).not.toContain('MANUAL');
     });
 
+    it('does not claim explicit run units until their run is RUNNING', async () => {
+      await service.runOnce();
+
+      const claimSql = String(mockPrisma.$queryRawUnsafe.mock.calls[0][0]);
+      expect(claimSql).toContain('state."runId" IS NULL');
+      expect(claimSql).toContain('active_run."status" = \'RUNNING\'');
+    });
+
     it('reconciles a RUNNING run after a crash saved its final row but missed finalization', async () => {
       const startedAt = new Date('2026-08-09T10:00:00.000Z');
       mockPrisma.$queryRawUnsafe.mockResolvedValue([]);

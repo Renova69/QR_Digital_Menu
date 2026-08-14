@@ -2,6 +2,10 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { IPaymentProvider } from './payment-provider.interface';
 
+export type StripeWebhookEvent = ReturnType<
+  InstanceType<typeof Stripe>['webhooks']['constructEvent']
+>;
+
 @Injectable()
 export class StripeProvider implements IPaymentProvider, OnModuleInit {
   private readonly stripe: InstanceType<typeof Stripe>;
@@ -125,7 +129,10 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     }
   }
 
-  constructWebhookEvent(payload: Buffer, signature: string): any {
+  constructWebhookEvent(
+    payload: Buffer,
+    signature: string,
+  ): StripeWebhookEvent {
     if (!this.hasWebhookSecret) {
       // Production boot is blocked when the secret is missing (see onModuleInit),
       // so this unverified branch can only run in dev/test. Never trust an
@@ -136,7 +143,7 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
         );
       }
       // Dev mode: no signature verification — set STRIPE_WEBHOOK_SECRET via Stripe CLI for production
-      return JSON.parse(payload.toString());
+      return JSON.parse(payload.toString()) as StripeWebhookEvent;
     }
     return this.stripe.webhooks.constructEvent(
       payload,

@@ -2446,6 +2446,250 @@ describe('PaymentService', () => {
         expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       });
     });
+
+    describe('external Stripe adjustments', () => {
+      const settledStripePayment = {
+        id: 'pay-external',
+        restaurantId: 'rest1',
+        tableSessionId: 's1',
+        provider: PaymentProvider.STRIPE,
+        amount: 24,
+        currency: 'EUR',
+        status: 'SUCCEEDED',
+        providerReference: null,
+        stripePaymentIntentId: 'pi_external',
+        allocations: [{ orderItemId: 'oi-external', quantity: 2, amount: 24 }],
+        refundAttempts: [],
+        tableSession: { table: { name: 'Table 8' } },
+      };
+
+      it('finalizes an authoritative full Dashboard refund through the existing refund lifecycle', async () => {
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+          id: 'evt_charge_refunded_full',
+          type: 'charge.refunded',
+          data: {
+            object: {
+              id: 'ch_external',
+              amount: 2400,
+              amount_refunded: 2400,
+              currency: 'eur',
+              refunded: true,
+              payment_intent: 'pi_external',
+              refunds: {
+                data: [
+                  {
+                    id: 're_external',
+                    status: 'succeeded',
+                    metadata: {},
+                  },
+                ],
+              },
+            },
+          },
+        });
+        mockPrisma.payment.findFirst.mockResolvedValue(settledStripePayment);
+        mockPrisma.refundAttempt.create.mockResolvedValue({
+          id: 'ra-external',
+        });
+        mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.refundAttempt.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            paymentId: 'pay-external',
+            idempotencyKey: 'refund_pay-external',
+            providerRefundId: 're_external',
+            status: 'PENDING',
+            allocationSnapshot: settledStripePayment.allocations,
+          }),
+          select: { id: true },
+        });
+        expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+          where: { id: 'pay-external', status: 'SUCCEEDED' },
+          data: { status: 'REFUNDED' },
+        });
+        expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
+          where: { id: 'oi-external', paidQuantity: { gte: 2 } },
+          data: { paidQuantity: { decrement: 2 } },
+        });
+        expect(
+          mockPrisma.paymentReconciliationIssue.updateMany,
+        ).toHaveBeenCalledWith({
+          where: {
+            paymentId: 'pay-external',
+            status: 'OPEN',
+            providerReference: 'ch_external',
+            providerStatus: {
+              in: [
+                'STRIPE_PARTIAL_REFUND',
+                'STRIPE_REFUND_MISMATCH',
+                'STRIPE_REFUND_SNAPSHOT_INVALID',
+              ],
+            },
+          },
+          data: {
+            status: 'RESOLVED',
+            resolutionNote:
+              'Stripe later confirmed the charge as fully refunded',
+            resolvedAt: expect.any(Date),
+          },
+        });
+        expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+          'rest1',
+          'payment:refunded',
+          expect.objectContaining({
+            paymentId: 'pay-external',
+            refundId: 're_external',
+          }),
+        );
+      });
+
+      it('opens reconciliation for a partial Dashboard refund without changing settlement allocations', async () => {
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+          id: 'evt_charge_refunded_partial',
+          type: 'charge.refunded',
+          data: {
+            object: {
+              id: 'ch_external',
+              amount: 2400,
+              amount_refunded: 500,
+              currency: 'eur',
+              refunded: false,
+              payment_intent: 'pi_external',
+              refunds: { data: [] },
+            },
+          },
+        });
+        mockPrisma.payment.findFirst.mockResolvedValue(settledStripePayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(
+          mockPrisma.paymentReconciliationIssue.upsert,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { paymentId: 'pay-external' },
+            create: expect.objectContaining({
+              reason: 'PROVIDER_CONFIRMATION_MISMATCH',
+              status: 'OPEN',
+              providerStatus: 'STRIPE_PARTIAL_REFUND',
+              amount: 5,
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
+      });
+
+      it('opens reconciliation for a newly created dispute and leaves the bill settled', async () => {
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+          id: 'evt_dispute_created',
+          type: 'charge.dispute.created',
+          data: {
+            object: {
+              id: 'dp_external',
+              amount: 2400,
+              currency: 'eur',
+              payment_intent: 'pi_external',
+              reason: 'fraudulent',
+              status: 'needs_response',
+            },
+          },
+        });
+        mockPrisma.payment.findFirst.mockResolvedValue(settledStripePayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(
+          mockPrisma.paymentReconciliationIssue.upsert,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { paymentId: 'pay-external' },
+            create: expect.objectContaining({
+              reason: 'PROVIDER_STATUS_UNKNOWN',
+              status: 'OPEN',
+              providerReference: 'dp_external',
+              providerStatus: 'STRIPE_DISPUTE_NEEDS_RESPONSE',
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('resolves the matching reconciliation issue when Stripe closes a dispute as won', async () => {
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+          id: 'evt_dispute_won',
+          type: 'charge.dispute.closed',
+          data: {
+            object: {
+              id: 'dp_external',
+              amount: 2400,
+              currency: 'eur',
+              payment_intent: 'pi_external',
+              reason: 'fraudulent',
+              status: 'won',
+            },
+          },
+        });
+        mockPrisma.payment.findFirst.mockResolvedValue(settledStripePayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(
+          mockPrisma.paymentReconciliationIssue.upsert,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { paymentId: 'pay-external' },
+            create: expect.objectContaining({
+              status: 'RESOLVED',
+              providerStatus: 'STRIPE_DISPUTE_WON',
+            }),
+            update: expect.objectContaining({
+              status: 'RESOLVED',
+              resolutionNote: 'Stripe dispute closed as won',
+              resolvedAt: expect.any(Date),
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('keeps reconciliation open when Stripe closes a dispute as lost', async () => {
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
+          id: 'evt_dispute_lost',
+          type: 'charge.dispute.closed',
+          data: {
+            object: {
+              id: 'dp_external',
+              amount: 2400,
+              currency: 'eur',
+              payment_intent: 'pi_external',
+              reason: 'fraudulent',
+              status: 'lost',
+            },
+          },
+        });
+        mockPrisma.payment.findFirst.mockResolvedValue(settledStripePayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(
+          mockPrisma.paymentReconciliationIssue.upsert,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            update: expect.objectContaining({
+              status: 'OPEN',
+              providerStatus: 'STRIPE_DISPUTE_LOST',
+              resolvedAt: null,
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('createPaymentIntent — idempotency (Issue 35)', () => {

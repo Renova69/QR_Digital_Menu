@@ -7,7 +7,12 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage/**", "dist/**", "playwright-report/**", "test-results/**"],
+    ignores: [
+      "coverage/**",
+      "dist/**",
+      "playwright-report/**",
+      "test-results/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -56,6 +61,18 @@ export default tseslint.config(
     ],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: [
+      "src/**/*.test.{ts,tsx}",
+      "src/**/*.spec.{ts,tsx}",
+      "src/**/__tests__/**/*.{ts,tsx}",
+      "e2e/**/*.ts",
+    ],
+    rules: {
+      "@typescript-eslint/unbound-method": "off",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   eslintConfigPrettier,
