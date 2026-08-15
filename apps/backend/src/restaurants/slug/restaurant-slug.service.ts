@@ -125,34 +125,73 @@ export class RestaurantSlugService {
     });
   }
 
-  async renameSlug(restaurantId: string, nextSlug: string): Promise<string> {
-    return this.prisma.$transaction(async (tx) => {
-      const primary = await this.primaryOrThrow(tx, restaurantId);
-      const isCommitted = Boolean(primary.committedAt);
+  private assertRenameAllowed(primary: { committedAt: Date | null }): void {
+    if (!primary.committedAt) return;
+    const elapsed = Date.now() - primary.committedAt.getTime();
+    if (elapsed < RENAME_COOLDOWN_DAYS * DAY_MS) {
+      const availableAt = new Date(
+        primary.committedAt.getTime() + RENAME_COOLDOWN_DAYS * DAY_MS,
+      );
+      throw new BadRequestException(
+        `Slug can be changed again on ${availableAt.toISOString()}`,
+      );
+    }
+  }
 
-      if (isCommitted) {
-        const elapsed = Date.now() - primary.committedAt.getTime();
-        if (elapsed < RENAME_COOLDOWN_DAYS * DAY_MS) {
-          const availableAt = new Date(
-            primary.committedAt.getTime() + RENAME_COOLDOWN_DAYS * DAY_MS,
-          );
-          throw new BadRequestException(
-            `Slug can be changed again on ${availableAt.toISOString()}`,
-          );
-        }
-        // Committed: retire the old slug as a permanent alias so printed QR
-        // codes keep resolving. Aliases are never evicted.
-        await tx.restaurantSlug.update({
-          where: { slug: primary.slug },
-          data: { isPrimary: false },
-        });
-      } else {
-        // Uncommitted: this is an edit, not a rename. Nothing external
-        // references the old slug, so return it to the pool rather than
-        // permanently burning a name from a global namespace.
-        await tx.restaurantSlug.delete({ where: { slug: primary.slug } });
-      }
+  /**
+   * Case 2 — the target is this restaurant's own still-resolvable alias.
+   * The row already exists, so promote it in place rather than creating a
+   * duplicate. The old primary survives as a permanent alias either way.
+   */
+  private async repromoteOwnAlias(
+    tx: any,
+    restaurantId: string,
+    oldSlug: string,
+    nextSlug: string,
+  ): Promise<void> {
+    await tx.restaurantSlug.update({
+      where: { slug: oldSlug },
+      data: { isPrimary: false },
+    });
+    await tx.restaurantSlug.update({
+      where: { slug: nextSlug },
+      data: { isPrimary: true },
+    });
+    await tx.restaurant.update({
+      where: { id: restaurantId },
+      data: { slug: nextSlug },
+    });
+  }
 
+  /**
+   * The target slug is genuinely unclaimed (by this restaurant or anyone
+   * else) as far as the advisory lookup in renameSlug saw. Retire or delete
+   * the old row per the committed/uncommitted asymmetry, then create the new
+   * one. The create is still guarded by the unique index as the final
+   * authority — see the P2002 catch below.
+   */
+  private async claimFreshSlug(
+    tx: any,
+    restaurantId: string,
+    primary: { slug: string },
+    nextSlug: string,
+    isCommitted: boolean,
+  ): Promise<void> {
+    if (isCommitted) {
+      // Committed: retire the old slug as a permanent alias so printed QR
+      // codes keep resolving. Aliases are never evicted.
+      await tx.restaurantSlug.update({
+        where: { slug: primary.slug },
+        data: { isPrimary: false },
+      });
+    } else {
+      // Uncommitted: this is an edit, not a rename. Nothing external
+      // references the old slug, so return it to the pool rather than
+      // permanently burning a name from a global namespace.
+      await tx.restaurantSlug.delete({ where: { slug: primary.slug } });
+    }
+
+    try {
       await tx.restaurantSlug.create({
         data: {
           slug: nextSlug,
@@ -161,10 +200,69 @@ export class RestaurantSlugService {
           committedAt: isCommitted ? new Date() : null,
         },
       });
-      await tx.restaurant.update({
-        where: { id: restaurantId },
-        data: { slug: nextSlug },
+    } catch (error) {
+      // Backstop for a genuine race that slips between the advisory lookup
+      // in renameSlug and this insert: surface the same conflict a caller
+      // would see from an already-taken slug, not a raw 500.
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('This slug is already taken');
+      }
+      throw error;
+    }
+
+    await tx.restaurant.update({
+      where: { id: restaurantId },
+      data: { slug: nextSlug },
+    });
+  }
+
+  async renameSlug(restaurantId: string, nextSlug: string): Promise<string> {
+    return this.prisma.$transaction(async (tx) => {
+      const primary = await this.primaryOrThrow(tx, restaurantId);
+
+      // Case 1: target is this restaurant's own current primary slug — a
+      // double-submit, not a rename. No write, no cooldown check.
+      if (nextSlug === primary.slug) {
+        return primary.slug;
+      }
+
+      const isCommitted = Boolean(primary.committedAt);
+      this.assertRenameAllowed(primary);
+
+      // Availability checks are advisory only — the unique index in
+      // claimFreshSlug is the final authority. This lookup decides which of
+      // cases 2/3/4 applies, or whether the slug is genuinely free.
+      const target = await tx.restaurantSlug.findFirst({
+        where: { slug: nextSlug },
       });
+
+      if (target && target.restaurantId !== restaurantId) {
+        // Case 4: live, alias, or tombstoned — belongs to someone else.
+        // Never leak which restaurant holds it.
+        throw new ConflictException('This slug is already taken');
+      }
+
+      if (target && target.releasedAt) {
+        // Case 3: this restaurant's own tombstone. Resurrection is a
+        // super-admin-only action; bypassing it here would defeat that gate.
+        throw new BadRequestException(
+          'This slug was released and can only be restored by support',
+        );
+      }
+
+      if (target) {
+        // Case 2: this restaurant's own still-resolvable alias.
+        await this.repromoteOwnAlias(tx, restaurantId, primary.slug, nextSlug);
+        return nextSlug;
+      }
+
+      await this.claimFreshSlug(
+        tx,
+        restaurantId,
+        primary,
+        nextSlug,
+        isCommitted,
+      );
       return nextSlug;
     });
   }
