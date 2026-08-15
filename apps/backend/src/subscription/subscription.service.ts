@@ -6,9 +6,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
+import { CRON_EVERY_HOUR } from '../common/cron-schedules';
 
 type PriceMap = Record<string, Record<'monthly' | 'yearly', string>>;
 
@@ -63,6 +64,11 @@ function normalizeTier(
 
 const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7-day grace window for past_due (C-1)
 const PROCESSED_SESSIONS_CAP = 10000; // in-memory confirm-session dedup bound
+// These transactions contain only the guarded expiry update and its audit
+// insert. Production pool contention pushed otherwise healthy executions past
+// Prisma's 2s max-wait / 5s transaction defaults, so allow a bounded wait while
+// still failing well before the next hourly run.
+const EXPIRY_TX_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
 const IMMEDIATE_DOWNGRADE_STATUSES = [
   'unpaid',
   'canceled',
@@ -268,7 +274,8 @@ export class SubscriptionService {
 
     const subscriptionId = session.subscription as string;
     const priceId = session.line_items?.data?.[0]?.price?.id as
-      string | undefined;
+      | string
+      | undefined;
     const tier = priceId
       ? getTierFromPrice(this.priceMap, priceId)
       : normalizeTier(
@@ -549,7 +556,10 @@ export class SubscriptionService {
    * where Stripe sends no further subscription lifecycle event after the initial
    * past_due transition (e.g. if the dunning cycle completes silently).
    */
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CRON_EVERY_HOUR.SUBSCRIPTION_GRACE_EXPIRY, {
+    name: 'subscriptionGraceExpiry',
+    waitForCompletion: true,
+  })
   async enforceGraceExpiry(): Promise<void> {
     try {
       await this.applyGraceExpiry();
@@ -604,7 +614,7 @@ export class SubscriptionService {
       }
 
       return rows;
-    });
+    }, EXPIRY_TX_OPTIONS);
 
     if (updated.length === 0) return;
     const targets = updated;
@@ -620,7 +630,10 @@ export class SubscriptionService {
    * its real (Stripe-derived) tier. Prevents a forgotten override from granting
    * — or denying — a tier indefinitely. Runs hourly alongside grace enforcement.
    */
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CRON_EVERY_HOUR.SUBSCRIPTION_FORCE_TIER_EXPIRY, {
+    name: 'subscriptionForceTierExpiry',
+    waitForCompletion: true,
+  })
   async enforceForceTierExpiry(): Promise<void> {
     try {
       await this.applyForceTierExpiry();
@@ -670,7 +683,7 @@ export class SubscriptionService {
       }
 
       return rows;
-    });
+    }, EXPIRY_TX_OPTIONS);
 
     if (updated.length === 0) return;
     const targets = updated;
