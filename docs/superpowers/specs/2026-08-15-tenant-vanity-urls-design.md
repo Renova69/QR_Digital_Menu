@@ -54,19 +54,19 @@ are the core constraints of this design and are called out throughout:
 
 ## Decisions
 
-| Question          | Decision                  | Rationale                                                                                                                                                                                                                                                   |
-| ----------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| URL shape         | `/m/<slug>` (namespaced)  | Bare `/<slug>` shares the first path segment with every current and future top-level route, making the blacklist a permanent tax on adding routes. `/m/` has zero collision risk forever.                                                                   |
-| Who gets a slug   | All tiers                 | No gate logic, no downgrade edge cases, stable QR codes for every tenant from day one.                                                                                                                                                                      |
-| Tier gate         | Plumbed, dormant          | Resolver returns tier so Phase 2 can gate _subdomains_ to PRO+ without rework. Path resolution never gates.                                                                                                                                                 |
-| Slug changes      | Allowed, permanent alias  | Old slugs keep resolving so printed QR codes never break.                                                                                                                                                                                                   |
-| Alias retention   | Unlimited, never evicted  | Aliases are permanent so printed QR codes never break. Churn is bounded by a rename rate limit, not by eviction. An alias cap would have sacrificed an unrecoverable invariant to buy an anti-squatting defense that leaks anyway (see _Rename semantics_). |
-| Rename rate limit | 2 per 30 days             | Bounds careless churn — the realistic failure. Adversarial namespace hoarding is an account-level abuse problem, not an alias-retention one.                                                                                                                |
-| Slug release      | Tombstone, admin re-claim | A released slug returning to the claimable pool is a QR-hijacking vector. Tombstoned slugs serve 410 and are never auto-re-claimable.                                                                                                                       |
-| Slug case         | Lowercase, DB-enforced    | Rejected (not coerced) at the DTO, normalized on read, `CHECK (slug = lower(slug))` in the DB.                                                                                                                                                              |
-| `Restaurant.slug` | Denormalized              | Public menu is the hottest endpoint; avoids a join on the hot path. Guarded by a single writer + a sync test.                                                                                                                                               |
-| Bulgarian `-ия`   | Transliterate to `-ia`    | Matches the official standard (Art. 4). `Пицария` → `pitsaria`.                                                                                                                                                                                             |
-| Redirects         | None server-side          | Aliases correct client-side; legacy IDs serve 200 with a canonical tag. See _Known limitations_.                                                                                                                                                            |
+| Question          | Decision                           | Rationale                                                                                                                                                                                                                                                   |
+| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| URL shape         | `/m/<slug>` (namespaced)           | Bare `/<slug>` shares the first path segment with every current and future top-level route, making the blacklist a permanent tax on adding routes. `/m/` has zero collision risk forever.                                                                   |
+| Who gets a slug   | All tiers                          | No gate logic, no downgrade edge cases, stable QR codes for every tenant from day one.                                                                                                                                                                      |
+| Tier gate         | Plumbed, dormant                   | Resolver returns tier so Phase 2 can gate _subdomains_ to PRO+ without rework. Path resolution never gates.                                                                                                                                                 |
+| Slug changes      | Allowed, permanent alias           | Old slugs keep resolving so printed QR codes never break.                                                                                                                                                                                                   |
+| Alias retention   | Unlimited, never evicted           | Aliases are permanent so printed QR codes never break. Churn is bounded by a rename rate limit, not by eviction. An alias cap would have sacrificed an unrecoverable invariant to buy an anti-squatting defense that leaks anyway (see _Rename semantics_). |
+| Rename rate limit | Grace window, then 14-day cooldown | Onboarding fiddling and genuine rebrands are different populations. A flat limit blocks the third signup attempt — the worst possible moment. See _Rename semantics_.                                                                                       |
+| Slug release      | Tombstone, admin re-claim          | A released slug returning to the claimable pool is a QR-hijacking vector. Tombstoned slugs serve 410 and are never auto-re-claimable.                                                                                                                       |
+| Slug case         | Lowercase, DB-enforced             | Rejected (not coerced) at the DTO, normalized on read, `CHECK (slug = lower(slug))` in the DB.                                                                                                                                                              |
+| `Restaurant.slug` | Denormalized                       | Public menu is the hottest endpoint; avoids a join on the hot path. Guarded by a single writer + a sync test.                                                                                                                                               |
+| Bulgarian `-ия`   | Transliterate to `-ia`             | Matches the official standard (Art. 4). `Пицария` → `pitsaria`.                                                                                                                                                                                             |
+| Redirects         | None server-side                   | Aliases correct client-side; legacy IDs serve 200 with a canonical tag. See _Known limitations_.                                                                                                                                                            |
 
 ---
 
@@ -135,7 +135,7 @@ the hottest public path in the app.
 
 ### Rename semantics
 
-One transaction:
+A committed rename is one transaction:
 
 1. current primary row → `isPrimary = false` (becomes an alias, stays resolvable)
 2. insert new row with `isPrimary = true`
@@ -152,10 +152,39 @@ bound namespace growth. That was wrong on both sides of the trade:
   physical media — metal plaques, engraved table tents, printed menu inserts — that
   cannot be reissued when an alias is evicted.
 
-Churn is instead bounded where the realistic failure lives: a **rename rate limit of 2
-per 30 days**, which stops careless churn without touching the invariant. Honest
-restaurants rename zero to two times in their lifetime, so namespace growth from
-legitimate use is negligible.
+### The grace window — edits, not renames
+
+Onboarding fiddling and genuine rebrands are different populations, and a single flat
+limit serves neither. An owner trying `bistro-orange`, then `bistro-oranzh`, then
+`bistrooranzh` within ten minutes of signup would be blocked at the worst possible
+moment; a rebrand three years later needs no protection at all.
+
+So slug changes have two modes:
+
+**Grace (uncommitted).** Changes are _edits_. **No alias row is created** — the old slug
+returns to the pool immediately. Nothing external references it yet, so there is nothing
+to preserve and nothing is burned.
+
+**Committed.** Every change creates a permanent alias, under a **14-day cooldown**.
+
+Grace ends at the first of:
+
+```
+now - restaurant.createdAt >= 24h
+  OR  a QR code has been generated
+  OR  MenuView count > 0
+```
+
+The clock alone is not sufficient. An eager owner can set up and print table tents the
+same afternoon, so the window must close on the **first real external reference**, not
+just on elapsed time. `MenuView` is already tracked, so that signal is free.
+
+**Why no-alias-during-grace matters.** An unlimited grace window combined with permanent
+aliases would be an unbounded namespace burn: a scripted free account could churn
+thousands of renames inside the window and permanently tombstone thousands of names —
+reintroducing, through the grace door, exactly the hoarding vector that alias eviction
+was rejected for failing to stop. Because grace renames create no aliases, churning
+inside the window consumes nothing. Ordinary throttling is sufficient there.
 
 ### Slug release and re-claim
 
@@ -465,8 +494,10 @@ for secrecy.
 - edit → availability check → confirmation dialog stating plainly that **existing
   printed QR codes keep working**; only the displayed URL changes
 - save → the rename transaction from Section 1
-- rate limit surfaced honestly: when the 2-per-30-days limit is hit, show when the next
-  change becomes available rather than a generic error
+- during the grace window, the UI says so — changes are free and no old link is being
+  kept, which is materially different from a committed rename and the owner should know
+- once committed, the cooldown is surfaced honestly: show the date the next change
+  becomes available rather than a generic error
 
 **Previous URLs** are listed read-only beneath the current one, each with a _Release_
 action. The release dialog must state that releasing is **permanent and irreversible**,
@@ -524,8 +555,37 @@ entire argument for path-first.
 **SEO — client-side canonical.** This is a Vite SPA on static hosting, so
 `<link rel="canonical">` is injected client-side. Google renders JS and does pick these
 up, but it is less reliable than a server-rendered tag. This design does not maximize
-SEO; it does not block it. If organic search becomes a primary acquisition channel,
-prerendering the public menu is a separate project.
+SEO; it does not block it.
+
+**No social link previews.** This is the sharper cost, and it is not an SEO problem.
+WhatsApp, Signal, iMessage, Facebook, and LinkedIn scrapers mostly do **not** execute
+JavaScript — they read raw HTML `<meta>` tags. A menu URL pasted into WhatsApp will
+render as a bare link with no restaurant name, no logo, no description. For a market
+where menu links circulate primarily through messaging apps, that is a real marketing
+loss, and it is precisely the gap Google's JS rendering does _not_ cover.
+
+### Follow-up: bot-rendered meta tags (out of scope, documented)
+
+Both limitations above are addressable without touching Vite, the slug subsystem, or
+anything else in this spec. Recorded here so the option is understood, not scoped in.
+
+**The request does not currently reach NestJS.** `/m/<slug>` is served by Vercel from
+static hosting; Cloud Run only ever sees `/api/v1/*`. So this is not an interceptor
+drop-in. It requires:
+
+1. a `vercel.json` rewrite with a `has` condition matching the `user-agent` header,
+   routing crawler traffic to Cloud Run while humans continue to receive the SPA
+2. a backend route rendering an HTML shell with `og:title`, `og:description`,
+   `og:image`, and a server-rendered canonical, per restaurant and per `?lang=`
+
+**Estimate is roughly half a day, not an hour, and the reason is security.** Restaurant
+names are owner-controlled and would be injected directly into `<meta content="...">` on
+a public, unauthenticated endpoint. Correct escaping is the bulk of the real work.
+`og:image` needs an R2 logo URL with a fallback for null `logoUrl`.
+
+**Constraint: the bot HTML must faithfully represent the human page.** Same menu, same
+prices, plus meta tags is standard dynamic rendering and is fine. Diverging content is
+cloaking.
 
 **Alias URLs pass canonical signal, not 301 link equity.** Accepted: aliases exist for
 printed-QR continuity, not for search ranking.
@@ -572,7 +632,16 @@ application logic)
 - `Restaurant.slug` denormalization stays in sync — this is the guard for the
   denormalization decision
 - aliases are never evicted, at any count
-- the 3rd rename inside 30 days is rejected by the rate limit
+- a second committed rename inside 14 days is rejected by the cooldown
+
+**Grace window**
+
+- a rename inside grace creates **no** alias row, and the old slug is immediately
+  claimable again
+- grace ends at 24h even with zero activity
+- grace ends early on first QR generation, before 24h have elapsed
+- grace ends early on first recorded `MenuView`, before 24h have elapsed
+- the first rename _after_ grace ends creates an alias, proving the mode switch
 
 **Release and re-claim**
 
@@ -600,9 +669,10 @@ application logic)
 
 ## Open items
 
-- **Rename rate limit of 2 per 30 days** is a starting value, not a researched one. If
-  real owners hit it during normal onboarding fiddling it is too tight; loosen it before
-  reaching for alias eviction, which is the option this design deliberately rejected.
+- **24h grace and 14-day cooldown are starting values, not researched ones.** The grace
+  window's early-exit conditions matter more than its duration, so tune the clock freely.
+  If owners hit the cooldown legitimately, loosen it — do not reach for alias eviction,
+  which this design deliberately rejected.
 - **Tombstone retention is unbounded.** Tombstoned slugs are never reclaimed, so the
   namespace only grows. At current tenant scale this is irrelevant; it is recorded here
   so that a future "clean up old slugs" instinct is understood as a QR-hijacking
