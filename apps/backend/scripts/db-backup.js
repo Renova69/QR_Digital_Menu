@@ -31,8 +31,7 @@ const PG_BIN =
   process.env.PG_BIN_DIR || 'C:\\Program Files\\PostgreSQL\\18\\bin';
 const PG_DUMP = path.join(PG_BIN, 'pg_dump.exe');
 
-function getDirectUrl() {
-  const raw = process.env.DATABASE_URL || '';
+function getDirectUrl(raw = process.env.DATABASE_URL || '') {
   if (!raw) throw new Error('DATABASE_URL not set in .env or environment');
 
   const url = new URL(raw);
@@ -42,6 +41,7 @@ function getDirectUrl() {
   url.searchParams.delete('pgbouncer');
   url.searchParams.delete('connection_limit');
   url.searchParams.delete('connect_timeout');
+  url.searchParams.delete('pool_timeout');
   url.searchParams.set('sslmode', 'require');
 
   return url.toString();
@@ -84,8 +84,8 @@ function main() {
 
   // Keep the password out of the process argument list (visible to any local
   // process / Task Scheduler history). Only the secret moves to PGPASSWORD; all
-  // other connection params stay in the -d URL so Neon SSL/channel-binding/
-  // pgbouncer options are preserved exactly.
+  // supported connection params stay in the -d URL so Neon SSL and channel
+  // binding options are preserved.
   const parsed = new URL(connUrl);
   const pgPassword = decodeURIComponent(parsed.password);
   parsed.password = '';
@@ -109,4 +109,8 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { getDirectUrl };
