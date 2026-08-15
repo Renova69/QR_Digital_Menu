@@ -32,3 +32,18 @@ export const CRON_EVERY_10_MINUTES = {
   STRIPE_RECONCILE_PENDING_PAYMENTS: '25 */10 * * * *',
   BORICA_PAYMENT_RECONCILIATION: '35 */10 * * * *',
 } as const;
+
+// Hourly expiry enforcement used to run twice on the top-of-hour tick, where
+// it also collided with every CronExpression.EVERY_HOUR consumer. Give each
+// transaction-backed job a separate minute as well as a separate second so a
+// briefly busy pool does not make one safety net starve the other.
+export const CRON_EVERY_HOUR = {
+  SUBSCRIPTION_GRACE_EXPIRY: '5 2 * * * *',
+  SUBSCRIPTION_FORCE_TIER_EXPIRY: '15 3 * * * *',
+} as const;
+
+export const CRON_DAILY = {
+  // Midnight also runs the hourly family. This sweep can touch many loyalty
+  // accounts, so start it after the hourly expiry slots have completed.
+  LOYALTY_EXPIRY_REMINDERS: '50 10 0 * * *',
+} as const;

@@ -429,6 +429,16 @@ describe('LoyaltyService', () => {
     };
     const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
+    it('prevents overlap and avoids the midnight cron contention slot', () => {
+      const cronOptions = Reflect.getMetadata(
+        'SCHEDULE_CRON_OPTIONS',
+        service.runDailyExpiryReminders,
+      ) as { cronTime: unknown; waitForCompletion?: boolean };
+
+      expect(cronOptions.cronTime).not.toBe('0 0 * * * *');
+      expect(cronOptions.waitForCompletion).toBe(true);
+    });
+
     it('does not let one account enqueue failure abort the rest of the restaurant sweep', async () => {
       // Regression: enqueueExpiryReminder's ConflictException (stale
       // dedup-key/payload mismatch) used to propagate out of the account
@@ -484,6 +494,14 @@ describe('LoyaltyService', () => {
         2,
         expect.objectContaining({ sourceId: 'a2' }),
       );
+      expect(mockTransaction).toHaveBeenNthCalledWith(1, expect.any(Function), {
+        maxWait: 10_000,
+        timeout: 30_000,
+      });
+      expect(mockTransaction).toHaveBeenNthCalledWith(2, expect.any(Function), {
+        maxWait: 10_000,
+        timeout: 30_000,
+      });
     });
   });
 

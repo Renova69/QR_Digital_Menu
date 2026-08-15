@@ -1,7 +1,8 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { NotificationChannel, Prisma } from '@prisma/client';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { CRON_DAILY } from '../common/cron-schedules';
 import {
   addDays,
   addEarnedPointBatch,
@@ -23,6 +24,13 @@ import { LoyaltyHistoryQueryDto } from './dto/loyalty-history-query.dto';
 import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 
 const EXPIRY_BATCH_SIZE = 50;
+// A single account uses a short lock/expire/read transaction. The explicit
+// budget absorbs bounded pool contention without allowing a stuck transaction
+// to survive anywhere near the next daily sweep.
+const EXPIRY_SWEEP_TX_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 30_000,
+} as const;
 
 // M-ORDER-4: customer name and restaurant name are user-controlled and get
 // interpolated into HTML email bodies below — escape before every use.
@@ -634,7 +642,10 @@ export class LoyaltyService {
    * reminder batches as sent, and logs candidates for email/push delivery.
    * Plug in an email or push service in the TODO block below.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CRON_DAILY.LOYALTY_EXPIRY_REMINDERS, {
+    name: 'loyaltyExpiryReminders',
+    waitForCompletion: true,
+  })
   async runDailyExpiryReminders() {
     this.logger.log('Running daily loyalty expiry reminder job');
 
@@ -682,7 +693,7 @@ export class LoyaltyService {
                 new Date(),
                 true,
               );
-            });
+            }, EXPIRY_SWEEP_TX_OPTIONS);
 
             if (batches.length === 0 || !account.user?.email) continue;
 

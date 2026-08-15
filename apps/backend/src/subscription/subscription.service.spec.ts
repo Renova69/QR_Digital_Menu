@@ -626,6 +626,21 @@ describe('SubscriptionService', () => {
   });
 
   describe('enforceGraceExpiry', () => {
+    it('stagger expiry jobs and prevent same-process overlap', () => {
+      const graceOptions = Reflect.getMetadata(
+        'SCHEDULE_CRON_OPTIONS',
+        service.enforceGraceExpiry,
+      ) as { cronTime: unknown; waitForCompletion?: boolean };
+      const forceTierOptions = Reflect.getMetadata(
+        'SCHEDULE_CRON_OPTIONS',
+        service.enforceForceTierExpiry,
+      ) as { cronTime: unknown; waitForCompletion?: boolean };
+
+      expect(graceOptions.cronTime).not.toEqual(forceTierOptions.cronTime);
+      expect(graceOptions.waitForCompletion).toBe(true);
+      expect(forceTierOptions.waitForCompletion).toBe(true);
+    });
+
     it('downgrades restaurants with expired pastDueGraceExpiry to FREE', async () => {
       prisma.$queryRaw.mockResolvedValue([
         { id: 'rest-1', previousTier: 'STARTER' },
@@ -634,6 +649,10 @@ describe('SubscriptionService', () => {
       await service.enforceGraceExpiry();
 
       expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        maxWait: 10_000,
+        timeout: 30_000,
+      });
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
       expect(prisma.adminAuditLog.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -683,6 +702,10 @@ describe('SubscriptionService', () => {
       await service.enforceForceTierExpiry();
 
       expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        maxWait: 10_000,
+        timeout: 30_000,
+      });
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
       expect(prisma.adminAuditLog.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
