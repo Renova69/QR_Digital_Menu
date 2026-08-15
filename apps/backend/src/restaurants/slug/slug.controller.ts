@@ -11,26 +11,43 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { RestaurantsService } from '../restaurants.service';
 import { ReleaseSlugDto } from './dto/release-slug.dto';
 import { UpdateSlugDto } from './dto/update-slug.dto';
 import { RestaurantSlugService } from './restaurant-slug.service';
 
 // There is no @Roles decorator anywhere in this backend. Authorization is
-// performed inside the service by passing req.user.id into a method that
-// checks it (see RestaurantSlugService.assertOwner). Do not introduce a
-// RolesGuard here.
+// performed inside a service method that takes req.user.id and checks it.
+// Do not introduce a RolesGuard here.
+//
+// Deliberate three-level authorization ladder on this controller — do not
+// "simplify" one rung to match its neighbours:
+//   - rename / release -> RestaurantSlugService.assertOwner (OWNER only)
+//   - commit            -> RestaurantsService.findOneForManagement
+//                           (OWNER or MANAGER of *this* restaurant)
+//   - available         -> JwtAuthGuard only, no membership check (the
+//                           slug namespace is already public via /m/<slug>)
 @Controller('restaurants/:id/slug')
 @UseGuards(JwtAuthGuard)
 export class SlugController {
-  constructor(private readonly slugs: RestaurantSlugService) {}
+  constructor(
+    private readonly slugs: RestaurantSlugService,
+    private readonly restaurants: RestaurantsService,
+  ) {}
 
   /**
-   * Precondition for rendering a QR. Deliberately NOT owner-gated: a manager
-   * printing table tents must be able to trigger it, and it is not a
-   * privileged mutation — it only freezes the current (already-chosen) name.
+   * Precondition for rendering a QR. Not owner-gated — a manager printing
+   * table tents must be able to trigger it, and it only freezes the current
+   * (already-chosen) name, not a privileged mutation. It DOES still require
+   * the caller to be staff (OWNER or MANAGER) of *this* restaurant: without
+   * that check, any authenticated account — staff of a different
+   * restaurant, or a CUSTOMER — could commit a stranger's slug and force
+   * that restaurant into its 14-day rename cooldown. Reuses the existing
+   * findOneForManagement seam rather than a third bespoke check.
    */
   @Post('commit')
-  async commit(@Param('id') id: string) {
+  async commit(@Param('id') id: string, @Request() req: any) {
+    await this.restaurants.findOneForManagement(id, req.user.id);
     return this.slugs.commitSlug(id);
   }
 
