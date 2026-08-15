@@ -9,6 +9,7 @@ import { PublicMenuController } from './public-menu.controller';
 // authenticatedNoStore middleware only covers requests carrying auth.
 describe('PublicMenuController — Cache-Control coverage', () => {
   const publicRouteHandlers = [
+    'resolveSlug',
     'getPublicMenu',
     'getPublicMenuMeta',
     'getCategoryItems',

@@ -75,6 +75,22 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'postmaster',
   'null',
   'undefined',
+  // Reserved because they are literal path segments in the public menu
+  // controller's route table (apps/backend/src/menu/public-menu.controller.ts:
+  // public/resolve, public/:restaurantId/meta, /items, /trending,
+  // /categories/:categoryId/items). A restaurant slug equal to any of these
+  // would collide with a sibling route on the same 3-segment shape as
+  // public/resolve/:slug (e.g. /menu/public/resolve/meta matches both
+  // resolveSlug(slug="meta") and getPublicMenuMeta(restaurantId="resolve")).
+  // Declaration order picks a winner, so without this reservation the
+  // outcome would silently depend on controller ordering rather than being
+  // structurally impossible. Do not remove without re-auditing that route
+  // table.
+  'resolve',
+  'meta',
+  'items',
+  'trending',
+  'categories',
 ]);
 
 export type SlugRuleError =

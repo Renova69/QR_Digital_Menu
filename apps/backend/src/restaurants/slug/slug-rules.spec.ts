@@ -42,6 +42,17 @@ describe('validateSlug', () => {
     },
   );
 
+  // These are literal path segments in the public menu controller's route
+  // table (public/resolve, public/:restaurantId/meta|items|trending,
+  // /categories). A restaurant holding one of these as its slug would
+  // collide with a sibling route — see the comment on RESERVED_SLUGS.
+  it.each(['resolve', 'meta', 'items', 'trending', 'categories'])(
+    'rejects reserved public-menu route segment: %s',
+    (slug) => {
+      expect(validateSlug(slug)).toBe('RESERVED');
+    },
+  );
+
   it('rejects Cyrillic homoglyphs — the pattern is a security boundary', () => {
     // U+0430 CYRILLIC SMALL LETTER A, visually identical to Latin "a"
     expect(SLUG_PATTERN.test('bistro-orаnzh')).toBe(false);
