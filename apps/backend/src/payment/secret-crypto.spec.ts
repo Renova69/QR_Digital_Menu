@@ -71,9 +71,11 @@ describe('secret-crypto', () => {
 
     // Tamper with ciphertext
     const tamperedParts = [...parts];
-    tamperedParts[3] = 'a' + tamperedParts[3].substring(1);
+    const replacement = tamperedParts[3].startsWith('a') ? 'b' : 'a';
+    tamperedParts[3] = replacement + tamperedParts[3].substring(1);
     const tamperedCipher = tamperedParts.join(':');
 
+    expect(tamperedCipher).not.toBe(cipher);
     expect(() => decryptSecret(tamperedCipher)).toThrow(
       'Stored payment secret could not be decrypted',
     );
