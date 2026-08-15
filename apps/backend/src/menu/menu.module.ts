@@ -23,6 +23,7 @@ import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { BulkItemController } from './bulk-item.controller';
 import { MenuBulkEditService } from './menu-bulk-edit.service';
 import { MenuTranslationOverrideService } from './menu-translation-override.service';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 
 @Module({
   imports: [PrismaModule, TranslationModule],
@@ -47,6 +48,7 @@ import { MenuTranslationOverrideService } from './menu-translation-override.serv
     WeatherUpsellService,
     MenuBulkEditService,
     MenuTranslationOverrideService,
+    RestaurantSlugService,
   ],
   exports: [
     MenuCrudService,

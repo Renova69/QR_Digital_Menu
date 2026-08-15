@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  GoneException,
   Header,
+  NotFoundException,
   Param,
   Query,
   UseGuards,
@@ -10,16 +12,36 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 
 @Controller('menu')
 export class PublicMenuController {
-  constructor(private readonly crud: MenuCrudService) {}
+  constructor(
+    private readonly crud: MenuCrudService,
+    private readonly slugs: RestaurantSlugService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
   getAllMenuData() {
     return {
       message: "Use /public/:restaurantId to get a specific restaurant's menu",
+    };
+  }
+
+  // MUST stay above the @Get handler for the restaurantId wildcard below —
+  // NestJS matches in declaration order, so the wildcard would otherwise
+  // capture "resolve" as a restaurantId.
+  @Get('public/resolve/:slug')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
+  async resolveSlug(@Param('slug') slug: string) {
+    const resolved = await this.slugs.resolve(slug);
+    if (!resolved) throw new NotFoundException();
+    if (resolved.releasedAt) throw new GoneException();
+    return {
+      restaurantId: resolved.restaurantId,
+      canonicalSlug: resolved.canonicalSlug,
     };
   }
 
