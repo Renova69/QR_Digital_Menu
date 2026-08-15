@@ -43,6 +43,28 @@ describe('generateSlugBase', () => {
       expect(validateSlug(generateSlugBase(name, ID))).toBeNull();
     }
   });
+
+  // Regression: when the first token alone is >= SLUG_MAX_LENGTH, the
+  // 40-char truncation window contains no hyphen to prefer. This is a
+  // deliberate hard-cut, not a bug — see truncateAtBoundary in
+  // slug-generator.ts. Bulgarian transliteration reaches this more easily
+  // than it looks, since ж/ч/ш/щ each expand one letter into 2-3 Latin
+  // characters.
+  it('hard-cuts when the first token alone exceeds the length bound', () => {
+    const name = 'a'.repeat(50);
+    const slug = generateSlugBase(name, ID);
+    expect(slug.length).toBe(40);
+    expect(slug.endsWith('-')).toBe(false);
+    expect(validateSlug(slug)).toBeNull();
+  });
+
+  it('hard-cuts a long first token even when later words would have a hyphen', () => {
+    const name = `${'a'.repeat(50)} bbbbb ccccc`;
+    const slug = generateSlugBase(name, ID);
+    expect(slug.length).toBe(40);
+    expect(slug.endsWith('-')).toBe(false);
+    expect(validateSlug(slug)).toBeNull();
+  });
 });
 
 describe('withSuffix', () => {
