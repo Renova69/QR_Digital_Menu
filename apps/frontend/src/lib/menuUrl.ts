@@ -30,3 +30,48 @@ export function buildMenuReturnUrl(
     return `${base}?sp=${encodeURIComponent(servicePointToken)}`;
   return base;
 }
+
+export interface MenuUrlRestaurant {
+  id: string;
+  slug?: string | null;
+}
+
+export interface MenuUrlTarget {
+  table?: string | null;
+  servicePointToken?: string | null;
+}
+
+/**
+ * Single seam for every customer-facing menu URL. No component should build
+ * one by hand — keeping construction in one place is what makes a future
+ * change to the URL shape a one-line edit instead of a grep hunt.
+ *
+ * Restaurant.slug is nullable until a later migration, so the legacy id path
+ * remains a first-class fallback rather than an error case.
+ */
+export function getMenuPath(
+  restaurant: MenuUrlRestaurant,
+  target: MenuUrlTarget = {},
+): string {
+  let base: string;
+  if (restaurant.slug) {
+    base = `/m/${restaurant.slug}`;
+  } else {
+    const id = normalizeRestaurantId(restaurant.id);
+    if (!id) return "/";
+    base = `/menu/public/${id}`;
+  }
+
+  if (target.table) return `${base}?table=${encodeURIComponent(target.table)}`;
+  if (target.servicePointToken)
+    return `${base}?sp=${encodeURIComponent(target.servicePointToken)}`;
+  return base;
+}
+
+export function getMenuUrl(
+  restaurant: MenuUrlRestaurant,
+  target: MenuUrlTarget = {},
+  origin: string = typeof window === "undefined" ? "" : window.location.origin,
+): string {
+  return `${origin}${getMenuPath(restaurant, target)}`;
+}
