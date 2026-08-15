@@ -83,6 +83,40 @@ describe('RestaurantSlugService.resolve', () => {
     const result = await service.resolve('gone');
     expect(result?.releasedAt).toEqual(releasedAt);
   });
+
+  it('returns null when the underlying restaurant is soft-deleted', async () => {
+    const prisma = makePrisma();
+    prisma.restaurantSlug.findUnique.mockResolvedValue({
+      slug: 'ghost-diner',
+      restaurantId: 'r1',
+      isPrimary: true,
+      releasedAt: null,
+      restaurant: { slug: 'ghost-diner', deletedAt: new Date('2026-01-01') },
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.resolve('ghost-diner')).resolves.toBeNull();
+  });
+
+  // Guard against over-filtering: a live restaurant (deletedAt: null) must
+  // still resolve normally once the deletedAt select/check is in place.
+  it('still resolves normally when the restaurant is live', async () => {
+    const prisma = makePrisma();
+    prisma.restaurantSlug.findUnique.mockResolvedValue({
+      slug: 'bistro-oranzh',
+      restaurantId: 'r1',
+      isPrimary: true,
+      releasedAt: null,
+      restaurant: { slug: 'bistro-oranzh', deletedAt: null },
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.resolve('bistro-oranzh')).resolves.toEqual({
+      restaurantId: 'r1',
+      canonicalSlug: 'bistro-oranzh',
+      releasedAt: null,
+    });
+  });
 });
 
 function uniqueViolation() {

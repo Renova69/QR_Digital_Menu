@@ -1,10 +1,21 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   generateSlugBase,
   withSuffix,
 } from '../src/restaurants/slug/slug-generator';
 
 const MAX_ATTEMPTS = 20;
+
+// Duplicated (not imported) from restaurant-slug.service.ts deliberately:
+// that file's isUniqueViolation is unexported, and fix-round-1 review scoped
+// changes to that file to the resolve() soft-delete fix only. Four lines is
+// cheaper to duplicate than to justify a shared module for.
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
+}
 
 /**
  * Idempotent, additive, re-runnable. Deliberately separate from the migration:
@@ -23,26 +34,49 @@ export async function backfillSlugs(
   let created = 0;
   for (const restaurant of pending) {
     const base = generateSlugBase(restaurant.name, restaurant.id);
-    let slug = base;
-    for (let attempt = 2; attempt <= MAX_ATTEMPTS; attempt++) {
+    let claimed = false;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const slug = attempt === 1 ? base : withSuffix(base, attempt);
+
+      // Advisory pre-check only — skips a doomed insert in the common case
+      // where `slug` is visibly taken. It is NOT the authority: another
+      // writer (this script run twice, a concurrent rename, a live signup)
+      // can claim `slug` in the gap between this read and the create below.
+      // Correctness rests entirely on the unique index via the P2002 catch,
+      // mirroring RestaurantSlugService.claimInitialSlug.
       const clash = await prisma.restaurantSlug.findUnique({
         where: { slug },
         select: { slug: true },
       });
-      if (!clash) break;
-      slug = withSuffix(base, attempt);
+      if (clash) continue;
+
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.restaurantSlug.create({
+            data: { slug, restaurantId: restaurant.id, isPrimary: true },
+          });
+          await tx.restaurant.update({
+            where: { id: restaurant.id },
+            data: { slug },
+          });
+        });
+        created++;
+        claimed = true;
+        break;
+      } catch (error) {
+        // Someone claimed `slug` between the pre-check and the insert —
+        // try the next deterministic suffix. Anything else is a real
+        // failure (connection loss, etc.) and must not be swallowed.
+        if (!isUniqueViolation(error)) throw error;
+      }
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.restaurantSlug.create({
-        data: { slug, restaurantId: restaurant.id, isPrimary: true },
-      });
-      await tx.restaurant.update({
-        where: { id: restaurant.id },
-        data: { slug },
-      });
-    });
-    created++;
+    if (!claimed) {
+      throw new Error(
+        `Could not allocate a unique slug for restaurant ${restaurant.id} ("${restaurant.name}") after ${MAX_ATTEMPTS} attempts`,
+      );
+    }
   }
 
   return { created, skipped: 0 };
@@ -83,6 +117,13 @@ export async function verifySlugInvariants(
     violations.push(`Restaurant ${row.id} denormalized slug is out of sync`);
   }
 
+  // Deliberately NOT scoped to deletedAt IS NULL, unlike the two checks
+  // above: this is a restaurant_slug row-integrity check with no restaurant
+  // join at all, guarding against the restaurant_slug_lowercase CHECK
+  // constraint being bypassed or removed later. A slug belonging to a
+  // soft-deleted restaurant is not a false positive here — it's still a
+  // corrupt row in this table — so there is nothing to filter out. Do not
+  // add a deletedAt filter "for consistency" with the other two checks.
   const badCase = await prisma.$queryRaw<Array<{ slug: string }>>`
     SELECT "slug" FROM "restaurant_slug" WHERE "slug" <> lower("slug")
   `;

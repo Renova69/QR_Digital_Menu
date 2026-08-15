@@ -46,9 +46,14 @@ export class RestaurantSlugService {
 
     const row = await this.prisma.restaurantSlug.findUnique({
       where: { slug },
-      include: { restaurant: { select: { slug: true } } },
+      include: { restaurant: { select: { slug: true, deletedAt: true } } },
     });
     if (!row) return null;
+
+    // A soft-deleted restaurant's vanity URL must not half-resolve: no new
+    // exception type here, `null` is deliberate and already maps to a 404 by
+    // the caller — identical to an unknown slug, so nothing is disclosed.
+    if (row.restaurant.deletedAt) return null;
 
     return {
       restaurantId: row.restaurantId,
