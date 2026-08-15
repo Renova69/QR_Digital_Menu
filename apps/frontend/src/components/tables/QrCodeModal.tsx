@@ -3,6 +3,7 @@ import { Download } from "lucide-react";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
 import type { ServicePointType } from "../../lib/api";
+import { getMenuUrl } from "../../lib/menuUrl";
 import { Button } from "../ui/button";
 import { Modal } from "../ui/modal";
 
@@ -24,12 +25,15 @@ interface QrCodeModalProps {
   logoDataUrl: string | null;
 }
 
-function buildQrUrl(restaurantId: string, target: QrCodeTarget) {
+function buildQrUrl(
+  restaurant: { id: string; slug?: string | null },
+  target: QrCodeTarget,
+) {
   if (target.type && target.type !== "TABLE") {
     if (!target.publicToken) return "";
-    return `${window.location.origin}/menu/public/${restaurantId}?sp=${encodeURIComponent(target.publicToken)}`;
+    return getMenuUrl(restaurant, { servicePointToken: target.publicToken });
   }
-  return `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(target.name)}`;
+  return getMenuUrl(restaurant, { table: target.name });
 }
 
 const QrCodeModal = ({
@@ -42,7 +46,7 @@ const QrCodeModal = ({
   const { t } = useTranslation();
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const isServicePoint = !!target?.type && target.type !== "TABLE";
-  const qrUrl = target ? buildQrUrl(restaurant.id, target) : "";
+  const qrUrl = target ? buildQrUrl(restaurant, target) : "";
 
   const handleDownload = () => {
     const sourceCanvas = qrCanvasRef.current?.querySelector("canvas");

@@ -49,6 +49,7 @@ import { useFeature, useTier, type FeatureFlag } from "../../hooks/useFeature";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
 import { copyToClipboard, normalizeTableName } from "../../lib/tableViewUtils";
+import { getMenuUrl } from "../../lib/menuUrl";
 import { DashboardButton } from "../dashboard/DashboardButton";
 import { dashboardSurface } from "../dashboard/dashboardUi";
 
@@ -742,6 +743,7 @@ const TableView: React.FC = () => {
       ) : subTab === "service-points" && canManageServicePoints ? (
         <ServicePointsTab
           restaurantId={restaurantId}
+          restaurantSlug={restaurant?.slug ?? null}
           paymentsEnabled={canAcceptOnlinePayments}
           onShowQr={handleShowQr}
         />
@@ -917,7 +919,7 @@ const TableView: React.FC = () => {
             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredTables.map((table: any) => {
                 const session = sessionByTableId.get(table.id);
-                const publicUrl = `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(table.name)}`;
+                const publicUrl = getMenuUrl(restaurant, { table: table.name });
                 const sessionStatusLabel = session
                   ? t(
                       SESSION_STATUS_LABEL_KEYS[session.status] ??

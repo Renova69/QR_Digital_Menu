@@ -15,6 +15,7 @@ import type {
   ServicePointType,
 } from "../../lib/api";
 import { copyToClipboard, normalizeTableName } from "../../lib/tableViewUtils";
+import { getMenuUrl } from "../../lib/menuUrl";
 import { useTranslation } from "react-i18next";
 import {
   Check,
@@ -102,6 +103,10 @@ const paymentOptions: Array<{
 
 interface ServicePointsTabProps {
   restaurantId: string;
+  // Restaurant.slug is nullable until the backfill runs — TableView already
+  // holds the full restaurant object (used to build QrCodeModal's QR value),
+  // so it's threaded down here too rather than re-fetched.
+  restaurantSlug?: string | null;
   paymentsEnabled: boolean;
   onShowQr: (point: {
     id: string;
@@ -113,6 +118,7 @@ interface ServicePointsTabProps {
 
 const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
   restaurantId,
+  restaurantSlug = null,
   paymentsEnabled,
   onShowQr,
 }) => {
@@ -511,7 +517,10 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
           {filteredServicePoints.map((point) => {
             const isEditing = editingServicePoint?.id === point.id;
             const publicUrl = point.publicToken
-              ? `${window.location.origin}/menu/public/${restaurantId}?sp=${encodeURIComponent(point.publicToken)}`
+              ? getMenuUrl(
+                  { id: restaurantId, slug: restaurantSlug },
+                  { servicePointToken: point.publicToken },
+                )
               : "";
             const pointFulfillment = fulfillmentOptions
               .filter((option) => point.fulfillmentModes.includes(option.value))

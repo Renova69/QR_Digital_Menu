@@ -53,6 +53,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import "../lib/dateLocales";
 import { getApiError } from "../lib/apiError";
 import { resolveTag } from "../lib/menuTags";
+import { getMenuPath } from "../lib/menuUrl";
 
 function parseDateString(dateStr: string): Date {
   if (!dateStr) return new Date();
@@ -834,7 +835,7 @@ const BookingPage = () => {
               })}
             </div>
             <a
-              href={`/menu/public/${restaurantId}`}
+              href={getMenuPath({ id: restaurantId ?? "", slug: null })}
               className="inline-block mt-2 text-xs font-medium bk-accent underline"
             >
               {t("booking.viewMenu", "View full menu")}

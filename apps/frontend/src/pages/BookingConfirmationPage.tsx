@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getReservationStatus, getReservationConfig } from "../lib/api";
+import { getMenuPath } from "../lib/menuUrl";
 import type { ReservationPublicConfig } from "../types/reservations";
 import {
   getStoredPublicTheme,
@@ -243,7 +244,7 @@ const BookingConfirmationPage = () => {
 
           {restaurantId && (
             <Link
-              to={`/menu/public/${restaurantId}`}
+              to={getMenuPath({ id: restaurantId, slug: null })}
               className="inline-block text-sm font-medium underline"
               style={{ color: "var(--accent)" }}
             >

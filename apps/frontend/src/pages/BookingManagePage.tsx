@@ -10,6 +10,7 @@ import {
   modifyManageReservation,
 } from "../lib/api";
 import { getApiError } from "../lib/apiError";
+import { getMenuPath } from "../lib/menuUrl";
 import type {
   AvailabilitySlot,
   ReservationPublicConfig,
@@ -589,7 +590,7 @@ const BookingManagePage = () => {
         {restaurantId && (
           <div className="text-center">
             <Link
-              to={`/menu/public/${restaurantId}`}
+              to={getMenuPath({ id: restaurantId, slug: null })}
               className="inline-block text-sm font-medium underline"
               style={{ color: "var(--accent)" }}
             >

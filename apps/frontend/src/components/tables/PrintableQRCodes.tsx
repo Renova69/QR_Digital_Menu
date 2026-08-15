@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { getMenuUrl } from "../../lib/menuUrl";
 
 export type PrintTemplate = "classic" | "premium" | "minimal";
 export type PrintOrientation = "portrait" | "landscape";
@@ -24,8 +25,8 @@ function resolveLogoUrl(restaurant: any): string | null {
       ) + `/${restaurant.logoUrl}`;
 }
 
-function getQrCodeUrl(restaurantId: string, tableName: string): string {
-  return `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(tableName)}`;
+function getQrCodeUrl(restaurant: any, tableName: string): string {
+  return getMenuUrl(restaurant, { table: tableName });
 }
 
 // ------------------------------------------------------------------
@@ -101,7 +102,7 @@ function ClassicCard({
         }}
       >
         <QRCodeSVG
-          value={getQrCodeUrl(restaurant.id, table.name)}
+          value={getQrCodeUrl(restaurant, table.name)}
           size={120}
           fgColor={accent}
           bgColor="#ffffff"
@@ -274,7 +275,7 @@ function PremiumCard({
         }}
       >
         <QRCodeSVG
-          value={getQrCodeUrl(restaurant.id, table.name)}
+          value={getQrCodeUrl(restaurant, table.name)}
           size={120}
           fgColor="#0f0e0c"
           bgColor="#ffffff"
@@ -345,7 +346,7 @@ function MinimalCard({
       }}
     >
       <QRCodeSVG
-        value={getQrCodeUrl(restaurant.id, table.name)}
+        value={getQrCodeUrl(restaurant, table.name)}
         size={130}
         fgColor={accent}
         bgColor="#ffffff"
