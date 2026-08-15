@@ -171,13 +171,30 @@ Grace ends at the first of:
 
 ```
 now - restaurant.createdAt >= 24h
-  OR  a QR code has been generated
-  OR  MenuView count > 0
+  OR  a QR code has been exported
+  OR  MenuView   count > 0
+  OR  Order      count > 0
+  OR  Reservation count > 0
 ```
 
 The clock alone is not sufficient. An eager owner can set up and print table tents the
 same afternoon, so the window must close on the **first real external reference**, not
-just on elapsed time. `MenuView` is already tracked, so that signal is free.
+just on elapsed time.
+
+None of the four activity signals is implied by the others:
+
+- **QR export** is the direct trigger — the slug has been committed to print.
+- **MenuView** means a customer has actually loaded the public menu.
+- **Order** is not implied by `MenuView`: a POS order (`OrderSource.POS`) is created by
+  staff without any public menu load.
+- **Reservation** arrives through `/book/:restaurantId`, which does not touch the slug
+  at all — but it does mean the restaurant is operationally live.
+
+The governing principle is that **closing grace early is always the safe direction.** The
+cost of a false positive is that an owner waits out a 14-day cooldown for a rename they
+could have had free; the cost of a false negative is a broken printed QR code. Extra
+signals are cheap, missing ones are not. All four counts are already tracked, so the
+check is a single batched query at rename time.
 
 **Why no-alias-during-grace matters.** An unlimited grace window combined with permanent
 aliases would be an unbounded namespace burn: a scripted free account could churn
@@ -639,8 +656,10 @@ application logic)
 - a rename inside grace creates **no** alias row, and the old slug is immediately
   claimable again
 - grace ends at 24h even with zero activity
-- grace ends early on first QR generation, before 24h have elapsed
+- grace ends early on first QR export, before 24h have elapsed
 - grace ends early on first recorded `MenuView`, before 24h have elapsed
+- grace ends early on first `Order`, including a POS order with no `MenuView`
+- grace ends early on first `Reservation`, which never touches the slug
 - the first rename _after_ grace ends creates an alias, proving the mode switch
 
 **Release and re-claim**
