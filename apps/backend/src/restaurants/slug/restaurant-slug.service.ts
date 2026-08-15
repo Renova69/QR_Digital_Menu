@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generateSlugBase, withSuffix } from './slug-generator';
+import { validateSlug } from './slug-rules';
 
 export interface ResolvedSlug {
   restaurantId: string;
@@ -288,5 +291,37 @@ export class RestaurantSlugService {
         data: { releasedAt: new Date() },
       });
     });
+  }
+
+  /**
+   * Stricter than findOneForManagement, which grants OWNER *or* MANAGER
+   * (restaurants.service.ts). Renaming the public URL and releasing a name
+   * are owner-only decisions — do not reuse findOneForManagement here.
+   */
+  async assertOwner(restaurantId: string, userId: string): Promise<void> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { ownerId: true, deletedAt: true },
+    });
+    if (!restaurant || restaurant.deletedAt) {
+      throw new NotFoundException(`Restaurant "${restaurantId}" not found`);
+    }
+    if (restaurant.ownerId !== userId) {
+      throw new ForbiddenException('Only the owner can change the menu URL');
+    }
+  }
+
+  /**
+   * Advisory only — the unique index on RestaurantSlug.slug is the authority
+   * at write time. This exists so the UI can give instant feedback while
+   * typing; the real check happens again inside renameSlug's transaction.
+   */
+  async isSlugAvailable(slug: string): Promise<boolean> {
+    if (validateSlug(slug) !== null) return false;
+    const existing = await this.prisma.restaurantSlug.findUnique({
+      where: { slug },
+      select: { slug: true },
+    });
+    return existing === null;
   }
 }

@@ -9,6 +9,8 @@ import { TranslationModule } from '../translation/translation.module';
 import { PaymentModule } from '../payment/payment.module';
 import { UsersModule } from '../users/users.module';
 import { MenuModule } from '../menu/menu.module';
+import { SlugModule } from './slug/slug.module';
+import { SlugController } from './slug/slug.controller';
 
 @Module({
   imports: [
@@ -17,11 +19,13 @@ import { MenuModule } from '../menu/menu.module';
     PaymentModule,
     UsersModule,
     MenuModule,
+    SlugModule,
   ],
   controllers: [
     RestaurantsController,
     DeviceEnrollmentController,
     StaffController,
+    SlugController,
   ],
   providers: [RestaurantsService, DeviceEnrollmentService],
   exports: [RestaurantsService, DeviceEnrollmentService],

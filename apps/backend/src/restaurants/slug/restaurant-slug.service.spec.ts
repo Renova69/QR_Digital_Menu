@@ -1,8 +1,12 @@
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RestaurantSlugService } from './restaurant-slug.service';
 
 function makePrisma() {
   return {
+    restaurant: {
+      findUnique: jest.fn(),
+    },
     restaurantSlug: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
@@ -139,5 +143,101 @@ describe('RestaurantSlugService.claimInitialSlug', () => {
     await expect(
       service.claimInitialSlug('r1', 'Бистро Оранж'),
     ).rejects.toThrow('connection lost');
+  });
+});
+
+describe('RestaurantSlugService.assertOwner', () => {
+  it('resolves silently when the caller is the owner', async () => {
+    const prisma = makePrisma();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner-1',
+      deletedAt: null,
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.assertOwner('r1', 'owner-1')).resolves.toBeUndefined();
+  });
+
+  // This is the case the brief calls out as the trap: a MANAGER is a valid,
+  // assigned staff member of the restaurant under findOneForManagement's
+  // OWNER-or-MANAGER rule, but must be rejected here since assertOwner is
+  // strictly OWNER-only.
+  it('rejects a non-owner (e.g. an assigned MANAGER) with ForbiddenException', async () => {
+    const prisma = makePrisma();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner-1',
+      deletedAt: null,
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.assertOwner('r1', 'manager-1')).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('404s on a missing restaurant rather than leaking a 403', async () => {
+    const prisma = makePrisma();
+    prisma.restaurant.findUnique.mockResolvedValue(null);
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.assertOwner('missing', 'owner-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('404s on a soft-deleted restaurant rather than leaking a 403', async () => {
+    const prisma = makePrisma();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner-1',
+      deletedAt: new Date('2026-01-01'),
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.assertOwner('r1', 'owner-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+});
+
+describe('RestaurantSlugService.isSlugAvailable', () => {
+  it('returns true when the slug passes validation and is unclaimed', async () => {
+    const prisma = makePrisma();
+    prisma.restaurantSlug.findUnique.mockResolvedValue(null);
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.isSlugAvailable('free-name')).resolves.toBe(true);
+  });
+
+  it('returns false when the slug is already claimed', async () => {
+    const prisma = makePrisma();
+    prisma.restaurantSlug.findUnique.mockResolvedValue({ slug: 'taken' });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.isSlugAvailable('taken')).resolves.toBe(false);
+  });
+
+  it('returns false for a rule-invalid slug without hitting the DB', async () => {
+    const prisma = makePrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.isSlugAvailable('a')).resolves.toBe(false);
+    expect(prisma.restaurantSlug.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a null Restaurant.slug column (nullable field)', async () => {
+    // Sanity check on the nullable-slug contract via resolve(), which is the
+    // method that reads Restaurant.slug back out.
+    const prisma = makePrisma();
+    prisma.restaurantSlug.findUnique.mockResolvedValue({
+      slug: 'alias',
+      restaurantId: 'r1',
+      isPrimary: false,
+      releasedAt: null,
+      restaurant: { slug: null },
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    const result = await service.resolve('alias');
+    expect(result?.canonicalSlug).toBe('alias');
   });
 });
