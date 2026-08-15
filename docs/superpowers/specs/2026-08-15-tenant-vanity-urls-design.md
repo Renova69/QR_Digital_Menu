@@ -1,72 +1,69 @@
-# Tenant Vanity URLs — Path-First Design (Phase 1), Subdomains (Phase 2)
+# Tenant Vanity URLs — Path-Based Slugs
 
 **Date:** 2026-08-15
-**Status:** Design approved, not started.
-**Related:** `CLAUDE.md § Frontend architecture`, `apps/frontend/src/lib/menuUrl.ts`,
-`apps/backend/src/events/events.gateway.ts` (`C-2` origin pinning)
+**Status:** Design approved after review. Not started.
+**Scope:** Path-based `/m/<slug>` only. Subdomains are explicitly **out of scope** — see
+_Forward compatibility_.
+**Related:** `apps/frontend/src/lib/menuUrl.ts`, `apps/frontend/src/hooks/usePublicMenuData.ts`,
+`apps/backend/src/restaurants/restaurants.service.ts` (`findOneForManagement`)
 
 ---
 
 ## Problem
 
-Every restaurant's public menu today is reachable only by opaque cuid:
+Every restaurant's public menu is reachable only by opaque cuid:
 
 ```
 https://<app-origin>/menu/public/cmf3k9x2b0001qw8h7d2n4p6t?table=5
 ```
 
-Owners want a branded, speakable URL — the ask was
-`https://bistroorange.qrmenu.bg/`. That URL is what goes on table tents, business
-cards, Instagram bios, and Google Business listings, so it is customer-facing brand
-surface, not a developer convenience.
+Owners want a branded, speakable URL. That URL goes on table tents, business cards,
+Instagram bios, and Google Business listings, so it is customer-facing brand surface,
+not a developer convenience.
 
-Two shapes solve it: a **path** (`/m/bistro-oranzh`) or a **subdomain**
-(`bistro-oranzh.<root>`). Subdomains are the eventual target, but they carry
-infrastructure and security cost that path-based does not.
+### Decision: path-based `/m/<slug>`
 
-### Decision: path-first, subdomain as Phase 2
+Ships the entire tenant-identity subsystem — slug, transliteration, namespace,
+resolution, URL construction, merchant UI — with **no** wildcard DNS, no TLS work, no
+CORS changes, no cookie-domain changes, no payment-origin changes, and without touching
+the pinned Socket.IO origin allowlist (`events.gateway.ts`, `C-2`).
 
-Path-based ships the entire tenant-identity subsystem — slug, transliteration,
-namespace, resolution, URL construction, merchant UI — with **zero** wildcard DNS,
-zero TLS work, zero CORS changes, and without touching the pinned Socket.IO origin
-allowlist. Phase 2 then becomes infrastructure plus two one-line branches.
+This is an architectural extension, not a rewrite. A single `RestaurantSlugService`
+encapsulates the namespace; payment, ordering, menu, and tenant architecture are
+unchanged.
 
-The migration is clean **only if two disciplines are enforced from day one**. They
-are the core constraints of this design and are called out throughout:
+### Why not subdomains
 
-1. **Slugs obey DNS label rules now**, while paths do not require it. A tenant who
-   takes `my_bistro` or a 70-character slug during Phase 1 can never become a
-   subdomain, and forcing a slug change on a live customer with printed QR codes is
-   not an acceptable outcome.
-2. **All menu-URL construction flows through one function per side.** The current
-   code scatters `window.location.origin` across four components; if that pattern
-   survives, Phase 2 becomes a grep hunt instead of a branch.
+Subdomains require a purchased domain, wildcard DNS, wildcard TLS (which on Vercel
+requires their nameserver method), and — because Vercel's Hobby plan is restricted to
+non-commercial personal use — likely paid commercial hosting. Under a no-additional-cost
+constraint, that is out of scope. See _Forward compatibility_ for the constraints this
+design retains so subdomains stay cheap later.
 
 ### Non-goals
 
-- Per-tenant custom domains (`menu.bistroorange.bg`). Phase 2's host resolver is the
-  groundwork, but registering and provisioning customer-owned domains is separate.
-- Server-side rendering or prerendering of the public menu. See _Known limitations_.
-- Any change to authentication, dashboard, POS, or staff URLs. Those stay on the
-  single app origin permanently.
+- Subdomains, wildcard DNS, and per-tenant custom domains.
+- Server-side rendering or prerendering. See _Known limitations_.
+- Any change to authentication, dashboard, POS, or staff URLs.
 
 ---
 
 ## Decisions
 
-| Question          | Decision                           | Rationale                                                                                                                                                                                                                                                   |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| URL shape         | `/m/<slug>` (namespaced)           | Bare `/<slug>` shares the first path segment with every current and future top-level route, making the blacklist a permanent tax on adding routes. `/m/` has zero collision risk forever.                                                                   |
-| Who gets a slug   | All tiers                          | No gate logic, no downgrade edge cases, stable QR codes for every tenant from day one.                                                                                                                                                                      |
-| Tier gate         | Plumbed, dormant                   | Resolver returns tier so Phase 2 can gate _subdomains_ to PRO+ without rework. Path resolution never gates.                                                                                                                                                 |
-| Slug changes      | Allowed, permanent alias           | Old slugs keep resolving so printed QR codes never break.                                                                                                                                                                                                   |
-| Alias retention   | Unlimited, never evicted           | Aliases are permanent so printed QR codes never break. Churn is bounded by a rename rate limit, not by eviction. An alias cap would have sacrificed an unrecoverable invariant to buy an anti-squatting defense that leaks anyway (see _Rename semantics_). |
-| Rename rate limit | Grace window, then 14-day cooldown | Onboarding fiddling and genuine rebrands are different populations. A flat limit blocks the third signup attempt — the worst possible moment. See _Rename semantics_.                                                                                       |
-| Slug release      | Tombstone, admin re-claim          | A released slug returning to the claimable pool is a QR-hijacking vector. Tombstoned slugs serve 410 and are never auto-re-claimable.                                                                                                                       |
-| Slug case         | Lowercase, DB-enforced             | Rejected (not coerced) at the DTO, normalized on read, `CHECK (slug = lower(slug))` in the DB.                                                                                                                                                              |
-| `Restaurant.slug` | Denormalized                       | Public menu is the hottest endpoint; avoids a join on the hot path. Guarded by a single writer + a sync test.                                                                                                                                               |
-| Bulgarian `-ия`   | Transliterate to `-ia`             | Matches the official standard (Art. 4). `Пицария` → `pitsaria`.                                                                                                                                                                                             |
-| Redirects         | None server-side                   | Aliases correct client-side; legacy IDs serve 200 with a canonical tag. See _Known limitations_.                                                                                                                                                            |
+| Question             | Decision                           | Rationale                                                                                                                                                                         |
+| -------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| URL shape            | `/m/<slug>` (namespaced)           | Bare `/<slug>` shares the first path segment with every current and future top-level route, making the blacklist a permanent tax on adding routes. `/m/` has zero collision risk. |
+| Who gets a slug      | All tiers                          | No gate logic, no downgrade edge cases, stable QR codes for every tenant from day one.                                                                                            |
+| Resolver shape       | Cheap: slug → id                   | The frontend deliberately loads meta first, then batches category items. A full-menu-by-slug endpoint would fight that. See Section 3.                                            |
+| Slug changes         | Permanent alias, never evicted     | Old slugs keep resolving so printed QR codes never break.                                                                                                                         |
+| Rename limiting      | Commit model, then 14-day cooldown | Onboarding fiddling and genuine rebrands are different populations. See Section 2.                                                                                                |
+| QR ↔ slug safety     | Commit is a **precondition**       | QR rendering requires a committed slug. Not export telemetry, which is unreliable by construction. See Section 2.                                                                 |
+| Slug release         | Tombstone, super-admin re-claim    | A released slug returning to the claimable pool is a QR-hijacking vector.                                                                                                         |
+| Rename/release authz | OWNER only, dedicated endpoint     | The existing `findOneForManagement` seam grants MANAGER. A DTO field would silently inherit that. See Section 5.                                                                  |
+| Slug case            | Lowercase, DB-enforced             | Rejected (not coerced) at the DTO, normalized on read, `CHECK (slug = lower(slug))` in the DB.                                                                                    |
+| `Restaurant.slug`    | Denormalized                       | Public menu is the hottest endpoint. Guarded by a single writer plus an invariant test.                                                                                           |
+| Bulgarian `-ия`      | Transliterate to `-ia`             | Deterministic product convention matching the State Gazette table. Not a legal requirement on trade names.                                                                        |
+| Redirects            | None server-side                   | Aliases correct client-side; legacy IDs serve 200 with a canonical tag.                                                                                                           |
 
 ---
 
@@ -74,8 +71,8 @@ are the core constraints of this design and are called out throughout:
 
 ### The namespace constraint
 
-A retired slug and a live slug must never be claimable by two different restaurants.
-Two tables with separate unique indexes cannot enforce that — it would rely on an
+A retired slug and a live slug must never be claimable by two different restaurants. Two
+tables with separate unique indexes cannot enforce that — it would rely on an
 application-level check that races under concurrent signups. **One table owns the
 namespace.**
 
@@ -84,7 +81,8 @@ model RestaurantSlug {
   slug         String     @id                    // PK == the global namespace
   restaurantId String
   isPrimary    Boolean    @default(false)
-  releasedAt   DateTime?                         // tombstone — resolves 410, never re-claimable
+  committedAt  DateTime?                         // null => uncommitted (grace); see Section 2
+  releasedAt   DateTime?                         // tombstone => 410, never re-claimable
   createdAt    DateTime   @default(now())
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
@@ -92,10 +90,10 @@ model RestaurantSlug {
 }
 ```
 
-Plus two constraints Prisma cannot express, added as raw SQL in the migration:
+Two constraints Prisma cannot express, added as raw SQL in the migration:
 
 ```sql
--- exactly one primary per restaurant
+-- at most one primary per restaurant
 CREATE UNIQUE INDEX "RestaurantSlug_one_primary"
   ON "RestaurantSlug"("restaurantId") WHERE "isPrimary";
 
@@ -104,11 +102,17 @@ ALTER TABLE "RestaurantSlug" ADD CONSTRAINT "RestaurantSlug_slug_lowercase"
   CHECK (slug = lower(slug));
 ```
 
-Guarantees, at the database level:
+### What the database actually guarantees
 
-- every slug is globally unique across live, retired, **and** tombstoned
-- exactly one primary per restaurant
-- no slug can ever be stored with uppercase characters
+Stated precisely, because an earlier draft overstated this:
+
+- **Database guarantee:** every slug is globally unique across live, retired, and
+  tombstoned; **at most one** primary per restaurant; no slug is ever stored with
+  uppercase characters.
+- **Application guarantee:** every active restaurant **has** a primary slug. A partial
+  unique index constrains _at most_ one — it cannot require _at least_ one. That
+  invariant is upheld by the creation and rename transactions, verified by the backfill
+  (Section 7), and protected by an ongoing invariant test (Section 8).
 
 `CHECK` is preferred over `citext` or a case-insensitive collation: citext adds an
 extension dependency, and non-deterministic collations interact badly with primary-key
@@ -118,127 +122,117 @@ indexes.
 
 ```prisma
 model Restaurant {
-  // ...existing fields
-  slug String? @unique   // nullable until backfill completes, then required
+  slug String? @unique   // see Section 7 — stays nullable until a later migration
 }
 ```
 
-`Restaurant.slug` mirrors the current primary. It exists because the public menu
-response needs the restaurant's own canonical URL on every load, and that endpoint is
-the hottest public path in the app.
+`Restaurant.slug` mirrors the current primary, because the public menu response needs the
+restaurant's own canonical URL and that endpoint is the hottest public path in the app.
 
-**The redundancy is the accepted cost of the read.** It is contained by:
+The redundancy is contained by:
 
-- a single writer — `RestaurantSlugService.rename()` is the only code permitted to
-  write either table, and both writes happen in one `$transaction`
-- a test asserting `Restaurant.slug` always equals the row where `isPrimary = true`
-
-### Rename semantics
-
-A committed rename is one transaction:
-
-1. current primary row → `isPrimary = false` (becomes an alias, stays resolvable)
-2. insert new row with `isPrimary = true`
-3. update `Restaurant.slug`
-
-**Aliases are never evicted.** An earlier draft capped retention at 5 per restaurant to
-bound namespace growth. That was wrong on both sides of the trade:
-
-- It did not actually prevent namespace hoarding. An attacker wanting to reserve
-  `pizza`, `sushi`, or `bar` registers additional free accounts rather than renaming one
-  repeatedly. Adversarial hoarding is an account-level abuse problem; alias retention
-  policy cannot reach it.
-- It sacrificed the one invariant that is genuinely unrecoverable. QR codes reach
-  physical media — metal plaques, engraved table tents, printed menu inserts — that
-  cannot be reissued when an alias is evicted.
-
-### The grace window — edits, not renames
-
-Onboarding fiddling and genuine rebrands are different populations, and a single flat
-limit serves neither. An owner trying `bistro-orange`, then `bistro-oranzh`, then
-`bistrooranzh` within ten minutes of signup would be blocked at the worst possible
-moment; a rebrand three years later needs no protection at all.
-
-So slug changes have two modes:
-
-**Grace (uncommitted).** Changes are _edits_. **No alias row is created** — the old slug
-returns to the pool immediately. Nothing external references it yet, so there is nothing
-to preserve and nothing is burned.
-
-**Committed.** Every change creates a permanent alias, under a **14-day cooldown**.
-
-Grace ends at the first of:
-
-```
-now - restaurant.createdAt >= 24h
-  OR  a QR code has been exported
-  OR  MenuView   count > 0
-  OR  Order      count > 0
-  OR  Reservation count > 0
-```
-
-The clock alone is not sufficient. An eager owner can set up and print table tents the
-same afternoon, so the window must close on the **first real external reference**, not
-just on elapsed time.
-
-None of the four activity signals is implied by the others:
-
-- **QR export** is the direct trigger — the slug has been committed to print.
-- **MenuView** means a customer has actually loaded the public menu.
-- **Order** is not implied by `MenuView`: a POS order (`OrderSource.POS`) is created by
-  staff without any public menu load.
-- **Reservation** arrives through `/book/:restaurantId`, which does not touch the slug
-  at all — but it does mean the restaurant is operationally live.
-
-The governing principle is that **closing grace early is always the safe direction.** The
-cost of a false positive is that an owner waits out a 14-day cooldown for a rename they
-could have had free; the cost of a false negative is a broken printed QR code. Extra
-signals are cheap, missing ones are not. All four counts are already tracked, so the
-check is a single batched query at rename time.
-
-**Why no-alias-during-grace matters.** An unlimited grace window combined with permanent
-aliases would be an unbounded namespace burn: a scripted free account could churn
-thousands of renames inside the window and permanently tombstone thousands of names —
-reintroducing, through the grace door, exactly the hoarding vector that alias eviction
-was rejected for failing to stop. Because grace renames create no aliases, churning
-inside the window consumes nothing. Ordinary throttling is sufficient there.
-
-### Slug release and re-claim
-
-Owners may release an old alias — but a released slug **must not return to the claimable
-pool**.
-
-If a competitor could claim a just-released slug, every QR code already printed for the
-original restaurant would resolve to _someone else's_ menu, with a live cart and
-checkout. That is materially worse than a 404: it is silent, it is customer-facing, and
-the victim has no way to detect it.
-
-So release **tombstones** the row (`releasedAt` set). Tombstoned slugs:
-
-- resolve to `410 Gone` with a "this menu has moved" page — never to another tenant
-- remain in the namespace, so the uniqueness guarantee is unbroken
-- are **not** re-claimable through any self-service path
-
-The legitimate re-claim case is a business sale: the restaurant changes hands and the
-new owner, on a new account, wants the old slug. That is rare and exactly the shape of
-operation the super-admin panel already handles — so re-claim is a **super-admin action**,
-CONFIRM-gated and written to `AdminAuditLog` in the same `$transaction`, matching the
-existing pattern for dangerous tenant mutations. Automated re-claim is a footgun; a
-human in the loop with an audit trail is the correct cost for a rare operation.
-
-### Migration safety
-
-Purely additive: one new table, one index, one nullable column on `Restaurant`. No
-destructive operations, no long locks, safe under Neon's PgBouncer transaction mode.
-
-**The backfill is a separate idempotent script, not part of the migration.** Given the
-drift history in this repo, migrations stay mechanical and data movement stays
-re-runnable. Follows the existing seed-safety conventions (idempotent, additive, no
-destructive ops).
+- a single writer — `RestaurantSlugService` is the only code permitted to write either
+  table, and both writes always happen in one `$transaction`
+- an invariant test asserting `Restaurant.slug` always equals the row where
+  `isPrimary = true`, for every active restaurant
 
 ---
 
-## Section 2 — Slug generation and validation
+## Section 2 — Rename, commit, and the QR guarantee
+
+### The problem this section exists to solve
+
+The printed-QR guarantee is the load-bearing promise of this design: **a QR code that has
+been printed must never stop resolving.** Aliases deliver that for committed slugs. The
+question is what happens during onboarding, when an owner is still trying names.
+
+An earlier draft ended a time-based grace window when "a QR code was exported." **That
+signal does not exist and cannot be made reliable.** QR download at
+`QrCodeModal.tsx:47` is entirely client-side — the canvas is redrawn, `toDataURL()` is
+called, and an `<a download>` is clicked. The backend receives nothing. Adding an export
+beacon would not fix it: a fire-and-forget call can fail or be offline while the download
+still succeeds, so the invariant would rest on a signal that is unreliable exactly when it
+matters.
+
+### The commit model
+
+Invert it. Instead of observing whether a QR was made, make a committed slug a
+**precondition** for making one.
+
+A slug is in one of two states:
+
+**Uncommitted** (`committedAt IS NULL`). Changes are _edits_, not renames. **No alias row
+is created** — the old slug returns to the pool immediately. Nothing external references
+it, so nothing is preserved and nothing is burned.
+
+**Committed** (`committedAt` set). Every change creates a permanent alias, under a
+**14-day cooldown**.
+
+### What commits a slug
+
+Commit is an explicit, synchronous, idempotent server transition:
+
+```
+POST /restaurants/:id/slug/commit     → 200 { slug, committedAt }
+```
+
+It is called by:
+
+1. **The QR flow, as a blocking precondition.** Opening the QR or print view calls commit
+   and **does not render the code until the server confirms.** If the call fails, the QR
+   is not shown. This is the correct friction: a QR whose URL might still change must not
+   be printable.
+2. **Automatically, on first external activity** — any of `MenuView`, `Order`, or
+   `Reservation` count transitioning above zero. All three are already persisted
+   server-side, so these are observations of durable state, not telemetry.
+3. **Automatically, 24h after `restaurant.createdAt`**, as a backstop.
+
+None of the activity signals is implied by the others: a POS order (`OrderSource.POS`) is
+created by staff with no public menu load, and a reservation arrives through
+`/book/:restaurantId`, which never touches the slug at all.
+
+### Why this is stronger than export tracking
+
+|                    | Export beacon           | Commit precondition           |
+| ------------------ | ----------------------- | ----------------------------- |
+| Signal source      | Best-effort client call | Synchronous server transition |
+| Fails when offline | Yes — QR still prints   | No — QR does not render       |
+| Invariant          | Inferred                | Enforced                      |
+| Extra round trips  | One per download        | One, first time only          |
+
+The governing principle: **closing the uncommitted window early is always the safe
+direction.** A false positive costs an owner a 14-day cooldown they could have skipped; a
+false negative costs a broken printed QR code.
+
+### Rename transaction (committed slugs)
+
+One transaction:
+
+1. current primary row → `isPrimary = false` (becomes an alias, stays resolvable)
+2. insert new row, `isPrimary = true`, `committedAt` set
+3. update `Restaurant.slug`
+
+**Aliases are never evicted.** An earlier draft capped retention at 5 per restaurant.
+That was wrong on both sides: it did not prevent hoarding (an attacker registers more
+free accounts rather than renaming one repeatedly — that is an account-level abuse
+problem), and it sacrificed the one invariant that is genuinely unrecoverable, since QR
+codes reach physical media that cannot be reissued.
+
+### Collision handling under concurrency
+
+Availability checks are **advisory only**. The authoritative check is the unique index at
+write time.
+
+`generateSlug()` produces deterministic suffixes (`-2`, `-3`, …, never random) on
+collision, and the write path must **retry on unique-constraint violation with a bounded
+attempt count** (suggest 5), recomputing the suffix each time. Without retry, two
+simultaneous signups deriving the same base slug cause one legitimate request to fail
+unpredictably; the index prevents corruption but does not by itself produce a correct
+outcome. Exhausting the retry budget returns a clear error, not a silent fallback.
+
+---
+
+## Section 3 — Slug generation and validation
 
 ### Replacing the existing helper
 
@@ -249,15 +243,16 @@ destructive ops).
 .toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
 ```
 
-`Бистро Оранж` → `""`. Every Cyrillic name collapses to an empty string. This is
-already a live cosmetic bug — Bulgarian restaurants get `menu-export--2026-08-15.xlsx`
-today. All three call sites migrate to the new shared util, fixing that as a
-side effect.
+`Бистро Оранж` → `""`. Every Cyrillic name collapses to an empty string — already a live
+cosmetic bug, since Bulgarian restaurants get `menu-export--2026-08-15.xlsx` today. All
+three call sites migrate to the new shared util.
 
 ### Bulgarian transliteration
 
-Official standard (Закон за транслитерацията, in force 2009) — the spelling owners
-already see on their own passports and street signs:
+Mapping follows the official State Gazette transliteration table, adopted here as a
+**deterministic product convention** because it matches the spelling owners already see
+on their own documents. This does not imply any legal requirement on how a restaurant
+trade name must be rendered.
 
 ```
 а→a   б→b   в→v   г→g   д→d   е→e   ж→zh  з→z   и→i   й→y
@@ -265,26 +260,23 @@ already see on their own passports and street signs:
 ф→f   х→h   ц→ts  ч→ch  ш→sh  щ→sht ъ→a   ь→y   ю→yu  я→ya
 ```
 
-Art. 4 exception: word-final `-ия` → `-ia`. `Пицария` → `pitsaria`.
+Word-final `-ия` → `-ia`. `Пицария` → `pitsaria`.
 
 **Do not substitute a generic ISO-9 library.** Two divergences make it wrong for
-Bulgarian: `ъ→a` (ISO-9 gives `ŭ`/`ǎ`) and `щ→sht`. A name rendered `bistro-oranž`
-reads as broken to a Bulgarian speaker. Hand-rolled table, ~30 lines, fully unit
-testable, no dependency.
+Bulgarian: `ъ→a` (ISO-9 gives `ŭ`/`ǎ`) and `щ→sht`. Hand-rolled table, ~30 lines, fully
+unit testable, no dependency.
 
 ### Pipeline
 
 1. NFD normalize, strip combining marks — handles Romanian `ă ș ț` and Latin diacritics
-2. Cyrillic → Latin via the table above, applying the word-final `-ия` rule
+2. Cyrillic → Latin, applying the word-final `-ия` rule
 3. lowercase
 4. non-`[a-z0-9]` → hyphen
 5. collapse repeated hyphens, trim leading and trailing
 6. truncate to 40 chars **at a hyphen boundary**
 7. empty, all-numeric, or `xn--` prefix → fallback `restaurant-<6 chars of id>`
 8. blacklist check
-9. collision → deterministic `-2`, `-3`, … never random
-
-Worked examples:
+9. collision → deterministic `-2`, `-3`, … with bounded retry (Section 2)
 
 ```
 Бистро Оранж      → bistro-oranzh
@@ -294,64 +286,51 @@ Café Münchén      → cafe-munchen
 🍕🍕🍕            → restaurant-cmf3k9
 ```
 
-### Validation — the Phase 2 insurance
+### Validation
 
 Enforced server-side in the DTO, per this repo's class-validator-at-the-boundary
 convention. **Never UI-only.**
 
 ```ts
-@Matches(/^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$/)
+@Length(2, 40)
+@Matches(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/)
 ```
 
-2–40 characters, lowercase alphanumeric plus hyphen, no leading or trailing hyphen.
+**Length is a separate constraint, not folded into the regex.** The earlier single-regex
+form (`{0,38}` with an optional trailing group) accepted the one-character slug `a`
+despite a stated 2–40 rule. Splitting them makes the bound correct and produces a clearer
+validation message.
+
 Additionally rejected:
 
-- `xn--` prefix (reserved for punycode; would collide with IDN encoding)
-- all-numeric (ambiguous with IDs, and `/m/12345` reads as an internal identifier)
+- `xn--` prefix (reserved for punycode)
+- all-numeric (ambiguous with IDs; `/m/12345` reads as an internal identifier)
 - anything on the blacklist
-
-These are DNS label rules. **Paths do not need them. They are enforced now purely so
-that no tenant is disqualified from Phase 2.** This is discipline #1 from the problem
-statement, and it is the single highest-value constraint in the document.
-
-| Accepted by a path   | Legal DNS label?                    |
-| -------------------- | ----------------------------------- |
-| `my_bistro`          | No — underscore                     |
-| 70 characters        | No — 63-char label limit            |
-| `-bistro`, `bistro-` | No — leading/trailing hyphen        |
-| `xn--foo`            | No — punycode reserved              |
-| `Bistro-Oranzh`      | Ambiguous — DNS is case-insensitive |
 
 ### The regex is also the homoglyph defense
 
-**Do not relax `[a-z0-9-]` to accommodate international names.** The ASCII-only
-character class is doing double duty: it makes it impossible for one tenant to register
-a slug that is visually identical to another's. Cyrillic `а`, Greek `ο`, Latin `а` with
-combining marks, and full-width forms all render indistinguishably in a URL bar but are
-distinct code points — allowing them would let a tenant impersonate a competitor's menu
-URL exactly.
+**Do not relax `[a-z0-9-]` to accommodate international names.** The ASCII-only character
+class makes it impossible for one tenant to register a slug visually identical to
+another's. Cyrillic `а`, Greek `ο`, and full-width forms render indistinguishably in a URL
+bar but are distinct code points; allowing them would let a tenant impersonate a
+competitor's menu URL exactly.
 
-This is non-obvious, and someone will eventually propose widening the class so that
-`Пицария` can stay Cyrillic in the URL. The answer is that transliteration (Section 2)
-is what serves international names; the character class is a security boundary.
+Someone will eventually propose widening this so `Пицария` can stay Cyrillic.
+Transliteration is what serves international names; the character class is a security
+boundary.
 
 ### Case handling
 
-Three layers, so the invariant cannot drift:
-
-- **Write** — the DTO **rejects** uppercase rather than coercing it. Silent coercion
-  means an owner types `Bistro` and gets `bistro` without being told.
-- **UI** — the input lowercases as the owner types, so they watch it happen and never
-  hit a 400 in practice.
-- **Read** — the resolver normalizes `slug.trim().toLowerCase()` before lookup. URLs
-  arrive from browsers, QR scanners, and hand-typing, none of which are trustworthy
-  about case.
-- **DB** — `CHECK (slug = lower(slug))` from Section 1 makes it a database fact.
+- **Write** — the DTO **rejects** uppercase rather than coercing. Silent coercion means an
+  owner types `Bistro` and gets `bistro` without being told.
+- **UI** — the input lowercases as the owner types, so the rejection never surfaces.
+- **Read** — the resolver normalizes `slug.trim().toLowerCase()` before lookup.
+- **DB** — `CHECK (slug = lower(slug))`.
 
 ### Blacklist
 
 One exported, tested const. Because `/m/` namespacing isolates the route table, this
-covers only subdomain-hostile and infrastructure names:
+covers only reserved infrastructure names:
 
 ```
 www api app admin administrator dashboard staff kitchen pos docs mail smtp
@@ -364,340 +343,381 @@ null undefined
 
 ---
 
-## Section 3 — Resolution
+## Section 4 — Resolution
 
-### Host-agnostic from day one
+### A cheap resolver, not a second menu endpoint
 
-```ts
-resolveTenant({ hostname, pathname }): ResolvedTenant | null
+An earlier draft proposed `GET /menu/public/by-slug/:slug` returning the full menu. That
+was wrong: the frontend deliberately loads **metadata first, then batches category items**
+(`usePublicMenuData.ts:173` — _"Main fetch: meta first, then batched category items"_). A
+full-menu-by-slug endpoint would fight that loading strategy and duplicate the hot path.
+
+Instead, one cheap lookup:
+
+```
+GET /menu/public/resolve/:slug
+  → 200 { restaurantId, canonicalSlug }
+  → 404 unknown
+  → 410 tombstoned
 ```
 
-`hostname` is unused in Phase 1. The signature exists so Phase 2 adds a branch rather
-than a refactor.
-
-### Backend — one route, zero service duplication
-
 ```ts
-@Get('public/by-slug/:slug')
-async getPublicMenuBySlug(@Param('slug') slug, @Query('lang') lang) {
+async resolve(@Param('slug') slug: string) {
   // Normalize before lookup — URLs arrive from browsers, QR scanners, and
   // hand-typing. The DB stores lowercase only (CHECK constraint, Section 1).
-  const resolved = await this.slugService.resolve(slug.trim().toLowerCase());
-  if (!resolved) throw new NotFoundException();
-  if (resolved.releasedAt) throw new GoneException();   // tombstoned — never another tenant
-  return this.menuService.getPublicMenu(resolved.restaurantId, lang);
+  const row = await this.slugService.resolve(slug.trim().toLowerCase());
+  if (!row) throw new NotFoundException();
+  if (row.releasedAt) throw new GoneException();
+  return { restaurantId: row.restaurantId, canonicalSlug: row.canonicalSlug };
 }
 ```
 
-One extra primary-key lookup, one round trip. It delegates to the **identical** service
-method, so translation, tier behavior, and every existing menu concern come along
-unchanged with no second code path to keep in sync.
-
-The response gains `restaurant.slug` (the denormalized primary) so the client knows its
-own canonical URL.
-
-### Alias handling — no extra hop
-
-The client compares the slug in the URL against `restaurant.slug` in the response. If
-they differ, `navigate('/m/' + canonical, { replace: true })`. The menu is already
-loaded; only the address bar corrects. No server redirect, no second fetch.
-
-**Case correction falls out of this for free.** `/m/BISTRO-ORANZH` normalizes to a hit
-on the read path, then the comparison above finds the URL slug differs from the
-canonical and replaces the address bar with the lowercase form. No additional code.
-
-### Legacy URLs
-
-`/menu/public/:restaurantId` **keeps serving 200 forever.** No redirect.
-
-Every QR code already printed and sitting on a restaurant table encodes this URL. A 301
-would add a round trip to every legacy scan — on restaurant wifi — to achieve what the
-canonical tag already achieves. This route's continued existence is a hard invariant
-with a dedicated regression test.
+One primary-key lookup. The established restaurant-ID menu flow then runs **completely
+unchanged**, which protects the existing hot path and keeps the slug module deep and
+isolated.
 
 ### Frontend routing
 
-- new `/m/:slug` → `PublicMenuPage`
+- new `/m/:slug` → resolve, then render `PublicMenuPage` with the resolved `restaurantId`
 - existing `/menu/public/:restaurantId` → unchanged
-- `useResolvedRestaurant()` reads whichever param is present and returns
-  `{ restaurantId, slug }`, so `PublicMenuPage` itself does not branch
+- `useResolvedRestaurant()` returns `{ restaurantId, slug, status }`, so `PublicMenuPage`
+  itself does not branch
 - `?table=` and `?sp=` behave identically on both routes
 
-### Tier gate — plumbed, dormant
+The extra resolve round trip applies only to `/m/` entry. Legacy ID URLs skip it.
 
-`resolveTenant` returns the tier alongside the restaurant. Phase 2 adds one branch:
-resolution **via hostname** with tier below PRO → redirect to the path URL. Path
-resolution never gates. Inert until Phase 2 flips it.
+### Alias correction
+
+Once resolved, the client compares the URL slug to `canonicalSlug`. If they differ,
+`navigate('/m/' + canonicalSlug, { replace: true })`. Address bar corrects; no server
+redirect.
+
+**Case correction falls out of this for free.** `/m/BISTRO-ORANZH` normalizes to a hit on
+the read path, then the comparison replaces the address bar with the lowercase form.
+
+### Legacy URLs
+
+`/menu/public/:restaurantId` **keeps serving 200 forever.** No redirect. Every QR already
+printed encodes this URL; a 301 would add a round trip to every legacy scan on restaurant
+wifi to achieve what the canonical tag achieves. This route's survival is a hard invariant
+with a dedicated regression test.
+
+### Canonical tags — must be built, does not exist today
+
+The repository currently has **no canonical-tag implementation and no Helmet-equivalent**
+(verified: zero matches for `rel="canonical"` or `Helmet` under `apps/frontend/src`).
+Since this design depends on canonical tags for both legacy-ID and alias URLs, that
+implementation is **in scope**, not assumed:
+
+- a small `useCanonicalUrl(url)` hook managing a single `<link rel="canonical">` in
+  `<head>`, idempotent across re-renders and cleaned up on unmount
+- applied on `/m/:slug` (pointing at the canonical slug URL) and on
+  `/menu/public/:restaurantId` (pointing at the slug URL once resolved)
+- tested by asserting the emitted `href` for primary, alias, and legacy entry points
 
 ---
 
-## Section 4 — URL construction seam
+## Section 5 — Authorization
 
-The entire Phase 2 migration reduces to two functions. This is discipline #2.
+### The trap
 
-### Backend
+There is **no `@Roles` decorator anywhere in the backend.** Authorization runs through
+`findOneForManagement(id, userId)` (`restaurants.service.ts:294`), which grants access to
+**OWNER or MANAGER** (`isOwner || isManager`, lines 308–311).
 
-`TenantUrlService.getMenuBaseUrl(restaurant)`:
+Therefore: **`slug` must not be a field on `UpdateRestaurantDto`.** Adding it there would
+silently grant MANAGER the ability to rename the restaurant's public URL through the
+existing `PATCH /restaurants/:id`, inheriting an authorization level this design does not
+intend.
 
-```
-Phase 1:  ${FRONTEND_URL}/m/${restaurant.slug}
-Phase 2:  https://${restaurant.slug}.${ROOT_DOMAIN}     (tier-gated)
-```
+### Required authorization
 
-**Only one consumer moves:** `payment-provider-config.service.ts:190` —
-`getFrontendBaseUrl()` and `buildPublicMenuReturnUrl()`.
+| Operation                | Who              | Additional                                                                       |
+| ------------------------ | ---------------- | -------------------------------------------------------------------------------- |
+| Slug rename              | OWNER only       | Dedicated endpoint, own ownership check, cooldown enforced server-side           |
+| Slug commit              | OWNER or MANAGER | Idempotent; a precondition, not a privileged mutation                            |
+| Alias release            | OWNER only       | Server-side `CONFIRM` validation, matching the existing dangerous-action pattern |
+| Super-admin reassignment | SUPER_ADMIN      | `CONFIRM`, rate limited, `AdminAuditLog` written in the **same** `$transaction`  |
+| Availability check       | Authenticated    | Advisory only; throttled; never authoritative                                    |
 
-Of the ~12 backend `FRONTEND_URL` reads, the rest are dashboard, auth, or staff URLs
-that correctly stay on the app origin — verified:
+The `CONFIRM` mechanism follows the established super-admin convention
+(`@Matches(/^CONFIRM$/)` in the DTO, server-enforced through the class-validator
+pipeline), not a frontend-only dialog.
 
-- `restaurants.service.ts:854` — Stripe Connect return → `/dashboard`. Stays.
-- `restaurants.controller.ts:157` — staff device enrollment link. Stays.
+### Release and re-claim
 
-This seam also **pre-empts the Phase 2 money bug.** Once the payment return URL is
-built per-restaurant instead of from one global, the failure mode "customer pays on the
-subdomain, is redirected to the app origin, and loses the origin-scoped `localStorage`
-table session" cannot occur. Building the seam in Phase 1 means Phase 2 never
-introduces it.
+Owners may release an old alias — but a released slug **must not return to the claimable
+pool**. If a competitor could claim a just-released slug, every QR already printed for the
+original restaurant would resolve to _someone else's_ menu, with a live cart and checkout.
+That is materially worse than a 404: silent, customer-facing, and undetectable by the
+victim.
 
-**Security constraint:** the builder composes from server config plus the DB slug,
-never from a request header. This follows the precedent already documented at
-`restaurants.controller.ts:155` — _"the request `Origin` header is attacker-controlled
-… must never feed a QR/link target."_
+Release **tombstones** the row (`releasedAt` set). Tombstoned slugs resolve to `410 Gone`,
+remain in the namespace so uniqueness is unbroken, and are **not** re-claimable through
+any self-service path. The legitimate re-claim case is a business sale, which is handled
+as a super-admin action with an audit trail.
 
-### Frontend
+---
 
-Extend the existing `apps/frontend/src/lib/menuUrl.ts`, which already declares itself
-the single source of truth for menu URLs (lines 15–19). Do not add a parallel module.
+## Section 6 — URL construction and route-sensitive consumers
+
+### The seam
+
+**Backend** — `TenantUrlService.getMenuBaseUrl(restaurant)` → `${FRONTEND_URL}/m/${slug}`.
+Only one consumer moves: `payment-provider-config.service.ts:190`
+(`getFrontendBaseUrl()` / `buildPublicMenuReturnUrl()`).
+
+Of the ~12 backend `FRONTEND_URL` reads, the rest are dashboard, auth, or staff URLs that
+correctly stay on the app origin — verified: `restaurants.service.ts:854` (Stripe Connect
+return → `/dashboard`) and `restaurants.controller.ts:157` (staff device enrollment).
+
+Security constraint: the builder composes from server config plus the DB slug, **never**
+from a request header — following the precedent already documented at
+`restaurants.controller.ts:155`, _"the request `Origin` header is attacker-controlled …
+must never feed a QR/link target."_
+
+**Frontend** — extend `apps/frontend/src/lib/menuUrl.ts`, which already declares itself
+the single source of truth for menu URLs (line 15). Do not add a parallel module.
 
 ```ts
 getMenuUrl(restaurant, { table?, servicePoint? }): string
 ```
 
-Call sites migrated off hand-rolled `${window.location.origin}/menu/public/${id}`:
+### Complete consumer list
 
-- `apps/frontend/src/components/tables/QrCodeModal.tsx:30,32`
-- `apps/frontend/src/components/tables/PrintableQRCodes.tsx:28`
-- `apps/frontend/src/components/tables/ServicePointsTab.tsx:514`
-- `apps/frontend/src/lib/menuUrl.ts` — `buildMenuReturnUrl()` becomes slug-aware
+An earlier draft listed only three components. Verified full list:
 
-After this, no component constructs a menu URL itself, and Phase 2 touches zero
-components.
+**URL constructors** — migrate to `getMenuUrl()`:
 
-New QR codes emit `/m/<slug>`. Every QR already printed keeps working — through Phase 2
-as well.
+| File                                     | Line   | Current                                       |
+| ---------------------------------------- | ------ | --------------------------------------------- |
+| `components/tables/QrCodeModal.tsx`      | 30, 32 | `${window.location.origin}/menu/public/${id}` |
+| `components/tables/PrintableQRCodes.tsx` | 28     | same                                          |
+| `components/tables/ServicePointsTab.tsx` | 514    | same                                          |
+| `components/tables/TableView.tsx`        | 920    | same                                          |
+| `pages/BookingManagePage.tsx`            | 592    | `<Link to={/menu/public/${id}}>`              |
+| `pages/BookingConfirmationPage.tsx`      | 246    | same                                          |
+| `pages/BookingPage.tsx`                  | 837    | `<a href={/menu/public/${id}}>`               |
+| `lib/menuUrl.ts`                         | 27     | `buildMenuReturnUrl()` becomes slug-aware     |
+
+**Route-prefix matchers — production correctness bugs, not cleanup.** Both fail silently:
+
+- **`components/Header.tsx:28`** —
+  `if (location.pathname.startsWith("/menu/public")) return null;`
+  `/m/<slug>` does not match, so the **application header renders on top of the public
+  customer menu**. Must recognize the new route.
+
+- **`context/ConsentContext.tsx:46`** —
+  `const RESTAURANT_MENU_PATH = /^\/menu\/public\/([^/]+)/;`
+  `/m/<slug>` does not match, so consent is stored under `consent:platform` instead of
+  `consent:restaurant:<id>` — a GDPR-relevant misclassification.
+
+  **Widening the regex is not sufficient.** The captured group is used directly as the
+  storage key (`consent:restaurant:${restaurantId}`). On `/m/<slug>` the captured value is
+  a _slug_, producing `consent:restaurant:<slug>` ≠ `consent:restaurant:<id>` — the same
+  visitor would hold two divergent consent records for one restaurant. The key must remain
+  **ID-based**, which means consent resolution has to consume the resolved `restaurantId`
+  rather than parse it from the path. The existing comment at lines 42–45 explains why
+  `useParams()` is unavailable at that position; the resolved value must be threaded in
+  another way.
+
+New QR codes emit `/m/<slug>`, and only after commit (Section 2). Every QR already printed
+keeps working.
 
 ---
 
-## Section 5 — Merchant UI
+## Section 7 — Staged migration
 
-### Onboarding — `RestaurantBasicsStep.tsx`
+Four separately-deployable steps. **This is not one nullable-to-required migration.**
 
-The step already collects the restaurant name. Add a live-derived slug preview beneath
-the name field, rendering the full URL, with an inline edit affordance.
+**Step 1 — schema (additive only).** Create `RestaurantSlug`, the partial unique index, and
+the lowercase `CHECK`. Add `Restaurant.slug` as **nullable**. No destructive operations, no
+long locks, safe under Neon's PgBouncer transaction mode.
 
-**The step is not gated on the slug.** Requiring a decision adds signup friction for
-something most owners will accept as generated. Skipping yields the derived slug,
-changeable later in settings.
+**Step 2 — backfill (separate idempotent script).** Generate a primary slug per existing
+restaurant and populate the denormalized copy. Re-runnable, additive, no destructive
+operations, following the repo's seed-safety conventions. Kept out of the migration
+because of this repo's drift history.
 
-Availability check: debounced `GET /restaurants/slug-available?slug=`. Slug existence is
-already public via `/m/<slug>`, so this discloses nothing new — throttled for abuse, not
-for secrecy.
+**Step 3 — verification (must pass before Step 4).** Assert, as a query:
 
-### Settings — `GeneralSettingsTab.tsx`
+- every active restaurant has exactly one `isPrimary` row
+- `Restaurant.slug` equals that row's slug for every active restaurant
+- zero rows violate the lowercase or blacklist rules
 
-- current URL displayed with a copy button
-- input lowercases as the owner types (see _Case handling_), so the DTO's
-  reject-don't-coerce rule never surfaces as a 400
-- edit → availability check → confirmation dialog stating plainly that **existing
-  printed QR codes keep working**; only the displayed URL changes
-- save → the rename transaction from Section 1
-- during the grace window, the UI says so — changes are free and no old link is being
-  kept, which is materially different from a committed rename and the owner should know
+**Step 4 — tighten (later migration).** Only once Step 3 passes in production, make
+`Restaurant.slug` non-null.
+
+Ship Steps 1–3 and let them settle before Step 4. Application code must tolerate a null
+`Restaurant.slug` until Step 4 lands.
+
+---
+
+## Section 8 — Merchant UI
+
+**Onboarding — `RestaurantBasicsStep.tsx`.** The step already collects the name. Add a
+live-derived slug preview rendering the full URL, with an inline edit affordance. **Not
+gated on the slug** — requiring a decision adds signup friction for something most owners
+accept as generated. Skipping yields the derived slug.
+
+Availability check is debounced and advisory. Slug existence is already public via
+`/m/<slug>`, so it discloses nothing new; throttled for abuse, not secrecy.
+
+**Settings — `GeneralSettingsTab.tsx`.**
+
+- current URL with a copy button
+- input lowercases as the owner types, so the reject-don't-coerce rule never surfaces as
+  a 400
+- while uncommitted, the UI says so — changes are free and no old link is being kept,
+  which is materially different from a committed rename
 - once committed, the cooldown is surfaced honestly: show the date the next change
-  becomes available rather than a generic error
+  becomes available, not a generic error
+- rename and release controls are visible to OWNER only, mirroring the server-side rule
+  (Section 5) rather than substituting for it
 
-**Previous URLs** are listed read-only beneath the current one, each with a _Release_
-action. The release dialog must state that releasing is **permanent and irreversible**,
-that QR codes pointing at that URL will stop working, and that the name cannot be
-re-used afterwards without contacting support. Release is rare and destructive; the
-dialog should read like the existing CONFIRM-gated dangerous actions, not like a
-toggle.
+**Previous URLs** listed read-only beneath the current one, each with a _Release_ action.
+The dialog must state that release is permanent and irreversible, that QR codes pointing
+at that URL will stop working, and that the name cannot be re-used without contacting
+support. It should read like the existing CONFIRM-gated dangerous actions.
 
 ---
 
-## Section 6 — Phase 2 flip checklist
+## Section 9 — Testing
 
-1. Settle the Vercel plan question empirically (add `*.<root>` in the dashboard and see
-   whether it is accepted), **or** Cloudflare free + Origin Rules Host header override
-2. Wildcard DNS + TLS — Vercel nameservers chosen at domain purchase, or Cloudflare
-   Universal SSL (covers apex + one wildcard level)
-3. `ROOT_DOMAIN` env var
-4. Phase 2 branch in `getMenuBaseUrl` (backend) and `getMenuUrl` (frontend)
-5. **Socket.IO CORS suffix matcher** in `events.gateway.ts` — the only security
-   loosening in the entire project; requires its own review. Must parse the origin as a
-   URL and require `protocol === 'https:'`, no port, and an exact suffix match on
-   `hostname`. Never a substring check. Tests must assert `evil-<root>` and
-   `<root>.evil.com` are rejected.
-6. Subdomain detection; `resolveTenant` begins reading `hostname`
-7. Root routing fork — `<slug>.<root>/` serves the menu; `<slug>.<root>/dashboard`
-   redirects to the app origin
-8. Activate the dormant tier gate
-9. Accept the one-time `visitorId` and cookie-consent reset per restaurant (see
-   _Known limitations_)
+Backend Jest co-located `*.spec.ts`, frontend Vitest.
 
-**Deliberately absent, because the Phase 1 seams pre-empt them:** payment return origin,
-QR generation, slug validation, blacklist, DNS-label constraints. That absence is the
-entire argument for path-first.
+**Coverage thresholds are the repository's existing values** — branches 64, functions 68,
+lines 75, statements 74 (`apps/backend/package.json:160`). An earlier draft asserted an
+80% floor; that was wrong. **Do not raise the global threshold as part of this work.**
+Risk-focused tests on the slug namespace, database invariants, QR continuity, tenant
+isolation, and routing matter far more than moving an arbitrary global number.
 
-### Infrastructure notes carried forward
+**Transliteration** — full Bulgarian alphabet; word-final `-ия`; mixed Cyrillic/Latin;
+emoji-only and empty → fallback; 70-char input truncates at a hyphen boundary.
 
-- Vercel Hobby is non-commercial per Vercel's fair-use terms; this is a paid SaaS. This
-  is a terms question independent of any feature gate, and no infrastructure
-  arrangement — including Cloudflare — changes it.
-- If Cloudflare fronts Vercel: Vercel routes by `Host` header and returns
-  `DEPLOYMENT_NOT_FOUND` for hosts not registered to a project. A Host header override
-  at Cloudflare is **required**, not optional. The browser still sees the real subdomain,
-  so `window.location.hostname`, cookie scoping, and this design's client-side
-  resolution are all unaffected.
-- The `/api/v1/(.*)` → Cloud Run rewrite in `vercel.json` is project-level and
-  host-independent, so the API proxy works on every subdomain automatically. This is
-  why Phase 2 needs no CORS or cookie-domain work for the API.
-- Socket.IO connects **directly** to Cloud Run (`SocketContext.tsx:56`), bypassing both
-  Vercel and any CDN. Item 5 above is required regardless of hosting choice.
+**Validation** — rejects `a` (single char, the bug in the earlier regex); accepts `ab`;
+rejects underscore, leading/trailing hyphen, `xn--`, all-numeric, >40 chars, uppercase,
+every blacklist entry.
+
+**Namespace integrity** (integration, real DB — these are database constraints)
+
+- a live slug and a retired alias cannot collide
+- a tombstoned slug cannot be claimed by another restaurant
+- at most one primary per restaurant is enforced by the index
+- the `CHECK` rejects an uppercase insert even when the application layer is bypassed
+
+**Invariant (ongoing)** — every active restaurant has exactly one primary slug, and
+`Restaurant.slug` matches it. This is the app-level half of the guarantee the index cannot
+provide.
+
+**Commit model**
+
+- an edit while uncommitted creates **no** alias row; the old slug is immediately
+  claimable again
+- opening the QR flow commits the slug, and the QR does not render if commit fails
+- commit is idempotent — calling it twice does not create a second alias or move
+  `committedAt`
+- auto-commit on first `MenuView`; on first `Order` (including a POS order with no
+  `MenuView`); on first `Reservation`; and at 24h with zero activity
+- the first rename _after_ commit creates an alias, proving the mode switch
+
+**Rename**
+
+- old row becomes an alias and still resolves; new row becomes primary
+- `Restaurant.slug` stays in sync
+- aliases are never evicted, at any count
+- a second committed rename inside 14 days is rejected by the cooldown
+- concurrent claims of the same base slug: one wins, the other retries to a suffixed slug
+  rather than failing; retry budget exhaustion returns a clear error
+
+**Authorization**
+
+- MANAGER cannot rename (regression guard against `slug` leaking into
+  `UpdateRestaurantDto`)
+- MANAGER can commit
+- release without `CONFIRM` is rejected server-side
+- super-admin reassignment writes `AdminAuditLog` in the same transaction
+
+**Resolver** — primary hit; alias hit; miss → 404; tombstone → 410, never another tenant's
+menu; `/m/BISTRO-ORANZH` resolves and canonicalizes; leading/trailing whitespace resolves.
+
+**Canonical tags** — correct `href` emitted for primary, alias, and legacy-ID entry
+points; no duplicate `<link>` after re-render.
+
+**Route-prefix regressions**
+
+- `Header.tsx` renders **nothing** on `/m/<slug>`
+- `ConsentContext` stores consent under `consent:restaurant:<restaurantId>` on
+  `/m/<slug>` — asserting the **ID**, not the slug
+
+**Regression guard** — `/menu/public/:restaurantId` still returns 200. This encodes the
+printed-QR invariant and must fail loudly if anyone later attempts to remove the route.
+
+---
+
+## Forward compatibility
+
+Subdomains are out of scope, but two constraints are retained because they cost nothing
+now and are what would keep a later move cheap:
+
+1. **Slugs obey DNS label rules** (Section 3). A tenant who took `my_bistro` or a 70-char
+   slug could never become a subdomain, and forcing a slug change on a live customer with
+   printed QR codes is not acceptable. Enforcing the rules now costs nothing.
+
+| Accepted by a path   | Legal DNS label?                    |
+| -------------------- | ----------------------------------- |
+| `my_bistro`          | No — underscore                     |
+| 70 characters        | No — 63-char label limit            |
+| `-bistro`, `bistro-` | No — leading/trailing hyphen        |
+| `xn--foo`            | No — punycode reserved              |
+| `Bistro-Oranzh`      | Ambiguous — DNS is case-insensitive |
+
+2. **All menu-URL construction flows through one function per side** (Section 6). This is
+   also what keeps the payment-return path correct: because the return URL is built
+   per-restaurant rather than from one global, a future origin change cannot strand a
+   paying customer on the wrong origin with an origin-scoped `localStorage` table session.
+
+If subdomains are revisited, the additional work is infrastructure plus a Socket.IO CORS
+suffix matcher — the only security loosening involved, requiring its own review.
 
 ---
 
 ## Known limitations
 
-**SEO — client-side canonical.** This is a Vite SPA on static hosting, so
-`<link rel="canonical">` is injected client-side. Google renders JS and does pick these
-up, but it is less reliable than a server-rendered tag. This design does not maximize
-SEO; it does not block it.
+**SEO — client-side canonical.** A Vite SPA on static hosting injects
+`<link rel="canonical">` client-side. Google renders JS and does pick these up, but it is
+less reliable than a server-rendered tag. This design does not maximize SEO; it does not
+block it.
 
-**No social link previews.** This is the sharper cost, and it is not an SEO problem.
-WhatsApp, Signal, iMessage, Facebook, and LinkedIn scrapers mostly do **not** execute
-JavaScript — they read raw HTML `<meta>` tags. A menu URL pasted into WhatsApp will
-render as a bare link with no restaurant name, no logo, no description. For a market
-where menu links circulate primarily through messaging apps, that is a real marketing
-loss, and it is precisely the gap Google's JS rendering does _not_ cover.
+**No social link previews.** The sharper cost, and not an SEO problem. WhatsApp, Signal,
+iMessage, Facebook, and LinkedIn scrapers mostly do **not** execute JavaScript — they read
+raw HTML `<meta>` tags. A menu URL pasted into WhatsApp renders as a bare link with no
+restaurant name, logo, or description. For a market where menu links circulate primarily
+through messaging apps, that is a real marketing loss and precisely the gap Google's JS
+rendering does not cover.
 
-### Follow-up: bot-rendered meta tags (out of scope, documented)
-
-Both limitations above are addressable without touching Vite, the slug subsystem, or
-anything else in this spec. Recorded here so the option is understood, not scoped in.
-
-**The request does not currently reach NestJS.** `/m/<slug>` is served by Vercel from
-static hosting; Cloud Run only ever sees `/api/v1/*`. So this is not an interceptor
-drop-in. It requires:
-
-1. a `vercel.json` rewrite with a `has` condition matching the `user-agent` header,
-   routing crawler traffic to Cloud Run while humans continue to receive the SPA
-2. a backend route rendering an HTML shell with `og:title`, `og:description`,
-   `og:image`, and a server-rendered canonical, per restaurant and per `?lang=`
-
-**Estimate is roughly half a day, not an hour, and the reason is security.** Restaurant
-names are owner-controlled and would be injected directly into `<meta content="...">` on
-a public, unauthenticated endpoint. Correct escaping is the bulk of the real work.
-`og:image` needs an R2 logo URL with a fallback for null `logoUrl`.
-
-**Constraint: the bot HTML must faithfully represent the human page.** Same menu, same
-prices, plus meta tags is standard dynamic rendering and is fine. Diverging content is
-cloaking.
+_Follow-up, out of scope:_ addressable without touching Vite or the slug subsystem, but
+**not** as a NestJS interceptor — `/m/<slug>` is served by Vercel from static hosting and
+Cloud Run only ever sees `/api/v1/*`. It would need a `vercel.json` rewrite with a `has`
+condition on `user-agent` routing crawlers to Cloud Run, plus a backend route rendering
+meta tags. Roughly half a day, most of it correctly escaping owner-controlled restaurant
+names injected into `<meta content="...">` on a public unauthenticated endpoint. The bot
+HTML must faithfully represent the human page; diverging content is cloaking.
 
 **Alias URLs pass canonical signal, not 301 link equity.** Accepted: aliases exist for
-printed-QR continuity, not for search ranking.
-
-**Phase 2 resets origin-scoped storage.** `visitorId.ts` UUIDs are per-origin, so
-`MenuView.uniqueVisitors` gets a one-time discontinuity per restaurant at the subdomain
-cutover — historical rows keep their old IDs, but returning-visitor detection breaks at
-the boundary. Cookie consent re-prompts once for the same reason. One-time, small, and
-unavoidable under any sequencing.
-
----
-
-## Testing
-
-Jest co-located `*.spec.ts` backend, Vitest frontend, 80% floor per repo convention.
-
-**Transliteration**
-
-- full Bulgarian alphabet coverage
-- word-final `-ия` rule
-- mixed Cyrillic/Latin input
-- emoji-only and empty input → fallback
-- 70-character input truncates at a hyphen boundary, not mid-word
-
-**Validation**
-
-- rejects underscore, leading hyphen, trailing hyphen, `xn--`, all-numeric,
-  > 40 chars, uppercase
-- rejects every blacklist entry
-
-**Namespace integrity** (integration, real DB — these are database constraints, not
-application logic)
-
-- a live slug and a retired alias cannot collide
-- a tombstoned slug cannot be claimed by another restaurant
-- exactly one primary per restaurant
-- the `CHECK (slug = lower(slug))` constraint rejects an uppercase insert even when the
-  application layer is bypassed
-
-**Rename**
-
-- old row becomes an alias and still resolves
-- new row becomes primary
-- `Restaurant.slug` denormalization stays in sync — this is the guard for the
-  denormalization decision
-- aliases are never evicted, at any count
-- a second committed rename inside 14 days is rejected by the cooldown
-
-**Grace window**
-
-- a rename inside grace creates **no** alias row, and the old slug is immediately
-  claimable again
-- grace ends at 24h even with zero activity
-- grace ends early on first QR export, before 24h have elapsed
-- grace ends early on first recorded `MenuView`, before 24h have elapsed
-- grace ends early on first `Order`, including a POS order with no `MenuView`
-- grace ends early on first `Reservation`, which never touches the slug
-- the first rename _after_ grace ends creates an alias, proving the mode switch
-
-**Release and re-claim**
-
-- a released slug serves `410`, not `404` and not another tenant's menu
-- self-service re-claim of a tombstoned slug is rejected
-- super-admin re-claim succeeds and writes an `AdminAuditLog` row in the same
-  transaction
-
-**Resolver**
-
-- primary hit, alias hit, miss → 404
-- `/m/BISTRO-ORANZH` resolves and canonicalizes to lowercase
-- leading/trailing whitespace in the path segment resolves
-
-**URL builder**
-
-- base shape, `?table=`, `?sp=`
-
-**Regression guard**
-
-- `/menu/public/:restaurantId` still returns 200. This encodes the printed-QR invariant
-  and must fail loudly if anyone later attempts to remove that route.
+printed-QR continuity, not search ranking.
 
 ---
 
 ## Open items
 
-- **24h grace and 14-day cooldown are starting values, not researched ones.** The grace
-  window's early-exit conditions matter more than its duration, so tune the clock freely.
-  If owners hit the cooldown legitimately, loosen it — do not reach for alias eviction,
+- **The 14-day cooldown and 24h auto-commit backstop are starting values**, not researched
+  ones. If owners hit them legitimately, loosen them — do not reach for alias eviction,
   which this design deliberately rejected.
 - **Tombstone retention is unbounded.** Tombstoned slugs are never reclaimed, so the
-  namespace only grows. At current tenant scale this is irrelevant; it is recorded here
-  so that a future "clean up old slugs" instinct is understood as a QR-hijacking
-  regression rather than housekeeping.
-- `ROOT_DOMAIN` value is not yet decided; the production domain has not been purchased.
-  **If the domain is registered on Vercel nameservers at purchase, wildcard TLS becomes
-  a non-event.** Registering elsewhere first means permanent DNS-01 delegation via
-  `_acme-challenge` CNAMEs. Confirm the `.bg` registrar permits free nameserver changes
-  before committing.
+  namespace only grows. Irrelevant at current tenant scale; recorded so a future "clean up
+  old slugs" instinct is understood as a QR-hijacking regression rather than housekeeping.
+- **`ConsentContext` needs a threading decision.** The resolved `restaurantId` must reach a
+  component that renders as a sibling of `<Routes>`. Options include lifting resolution
+  above the router or exposing it through a context; the choice is deferred to
+  implementation but must preserve ID-based keying.
