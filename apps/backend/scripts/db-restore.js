@@ -31,14 +31,14 @@ const PG_BIN =
   process.env.PG_BIN_DIR || 'C:\\Program Files\\PostgreSQL\\18\\bin';
 const PG_RESTORE = path.join(PG_BIN, 'pg_restore.exe');
 
-function getDirectUrl() {
-  const raw = process.env.DATABASE_URL || '';
+function getDirectUrl(raw = process.env.DATABASE_URL || '') {
   if (!raw) throw new Error('DATABASE_URL not set in .env or environment');
   const url = new URL(raw);
   url.hostname = url.hostname.replace('-pooler', '');
   url.searchParams.delete('pgbouncer');
   url.searchParams.delete('connection_limit');
   url.searchParams.delete('connect_timeout');
+  url.searchParams.delete('pool_timeout');
   url.searchParams.set('sslmode', 'require');
   return url.toString();
 }
@@ -140,7 +140,7 @@ async function main() {
   }
 
   // Keep the password out of the process argument list; only the secret moves
-  // to PGPASSWORD, all other connection params stay in the -d URL.
+  // to PGPASSWORD; supported connection params stay in the -d URL.
   const parsedRestore = new URL(connUrl);
   const pgPassword = decodeURIComponent(parsedRestore.password);
   parsedRestore.password = '';
@@ -190,4 +190,8 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  void main();
+}
+
+module.exports = { getDirectUrl };
