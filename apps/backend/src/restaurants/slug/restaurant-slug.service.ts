@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generateSlugBase, withSuffix } from './slug-generator';
@@ -10,6 +14,8 @@ export interface ResolvedSlug {
 }
 
 export const MAX_CLAIM_ATTEMPTS = 5;
+export const RENAME_COOLDOWN_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -81,5 +87,108 @@ export class RestaurantSlugService {
     throw new ConflictException(
       `Could not allocate a unique slug for "${name}" after ${MAX_CLAIM_ATTEMPTS} attempts`,
     );
+  }
+
+  private async primaryOrThrow(tx: any, restaurantId: string) {
+    const primary = await tx.restaurantSlug.findFirst({
+      where: { restaurantId, isPrimary: true },
+    });
+    if (!primary) {
+      throw new BadRequestException('Restaurant has no primary slug');
+    }
+    return primary;
+  }
+
+  /**
+   * Idempotent transition from uncommitted to committed.
+   *
+   * Called as a blocking precondition by the QR flow: a QR must never be
+   * rendered against a slug that could still change. Also called automatically
+   * on first external activity (MenuView / Order / Reservation) and as a 24h
+   * backstop. Export tracking was rejected as the trigger because it is
+   * best-effort — a beacon can fail while the download still succeeds.
+   */
+  async commitSlug(
+    restaurantId: string,
+  ): Promise<{ slug: string; committedAt: Date }> {
+    return this.prisma.$transaction(async (tx) => {
+      const primary = await this.primaryOrThrow(tx, restaurantId);
+      if (primary.committedAt) {
+        return { slug: primary.slug, committedAt: primary.committedAt };
+      }
+      const committedAt = new Date();
+      await tx.restaurantSlug.update({
+        where: { slug: primary.slug },
+        data: { committedAt },
+      });
+      return { slug: primary.slug, committedAt };
+    });
+  }
+
+  async renameSlug(restaurantId: string, nextSlug: string): Promise<string> {
+    return this.prisma.$transaction(async (tx) => {
+      const primary = await this.primaryOrThrow(tx, restaurantId);
+      const isCommitted = Boolean(primary.committedAt);
+
+      if (isCommitted) {
+        const elapsed = Date.now() - primary.committedAt.getTime();
+        if (elapsed < RENAME_COOLDOWN_DAYS * DAY_MS) {
+          const availableAt = new Date(
+            primary.committedAt.getTime() + RENAME_COOLDOWN_DAYS * DAY_MS,
+          );
+          throw new BadRequestException(
+            `Slug can be changed again on ${availableAt.toISOString()}`,
+          );
+        }
+        // Committed: retire the old slug as a permanent alias so printed QR
+        // codes keep resolving. Aliases are never evicted.
+        await tx.restaurantSlug.update({
+          where: { slug: primary.slug },
+          data: { isPrimary: false },
+        });
+      } else {
+        // Uncommitted: this is an edit, not a rename. Nothing external
+        // references the old slug, so return it to the pool rather than
+        // permanently burning a name from a global namespace.
+        await tx.restaurantSlug.delete({ where: { slug: primary.slug } });
+      }
+
+      await tx.restaurantSlug.create({
+        data: {
+          slug: nextSlug,
+          restaurantId,
+          isPrimary: true,
+          committedAt: isCommitted ? new Date() : null,
+        },
+      });
+      await tx.restaurant.update({
+        where: { id: restaurantId },
+        data: { slug: nextSlug },
+      });
+      return nextSlug;
+    });
+  }
+
+  /**
+   * Tombstone, never delete. If a released slug returned to the claimable
+   * pool, a competitor could take it and every QR already printed for the
+   * original restaurant would resolve to their menu, with a live cart and
+   * checkout — silent, customer-facing, and undetectable by the victim.
+   */
+  async releaseSlug(restaurantId: string, slug: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const row = await tx.restaurantSlug.findFirst({
+        where: { slug, restaurantId },
+      });
+      if (!row) throw new BadRequestException('Slug not found');
+      if (row.isPrimary) {
+        throw new BadRequestException('Cannot release the current slug');
+      }
+      if (row.releasedAt) return;
+      await tx.restaurantSlug.update({
+        where: { slug },
+        data: { releasedAt: new Date() },
+      });
+    });
   }
 }
