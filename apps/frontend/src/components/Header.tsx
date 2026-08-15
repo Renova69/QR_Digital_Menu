@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "./ui/ThemeToggle";
 import { Menu, X } from "lucide-react";
 import { RenovaBrand } from "./brand/RenovaBrand";
+import { VANITY_MENU_PATH } from "../lib/tenantResolution";
 
 const DASHBOARD_LANGUAGES = [
   { code: "bg", label: "BG" },
@@ -27,7 +28,8 @@ const Header: React.FC = () => {
 
   if (location.pathname.startsWith("/menu/public")) return null;
   // Vanity menu route — same customer-facing surface, different path shape.
-  if (location.pathname.startsWith("/m/")) return null;
+  // Shares VANITY_MENU_PATH with ConsentContext so the two checks cannot drift.
+  if (VANITY_MENU_PATH.test(location.pathname)) return null;
   if (location.pathname.startsWith("/dashboard")) return null;
   if (location.pathname.startsWith("/staff")) return null;
   if (location.pathname.startsWith("/super-admin")) return null;

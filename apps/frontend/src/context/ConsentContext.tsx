@@ -50,6 +50,15 @@ const ConsentContext = createContext<ConsentContextValue | undefined>(
 // restaurant X's public menu" from this position.
 const RESTAURANT_MENU_PATH = /^\/menu\/public\/([^/]+)/;
 
+// Used only while on the vanity route before the resolved id has arrived —
+// deliberately distinct from "consent:platform". A visitor here is not
+// off-menu, their restaurant just isn't known yet; falling back to the
+// platform key would misclassify them and desync the moment resolution
+// completes and the key changes underneath the record. persist() below
+// refuses to write under this key — it exists only so storageKey never
+// reads as "consent:platform" during the pending window.
+const PENDING_SCOPE_KEY = "consent:pending";
+
 function storageKeyFor(restaurantId: string | null): string {
   return restaurantId
     ? `consent:restaurant:${restaurantId}`
@@ -77,14 +86,25 @@ function writeStored(key: string, state: StoredConsentState): void {
 export function ConsentProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const resolvedRestaurantId = useResolvedRestaurantId();
-  const restaurantId = useMemo(() => {
+
+  // isPendingScope distinguishes "on the vanity route, id not resolved yet"
+  // from "not on a restaurant menu at all" — both otherwise collapse to
+  // restaurantId === null. Collapsing them would let a visitor who arrives
+  // before resolution completes get a consent:platform record, which then
+  // reappears/desyncs once the real id lands and the key changes.
+  const { restaurantId, isPendingScope } = useMemo(() => {
     const match = location.pathname.match(RESTAURANT_MENU_PATH);
-    if (match) return match[1];
-    // On /m/<slug> the path carries a slug, not an id. Keying consent on the
-    // slug would give one visitor two divergent records for one restaurant,
-    // so use the resolved id published by the route.
-    if (VANITY_MENU_PATH.test(location.pathname)) return resolvedRestaurantId;
-    return null;
+    if (match) return { restaurantId: match[1], isPendingScope: false };
+    if (VANITY_MENU_PATH.test(location.pathname)) {
+      // On /m/<slug> the path carries a slug, not an id. Keying consent on
+      // the slug would give one visitor two divergent records for one
+      // restaurant, so use the resolved id published by the route.
+      return {
+        restaurantId: resolvedRestaurantId,
+        isPendingScope: resolvedRestaurantId === null,
+      };
+    }
+    return { restaurantId: null, isPendingScope: false };
   }, [location.pathname, resolvedRestaurantId]);
 
   const { data: settings } = useQuery({
@@ -96,6 +116,10 @@ export function ConsentProvider({ children }: { children: ReactNode }) {
   const policyVersion = (settings?.policyVersion as number | undefined) ?? 1;
 
   const categories = useMemo<ConsentCategoryKey[]>(() => {
+    // Scope not yet known — offer nothing rather than guess at platform vs.
+    // restaurant. The banner reappears (correctly scoped) once resolution
+    // completes and this recomputes.
+    if (isPendingScope) return [];
     if (!settings?.cookieBannerEnabled) return [];
     if (restaurantId) {
       // Marketing activates once a restaurant has a retargeting pixel
@@ -103,9 +127,11 @@ export function ConsentProvider({ children }: { children: ReactNode }) {
       return [];
     }
     return settings.analyticsCookieEnabled ? ["analytics"] : [];
-  }, [settings, restaurantId]);
+  }, [settings, restaurantId, isPendingScope]);
 
-  const storageKey = storageKeyFor(restaurantId);
+  const storageKey = isPendingScope
+    ? PENDING_SCOPE_KEY
+    : storageKeyFor(restaurantId);
   const [stored, setStored] = useState<StoredConsentState | null>(() =>
     readStored(storageKey),
   );
@@ -122,6 +148,15 @@ export function ConsentProvider({ children }: { children: ReactNode }) {
   const isBannerVisible = categories.length > 0 && isStale;
 
   const persist = (next: Partial<Record<ConsentCategoryKey, boolean>>) => {
+    // Scope not yet known — refuse to record consent under an ambiguous key
+    // (categories is already [] here so the UI can't normally reach this,
+    // but callers may invoke accept()/reject()/save() directly). Once
+    // resolution lands, this component re-renders against the real
+    // restaurant-scoped key, so nothing is lost, only deferred.
+    if (isPendingScope) {
+      setPreferencesOpen(false);
+      return;
+    }
     const state: StoredConsentState = {
       ...next,
       policyVersion,
