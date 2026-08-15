@@ -26,6 +26,8 @@ const Header: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (location.pathname.startsWith("/menu/public")) return null;
+  // Vanity menu route — same customer-facing surface, different path shape.
+  if (location.pathname.startsWith("/m/")) return null;
   if (location.pathname.startsWith("/dashboard")) return null;
   if (location.pathname.startsWith("/staff")) return null;
   if (location.pathname.startsWith("/super-admin")) return null;

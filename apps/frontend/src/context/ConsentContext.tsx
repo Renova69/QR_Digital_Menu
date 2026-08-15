@@ -10,6 +10,10 @@ import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicLegalSettings, postConsent } from "../lib/api";
 import { getVisitorId } from "../lib/visitorId";
+import {
+  VANITY_MENU_PATH,
+  useResolvedRestaurantId,
+} from "../lib/tenantResolution";
 
 export type ConsentCategoryKey = "analytics" | "marketing";
 
@@ -26,6 +30,7 @@ interface ConsentContextValue {
   categories: ConsentCategoryKey[];
   isBannerVisible: boolean;
   restaurantId: string | null;
+  storageKey: string;
   currentState: Partial<Record<ConsentCategoryKey, boolean>>;
   isPreferencesOpen: boolean;
   accept: () => void;
@@ -71,10 +76,16 @@ function writeStored(key: string, state: StoredConsentState): void {
 
 export function ConsentProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const resolvedRestaurantId = useResolvedRestaurantId();
   const restaurantId = useMemo(() => {
     const match = location.pathname.match(RESTAURANT_MENU_PATH);
-    return match ? match[1] : null;
-  }, [location.pathname]);
+    if (match) return match[1];
+    // On /m/<slug> the path carries a slug, not an id. Keying consent on the
+    // slug would give one visitor two divergent records for one restaurant,
+    // so use the resolved id published by the route.
+    if (VANITY_MENU_PATH.test(location.pathname)) return resolvedRestaurantId;
+    return null;
+  }, [location.pathname, resolvedRestaurantId]);
 
   const { data: settings } = useQuery({
     queryKey: ["public-legal-settings"],
@@ -137,6 +148,7 @@ export function ConsentProvider({ children }: { children: ReactNode }) {
     categories,
     isBannerVisible,
     restaurantId,
+    storageKey,
     currentState: stored ?? {},
     isPreferencesOpen,
     accept: () => persist(Object.fromEntries(categories.map((c) => [c, true]))),
