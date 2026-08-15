@@ -163,6 +163,7 @@ model Restaurant {
   forceTierExpiresAt          DateTime?
   isActive                    Boolean                      @default(true)
   deletedAt                   DateTime?
+  slug                        String?                      @unique(map: "restaurant_slug_unique")
   assistanceRequests          AssistanceRequest[]
   cashPaymentRequests         CashPaymentRequest[]
   deviceEnrollmentTokens      DeviceEnrollmentToken[]
@@ -173,6 +174,7 @@ model Restaurant {
   loyaltyAccounts             LoyaltyAccount[]
   menuCategories              MenuCategory[]
   menuViews                   MenuView[]
+  slugs                       RestaurantSlug[]
   owner                       User                         @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
   staffMembers                User[]                       @relation("StaffRestaurant")
   tables                      RestaurantTable[]
@@ -201,6 +203,19 @@ model Restaurant {
   @@index([forceTierExpiresAt])
   @@index([ownerId])
   @@map("restaurant")
+}
+
+model RestaurantSlug {
+  slug         String     @id
+  restaurantId String
+  isPrimary    Boolean    @default(false)
+  committedAt  DateTime?
+  releasedAt   DateTime?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("restaurant_slug")
 }
 
 model MenuView {
