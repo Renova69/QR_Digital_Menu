@@ -66,3 +66,27 @@ describe("getMenuUrl", () => {
     ).toBe("https://x.bg/m/bistro-oranzh?table=3");
   });
 });
+
+// TableView.tsx (#M14) treats `restaurant` as possibly null while the
+// dashboard context resolves; every deref there uses `?.`. getMenuPath/
+// getMenuUrl are called with the whole restaurant object at several call
+// sites, so the seam itself must tolerate a null/undefined restaurant
+// instead of relying on every caller to guard.
+describe("getMenuPath / getMenuUrl with a missing restaurant", () => {
+  it("returns / for a null restaurant", () => {
+    expect(getMenuPath(null)).toBe("/");
+  });
+
+  it("returns / for an undefined restaurant", () => {
+    expect(getMenuPath(undefined)).toBe("/");
+  });
+
+  it("does not throw and returns a sane absolute URL for a null restaurant", () => {
+    expect(() => getMenuUrl(null, {}, "https://x.bg")).not.toThrow();
+    expect(getMenuUrl(null, {}, "https://x.bg")).toBe("https://x.bg/");
+  });
+
+  it("ignores the target and returns / for a null restaurant with a table", () => {
+    expect(getMenuPath(null, { table: "5" })).toBe("/");
+  });
+});

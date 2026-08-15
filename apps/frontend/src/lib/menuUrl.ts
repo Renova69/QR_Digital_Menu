@@ -48,11 +48,22 @@ export interface MenuUrlTarget {
  *
  * Restaurant.slug is nullable until a later migration, so the legacy id path
  * remains a first-class fallback rather than an error case.
+ *
+ * `restaurant` itself may be null/undefined: several call sites (e.g.
+ * TableView.tsx) pass a context-derived restaurant straight through while it
+ * may still be resolving, and that file's own convention (#M14) is to guard
+ * every deref of it. Rather than trust every current and future caller to
+ * remember a `?.` before calling into this seam, the seam absorbs a missing
+ * restaurant itself and degrades to "/" — the same fallback already used for
+ * an unusable id. Do not re-narrow this parameter back to non-nullable; that
+ * reintroduces the crash this guard exists to prevent.
  */
 export function getMenuPath(
-  restaurant: MenuUrlRestaurant,
+  restaurant: MenuUrlRestaurant | null | undefined,
   target: MenuUrlTarget = {},
 ): string {
+  if (!restaurant) return "/";
+
   let base: string;
   if (restaurant.slug) {
     base = `/m/${restaurant.slug}`;
@@ -69,7 +80,7 @@ export function getMenuPath(
 }
 
 export function getMenuUrl(
-  restaurant: MenuUrlRestaurant,
+  restaurant: MenuUrlRestaurant | null | undefined,
   target: MenuUrlTarget = {},
   origin: string = typeof window === "undefined" ? "" : window.location.origin,
 ): string {
