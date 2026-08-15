@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { RestaurantSlugService } from './restaurant-slug.service';
 
 function makePrisma() {
@@ -77,5 +78,66 @@ describe('RestaurantSlugService.resolve', () => {
 
     const result = await service.resolve('gone');
     expect(result?.releasedAt).toEqual(releasedAt);
+  });
+});
+
+function uniqueViolation() {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: '6.0.0',
+  });
+}
+
+describe('RestaurantSlugService.claimInitialSlug', () => {
+  function makeClaimPrisma() {
+    return {
+      $transaction: jest.fn((fn: any) =>
+        fn({
+          restaurantSlug: { create: jest.fn() },
+          restaurant: { update: jest.fn() },
+        }),
+      ),
+    } as any;
+  }
+
+  it('claims the derived slug when it is free', async () => {
+    const prisma = makeClaimPrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.claimInitialSlug('r1', 'Бистро Оранж')).resolves.toBe(
+      'bistro-oranzh',
+    );
+  });
+
+  it('retries with a deterministic suffix on collision', async () => {
+    const prisma = makeClaimPrisma();
+    prisma.$transaction
+      .mockImplementationOnce(() => Promise.reject(uniqueViolation()))
+      .mockImplementationOnce(() => Promise.resolve(undefined));
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.claimInitialSlug('r1', 'Бистро Оранж')).resolves.toBe(
+      'bistro-oranzh-2',
+    );
+  });
+
+  it('gives up with a clear error after the retry budget', async () => {
+    const prisma = makeClaimPrisma();
+    prisma.$transaction.mockRejectedValue(uniqueViolation());
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.claimInitialSlug('r1', 'Бистро Оранж'),
+    ).rejects.toThrow('Could not allocate a unique slug');
+  });
+
+  it('rethrows errors that are not unique violations', async () => {
+    const prisma = makeClaimPrisma();
+    prisma.$transaction.mockRejectedValue(new Error('connection lost'));
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.claimInitialSlug('r1', 'Бистро Оранж'),
+    ).rejects.toThrow('connection lost');
   });
 });
