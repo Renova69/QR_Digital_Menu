@@ -10,6 +10,7 @@ const PRIVATE_GET_CONFIG = {
 export interface Restaurant {
   id: string;
   name: string;
+  slug?: string | null;
   city?: string;
   country: string;
   ownerId: string;

@@ -461,6 +461,7 @@ export class MenuCrudService {
       where: { id: restaurantId },
       select: {
         name: true,
+        slug: true,
         logoUrl: true,
         accentColor: true,
         fontHeading: true,

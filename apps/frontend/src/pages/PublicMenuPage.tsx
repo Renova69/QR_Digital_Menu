@@ -40,6 +40,7 @@ import {
 import { usePaymentReturn } from "../hooks/usePaymentReturn";
 import { useMenuSocket } from "../hooks/useMenuSocket";
 import { usePublicMenuData } from "../hooks/usePublicMenuData";
+import { useCanonicalUrl } from "../hooks/useCanonicalUrl";
 import { normalizeRestaurantId } from "../lib/menuUrl";
 import NotFoundPage from "./NotFoundPage";
 import {
@@ -566,6 +567,15 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   const activeBrandPalette = resolvePublicPalette(
     restaurantTheme,
     publicThemeMode,
+  );
+
+  // Point search engines at the vanity URL even when the visitor arrived via a
+  // printed legacy QR code. No redirect — a 301 on every scan would cost a
+  // round trip on restaurant wifi for something the canonical tag already does.
+  useCanonicalUrl(
+    restaurantTheme?.slug
+      ? `${window.location.origin}/m/${restaurantTheme.slug}`
+      : null,
   );
 
   // Languages selectable on the public menu: the menu source language first

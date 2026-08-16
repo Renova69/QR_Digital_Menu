@@ -385,6 +385,27 @@ describe('MenuCrudService', () => {
       );
     });
 
+    // Task 16 (tenant-vanity-urls): the frontend canonical tag and /m/:slug
+    // navigation both read restaurant.slug off this response. Without it in
+    // the select, every vanity URL path is dead code that passes tests and
+    // does nothing in production.
+    it('includes the restaurant slug in the select and response', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        slug: 'test-bistro',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+
+      const { restaurant } = await service.getPublicMenuMeta('rest-1');
+
+      expect(restaurant.slug).toBe('test-bistro');
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ slug: true }),
+        }),
+      );
+    });
+
     it('strips branding fields when effective tier lacks BRANDING_CUSTOM', async () => {
       // BASE_RESTAURANT is FREE вЂ” branding must not render on the public menu
       // even if stale columns persist from a prior paid tier (downgrade).
