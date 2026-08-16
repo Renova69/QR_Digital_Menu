@@ -101,6 +101,16 @@ export const getTrendingItems = async (restaurantId: string, lang?: string) => {
   return response.data;
 };
 
+// Vanity URL resolution: /m/:slug -> { restaurantId, canonicalSlug }. Cheap by
+// design — the menu itself still loads meta first and then batches category
+// items, and this resolve step must not disturb that.
+export const resolveMenuSlug = async (slug: string) => {
+  const response = await api.get(
+    `/menu/public/resolve/${encodeURIComponent(slug)}`,
+  );
+  return response.data as { restaurantId: string; canonicalSlug: string };
+};
+
 export const login = async (email: string, password: string) => {
   const response = await api.post("/auth/login", { email, password });
   return response.data;

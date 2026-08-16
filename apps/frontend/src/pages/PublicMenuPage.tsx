@@ -1359,9 +1359,12 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   );
 };
 
-const PublicMenuPage = () => {
+const PublicMenuPage = ({
+  restaurantIdOverride,
+}: { restaurantIdOverride?: string } = {}) => {
   const params = useParams<{ restaurantId: string }>();
-  const restaurantId = normalizeRestaurantId(params.restaurantId);
+  const restaurantId =
+    restaurantIdOverride ?? normalizeRestaurantId(params.restaurantId);
 
   if (!restaurantId) return <NotFoundPage />;
 

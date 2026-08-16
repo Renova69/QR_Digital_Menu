@@ -13,6 +13,7 @@ import { OrderProvider } from "./context/OrderContext";
 import { AssistanceProvider } from "./context/AssistanceContext";
 import { SocketProvider } from "./context/SocketContext";
 import PublicMenuPage from "./pages/PublicMenuPage";
+import VanityMenuRoute from "./pages/VanityMenuRoute";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -140,13 +141,16 @@ function App() {
                       <Route path="/" element={<HomePage />} />
                       <Route path="/pricing" element={<PricingPage />} />
                       <Route path="/about" element={<AboutPage />} />
-                      
+
                       {/* Legal pages — public, no auth required */}
                       <Route path="/privacy" element={<PrivacyPolicyPage />} />
                       <Route path="/terms" element={<TermsPage />} />
                       <Route path="/cookies" element={<CookiePolicyPage />} />
                       <Route path="/dpa" element={<DpaPage />} />
-                      <Route path="/refund-policy" element={<RefundPolicyPage />} />
+                      <Route
+                        path="/refund-policy"
+                        element={<RefundPolicyPage />}
+                      />
                       <Route path="/msa" element={<MsaPage />} />
 
                       <Route path="/login" element={<LoginPage />} />
@@ -269,13 +273,13 @@ function App() {
                       element={<ImpersonationExchangePage />}
                     />
 
-
                     <Route element={<PublicLayout />}>
                       <Route element={<RouteGroupErrorBoundary />}>
                         <Route
                           path="/menu/public/:restaurantId"
                           element={<PublicMenuPage />}
                         />
+                        <Route path="/m/:slug" element={<VanityMenuRoute />} />
                         <Route path="/checkout" element={<CheckoutPage />} />
                         <Route
                           path="/order-confirmation"

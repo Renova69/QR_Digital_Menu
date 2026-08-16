@@ -1,0 +1,61 @@
+import { useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { resolveMenuSlug } from "../lib/api";
+import { setResolvedRestaurantId } from "../lib/tenantResolution";
+import { useCanonicalUrl } from "../hooks/useCanonicalUrl";
+import PublicMenuPage from "./PublicMenuPage";
+
+/**
+ * Resolves /m/:slug to a restaurantId, then hands off to the unchanged
+ * restaurant-ID menu flow. The resolve call is deliberately cheap — the menu
+ * itself still loads meta first and then batches category items, and this
+ * route must not disturb that.
+ */
+export default function VanityMenuRoute() {
+  const { slug = "" } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useTranslation();
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["menu-slug", slug.toLowerCase()],
+    queryFn: () => resolveMenuSlug(slug),
+    retry: false,
+  });
+
+  // Publish for consumers outside the route tree (ConsentContext).
+  useEffect(() => {
+    setResolvedRestaurantId(data?.restaurantId ?? null);
+    return () => setResolvedRestaurantId(null);
+  }, [data?.restaurantId]);
+
+  // Alias and letter-case correction share one mechanism: if the slug in the
+  // URL is not the canonical one, replace it. The menu is already loading, so
+  // this costs no extra fetch and no server redirect.
+  useEffect(() => {
+    if (!data) return;
+    if (slug !== data.canonicalSlug) {
+      navigate(`/m/${data.canonicalSlug}${location.search}`, {
+        replace: true,
+      });
+    }
+  }, [data, slug, location.search, navigate]);
+
+  const canonical = data
+    ? `${window.location.origin}/m/${data.canonicalSlug}`
+    : null;
+  useCanonicalUrl(canonical);
+
+  const status = (error as any)?.response?.status;
+  if (status === 410) {
+    return <div role="alert">{t("menu.moved", "This menu has moved.")}</div>;
+  }
+  if (error) {
+    return <div role="alert">{t("menu.notFound", "Menu not found.")}</div>;
+  }
+  if (isLoading || !data) return null;
+
+  return <PublicMenuPage restaurantIdOverride={data.restaurantId} />;
+}
