@@ -8,6 +8,9 @@ import PublicMenuPage from "./PublicMenuPage";
 // <link rel="canonical"> href — the only thing that matters for a canonical
 // tag is that it resolves to the correct URL, which a source-grep cannot
 // verify.
+// Kept in sync with DEFAULT_SLUG below by hand: vi.hoisted() factories run
+// before any other top-level statement, so this can't reference a later
+// plain `const` without hitting a temporal-dead-zone ReferenceError.
 const menuData = vi.hoisted(() => ({
   menuMeta: {
     restaurant: {
@@ -103,10 +106,15 @@ beforeEach(() => {
   );
 });
 
+const DEFAULT_SLUG = "test-bistro";
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   canonicalLinks().forEach((link) => link.remove());
+  // Guaranteed reset — an assertion failure mid-test must not leak a
+  // mutated `slug` into whatever test runs next.
+  menuData.menuMeta.restaurant.slug = DEFAULT_SLUG;
 });
 
 describe("PublicMenuPage canonical tag", () => {
@@ -115,7 +123,7 @@ describe("PublicMenuPage canonical tag", () => {
 
     await waitFor(() => expect(canonicalLinks()).toHaveLength(1));
     expect(canonicalLinks()[0].getAttribute("href")).toBe(
-      `${window.location.origin}/m/test-bistro`,
+      `${window.location.origin}/m/${DEFAULT_SLUG}`,
     );
   });
 
@@ -126,7 +134,5 @@ describe("PublicMenuPage canonical tag", () => {
 
     await waitFor(() => expect(cartMocks.setTableNumber).toHaveBeenCalled());
     expect(canonicalLinks()).toHaveLength(0);
-
-    menuData.menuMeta.restaurant.slug = "test-bistro";
   });
 });

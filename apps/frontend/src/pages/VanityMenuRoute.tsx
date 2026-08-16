@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { resolveMenuSlug } from "../lib/api";
 import { setResolvedRestaurantId } from "../lib/tenantResolution";
 import { useCanonicalUrl } from "../hooks/useCanonicalUrl";
+import { getMenuUrl } from "../lib/menuUrl";
 import PublicMenuPage from "./PublicMenuPage";
 
 /**
@@ -43,8 +44,11 @@ export default function VanityMenuRoute() {
     }
   }, [data, slug, location.search, navigate]);
 
+  // Route the canonical URL through the same seam every other menu URL uses
+  // — do not hand-roll `/m/${slug}` here. Kept guarded so a missing `data`
+  // still yields null and useCanonicalUrl no-ops, matching prior behavior.
   const canonical = data
-    ? `${window.location.origin}/m/${data.canonicalSlug}`
+    ? getMenuUrl({ id: data.restaurantId, slug: data.canonicalSlug })
     : null;
   useCanonicalUrl(canonical);
 
