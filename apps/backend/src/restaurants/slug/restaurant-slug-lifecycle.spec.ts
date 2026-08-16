@@ -40,6 +40,10 @@ describe('commitSlug', () => {
     const { prisma, tx } = makePrisma({
       slug: 'bistro-oranzh',
       committedAt: null,
+      // commitSlug now reads createdAt for the 24h clock backstop (see
+      // auto-commit.spec.ts) — this fixture predates that and needs it
+      // added so `.getTime()` doesn't throw on undefined.
+      createdAt: new Date(),
     });
     const service = new RestaurantSlugService(prisma);
 

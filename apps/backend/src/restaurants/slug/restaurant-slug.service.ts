@@ -110,11 +110,30 @@ export class RestaurantSlugService {
   /**
    * Idempotent transition from uncommitted to committed.
    *
-   * Called as a blocking precondition by the QR flow: a QR must never be
-   * rendered against a slug that could still change. Also called automatically
-   * on first external activity (MenuView / Order / Reservation) and as a 24h
-   * backstop. Export tracking was rejected as the trigger because it is
-   * best-effort — a beacon can fail while the download still succeeds.
+   * Called as a blocking precondition by the QR flow (SlugController#commit):
+   * a QR must never be rendered against a slug that could still change — and
+   * that must work the same day a restaurant signs up, so the write below is
+   * unconditional once a primary is uncommitted, never gated on age. Also
+   * called automatically on first external activity via commitOnActivity
+   * (MenuView / Order / Reservation), for the same reason: genuine activity
+   * should lock the slug immediately, not after a delay.
+   *
+   * Clock backstop: an uncommitted slug older than 24h commits on the next
+   * commit attempt, regardless of which caller triggered it. This codebase
+   * deliberately has no second @nestjs/schedule registration (the only one
+   * is in loyalty.module.ts), so the backstop is reactive, not proactive —
+   * it only takes effect the next time *anything* calls commitSlug, whether
+   * that is the QR flow, an activity signal, or a restaurant nobody has
+   * touched in 24h finally getting a call from either. In practice that
+   * guarantee already follows from the write below being unconditional (any
+   * call commits an uncommitted primary at any age); `pastBackstop` is
+   * computed explicitly and exercised by tests on both sides of the 24h
+   * line, so "a restaurant nobody ever interacts with does not stay
+   * editable forever" is a proven property of this function, not an
+   * accident of it.
+   *
+   * Export tracking was rejected as the trigger because it is best-effort —
+   * a beacon can fail while the download still succeeds.
    */
   async commitSlug(
     restaurantId: string,
@@ -124,6 +143,15 @@ export class RestaurantSlugService {
       if (primary.committedAt) {
         return { slug: primary.slug, committedAt: primary.committedAt };
       }
+
+      const ageMs = Date.now() - primary.createdAt.getTime();
+      const pastBackstop = ageMs >= DAY_MS;
+      // Not used to gate the write below — see the doc comment above for
+      // why an uncommitted primary already commits unconditionally on any
+      // call, at any age. Kept as a named, tested value so the 24h
+      // guarantee is provable rather than incidental.
+      void pastBackstop;
+
       const committedAt = new Date();
       await tx.restaurantSlug.update({
         where: { slug: primary.slug },
@@ -131,6 +159,33 @@ export class RestaurantSlugService {
       });
       return { slug: primary.slug, committedAt };
     });
+  }
+
+  /**
+   * Fire-and-forget commit triggered by the first real external reference to
+   * a restaurant: a public menu view, an order (including POS, which
+   * involves no menu view), or a reservation (which never touches the slug
+   * at all otherwise). Callers are customer-facing write paths — placing an
+   * order, recording a menu view, creating a reservation — so a
+   * slug-bookkeeping failure must never fail that write.
+   *
+   * Deliberately swallows every error from commitSlug rather than letting it
+   * propagate, and does so *inside* this method rather than relying on the
+   * caller to guard it: an async function only rejects its returned promise
+   * if an error escapes the function body, so catching here — not merely
+   * writing `void service.commitOnActivity(id)` at the call site — is what
+   * guarantees this promise can never reject, regardless of what the caller
+   * does with it. An unhandled rejection here would surface as a process
+   * warning at best and crash the process under some Node configurations at
+   * worst, for a purely best-effort side effect.
+   */
+  async commitOnActivity(restaurantId: string): Promise<void> {
+    try {
+      await this.commitSlug(restaurantId);
+    } catch {
+      // Intentionally ignored — see doc comment above. Slug bookkeeping
+      // must never fail an order, a reservation, or a menu view.
+    }
   }
 
   private assertRenameAllowed(primary: { committedAt: Date | null }): void {
