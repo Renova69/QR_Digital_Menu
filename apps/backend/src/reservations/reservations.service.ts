@@ -17,6 +17,7 @@ import { ReservationAvailabilityService } from './reservation-availability.servi
 import { ReservationAllergensService } from './reservation-allergens.service';
 import { PatronService } from './patron.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 import { normalizeReservationNotificationLocale } from './reservation-notification-copy';
 import {
   ActorRole,
@@ -127,6 +128,9 @@ export class ReservationsService {
     private readonly features: FeatureService,
     private readonly events: EventsGateway,
     private readonly notifications: ReservationNotificationsService,
+    // Appended, not inserted — this constructor's positional order is pinned
+    // by reservations.service.spec.ts's build() helper (see comment above).
+    private readonly slugs: RestaurantSlugService,
   ) {}
 
   // ── Access control ──────────────────────────────────────────────────────
@@ -707,6 +711,15 @@ export class ReservationsService {
     }
 
     const created = outcome.reservation;
+
+    // Fire-and-forget: the reservation transaction above committed. A
+    // reservation never touches the slug otherwise (it arrives through
+    // /book/:restaurantId, not a public menu load or an order). Not
+    // awaited — commitOnActivity does its own DB work and must never delay
+    // the booking confirmation, and it already swallows its own errors so
+    // slug bookkeeping can never fail a reservation.
+    void this.slugs.commitOnActivity(restaurantId);
+
     this.events.emitReservationCreated(restaurantId, {
       id: created.id,
       referenceCode: created.referenceCode,

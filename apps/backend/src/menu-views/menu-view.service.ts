@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 
 interface ScanStatsRange {
   period?: number;
@@ -12,7 +13,10 @@ interface ScanStatsRange {
 export class MenuViewService {
   private readonly logger = new Logger(MenuViewService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly slugs: RestaurantSlugService,
+  ) {}
 
   async recordView(
     restaurantId: string,
@@ -41,6 +45,13 @@ export class MenuViewService {
           visitorId: data.visitorId ?? null,
         },
       });
+
+      // Fire-and-forget: a customer just loaded the public menu, which is one
+      // of the three activity signals that freezes the vanity slug. Not
+      // awaited — commitOnActivity does its own DB work and must never delay
+      // this write's response, and it already swallows its own errors so it
+      // can never turn a successful view record into a failed one.
+      void this.slugs.commitOnActivity(restaurantId);
     } catch (err) {
       this.logger.error('Failed to record menu view', err);
     }

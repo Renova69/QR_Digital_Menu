@@ -13,8 +13,13 @@ const makeView = (overrides: Record<string, unknown> = {}) => ({
 describe('MenuViewService', () => {
   let service: MenuViewService;
   let mockPrisma: any;
+  let mockSlugs: any;
 
   beforeEach(() => {
+    mockSlugs = {
+      commitOnActivity: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockPrisma = {
       restaurant: {
         count: jest.fn().mockResolvedValue(1),
@@ -34,7 +39,7 @@ describe('MenuViewService', () => {
       $queryRaw: jest.fn().mockResolvedValue([]),
     };
 
-    service = new MenuViewService(mockPrisma);
+    service = new MenuViewService(mockPrisma, mockSlugs);
   });
 
   // ─── recordView ───────────────────────────────────────────────────────────────
@@ -79,6 +84,46 @@ describe('MenuViewService', () => {
       mockPrisma.menuView.create.mockRejectedValue(new Error('DB error'));
 
       await expect(service.recordView('rest1', {})).resolves.toBeUndefined();
+    });
+
+    // ─── Task 18B: auto-commit on activity ───────────────────────────────────
+
+    it('commits the slug for the correct restaurant after a successful view', async () => {
+      await service.recordView('rest1', { visitorId: 'v-abc' });
+
+      expect(mockSlugs.commitOnActivity).toHaveBeenCalledWith('rest1');
+    });
+
+    it('does not commit the slug when the view write fails', async () => {
+      mockPrisma.menuView.create.mockRejectedValue(new Error('DB error'));
+
+      await service.recordView('rest1', { visitorId: 'v-abc' });
+
+      expect(mockSlugs.commitOnActivity).not.toHaveBeenCalled();
+    });
+
+    it('does not commit the slug when the restaurant does not exist', async () => {
+      mockPrisma.restaurant.count.mockResolvedValue(0);
+
+      await service.recordView('bad-id', { visitorId: 'v1' });
+
+      expect(mockSlugs.commitOnActivity).not.toHaveBeenCalled();
+    });
+
+    it('does not await commitOnActivity before resolving', async () => {
+      let resolveCommit!: () => void;
+      mockSlugs.commitOnActivity.mockReturnValue(
+        new Promise<void>((resolve) => {
+          resolveCommit = resolve;
+        }),
+      );
+
+      // recordView must resolve even though the fire-and-forget commit is
+      // still pending — otherwise slug bookkeeping would delay the response
+      // to a customer loading the public menu.
+      await expect(service.recordView('rest1', {})).resolves.toBeUndefined();
+
+      resolveCommit();
     });
   });
 

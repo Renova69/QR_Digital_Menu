@@ -213,6 +213,7 @@ describeWithDatabase(
           routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
         } as never,
         config,
+        { commitOnActivity: jest.fn().mockResolvedValue(undefined) } as never,
       );
       return { orders, session, settlement };
     }

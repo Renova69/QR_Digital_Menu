@@ -140,6 +140,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       new FeatureService(),
       events as never,
       notifications as never,
+      { commitOnActivity: jest.fn().mockResolvedValue(undefined) } as never,
     );
     return { service, events, notifications };
   }
@@ -171,6 +172,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
       } as never,
       new PaymentProviderConfigService(featureService),
+      { commitOnActivity: jest.fn().mockResolvedValue(undefined) } as never,
     );
   }
 
@@ -635,6 +637,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
       } as never,
       new PaymentProviderConfigService(featureService),
+      { commitOnActivity: jest.fn().mockResolvedValue(undefined) } as never,
     );
     const key = `${runPrefix}-postcommit-realtime`;
 
@@ -1130,6 +1133,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       {} as never,
       {} as never,
       {} as never,
+      { commitOnActivity: jest.fn().mockResolvedValue(undefined) } as never,
     );
 
     const results = await Promise.allSettled(

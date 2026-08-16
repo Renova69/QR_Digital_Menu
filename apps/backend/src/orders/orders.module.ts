@@ -5,9 +5,16 @@ import { OrdersController } from './orders.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrintStationModule } from '../print-station/print-station.module';
 import { PaymentModule } from '../payment/payment.module';
+import { SlugModule } from '../restaurants/slug/slug.module';
 
 @Module({
-  imports: [PrismaModule, PassportModule, PrintStationModule, PaymentModule],
+  imports: [
+    PrismaModule,
+    PassportModule,
+    PrintStationModule,
+    PaymentModule,
+    SlugModule,
+  ],
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

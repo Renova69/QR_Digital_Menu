@@ -12,8 +12,10 @@ import { ReservationAnalyticsService } from './reservation-analytics.service';
 import { PatronService } from './patron.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
 import { ReservationReminderService } from './reservation-reminder.service';
+import { SlugModule } from '../restaurants/slug/slug.module';
 
 @Module({
+  imports: [SlugModule],
   controllers: [
     PublicReservationsController,
     ReservationRedirectController,

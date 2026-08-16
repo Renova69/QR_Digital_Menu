@@ -46,6 +46,7 @@ import {
   type ServicePointPaymentMethod,
 } from '../tables/service-point.constants';
 import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 import { createHash } from 'crypto';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
@@ -166,6 +167,7 @@ export class OrdersService {
     private readonly featureService: FeatureService,
     private readonly printStationService: PrintStationService,
     private readonly paymentProviderConfig: PaymentProviderConfigService,
+    private readonly slugs: RestaurantSlugService,
   ) {}
 
   async create(
@@ -1295,6 +1297,13 @@ export class OrdersService {
       }
       throw error;
     }
+
+    // Fire-and-forget: the order transaction above committed, including POS
+    // orders that never triggered a public menu view. Not awaited —
+    // commitOnActivity does its own DB work and must never delay the order
+    // confirmation returned to the customer or POS terminal, and it already
+    // swallows its own errors so slug bookkeeping can never fail an order.
+    void this.slugs.commitOnActivity(finalOrder.restaurantId);
 
     const isAwaitingPayment = finalOrder.status === OrderStatus.PENDING_PAYMENT;
 

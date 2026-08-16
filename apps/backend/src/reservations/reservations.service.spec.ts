@@ -76,6 +76,7 @@ function build() {
     emitReservationUpdated: jest.fn(),
   };
   const notifications = { notify: jest.fn() };
+  const slugs = { commitOnActivity: jest.fn().mockResolvedValue(undefined) };
   const service = new ReservationsService(
     prisma,
     availability as unknown as ConstructorParameters<
@@ -90,6 +91,7 @@ function build() {
     notifications as unknown as ConstructorParameters<
       typeof ReservationsService
     >[6],
+    slugs as unknown as ConstructorParameters<typeof ReservationsService>[7],
   );
   return {
     service,
@@ -100,6 +102,7 @@ function build() {
     features,
     events,
     notifications,
+    slugs,
   };
 }
 
@@ -495,6 +498,68 @@ describe('ReservationsService.createPublic (consent gate + entitlement)', () => 
     ).rejects.toBeInstanceOf(ConflictException);
     // Guard runs before the write — nothing is persisted.
     expect(txReservationCreate).not.toHaveBeenCalled();
+  });
+
+  // ─── Task 18B: auto-commit on activity ───────────────────────────────────
+
+  it('commits the slug for the booking restaurant after a successful create', async () => {
+    const { service, prisma, slugs } = build();
+    prisma.reservationSettings.findUnique.mockResolvedValue({
+      enabled: true,
+      maxTotalGuests: 12,
+      autoConfirm: false,
+      requirePhone: true,
+    });
+
+    await service.createPublic('rest1', { ...baseDto, dietaryConsent: true });
+
+    expect(slugs.commitOnActivity).toHaveBeenCalledWith('rest1');
+  });
+
+  it('does not commit the slug when the reservation write fails', async () => {
+    const { service, prisma, txReservationCreate, slugs } = build();
+    prisma.reservationSettings.findUnique.mockResolvedValue({
+      enabled: true,
+      maxTotalGuests: 12,
+      autoConfirm: false,
+      requirePhone: true,
+    });
+    txReservationCreate.mockRejectedValue(
+      new Error('reservation write failed'),
+    );
+
+    await expect(
+      service.createPublic('rest1', { ...baseDto, dietaryConsent: true }),
+    ).rejects.toThrow('reservation write failed');
+
+    expect(slugs.commitOnActivity).not.toHaveBeenCalled();
+  });
+
+  it('does not await commitOnActivity before returning the booking result', async () => {
+    const { service, prisma, slugs } = build();
+    prisma.reservationSettings.findUnique.mockResolvedValue({
+      enabled: true,
+      maxTotalGuests: 12,
+      autoConfirm: false,
+      requirePhone: true,
+    });
+    let resolveCommit!: () => void;
+    slugs.commitOnActivity.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveCommit = resolve;
+      }),
+    );
+
+    // createPublic must resolve even though the fire-and-forget commit is
+    // still pending — otherwise slug bookkeeping would delay the booking
+    // confirmation returned to the guest.
+    const result = await service.createPublic('rest1', {
+      ...baseDto,
+      dietaryConsent: true,
+    });
+
+    expect(result.referenceCode).toBe('ABC234');
+    resolveCommit();
   });
 });
 

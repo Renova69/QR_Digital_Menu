@@ -16,6 +16,7 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { PrintStationService } from '../print-station/print-station.service';
 import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -229,6 +230,7 @@ describe('OrdersService', () => {
   let featureService: any;
   let printStationService: any;
   let paymentProviderConfig: any;
+  let slugService: any;
 
   const twoItems = [
     makeMenuItem({ id: 'item-1', price: 10 }),
@@ -311,6 +313,9 @@ describe('OrdersService', () => {
     paymentProviderConfig = {
       hasAnyConfiguredProvider: jest.fn().mockReturnValue(true),
     };
+    slugService = {
+      commitOnActivity: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -323,6 +328,7 @@ describe('OrdersService', () => {
           provide: PaymentProviderConfigService,
           useValue: paymentProviderConfig,
         },
+        { provide: RestaurantSlugService, useValue: slugService },
       ],
     }).compile();
 
@@ -436,9 +442,10 @@ describe('OrdersService', () => {
       // price computed inside tx.order.create arg; we check the call arg
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.totalPrice).toBe(25); // 10*2 + 5*1
-      expect(
-        printStationService.createPrintJobsForOrder,
-      ).toHaveBeenCalledWith(result.id, tx);
+      expect(printStationService.createPrintJobsForOrder).toHaveBeenCalledWith(
+        result.id,
+        tx,
+      );
       expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
         result.restaurantId,
         'newOrder',
@@ -2049,6 +2056,84 @@ describe('OrdersService', () => {
       > as CreateOrderDto & UpdateOrderDto);
 
       expect(tx.tableSession.create).toHaveBeenCalled();
+    });
+
+    // ─── Task 18B: auto-commit on activity ─────────────────────────────────
+
+    it('commits the slug for the order restaurant after a successful create', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
+
+      expect(slugService.commitOnActivity).toHaveBeenCalledWith('rest-1');
+    });
+
+    it('does not commit the slug when order creation fails', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
+      const tx = makeTx();
+      tx.order.create.mockRejectedValue(new Error('order write failed'));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await expect(
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
+      ).rejects.toThrow('order write failed');
+
+      expect(slugService.commitOnActivity).not.toHaveBeenCalled();
+    });
+
+    it('does not await commitOnActivity before returning the created order', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+      let resolveCommit!: () => void;
+      slugService.commitOnActivity.mockReturnValue(
+        new Promise<void>((resolve) => {
+          resolveCommit = resolve;
+        }),
+      );
+
+      // create() must resolve with the order even though the fire-and-forget
+      // commit is still pending — otherwise slug bookkeeping would delay the
+      // response returned to the customer or POS terminal.
+      const result = await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
+
+      expect(result.id).toBe('order-1');
+      resolveCommit();
     });
 
     it('uses the OPEN session returned by the locked session read', async () => {
