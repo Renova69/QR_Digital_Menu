@@ -12,6 +12,7 @@ import {
   reorderZones,
   updateTable,
   getLogoBase64,
+  commitRestaurantSlug,
 } from "../../lib/api";
 import type { ServicePointType, TableZone } from "../../lib/api";
 import {
@@ -307,6 +308,38 @@ const TableView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["zones", restaurantId] });
     },
   });
+
+  // ── Bulk QR print: commit-before-print ──────────────────────────────────
+  // PrintableQRCodes is mounted the instant the QR tab is shown (well
+  // before this button is pressed), so simply viewing the tables screen
+  // must never call commitRestaurantSlug — that would silently end the
+  // slug's edit-grace window on every page view. The commit is tied to
+  // print *intent* instead: only this button's click fires it. See the
+  // gating comment in PrintableQRCodes.tsx for how the sheet itself stays
+  // free of real QR codes (even against a bare Ctrl+P) until this resolves.
+  const printSlugMutation = useMutation({
+    mutationFn: () => commitRestaurantSlug(restaurantId as string),
+  });
+  const [pendingPrint, setPendingPrint] = useState(false);
+
+  // window.print() must run strictly after PrintableQRCodes has re-rendered
+  // with the frozen slug, not from the mutation's onSuccess callback —
+  // that callback can fire before React has committed the new `committed`
+  // prop to the DOM, which would let the browser capture the sheet mid
+  // transition. Waiting on an effect keyed to the mutation's own success
+  // state guarantees the DOM already holds the real QR codes first.
+  useEffect(() => {
+    if (pendingPrint && printSlugMutation.isSuccess) {
+      window.print();
+      setPendingPrint(false);
+    }
+  }, [pendingPrint, printSlugMutation.isSuccess, printSlugMutation.data]);
+
+  const handlePrintAllClick = () => {
+    if (!restaurantId) return;
+    setPendingPrint(true);
+    printSlugMutation.mutate();
+  };
 
   const moveZoneUp = (index: number) => {
     if (!zones || index === 0) return;
@@ -870,13 +903,25 @@ const TableView: React.FC = () => {
 
               <DashboardButton
                 type="button"
-                onClick={() => window.print()}
-                disabled={!tables || tables.length === 0}
+                onClick={handlePrintAllClick}
+                disabled={
+                  !tables || tables.length === 0 || printSlugMutation.isPending
+                }
                 className="mt-3 w-full border border-border bg-muted text-foreground hover:bg-secondary"
               >
                 <Printer className="h-4 w-4" />
-                {t("tables.printAllQr")}
+                {printSlugMutation.isPending
+                  ? t("tables.preparingPrint", "Preparing…")
+                  : t("tables.printAllQr")}
               </DashboardButton>
+              {printSlugMutation.isError && (
+                <p role="alert" className="mt-2 text-xs font-bold text-red-600">
+                  {t(
+                    "tables.qrCommitFailed",
+                    "Could not prepare the menu link. Check your connection and try again.",
+                  )}
+                </p>
+              )}
             </div>
           </div>
 
@@ -1033,6 +1078,8 @@ const TableView: React.FC = () => {
             tables={tables || []}
             template={printTemplate}
             orientation={printOrientation}
+            committed={printSlugMutation.data ?? null}
+            commitError={printSlugMutation.isError}
           />
         </div>
       )}

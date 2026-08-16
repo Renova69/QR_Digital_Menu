@@ -13,6 +13,12 @@ interface PrintableQRCodesProps {
   tables: any[];
   template?: PrintTemplate;
   orientation?: PrintOrientation;
+  // The server-frozen slug commit, or null while none has been requested
+  // (or one is still in flight) for this session. Every QR value below is
+  // built from `committed.slug`, never from `restaurant.slug` — see the
+  // gating note above the portal content further down.
+  committed: { slug: string; committedAt: string } | null;
+  commitError?: boolean;
 }
 
 function resolveLogoUrl(restaurant: any): string | null {
@@ -401,6 +407,8 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
   tables,
   template = "classic",
   orientation = "portrait",
+  committed,
+  commitError = false,
 }) => {
   const { t } = useTranslation();
   if (!tables || tables.length === 0) return null;
@@ -408,6 +416,21 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
 
   const cols = orientation === "landscape" ? 3 : 2;
   const pageSize = orientation === "landscape" ? "A4 landscape" : "A4 portrait";
+
+  // This sheet is mounted the moment the QR tab is open — well before the
+  // owner presses "Print all QR codes" — because it has to already be in
+  // the DOM for the browser's print pipeline to pick it up. That means a
+  // bare Ctrl+P (bypassing the button entirely) would print whatever is
+  // sitting in `.print-container` at that instant. So the container itself
+  // must never hold real QR codes until `committed` says the slug has
+  // actually been frozen server-side; until then it holds a placeholder
+  // that's safe to print (no codes, nothing that could point somewhere
+  // else next week). Every QR value is built from `committed.slug`, never
+  // from `restaurant.slug` off the prop, so the sheet can't disagree with
+  // what the server just froze.
+  const restaurantForUrl = committed
+    ? { ...restaurant, slug: committed.slug }
+    : restaurant;
 
   const content = (
     <div className="print-container" style={{ display: "none" }}>
@@ -443,29 +466,59 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
           }
         }
       `}</style>
-      <div className="qr-grid">
-        {tables.map((table) => (
-          <div className="qr-grid-cell" key={table.id}>
-            {template === "premium" ? (
-              <PremiumCard
-                restaurant={restaurant}
-                table={table}
-                logoUrl={logoUrl}
-                t={t}
-              />
-            ) : template === "minimal" ? (
-              <MinimalCard restaurant={restaurant} table={table} t={t} />
-            ) : (
-              <ClassicCard
-                restaurant={restaurant}
-                table={table}
-                logoUrl={logoUrl}
-                t={t}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+      {committed ? (
+        <div className="qr-grid" data-testid="printable-qr-grid">
+          {tables.map((table) => (
+            <div className="qr-grid-cell" key={table.id}>
+              {template === "premium" ? (
+                <PremiumCard
+                  restaurant={restaurantForUrl}
+                  table={table}
+                  logoUrl={logoUrl}
+                  t={t}
+                />
+              ) : template === "minimal" ? (
+                <MinimalCard
+                  restaurant={restaurantForUrl}
+                  table={table}
+                  t={t}
+                />
+              ) : (
+                <ClassicCard
+                  restaurant={restaurantForUrl}
+                  table={table}
+                  logoUrl={logoUrl}
+                  t={t}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        // No role="alert" here on purpose: this node lives under
+        // display:none the whole time this sub-tab is open and is only
+        // ever exposed by @media print, so it's never something a screen
+        // reader would announce. The owner-facing error lives in the
+        // visible print-setup card next to the button instead — this text
+        // only has to be safe to put on paper if a bare Ctrl+P fires
+        // before (or instead of) that button.
+        <div
+          data-testid="printable-qr-placeholder"
+          style={{ padding: "40px", textAlign: "center" }}
+        >
+          <p>
+            {commitError
+              ? t(
+                  "tables.qrCommitFailed",
+                  "Could not prepare the menu link. Check your connection and try again.",
+                )
+              : t(
+                  "tables.printNotReady",
+                  'Press "Print all QR codes" to prepare codes for printing.',
+                )}
+          </p>
+        </div>
+      )}
     </div>
   );
 
