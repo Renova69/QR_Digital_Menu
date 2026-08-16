@@ -1,8 +1,9 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
-import type { ServicePointType } from "../../lib/api";
+import { commitRestaurantSlug, type ServicePointType } from "../../lib/api";
 import { getMenuUrl } from "../../lib/menuUrl";
 import { Button } from "../ui/button";
 import { Modal } from "../ui/modal";
@@ -46,7 +47,32 @@ const QrCodeModal = ({
   const { t } = useTranslation();
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const isServicePoint = !!target?.type && target.type !== "TABLE";
-  const qrUrl = target ? buildQrUrl(restaurant, target) : "";
+
+  // A QR must never be rendered against a slug that could still change.
+  // Committing is a blocking precondition rather than something observed
+  // after the fact — QR download is entirely client-side (canvas redraw +
+  // toDataURL + <a download>), so the backend can never observe an export.
+  // A fire-and-forget beacon could fail while the download still succeeded,
+  // leaving the immutable-slug guarantee resting on an unreliable signal.
+  const {
+    data: committed,
+    isLoading: isCommitting,
+    isError: commitFailed,
+  } = useQuery({
+    queryKey: ["slug-commit", restaurant.id],
+    queryFn: () => commitRestaurantSlug(restaurant.id),
+    enabled: open,
+    retry: 1,
+    staleTime: Infinity,
+  });
+
+  // Built from the slug the server just froze, never from the restaurant
+  // object the caller handed in — that way the rendered code can never
+  // disagree with what the commit response returned.
+  const qrUrl =
+    target && committed
+      ? buildQrUrl({ id: restaurant.id, slug: committed.slug }, target)
+      : "";
 
   const handleDownload = () => {
     const sourceCanvas = qrCanvasRef.current?.querySelector("canvas");
@@ -98,6 +124,63 @@ const QrCodeModal = ({
     logo.src = logoDataUrl;
   };
 
+  // Keep the modal chrome constant across states — only the body swaps.
+  let body: ReactNode = null;
+  if (commitFailed) {
+    body = (
+      <div
+        role="alert"
+        className="text-sm font-medium text-destructive text-center"
+      >
+        {t(
+          "tables.qrCommitFailed",
+          "Could not prepare the menu link. Check your connection and try again.",
+        )}
+      </div>
+    );
+  } else if (!isCommitting && committed && target && qrUrl) {
+    body = (
+      <div className="flex flex-col items-center">
+        <div className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-4 shadow-inner sm:p-6">
+          <QRCodeSVG
+            value={qrUrl}
+            size={256}
+            fgColor={restaurant.accentColor || "#000000"}
+            bgColor="#ffffff"
+            level="H"
+            imageSettings={
+              logoDataUrl
+                ? {
+                    src: logoDataUrl,
+                    height: 38,
+                    width: 38,
+                    excavate: true,
+                  }
+                : undefined
+            }
+          />
+        </div>
+        <div
+          ref={qrCanvasRef}
+          data-testid="qr-canvas"
+          style={{ position: "absolute", left: "-9999px", top: 0 }}
+        >
+          <QRCodeCanvas
+            value={qrUrl}
+            size={512}
+            fgColor={restaurant.accentColor || "#000000"}
+            bgColor="#ffffff"
+            level="H"
+          />
+        </div>
+        <Button className="w-full gap-2" onClick={handleDownload}>
+          <Download className="h-4 w-4" />
+          {t("tables.downloadPNG")}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <Modal
       dashboardUi
@@ -124,45 +207,7 @@ const QrCodeModal = ({
           : undefined
       }
     >
-      {target && qrUrl && (
-        <div className="flex flex-col items-center">
-          <div className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-4 shadow-inner sm:p-6">
-            <QRCodeSVG
-              value={qrUrl}
-              size={256}
-              fgColor={restaurant.accentColor || "#000000"}
-              bgColor="#ffffff"
-              level="H"
-              imageSettings={
-                logoDataUrl
-                  ? {
-                      src: logoDataUrl,
-                      height: 38,
-                      width: 38,
-                      excavate: true,
-                    }
-                  : undefined
-              }
-            />
-          </div>
-          <div
-            ref={qrCanvasRef}
-            style={{ position: "absolute", left: "-9999px", top: 0 }}
-          >
-            <QRCodeCanvas
-              value={qrUrl}
-              size={512}
-              fgColor={restaurant.accentColor || "#000000"}
-              bgColor="#ffffff"
-              level="H"
-            />
-          </div>
-          <Button className="w-full gap-2" onClick={handleDownload}>
-            <Download className="h-4 w-4" />
-            {t("tables.downloadPNG")}
-          </Button>
-        </div>
-      )}
+      {body}
     </Modal>
   );
 };

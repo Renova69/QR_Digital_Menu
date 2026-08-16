@@ -276,6 +276,18 @@ export const updateRestaurant = async (restaurantId: string, data: any) => {
   return response.data;
 };
 
+// Freezes the restaurant's current slug (immutable-with-aliases) so a QR
+// printed against it can never stop resolving. Idempotent server-side —
+// calling it again for an already-committed restaurant returns the same
+// slug/committedAt rather than creating a second alias. QrCodeModal calls
+// this synchronously before rendering any QR (#Task17).
+export const commitRestaurantSlug = async (
+  restaurantId: string,
+): Promise<{ slug: string; committedAt: string }> => {
+  const response = await api.post(`/restaurants/${restaurantId}/slug/commit`);
+  return response.data as { slug: string; committedAt: string };
+};
+
 export const getLogoBase64 = async (
   restaurantId: string,
 ): Promise<{ dataUrl: string } | null> => {

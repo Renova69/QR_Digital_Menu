@@ -31,7 +31,9 @@ vi.mock("@tanstack/react-query", () => ({
         ? []
         : queryKey[0] === "zones"
           ? []
-          : undefined,
+          : queryKey[0] === "slug-commit"
+            ? { slug: null, committedAt: "2026-01-01T00:00:00Z" }
+            : undefined,
     isLoading: false,
   }),
   useMutation: () => ({ mutate: vi.fn(), isPending: false }),
