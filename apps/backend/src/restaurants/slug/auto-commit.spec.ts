@@ -71,88 +71,48 @@ describe('commitOnActivity', () => {
   });
 });
 
-describe('commitSlug — 24h clock backstop', () => {
-  it('commits an uncommitted slug older than 24h on the next commit attempt', async () => {
-    const primary = {
-      slug: 'old-restaurant',
-      committedAt: null,
-      createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25h old
-    };
-    const { service, tx } = makePrisma(primary);
-
-    const result = await service.commitSlug('r1');
-
-    expect(tx.restaurantSlug.update).toHaveBeenCalledWith({
-      where: { slug: 'old-restaurant' },
-      data: { committedAt: expect.any(Date) },
-    });
-    expect(result.committedAt).toBeInstanceOf(Date);
-  });
-
-  it('commits a slug exactly at the 24h boundary (inclusive)', async () => {
-    const primary = {
-      slug: 'boundary-restaurant',
-      committedAt: null,
-      createdAt: new Date(Date.now() - DAY_MS),
-    };
-    const { service, tx } = makePrisma(primary);
-
-    await service.commitSlug('r1');
-
-    expect(tx.restaurantSlug.update).toHaveBeenCalled();
-  });
-
-  // A slug younger than 24h must NOT rely on the backstop to commit: real
-  // activity (via commitOnActivity, standing in for a menu view / order /
-  // reservation once part B wires those in) commits it immediately. If the
-  // backstop were the ONLY thing capable of triggering a commit, this call
-  // would have to no-op for a brand-new restaurant — which would break the
-  // same-day QR flow and defeat the entire point of "auto-commit on FIRST
-  // activity".
-  it('commits a young (<24h) uncommitted slug on genuine activity, without waiting for the backstop', async () => {
-    const primary = {
-      slug: 'brand-new-restaurant',
-      committedAt: null,
-      createdAt: new Date(), // just created
-    };
-    const { service, tx } = makePrisma(primary);
-
-    await service.commitOnActivity('r1');
-
-    expect(tx.restaurantSlug.update).toHaveBeenCalledWith({
-      where: { slug: 'brand-new-restaurant' },
-      data: { committedAt: expect.any(Date) },
-    });
-  });
-
-  // The flip side of the property above: a young, uncommitted slug is NOT
-  // committed by the backstop ALONE — i.e. by the mere passage of
-  // sub-24h time with nothing external ever referencing it. This codebase
-  // has no scheduler for slugs (only loyalty.module.ts registers
-  // @nestjs/schedule), so the backstop cannot fire on its own; it only
-  // takes effect reactively, on the next actual call. Absent any call at
-  // all, nothing writes.
-  it('does not auto-commit a young (<24h) uncommitted slug absent any commit attempt', () => {
-    const primary = {
+// The 24h clock backstop does NOT live in commitSlug — see
+// restaurant-slug-lifecycle.spec.ts's "renameSlug — 24h clock backstop"
+// describe block. commitSlug only ever fires from a caller that already has
+// a concrete reason to lock the slug (a QR request, real activity); a
+// restaurant nobody ever interacts with never calls commitSlug at all, so a
+// backstop gated on "the next call to commitSlug" would never run for
+// exactly the case it exists to catch. What remains true of commitSlug
+// itself, and is worth guarding here, is that it stays unconditional and
+// idempotent regardless of the primary's age.
+describe('commitSlug remains unconditional and idempotent regardless of age', () => {
+  it('commits an uncommitted slug whether it is brand new or long abandoned', async () => {
+    const freshPrimary = {
       slug: 'brand-new-restaurant',
       committedAt: null,
       createdAt: new Date(),
     };
-    const { tx } = makePrisma(primary);
+    const fresh = makePrisma(freshPrimary);
+    await fresh.service.commitSlug('r1');
+    expect(fresh.tx.restaurantSlug.update).toHaveBeenCalledWith({
+      where: { slug: 'brand-new-restaurant' },
+      data: { committedAt: expect.any(Date) },
+    });
 
-    // No call to commitSlug or commitOnActivity — simulating a restaurant
-    // with zero activity and zero QR requests, which is exactly the
-    // scenario the backstop exists to eventually close out, once
-    // *something* finally calls commitSlug again.
-    expect(tx.restaurantSlug.update).not.toHaveBeenCalled();
+    const oldPrimary = {
+      slug: 'long-abandoned-restaurant',
+      committedAt: null,
+      createdAt: new Date(Date.now() - 90 * DAY_MS),
+    };
+    const old = makePrisma(oldPrimary);
+    await old.service.commitSlug('r1');
+    expect(old.tx.restaurantSlug.update).toHaveBeenCalledWith({
+      where: { slug: 'long-abandoned-restaurant' },
+      data: { committedAt: expect.any(Date) },
+    });
   });
 
-  it('remains idempotent past the backstop threshold — a second call does not move committedAt or write again', async () => {
+  it('is idempotent regardless of how old the primary is — a second call never moves committedAt or writes again', async () => {
     const committedAt = new Date('2026-01-01');
     const primary = {
       slug: 'already-committed',
       committedAt,
-      createdAt: new Date(Date.now() - 48 * DAY_MS), // long past 24h
+      createdAt: new Date(Date.now() - 90 * DAY_MS),
     };
     const { service, tx } = makePrisma(primary);
 

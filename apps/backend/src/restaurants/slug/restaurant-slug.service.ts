@@ -118,19 +118,16 @@ export class RestaurantSlugService {
    * (MenuView / Order / Reservation), for the same reason: genuine activity
    * should lock the slug immediately, not after a delay.
    *
-   * Clock backstop: an uncommitted slug older than 24h commits on the next
-   * commit attempt, regardless of which caller triggered it. This codebase
-   * deliberately has no second @nestjs/schedule registration (the only one
-   * is in loyalty.module.ts), so the backstop is reactive, not proactive —
-   * it only takes effect the next time *anything* calls commitSlug, whether
-   * that is the QR flow, an activity signal, or a restaurant nobody has
-   * touched in 24h finally getting a call from either. In practice that
-   * guarantee already follows from the write below being unconditional (any
-   * call commits an uncommitted primary at any age); `pastBackstop` is
-   * computed explicitly and exercised by tests on both sides of the 24h
-   * line, so "a restaurant nobody ever interacts with does not stay
-   * editable forever" is a proven property of this function, not an
-   * accident of it.
+   * The 24h clock backstop does NOT live here — see renameSlug's isCommitted
+   * check. commitSlug only ever fires from a caller that already has a
+   * concrete reason to lock the slug (a QR request, real activity); a
+   * restaurant that nobody ever interacts with and never requests a QR has
+   * nothing calling commitSlug at all, so a backstop gated on "the next call
+   * to commitSlug" would never actually run for exactly the case it exists
+   * to catch. The one place an uncommitted-but-abandoned slug is provably
+   * still reachable is a rename attempt, since that is the one action an
+   * owner can take on a slug regardless of whether it was ever committed —
+   * see renameSlug for the real mechanism.
    *
    * Export tracking was rejected as the trigger because it is best-effort —
    * a beacon can fail while the download still succeeds.
@@ -143,15 +140,6 @@ export class RestaurantSlugService {
       if (primary.committedAt) {
         return { slug: primary.slug, committedAt: primary.committedAt };
       }
-
-      const ageMs = Date.now() - primary.createdAt.getTime();
-      const pastBackstop = ageMs >= DAY_MS;
-      // Not used to gate the write below — see the doc comment above for
-      // why an uncommitted primary already commits unconditionally on any
-      // call, at any age. Kept as a named, tested value so the 24h
-      // guarantee is provable rather than incidental.
-      void pastBackstop;
-
       const committedAt = new Date();
       await tx.restaurantSlug.update({
         where: { slug: primary.slug },
@@ -289,7 +277,31 @@ export class RestaurantSlugService {
         return primary.slug;
       }
 
-      const isCommitted = Boolean(primary.committedAt);
+      // 24h clock backstop lives here, not in commitSlug. The escape path
+      // this guards against never calls commitSlug at all: an owner can
+      // copy their menu URL straight off the settings page and paste it
+      // into an Instagram bio, a Google Business listing, or a printed
+      // flyer without the backend ever observing it — no QR render, no
+      // menu view, no order, no reservation. A rename is the one action an
+      // owner can still take on an abandoned, never-committed slug, so it
+      // is the one place this codebase can still intercept "this slug may
+      // already be out in the world" once enough time has passed that an
+      // unobserved external reference is plausible. Short-circuit: when
+      // primary.committedAt is already truthy, primary.createdAt is never
+      // read, so a genuinely committed row needs no createdAt fixture.
+      const isCommitted =
+        Boolean(primary.committedAt) ||
+        Date.now() - primary.createdAt.getTime() >= DAY_MS;
+
+      // The cooldown itself is keyed on primary.committedAt directly (never
+      // on the isCommitted flag above) — a backstop-forced isCommitted with
+      // committedAt still null must NOT reach the `.getTime()` call inside
+      // assertRenameAllowed, which would throw on a null dereference. No
+      // deliberate commit ever happened in that case, so there is no commit
+      // time to measure the 14-day cooldown from; the rename below is
+      // allowed to proceed, and the NEW primary row created by
+      // claimFreshSlug gets a real committedAt so every subsequent rename
+      // is cooldowned normally.
       this.assertRenameAllowed(primary);
 
       // Availability checks are advisory only — the unique index in

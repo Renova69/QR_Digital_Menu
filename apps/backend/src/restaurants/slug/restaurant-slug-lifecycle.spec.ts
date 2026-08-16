@@ -40,10 +40,6 @@ describe('commitSlug', () => {
     const { prisma, tx } = makePrisma({
       slug: 'bistro-oranzh',
       committedAt: null,
-      // commitSlug now reads createdAt for the 24h clock backstop (see
-      // auto-commit.spec.ts) — this fixture predates that and needs it
-      // added so `.getTime()` doesn't throw on undefined.
-      createdAt: new Date(),
     });
     const service = new RestaurantSlugService(prisma);
 
@@ -109,6 +105,12 @@ describe('renameSlug', () => {
       slug: 'first-try',
       restaurantId: 'r1',
       committedAt: null,
+      // renameSlug now reads createdAt to decide whether the 24h clock
+      // backstop applies — this fixture is deliberately recent so the
+      // backstop stays inactive and the rename is a free edit, which is
+      // exactly the property this test asserts. See the "24h clock
+      // backstop" describe block below for the aged-fixture counterpart.
+      createdAt: new Date(),
     };
     const { prisma, tx } = makePrisma(primary);
     tx.restaurantSlug.findFirst
@@ -281,6 +283,153 @@ describe('renameSlug', () => {
     await expect(service.renameSlug('r1', 'lost-the-race')).rejects.toThrow(
       ConflictException,
     );
+  });
+});
+
+describe('renameSlug — 24h clock backstop', () => {
+  // The escape path this guards against never calls commitSlug at all: the
+  // owner copies their menu URL off the settings page (Task 20) and pastes
+  // it somewhere the backend never observes (an Instagram bio, a Google
+  // Business listing, a printed flyer). No QR render, no menu view, no
+  // order, no reservation ever fires. A rename is the one action an owner
+  // can still take on such a slug, so that is where the backstop lives.
+
+  it('renames an uncommitted slug older than 24h into an alias, not a free edit', async () => {
+    const primary = {
+      slug: 'abandoned-restaurant',
+      restaurantId: 'r1',
+      committedAt: null,
+      createdAt: new Date(Date.now() - 25 * DAY_MS), // long past 24h
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null)); // target is free
+    const service = new RestaurantSlugService(prisma);
+
+    await service.renameSlug('r1', 'new-name');
+
+    // Old row retained as an alias (isPrimary: false), never deleted.
+    expect(tx.restaurantSlug.delete).not.toHaveBeenCalled();
+    expect(tx.restaurantSlug.update).toHaveBeenCalledWith({
+      where: { slug: 'abandoned-restaurant' },
+      data: { isPrimary: false },
+    });
+    expect(tx.restaurantSlug.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          slug: 'new-name',
+          isPrimary: true,
+          committedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('still renames an uncommitted slug younger than 24h as a free edit', async () => {
+    const primary = {
+      slug: 'brand-new-restaurant',
+      restaurantId: 'r1',
+      committedAt: null,
+      createdAt: new Date(), // just created
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null));
+    const service = new RestaurantSlugService(prisma);
+
+    await service.renameSlug('r1', 'new-name');
+
+    // Old row deleted and returned to the pool, no alias created.
+    expect(tx.restaurantSlug.delete).toHaveBeenCalledWith({
+      where: { slug: 'brand-new-restaurant' },
+    });
+    expect(tx.restaurantSlug.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: { isPrimary: false } }),
+    );
+    expect(tx.restaurantSlug.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ slug: 'new-name', committedAt: null }),
+      }),
+    );
+  });
+
+  it('does not apply the cooldown to a backstop-committed rename, and does not crash on the null committedAt', async () => {
+    const primary = {
+      slug: 'abandoned-restaurant',
+      restaurantId: 'r1',
+      committedAt: null, // no deliberate commit ever happened
+      createdAt: new Date(Date.now() - 25 * DAY_MS),
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null));
+    const service = new RestaurantSlugService(prisma);
+
+    // Would throw (BadRequestException from the cooldown, or a TypeError
+    // from `null.getTime()`) if the cooldown check were keyed off the
+    // derived isCommitted flag instead of the real committedAt field.
+    await expect(service.renameSlug('r1', 'new-name')).resolves.toBe(
+      'new-name',
+    );
+  });
+
+  it('sets committedAt on the new primary row created by a backstop-committed rename', async () => {
+    const primary = {
+      slug: 'abandoned-restaurant',
+      restaurantId: 'r1',
+      committedAt: null,
+      createdAt: new Date(Date.now() - 30 * DAY_MS),
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null));
+    const service = new RestaurantSlugService(prisma);
+
+    await service.renameSlug('r1', 'new-name');
+
+    const createCall = tx.restaurantSlug.create.mock.calls[0][0];
+    expect(createCall.data.committedAt).toBeInstanceOf(Date);
+  });
+
+  it('a genuinely committed slug still behaves exactly as before — cooldown enforced, alias created', async () => {
+    // committedAt truthy short-circuits the isCommitted check before
+    // createdAt is ever read, so this fixture intentionally omits
+    // createdAt to prove the short-circuit — a regression that started
+    // unconditionally reading primary.createdAt would crash this test.
+    const primary = {
+      slug: 'long-lived-restaurant',
+      restaurantId: 'r1',
+      committedAt: new Date(Date.now() - 20 * DAY_MS), // past cooldown
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null));
+    const service = new RestaurantSlugService(prisma);
+
+    await service.renameSlug('r1', 'new-name');
+
+    expect(tx.restaurantSlug.update).toHaveBeenCalledWith({
+      where: { slug: 'long-lived-restaurant' },
+      data: { isPrimary: false },
+    });
+
+    // And still cooldown-blocked when committed recently.
+    const insideCooldown = {
+      slug: 'recent-rename',
+      restaurantId: 'r1',
+      committedAt: new Date(Date.now() - 3 * DAY_MS),
+    };
+    const blocked = makePrisma(insideCooldown);
+    const blockedService = new RestaurantSlugService(blocked.prisma);
+
+    await expect(
+      blockedService.renameSlug('r1', 'another-name'),
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
