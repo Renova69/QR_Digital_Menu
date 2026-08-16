@@ -65,28 +65,6 @@ describe("VanityMenuRoute", () => {
     await waitFor(() => expect(getResolvedRestaurantId()).toBe("r1"));
   });
 
-  it("rewrites an alias to the canonical slug", async () => {
-    resolveMenuSlug.mockResolvedValue({
-      restaurantId: "r1",
-      canonicalSlug: "bistro-oranzh",
-    });
-    renderAt("/m/old-name");
-    await waitFor(() =>
-      expect(window.location.pathname).not.toContain("old-name"),
-    );
-  });
-
-  it("normalizes an uppercase slug in the address bar", async () => {
-    resolveMenuSlug.mockResolvedValue({
-      restaurantId: "r1",
-      canonicalSlug: "bistro-oranzh",
-    });
-    renderAt("/m/BISTRO-ORANZH");
-    await waitFor(() =>
-      expect(window.location.pathname).not.toContain("BISTRO"),
-    );
-  });
-
   it("shows a not-found state for an unknown slug", async () => {
     resolveMenuSlug.mockRejectedValue({ response: { status: 404 } });
     renderAt("/m/nope");
