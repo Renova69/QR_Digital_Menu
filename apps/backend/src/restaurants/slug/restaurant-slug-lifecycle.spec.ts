@@ -286,6 +286,112 @@ describe('renameSlug', () => {
   });
 });
 
+describe('renameSlug — slug rule validation gate (Task 20c)', () => {
+  // Closes the hole audited in Task 20c: validateSlug's five rules (LENGTH,
+  // FORMAT, PUNYCODE, NUMERIC, RESERVED) were only ever wired to the
+  // advisory isSlugAvailable check backing GET .../slug/available.
+  // renameSlug — the actual write path — called none of it, so an owner
+  // could rename straight onto a reserved word, a punycode-prefixed string,
+  // or an all-numeric slug. These tests prove the gate now runs, and that it
+  // runs cheaply: rejection must happen before $transaction is even opened,
+  // so no cooldown check, no target lookup, and no write are ever attempted.
+
+  function freshPrisma() {
+    // Cooldown-cleared, unrelated-to-the-rejected-slug fixture shared by
+    // every rejection test below — none of them should get far enough for
+    // its contents to matter, which is exactly what each assertion proves.
+    return makePrisma({
+      slug: 'current-name',
+      restaurantId: 'r1',
+      committedAt: new Date(Date.now() - 20 * DAY_MS),
+    });
+  }
+
+  it('rejects a reserved word (api) before opening a transaction', async () => {
+    const { prisma } = freshPrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.renameSlug('r1', 'api')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects "meta" — the literal /menu/public/resolve/meta route-collision case — before opening a transaction', async () => {
+    const { prisma } = freshPrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.renameSlug('r1', 'meta')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an xn-- punycode-prefixed slug before opening a transaction', async () => {
+    const { prisma } = freshPrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.renameSlug('r1', 'xn--foo')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an all-numeric slug before opening a transaction', async () => {
+    const { prisma } = freshPrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.renameSlug('r1', '12345')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('gives RESERVED and NUMERIC distinct rejection messages, and RESERVED never leaks the reserved list', async () => {
+    const reserved = freshPrisma();
+    const reservedError = await new RestaurantSlugService(reserved.prisma)
+      .renameSlug('r1', 'admin')
+      .catch((e) => e);
+
+    const numeric = freshPrisma();
+    const numericError = await new RestaurantSlugService(numeric.prisma)
+      .renameSlug('r1', '99999')
+      .catch((e) => e);
+
+    expect(reservedError).toBeInstanceOf(BadRequestException);
+    expect(numericError).toBeInstanceOf(BadRequestException);
+    expect(reservedError.message).not.toEqual(numericError.message);
+    // Do not leak the reserved set through the error message.
+    for (const otherReservedWord of ['www', 'checkout', 'dashboard']) {
+      expect(reservedError.message.toLowerCase()).not.toContain(
+        otherReservedWord,
+      );
+    }
+  });
+
+  it('still allows a genuinely valid rename through unchanged — the gate does not over-reject', async () => {
+    const primary = {
+      slug: 'current-name',
+      restaurantId: 'r1',
+      committedAt: new Date(Date.now() - 20 * DAY_MS),
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null));
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.renameSlug('r1', 'valid-new-slug')).resolves.toBe(
+      'valid-new-slug',
+    );
+    expect(tx.restaurantSlug.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ slug: 'valid-new-slug' }),
+      }),
+    );
+  });
+});
+
 describe('renameSlug — 24h clock backstop', () => {
   // The escape path this guards against never calls commitSlug at all: the
   // owner copies their menu URL off the settings page (Task 20) and pastes

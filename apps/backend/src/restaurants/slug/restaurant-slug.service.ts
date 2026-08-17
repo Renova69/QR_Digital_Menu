@@ -8,7 +8,12 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generateSlugBase, withSuffix } from './slug-generator';
-import { validateSlug } from './slug-rules';
+import {
+  SLUG_MAX_LENGTH,
+  SLUG_MIN_LENGTH,
+  SlugRuleError,
+  validateSlug,
+} from './slug-rules';
 
 export interface ResolvedSlug {
   restaurantId: string;
@@ -19,6 +24,19 @@ export interface ResolvedSlug {
 export const MAX_CLAIM_ATTEMPTS = 5;
 export const RENAME_COOLDOWN_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Per-code messages for the renameSlug rejection gate below. Deliberately
+// distinct per SlugRuleError so a caller (or a support agent reading logs)
+// can tell RESERVED apart from NUMERIC apart from PUNYCODE — but RESERVED's
+// message never enumerates RESERVED_SLUGS itself, so rejection can't be used
+// to probe the reserved list.
+const RENAME_REJECTION_MESSAGES: Record<SlugRuleError, string> = {
+  LENGTH: `Slug must be between ${SLUG_MIN_LENGTH} and ${SLUG_MAX_LENGTH} characters`,
+  FORMAT: 'Slug must be lowercase letters, digits and inner hyphens only',
+  PUNYCODE: 'Slug cannot start with the reserved "xn--" prefix',
+  NUMERIC: 'Slug cannot be all numeric — it would be ambiguous with an ID',
+  RESERVED: 'This slug is reserved and cannot be used',
+};
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -268,6 +286,25 @@ export class RestaurantSlugService {
   }
 
   async renameSlug(restaurantId: string, nextSlug: string): Promise<string> {
+    // Authoritative gate — UpdateSlugDto only enforces LENGTH and FORMAT, so
+    // an internal caller that bypasses the DTO (or a future one that does)
+    // could otherwise write a reserved, punycode, or all-numeric slug
+    // straight past validateSlug's other three rules. isSlugAvailable calls
+    // validateSlug too, but that path is advisory only and this method never
+    // consulted it — this is the fix.
+    //
+    // Deliberately the first statement in the method, before
+    // this.prisma.$transaction even opens: a rejected slug must cost
+    // nothing, not a transaction, not the cooldown check, not the target
+    // lookup, not a write. Every existing collision case (own primary, own
+    // alias, own tombstone, someone else's slug, the 24h backstop) only
+    // starts being evaluated once a slug has already cleared this gate, so
+    // none of that logic moves or changes.
+    const ruleViolation = validateSlug(nextSlug);
+    if (ruleViolation) {
+      throw new BadRequestException(RENAME_REJECTION_MESSAGES[ruleViolation]);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const primary = await this.primaryOrThrow(tx, restaurantId);
 
