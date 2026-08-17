@@ -3248,6 +3248,8 @@
       "subtitle": "You can update all of this later in Settings.",
       "ownerName": "Your name",
       "restaurantName": "Restaurant name *",
+      "menuAddress": "Menu address",
+      "menuAddressHint": "Type a restaurant name to preview your menu address.",
       "city": "City",
       "dashboardLanguage": "Dashboard language",
       "dashboardLanguageHint": "Language used for your owner dashboard.",

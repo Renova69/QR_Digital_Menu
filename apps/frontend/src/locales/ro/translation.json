@@ -3335,6 +3335,8 @@
       "subtitle": "Poți actualiza toate acestea mai târziu în Setări.",
       "ownerName": "Numele tău",
       "restaurantName": "Numele restaurantului *",
+      "menuAddress": "Adresa meniului",
+      "menuAddressHint": "Introduceți numele restaurantului pentru a previzualiza adresa meniului.",
       "city": "Oraș",
       "dashboardLanguage": "Limba tabloului de bord",
       "dashboardLanguageHint": "Limba utilizată pentru tabloul de bord.",

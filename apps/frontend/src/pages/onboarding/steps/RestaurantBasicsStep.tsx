@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createRestaurant } from "../../../services/restaurantService";
 import { getApiError } from "../../../lib/apiError";
+import { slugifyForPreview } from "../../../lib/slugPreview";
+import { getMenuUrl } from "../../../lib/menuUrl";
 
 const DASHBOARD_LANGUAGES = [
   { value: "bg", label: "Български" },
@@ -31,6 +33,8 @@ export default function RestaurantBasicsStep({
   const [dashboardLanguage, setDashboardLanguage] = useState("bg");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
 
   // Restaurant was already created in a prior onboarding attempt — skip creation
   if (existingRestaurantId) {
@@ -78,13 +82,23 @@ export default function RestaurantBasicsStep({
       });
       onCreated(restaurant.id, restaurant.name, ownerName.trim());
     } catch (err: any) {
-      setError(
-        t(getApiError(err)),
-      );
+      setError(t(getApiError(err)));
     } finally {
       setLoading(false);
     }
   };
+
+  // Preview follows the typed name until the owner edits the slug field
+  // themselves — once touched, their choice wins and no longer re-derives
+  // from the name. This is preview-only: the server assigns the real slug
+  // authoritatively at creation time (see slugPreview.ts header) and the
+  // owner can change it afterwards in settings, so this step is never
+  // gated on the slug.
+  const derivedSlug = name.trim() ? slugifyForPreview(name) : "";
+  const previewSlug = slugTouched ? slug : derivedSlug;
+  const previewUrl = previewSlug
+    ? getMenuUrl({ id: "preview", slug: previewSlug })
+    : "";
 
   return (
     <div className="space-y-6 max-w-md">
@@ -123,6 +137,39 @@ export default function RestaurantBasicsStep({
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
             required
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <label
+            htmlFor="menu-slug"
+            className="text-sm font-semibold text-foreground"
+          >
+            {t("onboarding.basics.menuAddress", "Menu address")}
+          </label>
+          <input
+            id="menu-slug"
+            type="text"
+            value={previewSlug}
+            onChange={(e) => {
+              setSlugTouched(true);
+              // Lowercase as they type: the server rejects uppercase rather
+              // than coercing it, so the owner sees the transformation
+              // happen instead of hitting a 400 later.
+              setSlug(e.target.value.toLowerCase());
+            }}
+            placeholder={t("auto.eGBistroOranzh", "e.g. bistro-oranzh")}
+            className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
+          />
+          <p
+            data-testid="slug-preview"
+            className="text-xs text-muted-foreground break-all"
+          >
+            {previewUrl ||
+              t(
+                "onboarding.basics.menuAddressHint",
+                "Type a restaurant name to preview your menu address.",
+              )}
+          </p>
         </div>
 
         <div className="space-y-1.5">
