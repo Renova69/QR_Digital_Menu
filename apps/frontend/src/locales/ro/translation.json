@@ -301,7 +301,11 @@
     "googleReviewUrl": "Link recenzie Google",
     "googleReviewActive": "Linkul pentru recenzii Google este activ — oferit după feedbackul privat",
     "googleReviewPlaceholder": "https://g.page/r/LINKUL_TAU",
-    "addressPlaceholder": "Bulevardul Vitosha 123, Sofia"
+    "addressPlaceholder": "Bulevardul Vitosha 123, Sofia",
+    "menuAddress": "Adresa meniului",
+    "menuAddressDesc": "Adresa web pe care o accesează clienții când scanează codul QR.",
+    "copyMenuAddress": "Copiază",
+    "menuAddressNotAssigned": "Adresa personalizată a meniului nu a fost încă configurată. Odată pregătită, o vei putea copia și distribui de aici."
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",

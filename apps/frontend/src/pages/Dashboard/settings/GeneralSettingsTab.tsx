@@ -7,6 +7,7 @@ import {
   Star,
   CheckCircle2,
   AlertTriangle,
+  Copy,
 } from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useSocket } from "../../../context/SocketContext";
@@ -19,6 +20,8 @@ import {
 import { useFeature } from "../../../hooks/useFeature";
 import { getApiError } from "../../../lib/apiError";
 import { DashboardButton } from "../../../components/dashboard/DashboardButton";
+import { getMenuUrl } from "../../../lib/menuUrl";
+import { copyToClipboard } from "../../../lib/tableViewUtils";
 
 // Poll fallback cadence while a translate-all run is active — the socket
 // carries live done/total updates, but its terminal phases are per-batch,
@@ -96,6 +99,9 @@ const GeneralSettingsTab: React.FC = () => {
     error: "",
     success: "",
   });
+  // Read-only "Menu address" section (#Task20a) — copy-to-clipboard feedback
+  // only. No rename/release UI here; that lands in a later dispatch.
+  const [menuAddressCopied, setMenuAddressCopied] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState<{
     phase: string;
@@ -434,6 +440,18 @@ const GeneralSettingsTab: React.FC = () => {
     );
   };
 
+  // Only reachable when activeRestaurant.slug is set — the button that
+  // triggers this is not rendered otherwise, so there is never a meaningless
+  // value to copy.
+  const handleCopyMenuAddress = async () => {
+    if (!activeRestaurant?.slug) return;
+    const copiedOk = await copyToClipboard(getMenuUrl(activeRestaurant));
+    if (copiedOk) {
+      setMenuAddressCopied(true);
+      setTimeout(() => setMenuAddressCopied(false), 2000);
+    }
+  };
+
   const tzLabel =
     TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone;
   const langCount = targetLanguages.filter(
@@ -622,6 +640,44 @@ const GeneralSettingsTab: React.FC = () => {
             />
           </div>
         </div>
+      </div>
+
+      {/* ── Menu Address ── */}
+      <div className="border-b border-border pb-6">
+        <h3 className={`${sectionHeading} mb-1`}>
+          {t("settings.menuAddress", "Menu address")}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          {t(
+            "settings.menuAddressDesc",
+            "The web address customers reach when they scan your QR code.",
+          )}
+        </p>
+        {activeRestaurant?.slug ? (
+          <div className="flex flex-wrap items-center gap-2 max-w-xl">
+            <code className="flex-1 min-w-0 truncate rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
+              {getMenuUrl(activeRestaurant)}
+            </code>
+            <DashboardButton
+              density="compact"
+              type="button"
+              onClick={handleCopyMenuAddress}
+              className="bg-secondary text-foreground hover:bg-secondary/80"
+            >
+              <Copy size={14} />
+              {menuAddressCopied
+                ? t("common.copied", "Copied")
+                : t("settings.copyMenuAddress", "Copy")}
+            </DashboardButton>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm italic text-muted-foreground">
+            {t(
+              "settings.menuAddressNotAssigned",
+              "Your branded menu address hasn't been set up yet. Once it's ready, you'll be able to copy and share it here.",
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Social Media ── */}

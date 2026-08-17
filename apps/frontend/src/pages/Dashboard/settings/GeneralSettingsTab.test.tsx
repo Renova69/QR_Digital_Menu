@@ -56,6 +56,9 @@ const mockRestaurant = {
   dashboardLanguage: "en",
   menuSourceLanguage: "bg",
   timezone: "Europe/Sofia",
+  // The slug backfill has not run against any database yet (#Task20a) — every
+  // restaurant's slug is null today. This fixture mirrors that reality.
+  slug: null,
 };
 
 const fetchRestaurants = vi.fn();

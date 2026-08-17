@@ -301,7 +301,11 @@
     "googleReviewUrl": "Google Review URL",
     "googleReviewActive": "Google Review link active — offered after private feedback",
     "googleReviewPlaceholder": "https://g.page/r/YOUR_REVIEW_LINK",
-    "addressPlaceholder": "123 Vitosha Blvd, Sofia"
+    "addressPlaceholder": "123 Vitosha Blvd, Sofia",
+    "menuAddress": "Menu address",
+    "menuAddressDesc": "The web address customers reach when they scan your QR code.",
+    "copyMenuAddress": "Copy",
+    "menuAddressNotAssigned": "Your branded menu address hasn't been set up yet. Once it's ready, you'll be able to copy and share it here."
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",

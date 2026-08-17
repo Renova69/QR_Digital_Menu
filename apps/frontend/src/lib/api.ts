@@ -288,6 +288,38 @@ export const commitRestaurantSlug = async (
   return response.data as { slug: string; committedAt: string };
 };
 
+// OWNER-only rename of the restaurant's branded slug — mirrors
+// SlugController.rename (`PATCH /restaurants/:id/slug`). Not yet called from
+// any UI; the settings "Menu address" section (read-only) lands first, the
+// rename control lands in a later dispatch. Kept here alongside the other
+// slug endpoints so the API client changes stay in one reviewable place.
+export const renameRestaurantSlug = async (
+  restaurantId: string,
+  slug: string,
+): Promise<{ slug: string }> => {
+  const response = await api.patch(`/restaurants/${restaurantId}/slug`, {
+    slug,
+  });
+  return response.data as { slug: string };
+};
+
+// OWNER-only permanent release of a slug (current or alias) — mirrors
+// SlugController.release (`POST /restaurants/:id/slug/release`). The server
+// independently validates `confirmation`; the caller sending the literal
+// string "CONFIRM" here is a usability mirror, never a substitute for that
+// check. Not yet called from any UI — see renameRestaurantSlug above.
+export const releaseRestaurantSlug = async (
+  restaurantId: string,
+  slug: string,
+  confirmation: string,
+): Promise<{ released: string }> => {
+  const response = await api.post(`/restaurants/${restaurantId}/slug/release`, {
+    slug,
+    confirmation,
+  });
+  return response.data as { released: string };
+};
+
 export const getLogoBase64 = async (
   restaurantId: string,
 ): Promise<{ dataUrl: string } | null> => {

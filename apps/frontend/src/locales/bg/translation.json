@@ -303,7 +303,11 @@
     "googleReviewUrl": "Линк за Google отзив",
     "googleReviewActive": "Линкът за Google отзиви е активен — предлага се след личната обратна връзка",
     "googleReviewPlaceholder": "https://g.page/r/ВАШИЯТ_ЛИНК",
-    "addressPlaceholder": "бул. Витоша 123, София"
+    "addressPlaceholder": "бул. Витоша 123, София",
+    "menuAddress": "Адрес на менюто",
+    "menuAddressDesc": "Уеб адресът, който клиентите виждат, когато сканират вашия QR код.",
+    "copyMenuAddress": "Копирай",
+    "menuAddressNotAssigned": "Вашият брандиран адрес на менюто все още не е зададен. Щом бъде готов, ще можете да го копирате и споделяте оттук."
   },
   "staff": {
     "sharedDeviceMode": "Режим споделено устройство",
