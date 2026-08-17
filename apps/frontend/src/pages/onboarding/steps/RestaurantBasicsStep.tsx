@@ -33,8 +33,6 @@ export default function RestaurantBasicsStep({
   const [dashboardLanguage, setDashboardLanguage] = useState("bg");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
 
   // Restaurant was already created in a prior onboarding attempt — skip creation
   if (existingRestaurantId) {
@@ -88,16 +86,17 @@ export default function RestaurantBasicsStep({
     }
   };
 
-  // Preview follows the typed name until the owner edits the slug field
-  // themselves — once touched, their choice wins and no longer re-derives
-  // from the name. This is preview-only: the server assigns the real slug
-  // authoritatively at creation time (see slugPreview.ts header) and the
-  // owner can change it afterwards in settings, so this step is never
-  // gated on the slug.
+  // Read-only preview, derived live from the name — not editable here.
+  // CreateRestaurantDto has no slug field, so createRestaurant() cannot
+  // carry an owner-edited value; an editable control whose value is
+  // silently discarded on submit would be worse than not offering one.
+  // The server derives the real slug from the name at creation time (see
+  // slugPreview.ts header) and it can be changed afterwards in Settings —
+  // a free rename during the grace window, before any alias is created —
+  // so this step is never gated on it.
   const derivedSlug = name.trim() ? slugifyForPreview(name) : "";
-  const previewSlug = slugTouched ? slug : derivedSlug;
-  const previewUrl = previewSlug
-    ? getMenuUrl({ id: "preview", slug: previewSlug })
+  const previewUrl = derivedSlug
+    ? getMenuUrl({ id: "preview", slug: derivedSlug })
     : "";
 
   return (
@@ -149,26 +148,17 @@ export default function RestaurantBasicsStep({
           <input
             id="menu-slug"
             type="text"
-            value={previewSlug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              // Lowercase as they type: the server rejects uppercase rather
-              // than coercing it, so the owner sees the transformation
-              // happen instead of hitting a 400 later.
-              setSlug(e.target.value.toLowerCase());
-            }}
-            placeholder={t("auto.eGBistroOranzh", "e.g. bistro-oranzh")}
-            className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
-          />
-          <p
+            readOnly
+            value={previewUrl}
             data-testid="slug-preview"
-            className="text-xs text-muted-foreground break-all"
-          >
-            {previewUrl ||
-              t(
-                "onboarding.basics.menuAddressHint",
-                "Type a restaurant name to preview your menu address.",
-              )}
+            placeholder={t("auto.eGBistroOranzh", "e.g. bistro-oranzh")}
+            className="w-full px-3 py-2.5 rounded-xl border border-border bg-muted/30 text-muted-foreground text-sm cursor-default focus:outline-none placeholder:text-muted-foreground"
+          />
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "onboarding.basics.menuAddressHint",
+              "Generated automatically from your restaurant name — you can change it later in Settings.",
+            )}
           </p>
         </div>
 

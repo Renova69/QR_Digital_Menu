@@ -16,6 +16,13 @@ describe("slugifyForPreview", () => {
     expect(slugifyForPreview("Пицария")).toBe("pitsaria");
   });
 
+  // Guards against a future edit loosening the negative lookahead in the
+  // ported -ия regex — the backend's own spec proves the rule fires only
+  // at a word boundary, not on any "ия" substring.
+  it("does not apply the -ия rule mid-word", () => {
+    expect(slugifyForPreview("Пицариян")).toBe("pitsariyan");
+  });
+
   it("slugifies a Latin name", () => {
     expect(slugifyForPreview("Restaurant OWEN")).toBe("restaurant-owen");
   });
