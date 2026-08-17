@@ -20,6 +20,7 @@ import { isPresetTagKey } from '../menu/menu-tags';
 import { MenuTranslationEnqueueService } from '../menu/menu-translation-enqueue.service';
 import { MenuTranslationWorkerService } from '../menu/menu-translation-worker.service';
 import { TranslationQuotaService } from '../translation/translation-quota.service';
+import { RestaurantSlugService } from './slug/restaurant-slug.service';
 import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
@@ -32,6 +33,7 @@ const LOGO_MAX_BYTES = 5 * 1024 * 1024; // 5MB — logos are small; fail closed 
 const RESTAURANT_READ_SELECT = {
   id: true,
   name: true,
+  slug: true,
   country: true,
   city: true,
   logoUrl: true,
@@ -154,6 +156,7 @@ export class RestaurantsService {
     private readonly translationEnqueue: MenuTranslationEnqueueService,
     private readonly translationWorker: MenuTranslationWorkerService,
     private readonly translationQuota: TranslationQuotaService,
+    private readonly restaurantSlugService: RestaurantSlugService,
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
@@ -174,6 +177,26 @@ export class RestaurantsService {
         ownerId: userId,
       },
     });
+
+    // Best-effort vanity-URL allocation. This must run after the row exists
+    // — claimInitialSlug needs a real restaurant id to attach the slug to.
+    // It must never fail the signup: claimInitialSlug throws ConflictException
+    // once it exhausts MAX_CLAIM_ATTEMPTS, and a restaurant with a null slug
+    // (repaired later by the backfill script) is a far better outcome than an
+    // owner losing their new restaurant because a slug candidate collided.
+    try {
+      await this.restaurantSlugService.claimInitialSlug(
+        restaurant.id,
+        restaurant.name,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `claimInitialSlug failed for restaurant ${restaurant.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
     return restaurant;
   }
 

@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter } from 'events';
 import * as dns from 'dns';
 import * as https from 'https';
@@ -59,6 +63,7 @@ const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
   id: 'rest1',
   ownerId: 'user1',
   name: 'Test Restaurant',
+  slug: null as string | null,
   stripeAccountId: null,
   stripeOnboarded: false,
   targetLanguages: [] as string[],
@@ -80,6 +85,7 @@ describe('RestaurantsService', () => {
   let mockTranslationEnqueue: Record<string, jest.Mock>;
   let mockTranslationWorker: Record<string, jest.Mock>;
   let mockTranslationQuota: Record<string, jest.Mock>;
+  let mockRestaurantSlugService: Record<string, jest.Mock>;
 
   beforeEach(() => {
     mockPrisma = {
@@ -201,6 +207,10 @@ describe('RestaurantsService', () => {
       emitToRestaurant: jest.fn(),
     };
 
+    mockRestaurantSlugService = {
+      claimInitialSlug: jest.fn().mockResolvedValue('test-restaurant'),
+    };
+
     service = new RestaurantsService(
       mockPrisma as unknown as ConstructorParameters<
         typeof RestaurantsService
@@ -229,6 +239,9 @@ describe('RestaurantsService', () => {
       mockTranslationQuota as unknown as ConstructorParameters<
         typeof RestaurantsService
       >[8],
+      mockRestaurantSlugService as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[9],
     );
   });
 
@@ -263,6 +276,46 @@ describe('RestaurantsService', () => {
       expect(sentData).not.toHaveProperty('accentColor');
       expect(sentData).toMatchObject({ name: 'New Place', ownerId: 'user1' });
     });
+
+    it('claims an initial slug for a newly created restaurant, after the row exists', async () => {
+      const created = makeRestaurant({ id: 'rest-new', name: 'New Place' });
+      mockPrisma.restaurant.create.mockResolvedValue(created);
+
+      await service.create({ name: 'New Place' }, 'user1');
+
+      // Must be called with the real id from the created row, not a
+      // pre-create placeholder — proves the call happens after creation.
+      expect(mockRestaurantSlugService.claimInitialSlug).toHaveBeenCalledWith(
+        'rest-new',
+        'New Place',
+      );
+    });
+
+    it('still returns the created restaurant when slug allocation is exhausted', async () => {
+      const created = makeRestaurant({ id: 'rest-new', name: 'New Place' });
+      mockPrisma.restaurant.create.mockResolvedValue(created);
+      mockRestaurantSlugService.claimInitialSlug.mockRejectedValue(
+        new ConflictException(
+          'Could not allocate a unique slug for "New Place" after 5 attempts',
+        ),
+      );
+
+      const result = await service.create({ name: 'New Place' }, 'user1');
+
+      expect(result).toBe(created);
+    });
+
+    it('does not propagate a slug-allocation failure of any kind — creation is unconditionally best-effort', async () => {
+      const created = makeRestaurant({ id: 'rest-new', name: 'New Place' });
+      mockPrisma.restaurant.create.mockResolvedValue(created);
+      mockRestaurantSlugService.claimInitialSlug.mockRejectedValue(
+        new Error('unexpected db error'),
+      );
+
+      await expect(
+        service.create({ name: 'New Place' }, 'user1'),
+      ).resolves.toBe(created);
+    });
   });
 
   // ─── findAll ─────────────────────────────────────────────────────────────────
@@ -277,10 +330,21 @@ describe('RestaurantsService', () => {
       expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { ownerId: 'user1', deletedAt: null },
-          select: expect.objectContaining({ id: true, tier: true }),
+          select: expect.objectContaining({ id: true, tier: true, slug: true }),
         }),
       );
       expect(result).toHaveLength(1);
+    });
+
+    it('exposes slug on restaurants returned to the dashboard', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+      mockPrisma.restaurant.findMany.mockResolvedValue([
+        makeRestaurant({ slug: 'the-good-place' }),
+      ]);
+
+      const [result] = await service.findAll('user1');
+
+      expect(result.slug).toBe('the-good-place');
     });
 
     it('returns restaurants by restaurantId when user is staff', async () => {
@@ -292,7 +356,7 @@ describe('RestaurantsService', () => {
       expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'rest1', deletedAt: null },
-          select: expect.objectContaining({ id: true, tier: true }),
+          select: expect.objectContaining({ id: true, tier: true, slug: true }),
         }),
       );
     });
@@ -324,6 +388,21 @@ describe('RestaurantsService', () => {
       const result = await service.findOne('rest1', 'user1');
       expect(result).toMatchObject({ id: 'rest1', name: 'Test Restaurant' });
       expect(result).not.toHaveProperty('stripeAccountId');
+    });
+
+    it('exposes the assigned slug to the settings page', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ slug: 'the-good-place' }),
+      );
+
+      const result = await service.findOne('rest1', 'user1');
+
+      expect(result.slug).toBe('the-good-place');
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ slug: true }),
+        }),
+      );
     });
   });
 
@@ -464,10 +543,31 @@ describe('RestaurantsService', () => {
         expect.objectContaining({
           where: { id: 'rest1' },
           data: { name: 'Updated' },
+          select: expect.objectContaining({ slug: true }),
         }),
       );
       expect(result).toMatchObject({ id: 'rest1', name: 'Updated' });
       expect(result).not.toHaveProperty('stripeAccountId');
+    });
+
+    it('re-reads the assigned slug after settings are saved', async () => {
+      const restaurant = makeRestaurant();
+      mockPrisma.restaurant.findUnique.mockResolvedValue(restaurant);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(
+        makeRestaurant({ name: 'Updated', slug: 'the-good-place' }),
+      );
+
+      const result = await service.update(
+        'rest1',
+        { name: 'Updated' },
+        'user1',
+      );
+
+      expect(result.slug).toBe('the-good-place');
     });
 
     it('throws ForbiddenException when not owner or manager', async () => {

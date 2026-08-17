@@ -56,6 +56,7 @@ describe('RestaurantsService — Stripe Connect', () => {
       {} as any, // MenuTranslationEnqueueService — unused by this describe block
       {} as any, // MenuTranslationWorkerService — unused by this describe block
       {} as any, // TranslationQuotaService — unused by this describe block
+      {} as any, // RestaurantSlugService — unused by this describe block
     );
   });
 
