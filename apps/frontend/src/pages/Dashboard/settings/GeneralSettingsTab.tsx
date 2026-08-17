@@ -8,11 +8,14 @@ import {
   CheckCircle2,
   AlertTriangle,
   Copy,
+  Pencil,
 } from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useSocket } from "../../../context/SocketContext";
+import { useAuth } from "../../../context/AuthContext";
 import {
   updateRestaurant,
+  renameRestaurantSlug,
   triggerTranslation,
   getTranslationStatus,
   type TranslationStatus,
@@ -20,8 +23,30 @@ import {
 import { useFeature } from "../../../hooks/useFeature";
 import { getApiError } from "../../../lib/apiError";
 import { DashboardButton } from "../../../components/dashboard/DashboardButton";
+import { Modal } from "../../../components/ui/modal";
 import { getMenuUrl } from "../../../lib/menuUrl";
 import { copyToClipboard } from "../../../lib/tableViewUtils";
+
+// Server message for RestaurantSlugService.assertRenameAllowed's cooldown
+// rejection (apps/backend/src/restaurants/slug/restaurant-slug.service.ts) —
+// `Slug can be changed again on ${availableAt.toISOString()}`. Matched here
+// so the UI can surface the actual date instead of a generic error.
+const RENAME_COOLDOWN_PATTERN = /^Slug can be changed again on (.+)$/;
+
+// The global ValidationPipe (main.ts) has no custom exceptionFactory, so a
+// class-validator failure (format/length on UpdateSlugDto) arrives as
+// `message: string[]`, while every hand-thrown BadRequestException in
+// RestaurantSlugService arrives as `message: string`. Both shapes are real.
+function extractSlugErrorMessage(err: unknown): string | null {
+  const data = (err as { response?: { data?: { message?: unknown } } })
+    ?.response?.data;
+  const message = data?.message;
+  if (Array.isArray(message)) {
+    const first = message.find((entry) => typeof entry === "string");
+    return typeof first === "string" ? first : null;
+  }
+  return typeof message === "string" ? message : null;
+}
 
 // Poll fallback cadence while a translate-all run is active — the socket
 // carries live done/total updates, but its terminal phases are per-batch,
@@ -76,6 +101,8 @@ const sectionHeading =
 
 const GeneralSettingsTab: React.FC = () => {
   const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
+  const { user } = useAuth();
+  const isOwner = user?.role === "OWNER";
   const canLanguages = useFeature("languages:multi");
   const { t } = useTranslation();
 
@@ -99,9 +126,15 @@ const GeneralSettingsTab: React.FC = () => {
     error: "",
     success: "",
   });
-  // Read-only "Menu address" section (#Task20a) — copy-to-clipboard feedback
-  // only. No rename/release UI here; that lands in a later dispatch.
+  // "Menu address" section (#Task20a copy-to-clipboard, #Task20b rename).
+  // Release UI is explicitly out of scope — see task-20b-report.md: the
+  // slug controller has no findMany, so there is no way to list a
+  // restaurant's retired aliases for a release picker to show.
   const [menuAddressCopied, setMenuAddressCopied] = useState(false);
+  const [slugDialogOpen, setSlugDialogOpen] = useState(false);
+  const [slugDraft, setSlugDraft] = useState("");
+  const [slugSaving, setSlugSaving] = useState(false);
+  const [slugError, setSlugError] = useState("");
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState<{
     phase: string;
@@ -452,6 +485,88 @@ const GeneralSettingsTab: React.FC = () => {
     }
   };
 
+  // Only reachable when activeRestaurant.slug is set — the "Change" button
+  // that opens this dialog is not rendered otherwise (mirrors the Copy
+  // button above), and renameSlug's own primaryOrThrow would reject a
+  // restaurant with no primary slug anyway.
+  const handleOpenSlugDialog = () => {
+    if (!activeRestaurant?.slug) return;
+    setSlugDraft(activeRestaurant.slug);
+    setSlugError("");
+    setSlugDialogOpen(true);
+  };
+
+  const handleSlugDialogOpenChange = (open: boolean) => {
+    setSlugDialogOpen(open);
+    if (!open) setSlugError("");
+  };
+
+  const handleRenameSlug = async () => {
+    if (!activeRestaurant) return;
+    const nextSlug = slugDraft.trim().toLowerCase();
+    if (!nextSlug) return;
+    setSlugSaving(true);
+    setSlugError("");
+    try {
+      await renameRestaurantSlug(activeRestaurant.id, nextSlug);
+      await fetchRestaurants();
+      setSlugDialogOpen(false);
+    } catch (err: unknown) {
+      const message = extractSlugErrorMessage(err);
+      const cooldownMatch = message?.match(RENAME_COOLDOWN_PATTERN);
+
+      if (cooldownMatch) {
+        const availableAt = new Date(cooldownMatch[1]);
+        const dateLabel = Number.isNaN(availableAt.getTime())
+          ? cooldownMatch[1]
+          : availableAt.toISOString().slice(0, 10);
+        setSlugError(
+          t("settings.renameCooldownMessage", {
+            date: dateLabel,
+            defaultValue: "You can change your menu address again on {{date}}.",
+          }),
+        );
+      } else if (message === "This slug is already taken") {
+        setSlugError(
+          t(
+            "settings.slugTakenError",
+            "This address is already taken. Try a different one.",
+          ),
+        );
+      } else if (
+        message === "This slug was released and can only be restored by support"
+      ) {
+        setSlugError(
+          t(
+            "settings.slugReleasedError",
+            "This address was released and can only be restored by contacting support.",
+          ),
+        );
+      } else if (message && /lowercase letters/i.test(message)) {
+        setSlugError(
+          t(
+            "settings.slugFormatError",
+            "Use lowercase letters, numbers, and hyphens only.",
+          ),
+        );
+      } else if (
+        message &&
+        /(longer than or equal to|shorter than or equal to)/i.test(message)
+      ) {
+        setSlugError(
+          t(
+            "settings.slugLengthError",
+            "Your menu address must be between 2 and 40 characters.",
+          ),
+        );
+      } else {
+        setSlugError(message || t(getApiError(err)));
+      }
+    } finally {
+      setSlugSaving(false);
+    }
+  };
+
   const tzLabel =
     TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone;
   const langCount = targetLanguages.filter(
@@ -504,516 +619,598 @@ const GeneralSettingsTab: React.FC = () => {
   );
 
   return (
-    <form onSubmit={handleSave} className="space-y-6">
-      {status.error && (
-        <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">
-          {status.error}
-        </div>
-      )}
-      {status.success && (
-        <div className="bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-lg text-sm">
-          {status.success}
-        </div>
-      )}
+    <>
+      <form onSubmit={handleSave} className="space-y-6">
+        {status.error && (
+          <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">
+            {status.error}
+          </div>
+        )}
+        {status.success && (
+          <div className="bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-lg text-sm">
+            {status.success}
+          </div>
+        )}
 
-      {/* Summary row */}
-      <div className="flex flex-wrap gap-2 pb-5 border-b border-border">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20 truncate max-w-[200px]">
-          {restaurantName || t("settings.restaurantNamePlaceholder")}
-        </span>
-        <div
-          className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border hover:bg-muted/80 transition-colors cursor-pointer"
-          title={t("settings.timezoneDesc")}
-        >
-          <Globe size={11} />
-          <span>{tzLabel}</span>
-          <select
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          >
-            {TIMEZONES.map((tz) => (
-              <option key={tz.value} value={tz.value}>
-                {tz.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {langCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border">
-            {t("settings.summaryLanguages", {
-              count: langCount,
-              defaultValue: "{{count}} language(s) active",
-            })}
+        {/* Summary row */}
+        <div className="flex flex-wrap gap-2 pb-5 border-b border-border">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20 truncate max-w-[200px]">
+            {restaurantName || t("settings.restaurantNamePlaceholder")}
           </span>
-        )}
-      </div>
-
-      {/* ── Basic Info (Name & Contact) ── */}
-      <div className="border-b border-border pb-6">
-        <h3 className={`${sectionHeading} mb-4`}>
-          {t("settings.restaurantName")} & {t("settings.locationContact")}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Restaurant Name */}
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.restaurantName")}
-            </label>
-            <input
-              type="text"
-              value={restaurantName}
-              onChange={(e) => setRestaurantName(e.target.value)}
-              placeholder={t("settings.restaurantNamePlaceholder")}
-              className={inputCls}
-              required
-            />
-          </div>
-
-          {/* City */}
-          <div>
-            <label
-              htmlFor="restaurant-city"
-              className="block text-sm font-medium text-foreground/80 mb-1"
+          <div
+            className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border hover:bg-muted/80 transition-colors cursor-pointer"
+            title={t("settings.timezoneDesc")}
+          >
+            <Globe size={11} />
+            <span>{tzLabel}</span>
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             >
-              {t("settings.city", "City")}
-            </label>
-            <input
-              id="restaurant-city"
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder={t("settings.cityPlaceholder", "Sofia")}
-              autoComplete="address-level2"
-              className={inputCls}
-            />
+              {TIMEZONES.map((tz) => (
+                <option key={tz.value} value={tz.value}>
+                  {tz.label}
+                </option>
+              ))}
+            </select>
           </div>
+          {langCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border">
+              {t("settings.summaryLanguages", {
+                count: langCount,
+                defaultValue: "{{count}} language(s) active",
+              })}
+            </span>
+          )}
+        </div>
 
-          {/* Country */}
-          <div>
-            <label
-              htmlFor="restaurant-country"
-              className="block text-sm font-medium text-foreground/80 mb-1"
-            >
-              {t("settings.country", "Country")}
-            </label>
-            <input
-              id="restaurant-country"
-              type="text"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              placeholder={t("settings.countryPlaceholder", "Bulgaria")}
-              autoComplete="country-name"
-              className={inputCls}
-              required
-            />
-          </div>
+        {/* ── Basic Info (Name & Contact) ── */}
+        <div className="border-b border-border pb-6">
+          <h3 className={`${sectionHeading} mb-4`}>
+            {t("settings.restaurantName")} & {t("settings.locationContact")}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Restaurant Name */}
+            <div>
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
+                {t("settings.restaurantName")}
+              </label>
+              <input
+                type="text"
+                value={restaurantName}
+                onChange={(e) => setRestaurantName(e.target.value)}
+                placeholder={t("settings.restaurantNamePlaceholder")}
+                className={inputCls}
+                required
+              />
+            </div>
 
-          {/* Address */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.address")}
-            </label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder={t(
-                "settings.addressPlaceholder",
-                "123 Main St, New York",
-              )}
-              className={inputCls}
-            />
-          </div>
+            {/* City */}
+            <div>
+              <label
+                htmlFor="restaurant-city"
+                className="block text-sm font-medium text-foreground/80 mb-1"
+              >
+                {t("settings.city", "City")}
+              </label>
+              <input
+                id="restaurant-city"
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder={t("settings.cityPlaceholder", "Sofia")}
+                autoComplete="address-level2"
+                className={inputCls}
+              />
+            </div>
 
-          {/* Contact */}
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.contactInfo")}
-            </label>
-            <input
-              type="tel"
-              value={contactInfo}
-              onChange={(e) => setContactInfo(e.target.value)}
-              placeholder="+1 555 555 5555"
-              className={inputCls}
-            />
+            {/* Country */}
+            <div>
+              <label
+                htmlFor="restaurant-country"
+                className="block text-sm font-medium text-foreground/80 mb-1"
+              >
+                {t("settings.country", "Country")}
+              </label>
+              <input
+                id="restaurant-country"
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder={t("settings.countryPlaceholder", "Bulgaria")}
+                autoComplete="country-name"
+                className={inputCls}
+                required
+              />
+            </div>
+
+            {/* Address */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
+                {t("settings.address")}
+              </label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder={t(
+                  "settings.addressPlaceholder",
+                  "123 Main St, New York",
+                )}
+                className={inputCls}
+              />
+            </div>
+
+            {/* Contact */}
+            <div>
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
+                {t("settings.contactInfo")}
+              </label>
+              <input
+                type="tel"
+                value={contactInfo}
+                onChange={(e) => setContactInfo(e.target.value)}
+                placeholder="+1 555 555 5555"
+                className={inputCls}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Menu Address ── */}
-      <div className="border-b border-border pb-6">
-        <h3 className={`${sectionHeading} mb-1`}>
-          {t("settings.menuAddress", "Menu address")}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {t(
-            "settings.menuAddressDesc",
-            "The web address customers reach when they scan your QR code.",
-          )}
-        </p>
-        {activeRestaurant?.slug ? (
-          <div className="flex flex-wrap items-center gap-2 max-w-xl">
-            <code className="flex-1 min-w-0 truncate rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
-              {getMenuUrl(activeRestaurant)}
-            </code>
-            <DashboardButton
-              density="compact"
-              type="button"
-              onClick={handleCopyMenuAddress}
-              className="bg-secondary text-foreground hover:bg-secondary/80"
-            >
-              <Copy size={14} />
-              {menuAddressCopied
-                ? t("common.copied", "Copied")
-                : t("settings.copyMenuAddress", "Copy")}
-            </DashboardButton>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm italic text-muted-foreground">
+        {/* ── Menu Address ── */}
+        <div className="border-b border-border pb-6">
+          <h3 className={`${sectionHeading} mb-1`}>
+            {t("settings.menuAddress", "Menu address")}
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
             {t(
-              "settings.menuAddressNotAssigned",
-              "Your branded menu address hasn't been set up yet. Once it's ready, you'll be able to copy and share it here.",
+              "settings.menuAddressDesc",
+              "The web address customers reach when they scan your QR code.",
             )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Social Media ── */}
-      <div className="border-b border-border pb-6">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-1">
-          <h3 className={sectionHeading}>{t("settings.socialMedia")}</h3>
-
-          {availableToAdd.length > 0 && (
-            <div className="relative inline-flex">
+          </p>
+          {activeRestaurant?.slug ? (
+            <div className="flex flex-wrap items-center gap-2 max-w-xl">
+              <code className="flex-1 min-w-0 truncate rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
+                {getMenuUrl(activeRestaurant)}
+              </code>
               <DashboardButton
                 density="compact"
                 type="button"
-                className="bg-primary/5 px-2 text-primary hover:bg-primary/10"
+                onClick={handleCopyMenuAddress}
+                className="bg-secondary text-foreground hover:bg-secondary/80"
               >
-                <Plus size={12} />
-                {t("common.add", "Add")}
+                <Copy size={14} />
+                {menuAddressCopied
+                  ? t("common.copied", "Copied")
+                  : t("settings.copyMenuAddress", "Copy")}
               </DashboardButton>
-              <select
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                value=""
-                onChange={(e) => {
-                  setAddedSocialFields((prev) => [...prev, e.target.value]);
-                }}
-              >
-                <option value="" disabled>
-                  {t("common.selectToAdd", "Select link to add...")}
-                </option>
-                {availableToAdd.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {t(f.labelKey)}
-                  </option>
-                ))}
-              </select>
+              {isOwner && (
+                <DashboardButton
+                  density="compact"
+                  type="button"
+                  onClick={handleOpenSlugDialog}
+                  className="bg-secondary text-foreground hover:bg-secondary/80"
+                >
+                  <Pencil size={14} />
+                  {t("settings.changeMenuAddress", "Change")}
+                </DashboardButton>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm italic text-muted-foreground">
+              {t(
+                "settings.menuAddressNotAssigned",
+                "Your branded menu address hasn't been set up yet. Once it's ready, you'll be able to copy and share it here.",
+              )}
             </div>
           )}
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          {t("settings.socialMediaDesc")}
-        </p>
 
-        {visibleSocialFields.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {visibleSocialFields.map((f) => (
-              <div key={f.key} className="relative group">
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t(f.labelKey)}
-                </label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={f.value}
-                    onChange={(e) => f.setter(e.target.value)}
-                    placeholder={f.placeholder}
-                    className={`${inputCls} pr-8`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      f.setter("");
-                      setAddedSocialFields((prev) =>
-                        prev.filter((key) => key !== f.key),
-                      );
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md opacity-0 group-hover:opacity-100 transition-all"
-                    title={t("common.remove", "Remove")}
+        {/* ── Social Media ── */}
+        <div className="border-b border-border pb-6">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-1">
+            <h3 className={sectionHeading}>{t("settings.socialMedia")}</h3>
+
+            {availableToAdd.length > 0 && (
+              <div className="relative inline-flex">
+                <DashboardButton
+                  density="compact"
+                  type="button"
+                  className="bg-primary/5 px-2 text-primary hover:bg-primary/10"
+                >
+                  <Plus size={12} />
+                  {t("common.add", "Add")}
+                </DashboardButton>
+                <select
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  value=""
+                  onChange={(e) => {
+                    setAddedSocialFields((prev) => [...prev, e.target.value]);
+                  }}
+                >
+                  <option value="" disabled>
+                    {t("common.selectToAdd", "Select link to add...")}
+                  </option>
+                  {availableToAdd.map((f) => (
+                    <option key={f.key} value={f.key}>
+                      {t(f.labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            {t("settings.socialMediaDesc")}
+          </p>
+
+          {visibleSocialFields.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {visibleSocialFields.map((f) => (
+                <div key={f.key} className="relative group">
+                  <label className="block text-sm font-medium text-foreground/80 mb-1">
+                    {t(f.labelKey)}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={f.value}
+                      onChange={(e) => f.setter(e.target.value)}
+                      placeholder={f.placeholder}
+                      className={`${inputCls} pr-8`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        f.setter("");
+                        setAddedSocialFields((prev) =>
+                          prev.filter((key) => key !== f.key),
+                        );
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+                      title={t("common.remove", "Remove")}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm italic text-muted-foreground sm:px-5">
+              {t(
+                "settings.noSocialMedia",
+                "No social media links added yet. Click 'Add' to add them.",
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Google Review CTA ── */}
+        <div className="border-b border-border pb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Star size={14} className="text-muted-foreground" />
+            <h3 className={sectionHeading}>
+              {t("settings.googleReview", "Google Review CTA")}
+            </h3>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4 ml-[22px]">
+            {t(
+              "settings.googleReviewDesc",
+              "After checkout, customers with 4- or 5-star ratings are redirected to your Google review page.",
+            )}
+          </p>
+          <div className="max-w-sm ml-[22px]">
+            <label className="block text-sm font-medium text-foreground/80 mb-1">
+              {t("settings.googleReviewUrl", "Google Review URL")}
+            </label>
+            <input
+              type="url"
+              value={googleReviewUrl}
+              onChange={(e) => setGoogleReviewUrl(e.target.value)}
+              placeholder={t(
+                "settings.googleReviewPlaceholder",
+                "https://g.page/r/YOUR_REVIEW_LINK",
+              )}
+              className={inputCls}
+            />
+            {googleReviewUrl && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1">
+                <CheckCircle2 size={12} className="flex-shrink-0" />
+                {t(
+                  "settings.googleReviewActive",
+                  "Redirect active — customers will be sent to Google after checkout",
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Localization & Translation ── */}
+        {canLanguages && (
+          <div className="border-b border-border pb-6">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h3 className={sectionHeading}>{t("settings.localization")}</h3>
+              {!translating &&
+                translationStatus &&
+                translationStatus.pending + translationStatus.failed > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 text-[11px] font-medium border border-yellow-500/30"
+                    title={t(
+                      "settings.translationOutdatedBadgeTitle",
+                      "Some menu translations are outdated or failed — click Translate All Now to refresh them.",
+                    )}
                   >
-                    <X size={14} />
-                  </button>
+                    <AlertTriangle size={11} />
+                    {t("settings.translationOutdatedBadge", {
+                      count:
+                        translationStatus.pending + translationStatus.failed,
+                      defaultValue: "{{count}} outdated",
+                    })}
+                  </span>
+                )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("settings.localizationDesc")}
+            </p>
+            <div className="space-y-4">
+              <div className="max-w-sm">
+                <label className="block text-sm font-medium text-foreground/80 mb-2">
+                  {t("settings.menuSourceLanguage", "Menu source language")}
+                </label>
+                <select
+                  value={sourceLanguage}
+                  onChange={(event) => {
+                    const nextSource = event.target.value;
+                    setSourceLanguage(nextSource);
+                    setTargetLanguages((current) =>
+                      current.filter((locale) => locale !== nextSource),
+                    );
+                  }}
+                  className={inputCls}
+                >
+                  {AVAILABLE_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {t(`language.${lang.code}`, lang.name)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {t(
+                    "settings.menuSourceLanguageHint",
+                    "The language used in your menu item names and descriptions.",
+                  )}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 mb-2">
+                  {t("settings.targetLanguages")}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_LANGUAGES.filter(
+                    (lang) => lang.code !== sourceLanguage,
+                  ).map((lang) => (
+                    <DashboardButton
+                      density="compact"
+                      key={lang.code}
+                      type="button"
+                      onClick={() => handleLanguageToggle(lang.code)}
+                      className={`rounded-full border ${
+                        targetLanguages.includes(lang.code)
+                          ? "bg-primary/15 text-primary border-primary/30"
+                          : "bg-secondary text-foreground border-border hover:bg-secondary/80"
+                      }`}
+                    >
+                      {t(`language.${lang.code}`, lang.name)}
+                    </DashboardButton>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm italic text-muted-foreground sm:px-5">
-            {t(
-              "settings.noSocialMedia",
-              "No social media links added yet. Click 'Add' to add them.",
+              <p className="text-xs text-muted-foreground">
+                {t("settings.translationPoweredBy")}
+              </p>
+            </div>
+            <div className="mt-6 flex flex-col sm:flex-row gap-4 items-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-yellow-700 dark:text-yellow-400">
+                  {t("settings.processExisting")}
+                </h4>
+                <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                  {langCount > 0
+                    ? t("settings.translationActiveCount", {
+                        count: langCount,
+                        defaultValue:
+                          "{{count}} language(s) selected — click to translate your menu",
+                      })
+                    : t("settings.processExistingDesc")}
+                </p>
+              </div>
+              <DashboardButton
+                type="button"
+                onClick={handleForceTranslate}
+                disabled={translating || langCount === 0}
+                className="bg-yellow-600 text-white hover:bg-yellow-700"
+              >
+                {translating
+                  ? t("settings.translating")
+                  : t("settings.translateAllNow")}
+              </DashboardButton>
+            </div>
+            {(translating || translateProgress !== null) && (
+              <div className="mt-3 space-y-2">
+                {/* Phase-aware label row */}
+                {translateProgress && translateProgress.total > 0 ? (
+                  <>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span
+                        className={
+                          translatePhaseStatus === "PARTIAL"
+                            ? "text-destructive font-medium"
+                            : translatePhaseStatus === "COMPLETED"
+                              ? "text-green-600 dark:text-green-400 font-medium"
+                              : translateTimedOut
+                                ? "text-muted-foreground font-medium"
+                                : "text-muted-foreground"
+                        }
+                      >
+                        {translatePhaseStatus === "PARTIAL"
+                          ? t("settings.translateSomeFailedNotice", {
+                              count:
+                                translateProgress.total -
+                                translateProgress.done,
+                              defaultValue:
+                                "Translation finished — {{count}} item(s) failed or require review.",
+                            })
+                          : translatePhaseStatus === "COMPLETED" &&
+                              translateSuccess
+                            ? t(
+                                "settings.translateSuccess",
+                                "✓ Translation complete!",
+                              )
+                            : translateTimedOut
+                              ? t(
+                                  "settings.translateTimedOut",
+                                  "Translation is taking longer than expected — you can check back later.",
+                                )
+                              : t(
+                                  "settings.translatingInProgress",
+                                  "Translating menu…",
+                                )}
+                      </span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {t("settings.translateProgressCount", {
+                          done: translateProgress.done,
+                          total: translateProgress.total,
+                          remaining: Math.max(
+                            0,
+                            translateProgress.total - translateProgress.done,
+                          ),
+                          defaultValue:
+                            "{{done}}/{{total}} · {{remaining}} left",
+                        })}
+                      </span>
+                    </div>
+                    <div
+                      className="h-2 w-full rounded-full bg-secondary overflow-hidden"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={translateProgress.total}
+                      aria-valuenow={translateProgress.done}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ease-out ${
+                          translatePhaseStatus === "PARTIAL"
+                            ? "bg-destructive"
+                            : translatePhaseStatus === "COMPLETED"
+                              ? "bg-green-500"
+                              : translateTimedOut
+                                ? "bg-muted-foreground/50"
+                                : "bg-yellow-600"
+                        }`}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              (translateProgress.done /
+                                translateProgress.total) *
+                                100,
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    {t(
+                      "settings.translateQueued",
+                      "Queued — translation is running in the background…",
+                    )}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
-      </div>
 
-      {/* ── Google Review CTA ── */}
-      <div className="border-b border-border pb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Star size={14} className="text-muted-foreground" />
-          <h3 className={sectionHeading}>
-            {t("settings.googleReview", "Google Review CTA")}
-          </h3>
+        {/* Save */}
+        <div className="flex justify-end pt-2">
+          <DashboardButton
+            type="submit"
+            disabled={status.loading}
+            className="brand-cta w-full text-white sm:w-auto"
+          >
+            {status.loading ? t("settings.saving") : t("settings.saveSettings")}
+          </DashboardButton>
         </div>
-        <p className="text-sm text-muted-foreground mb-4 ml-[22px]">
-          {t(
-            "settings.googleReviewDesc",
-            "After checkout, customers with 4- or 5-star ratings are redirected to your Google review page.",
-          )}
-        </p>
-        <div className="max-w-sm ml-[22px]">
-          <label className="block text-sm font-medium text-foreground/80 mb-1">
-            {t("settings.googleReviewUrl", "Google Review URL")}
-          </label>
-          <input
-            type="url"
-            value={googleReviewUrl}
-            onChange={(e) => setGoogleReviewUrl(e.target.value)}
-            placeholder={t(
-              "settings.googleReviewPlaceholder",
-              "https://g.page/r/YOUR_REVIEW_LINK",
-            )}
-            className={inputCls}
-          />
-          {googleReviewUrl && (
-            <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1">
-              <CheckCircle2 size={12} className="flex-shrink-0" />
-              {t(
-                "settings.googleReviewActive",
-                "Redirect active — customers will be sent to Google after checkout",
-              )}
-            </p>
-          )}
-        </div>
-      </div>
+      </form>
 
-      {/* ── Localization & Translation ── */}
-      {canLanguages && (
-        <div className="border-b border-border pb-6">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h3 className={sectionHeading}>{t("settings.localization")}</h3>
-            {!translating &&
-              translationStatus &&
-              translationStatus.pending + translationStatus.failed > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 text-[11px] font-medium border border-yellow-500/30"
-                  title={t(
-                    "settings.translationOutdatedBadgeTitle",
-                    "Some menu translations are outdated or failed — click Translate All Now to refresh them.",
-                  )}
-                >
-                  <AlertTriangle size={11} />
-                  {t("settings.translationOutdatedBadge", {
-                    count: translationStatus.pending + translationStatus.failed,
-                    defaultValue: "{{count}} outdated",
-                  })}
-                </span>
-              )}
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t("settings.localizationDesc")}
-          </p>
-          <div className="space-y-4">
-            <div className="max-w-sm">
-              <label className="block text-sm font-medium text-foreground/80 mb-2">
-                {t("settings.menuSourceLanguage", "Menu source language")}
-              </label>
-              <select
-                value={sourceLanguage}
-                onChange={(event) => {
-                  const nextSource = event.target.value;
-                  setSourceLanguage(nextSource);
-                  setTargetLanguages((current) =>
-                    current.filter((locale) => locale !== nextSource),
-                  );
-                }}
-                className={inputCls}
-              >
-                {AVAILABLE_LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {t(`language.${lang.code}`, lang.name)}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                {t(
-                  "settings.menuSourceLanguageHint",
-                  "The language used in your menu item names and descriptions.",
-                )}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/80 mb-2">
-                {t("settings.targetLanguages")}
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {AVAILABLE_LANGUAGES.filter(
-                  (lang) => lang.code !== sourceLanguage,
-                ).map((lang) => (
-                  <DashboardButton
-                    density="compact"
-                    key={lang.code}
-                    type="button"
-                    onClick={() => handleLanguageToggle(lang.code)}
-                    className={`rounded-full border ${
-                      targetLanguages.includes(lang.code)
-                        ? "bg-primary/15 text-primary border-primary/30"
-                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
-                    }`}
-                  >
-                    {t(`language.${lang.code}`, lang.name)}
-                  </DashboardButton>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.translationPoweredBy")}
-            </p>
-          </div>
-          <div className="mt-6 flex flex-col sm:flex-row gap-4 items-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-            <div className="flex-1">
-              <h4 className="text-sm font-bold text-yellow-700 dark:text-yellow-400">
-                {t("settings.processExisting")}
-              </h4>
-              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
-                {langCount > 0
-                  ? t("settings.translationActiveCount", {
-                      count: langCount,
-                      defaultValue:
-                        "{{count}} language(s) selected — click to translate your menu",
-                    })
-                  : t("settings.processExistingDesc")}
-              </p>
-            </div>
-            <DashboardButton
-              type="button"
-              onClick={handleForceTranslate}
-              disabled={translating || langCount === 0}
-              className="bg-yellow-600 text-white hover:bg-yellow-700"
+      {/* Rename dialog — OWNER only, opened from the "Change" button in the
+          Menu Address section above. Release UI is out of scope (see the
+          block comment near menuAddressCopied). */}
+      <Modal
+        dashboardUi
+        open={slugDialogOpen}
+        onOpenChange={handleSlugDialogOpenChange}
+        title={t("settings.renameMenuAddressTitle", "Change your menu address")}
+        description={t(
+          "settings.renameMenuAddressDesc",
+          "Existing printed QR codes will keep working — only the web address shown to customers changes.",
+        )}
+      >
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="menu-address-slug-input"
+              className="block text-sm font-medium text-foreground/80 mb-1"
             >
-              {translating
-                ? t("settings.translating")
-                : t("settings.translateAllNow")}
+              {t("settings.newMenuAddressLabel", "New menu address")}
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-sm text-muted-foreground">
+                {typeof window !== "undefined"
+                  ? `${window.location.origin}/m/`
+                  : "/m/"}
+              </span>
+              <input
+                id="menu-address-slug-input"
+                type="text"
+                value={slugDraft}
+                onChange={(e) => setSlugDraft(e.target.value.toLowerCase())}
+                className={inputCls}
+                maxLength={40}
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {slugError && <p className="text-sm text-destructive">{slugError}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <DashboardButton
+              density="compact"
+              type="button"
+              onClick={() => setSlugDialogOpen(false)}
+              className="bg-secondary text-foreground hover:bg-secondary/80"
+            >
+              {t("common.cancel", "Cancel")}
+            </DashboardButton>
+            <DashboardButton
+              density="compact"
+              type="button"
+              onClick={handleRenameSlug}
+              disabled={slugSaving || !slugDraft.trim()}
+              className="brand-cta text-white"
+            >
+              {slugSaving
+                ? t("settings.saving")
+                : t("settings.saveMenuAddress", "Save address")}
             </DashboardButton>
           </div>
-          {(translating || translateProgress !== null) && (
-            <div className="mt-3 space-y-2">
-              {/* Phase-aware label row */}
-              {translateProgress && translateProgress.total > 0 ? (
-                <>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span
-                      className={
-                        translatePhaseStatus === "PARTIAL"
-                          ? "text-destructive font-medium"
-                          : translatePhaseStatus === "COMPLETED"
-                            ? "text-green-600 dark:text-green-400 font-medium"
-                            : translateTimedOut
-                              ? "text-muted-foreground font-medium"
-                              : "text-muted-foreground"
-                      }
-                    >
-                      {translatePhaseStatus === "PARTIAL"
-                        ? t("settings.translateSomeFailedNotice", {
-                            count:
-                              translateProgress.total - translateProgress.done,
-                            defaultValue:
-                              "Translation finished — {{count}} item(s) failed or require review.",
-                          })
-                        : translatePhaseStatus === "COMPLETED" &&
-                            translateSuccess
-                          ? t(
-                              "settings.translateSuccess",
-                              "✓ Translation complete!",
-                            )
-                          : translateTimedOut
-                            ? t(
-                                "settings.translateTimedOut",
-                                "Translation is taking longer than expected — you can check back later.",
-                              )
-                            : t(
-                                "settings.translatingInProgress",
-                                "Translating menu…",
-                              )}
-                    </span>
-                    <span className="text-muted-foreground tabular-nums">
-                      {t("settings.translateProgressCount", {
-                        done: translateProgress.done,
-                        total: translateProgress.total,
-                        remaining: Math.max(
-                          0,
-                          translateProgress.total - translateProgress.done,
-                        ),
-                        defaultValue: "{{done}}/{{total}} · {{remaining}} left",
-                      })}
-                    </span>
-                  </div>
-                  <div
-                    className="h-2 w-full rounded-full bg-secondary overflow-hidden"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={translateProgress.total}
-                    aria-valuenow={translateProgress.done}
-                  >
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ease-out ${
-                        translatePhaseStatus === "PARTIAL"
-                          ? "bg-destructive"
-                          : translatePhaseStatus === "COMPLETED"
-                            ? "bg-green-500"
-                            : translateTimedOut
-                              ? "bg-muted-foreground/50"
-                              : "bg-yellow-600"
-                      }`}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.round(
-                            (translateProgress.done / translateProgress.total) *
-                              100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground italic">
-                  {t(
-                    "settings.translateQueued",
-                    "Queued — translation is running in the background…",
-                  )}
-                </p>
-              )}
-            </div>
-          )}
         </div>
-      )}
-
-      {/* Save */}
-      <div className="flex justify-end pt-2">
-        <DashboardButton
-          type="submit"
-          disabled={status.loading}
-          className="brand-cta w-full text-white sm:w-auto"
-        >
-          {status.loading ? t("settings.saving") : t("settings.saveSettings")}
-        </DashboardButton>
-      </div>
-    </form>
+      </Modal>
+    </>
   );
 };
 

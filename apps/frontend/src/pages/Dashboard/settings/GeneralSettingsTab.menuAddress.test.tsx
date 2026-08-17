@@ -32,8 +32,16 @@ vi.mock("../../../context/SocketContext", () => ({
   useSocket: () => ({ socket: null, isConnected: false }),
 }));
 
+// Fixed OWNER user — these tests cover the read-only copy/not-yet-assigned
+// states from #Task20a, not the #Task20b role gate (see
+// GeneralSettingsTab.slug.test.tsx for OWNER-vs-MANAGER coverage).
+vi.mock("../../../context/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "u1", role: "OWNER" } }),
+}));
+
 vi.mock("../../../lib/api", () => ({
   updateRestaurant: vi.fn(),
+  renameRestaurantSlug: vi.fn(),
   triggerTranslation: vi.fn(),
   getTranslationStatus: vi.fn(),
 }));

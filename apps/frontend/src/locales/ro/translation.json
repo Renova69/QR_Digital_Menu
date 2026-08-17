@@ -305,7 +305,17 @@
     "menuAddress": "Adresa meniului",
     "menuAddressDesc": "Adresa web pe care o accesează clienții când scanează codul QR.",
     "copyMenuAddress": "Copiază",
-    "menuAddressNotAssigned": "Adresa personalizată a meniului nu a fost încă configurată. Odată pregătită, o vei putea copia și distribui de aici."
+    "menuAddressNotAssigned": "Adresa personalizată a meniului nu a fost încă configurată. Odată pregătită, o vei putea copia și distribui de aici.",
+    "changeMenuAddress": "Schimbă",
+    "renameMenuAddressTitle": "Schimbă adresa meniului",
+    "renameMenuAddressDesc": "Codurile QR tipărite deja vor continua să funcționeze — se schimbă doar adresa web afișată clienților.",
+    "newMenuAddressLabel": "Noua adresă a meniului",
+    "saveMenuAddress": "Salvează adresa",
+    "renameCooldownMessage": "Poți schimba din nou adresa meniului pe {{date}}.",
+    "slugTakenError": "Această adresă este deja folosită. Încearcă alta.",
+    "slugReleasedError": "Această adresă a fost eliberată și poate fi restaurată doar prin contactarea suportului.",
+    "slugFormatError": "Folosește doar litere mici, cifre și cratime.",
+    "slugLengthError": "Adresa meniului trebuie să aibă între 2 și 40 de caractere."
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",

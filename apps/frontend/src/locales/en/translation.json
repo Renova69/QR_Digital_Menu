@@ -305,7 +305,17 @@
     "menuAddress": "Menu address",
     "menuAddressDesc": "The web address customers reach when they scan your QR code.",
     "copyMenuAddress": "Copy",
-    "menuAddressNotAssigned": "Your branded menu address hasn't been set up yet. Once it's ready, you'll be able to copy and share it here."
+    "menuAddressNotAssigned": "Your branded menu address hasn't been set up yet. Once it's ready, you'll be able to copy and share it here.",
+    "changeMenuAddress": "Change",
+    "renameMenuAddressTitle": "Change your menu address",
+    "renameMenuAddressDesc": "Existing printed QR codes will keep working — only the web address shown to customers changes.",
+    "newMenuAddressLabel": "New menu address",
+    "saveMenuAddress": "Save address",
+    "renameCooldownMessage": "You can change your menu address again on {{date}}.",
+    "slugTakenError": "This address is already taken. Try a different one.",
+    "slugReleasedError": "This address was released and can only be restored by contacting support.",
+    "slugFormatError": "Use lowercase letters, numbers, and hyphens only.",
+    "slugLengthError": "Your menu address must be between 2 and 40 characters."
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",

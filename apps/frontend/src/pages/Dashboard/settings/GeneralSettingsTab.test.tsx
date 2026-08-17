@@ -40,8 +40,17 @@ vi.mock("../../../context/SocketContext", () => ({
   useSocket: () => mockSocketState,
 }));
 
+// This tab gates the slug "Change" control on role (#Task20b) — every test
+// in this file exercises unrelated settings behavior, so a fixed OWNER user
+// keeps that gate out of the way without asserting on it here (see the
+// dedicated GeneralSettingsTab.slug.test.tsx for role-gating coverage).
+vi.mock("../../../context/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "u1", role: "OWNER" } }),
+}));
+
 vi.mock("../../../lib/api", () => ({
   updateRestaurant: vi.fn(),
+  renameRestaurantSlug: vi.fn(),
   triggerTranslation: vi.fn(),
   getTranslationStatus: vi.fn(),
 }));
