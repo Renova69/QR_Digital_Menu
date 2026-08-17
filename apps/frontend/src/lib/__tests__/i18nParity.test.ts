@@ -157,6 +157,9 @@ const GENERAL_SETTINGS_KEYS = [
   "settings.slugReleasedError",
   "settings.slugFormatError",
   "settings.slugLengthError",
+  "settings.slugReservedError",
+  "settings.slugNumericError",
+  "settings.slugPunycodeError",
 ];
 const DASHBOARD_UI_KEYS = [
   "dashboard.roles.owner",

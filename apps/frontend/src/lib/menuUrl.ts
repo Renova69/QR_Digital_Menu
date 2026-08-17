@@ -86,3 +86,17 @@ export function getMenuUrl(
 ): string {
   return `${origin}${getMenuPath(restaurant, target)}`;
 }
+
+/**
+ * Origin + the branded-URL path prefix, without a slug segment — for UI that
+ * needs to display "https://host/m/" as static label text next to an
+ * editable slug input (e.g. the settings rename dialog). Owns the "/m/"
+ * literal the same way getMenuPath does, so a caller with no slug to hand in
+ * yet doesn't have to hand-roll it. Do not inline `${origin}/m/` at a call
+ * site — this codebase has already had to undo that mistake twice.
+ */
+export function getMenuUrlPrefix(
+  origin: string = typeof window === "undefined" ? "" : window.location.origin,
+): string {
+  return `${origin}/m/`;
+}

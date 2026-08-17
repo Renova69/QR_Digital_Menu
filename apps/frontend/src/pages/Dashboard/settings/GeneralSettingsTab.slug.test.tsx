@@ -161,6 +161,85 @@ describe("GeneralSettingsTab - slug rename dialog", () => {
   });
 });
 
+// Fix round 1 — backend commit e4cb511f made renameSlug reject RESERVED,
+// NUMERIC and PUNYCODE slugs (previously only reachable via the advisory
+// /available check). Each backend message must map to its own translated
+// key rather than falling through to the raw-message fallback branch.
+describe("GeneralSettingsTab - slug rename dialog (reserved/numeric/punycode rejections)", () => {
+  it("translates a RESERVED rejection instead of showing the raw backend string", async () => {
+    vi.mocked(renameRestaurantSlug).mockRejectedValue({
+      response: {
+        status: 400,
+        data: { message: "This slug is reserved and cannot be used" },
+      },
+    });
+
+    const input = openRenameDialog();
+    fireEvent.change(input, { target: { value: "admin" } });
+    fireEvent.click(screen.getByRole("button", { name: /save address/i }));
+
+    expect(
+      await screen.findByText(
+        "This address is reserved and can't be used. Try a different one.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("This slug is reserved and cannot be used"),
+    ).toBeNull();
+  });
+
+  it("translates a NUMERIC rejection instead of showing the raw backend string", async () => {
+    vi.mocked(renameRestaurantSlug).mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          message:
+            "Slug cannot be all numeric — it would be ambiguous with an ID",
+        },
+      },
+    });
+
+    const input = openRenameDialog();
+    fireEvent.change(input, { target: { value: "12345" } });
+    fireEvent.click(screen.getByRole("button", { name: /save address/i }));
+
+    expect(
+      await screen.findByText(
+        "Your menu address can't be all numbers — add a letter or word.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Slug cannot be all numeric — it would be ambiguous with an ID",
+      ),
+    ).toBeNull();
+  });
+
+  it("translates a PUNYCODE rejection instead of showing the raw backend string", async () => {
+    vi.mocked(renameRestaurantSlug).mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          message: 'Slug cannot start with the reserved "xn--" prefix',
+        },
+      },
+    });
+
+    const input = openRenameDialog();
+    fireEvent.change(input, { target: { value: "xn--abc" } });
+    fireEvent.click(screen.getByRole("button", { name: /save address/i }));
+
+    expect(
+      await screen.findByText(
+        'Your menu address can\'t start with "xn--". Choose a different address.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Slug cannot start with the reserved "xn--" prefix'),
+    ).toBeNull();
+  });
+});
+
 describe("GeneralSettingsTab - slug rename control (null slug)", () => {
   it("renders the not-yet-assigned state instead of a broken URL, with no Change control", () => {
     renderWithRestaurant({ ...baseRestaurant, slug: null });

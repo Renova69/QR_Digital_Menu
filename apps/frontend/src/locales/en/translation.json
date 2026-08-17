@@ -315,7 +315,10 @@
     "slugTakenError": "This address is already taken. Try a different one.",
     "slugReleasedError": "This address was released and can only be restored by contacting support.",
     "slugFormatError": "Use lowercase letters, numbers, and hyphens only.",
-    "slugLengthError": "Your menu address must be between 2 and 40 characters."
+    "slugLengthError": "Your menu address must be between 2 and 40 characters.",
+    "slugReservedError": "This address is reserved and can't be used. Try a different one.",
+    "slugNumericError": "Your menu address can't be all numbers — add a letter or word.",
+    "slugPunycodeError": "Your menu address can't start with \"xn--\". Choose a different address."
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",

@@ -24,7 +24,7 @@ import { useFeature } from "../../../hooks/useFeature";
 import { getApiError } from "../../../lib/apiError";
 import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 import { Modal } from "../../../components/ui/modal";
-import { getMenuUrl } from "../../../lib/menuUrl";
+import { getMenuUrl, getMenuUrlPrefix } from "../../../lib/menuUrl";
 import { copyToClipboard } from "../../../lib/tableViewUtils";
 
 // Server message for RestaurantSlugService.assertRenameAllowed's cooldown
@@ -557,6 +557,38 @@ const GeneralSettingsTab: React.FC = () => {
           t(
             "settings.slugLengthError",
             "Your menu address must be between 2 and 40 characters.",
+          ),
+        );
+      } else if (message === "This slug is reserved and cannot be used") {
+        // RESERVED — RestaurantSlugService.renameSlug's validateSlug() gate
+        // (apps/backend/src/restaurants/slug/restaurant-slug.service.ts,
+        // RENAME_REJECTION_MESSAGES.RESERVED). Never echo which words are
+        // reserved — that message deliberately doesn't either.
+        setSlugError(
+          t(
+            "settings.slugReservedError",
+            "This address is reserved and can't be used. Try a different one.",
+          ),
+        );
+      } else if (
+        message ===
+        "Slug cannot be all numeric — it would be ambiguous with an ID"
+      ) {
+        // NUMERIC — same gate, RENAME_REJECTION_MESSAGES.NUMERIC.
+        setSlugError(
+          t(
+            "settings.slugNumericError",
+            "Your menu address can't be all numbers — add a letter or word.",
+          ),
+        );
+      } else if (
+        message === 'Slug cannot start with the reserved "xn--" prefix'
+      ) {
+        // PUNYCODE — same gate, RENAME_REJECTION_MESSAGES.PUNYCODE.
+        setSlugError(
+          t(
+            "settings.slugPunycodeError",
+            'Your menu address can\'t start with "xn--". Choose a different address.',
           ),
         );
       } else {
@@ -1169,9 +1201,7 @@ const GeneralSettingsTab: React.FC = () => {
             </label>
             <div className="flex items-center gap-2">
               <span className="shrink-0 text-sm text-muted-foreground">
-                {typeof window !== "undefined"
-                  ? `${window.location.origin}/m/`
-                  : "/m/"}
+                {getMenuUrlPrefix()}
               </span>
               <input
                 id="menu-address-slug-input"

@@ -315,7 +315,10 @@
     "slugTakenError": "Această adresă este deja folosită. Încearcă alta.",
     "slugReleasedError": "Această adresă a fost eliberată și poate fi restaurată doar prin contactarea suportului.",
     "slugFormatError": "Folosește doar litere mici, cifre și cratime.",
-    "slugLengthError": "Adresa meniului trebuie să aibă între 2 și 40 de caractere."
+    "slugLengthError": "Adresa meniului trebuie să aibă între 2 și 40 de caractere.",
+    "slugReservedError": "Această adresă este rezervată și nu poate fi folosită. Încearcă alta.",
+    "slugNumericError": "Adresa meniului nu poate fi formată doar din cifre — adaugă o literă sau un cuvânt.",
+    "slugPunycodeError": "Adresa meniului nu poate începe cu „xn--”. Alege o altă adresă."
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildMenuReturnUrl, normalizeRestaurantId } from "./menuUrl";
-import { getMenuPath, getMenuUrl } from "./menuUrl";
+import { getMenuPath, getMenuUrl, getMenuUrlPrefix } from "./menuUrl";
 
 describe("menuUrl", () => {
   it.each([undefined, null, "", "   ", "undefined", "UNDEFINED", "null"])(
@@ -64,6 +64,25 @@ describe("getMenuUrl", () => {
         "https://x.bg",
       ),
     ).toBe("https://x.bg/m/bistro-oranzh?table=3");
+  });
+});
+
+// The rename dialog in GeneralSettingsTab.tsx shows this as static label
+// text next to an editable slug input — it must own the "/m/" literal
+// rather than have that composed a second time at the call site.
+describe("getMenuUrlPrefix", () => {
+  it("composes origin + the branded path prefix with no slug segment", () => {
+    expect(getMenuUrlPrefix("https://x.bg")).toBe("https://x.bg/m/");
+  });
+
+  it("is consistent with getMenuUrl's own path shape for a given slug", () => {
+    const prefix = getMenuUrlPrefix("https://x.bg");
+    const full = getMenuUrl(
+      { id: "r1", slug: "bistro-oranzh" },
+      {},
+      "https://x.bg",
+    );
+    expect(full).toBe(`${prefix}bistro-oranzh`);
   });
 });
 
