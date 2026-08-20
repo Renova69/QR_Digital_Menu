@@ -2,13 +2,10 @@ import { transliterateBg } from './transliterate';
 import { SLUG_MAX_LENGTH, validateSlug } from './slug-rules';
 
 /**
- * Truncates to SLUG_MAX_LENGTH, preferring a hyphen boundary so a word is
- * not split. When the 40-char window contains no hyphen at all (e.g. the
- * first token alone is already >= SLUG_MAX_LENGTH), there is no boundary to
- * prefer, so this deliberately hard-cuts the window instead of discarding
- * the name in favor of an id-derived slug — a truncated fragment of the
- * name still reads as the owner's restaurant, and the slug is owner-editable
- * during onboarding anyway.
+ * Truncates to SLUG_MAX_LENGTH at a hyphen boundary so a word is never split.
+ * If the first token alone exceeds the bound, no legal truncation exists;
+ * return an invalid empty candidate so generateSlugBase uses its stable
+ * restaurant-id fallback.
  */
 function truncateAtBoundary(slug: string): string {
   if (slug.length <= SLUG_MAX_LENGTH) return slug;
@@ -17,16 +14,14 @@ function truncateAtBoundary(slug: string): string {
   if (lastHyphen > 0) {
     return cut.slice(0, lastHyphen).replace(/-+$/, '');
   }
-  // No hyphen boundary in the window: hard-cut is deliberate, not an
-  // accidental fallthrough.
-  return cut.replace(/-+$/, '');
+  return '';
 }
 
 /**
  * Name -> candidate slug. The result is guaranteed to pass validateSlug();
  * anything that cannot be salvaged falls back to an id-derived name.
- * Truncation to SLUG_MAX_LENGTH prefers a hyphen boundary and hard-cuts
- * mid-word only when the 40-char window has none — see truncateAtBoundary.
+ * Truncation to SLUG_MAX_LENGTH never splits a word — see
+ * truncateAtBoundary.
  */
 export function generateSlugBase(name: string, restaurantId: string): string {
   const translit = transliterateBg(name);

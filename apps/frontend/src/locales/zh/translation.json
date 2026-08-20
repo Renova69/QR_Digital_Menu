@@ -516,6 +516,8 @@
     "createCustomOption": "创建自定义选项",
     "doneness": "完成",
     "donenessTemplate": "熟度模板",
+    "moved": "此菜单已迁移。",
+    "notFound": "未找到菜单。",
     "options": "选项：",
     "quantity": "数量",
     "quantityTemplate": "数量模板",

@@ -343,7 +343,12 @@ const SummaryView = () => {
       </div>
 
       {/* Quick Actions */}
-      {restaurantId && <QuickActionsRow restaurantId={restaurantId} />}
+      {restaurantId && (
+        <QuickActionsRow
+          restaurantId={restaurantId}
+          restaurantSlug={activeRestaurant?.slug}
+        />
+      )}
     </div>
   );
 };

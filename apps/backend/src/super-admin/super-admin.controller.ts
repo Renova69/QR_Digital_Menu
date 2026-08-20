@@ -21,6 +21,7 @@ import {
   AdjustLoyaltyPointsDto,
   ClearLoyaltyPointsDto,
   ResetOwnerPasswordDto,
+  ReassignSlugDto,
   SuperAdminConfirmationDto,
   SuperAdminImportMenuDto,
   UpdateDataRequestDto,
@@ -28,12 +29,20 @@ import {
   UpdateTenantStatusDto,
   UpdateTenantTierDto,
 } from './dto/update-tenant.dto';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
+
+interface AuthenticatedRequest {
+  user: { id: string };
+}
 
 @ApiTags('Super Admin')
 @Controller('super-admin')
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class SuperAdminController {
-  constructor(private readonly service: SuperAdminService) {}
+  constructor(
+    private readonly service: SuperAdminService,
+    private readonly slugs: RestaurantSlugService,
+  ) {}
 
   @ApiOperation({ summary: 'Platform-wide stats' })
   @Get('stats')
@@ -73,7 +82,7 @@ export class SuperAdminController {
   updateTier(
     @Param('id') id: string,
     @Body() dto: UpdateTenantTierDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.updateTier(
       id,
@@ -89,7 +98,7 @@ export class SuperAdminController {
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateTenantStatusDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.updateStatus(id, dto.isActive, req.user.id);
   }
@@ -100,7 +109,7 @@ export class SuperAdminController {
   resetOwnerPassword(
     @Param('id') id: string,
     @Body() dto: ResetOwnerPasswordDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.resetOwnerPassword(id, dto.password, req.user.id);
   }
@@ -111,7 +120,7 @@ export class SuperAdminController {
   updatePaymentsEnabled(
     @Param('id') id: string,
     @Body() dto: UpdatePaymentsEnabledDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.updatePaymentsEnabled(
       id,
@@ -126,7 +135,7 @@ export class SuperAdminController {
   deleteRestaurant(
     @Param('id') id: string,
     @Body() _dto: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.deleteRestaurant(id, req.user.id);
   }
@@ -137,9 +146,24 @@ export class SuperAdminController {
   restoreRestaurant(
     @Param('id') id: string,
     @Body() _dto: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.restoreRestaurant(id, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Reassign a released slug after a business sale' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Post('slugs/:slug/reassign')
+  reassignSlug(
+    @Param('slug') slug: string,
+    @Body() dto: ReassignSlugDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.slugs.reassignReleasedSlug(
+      slug,
+      dto.targetRestaurantId,
+      req.user.id,
+    );
   }
 
   @ApiOperation({ summary: 'Delete a staff member from a restaurant' })
@@ -149,7 +173,7 @@ export class SuperAdminController {
     @Param('restaurantId') restaurantId: string,
     @Param('userId') userId: string,
     @Body() _dto: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.deleteStaff(restaurantId, userId, req.user.id);
   }
@@ -160,7 +184,7 @@ export class SuperAdminController {
   importMenu(
     @Param('id') id: string,
     @Body() dto: SuperAdminImportMenuDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.importMenu(id, dto, req.user.id);
   }
@@ -191,7 +215,7 @@ export class SuperAdminController {
   forceLogout(
     @Param('id') id: string,
     @Body() _confirmation: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.forceLogoutOwner(id, req.user.id);
   }
@@ -202,7 +226,7 @@ export class SuperAdminController {
   regenerateApiKey(
     @Param('id') id: string,
     @Body() _confirmation: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.regenerateImportApiKey(id, req.user.id);
   }
@@ -224,7 +248,7 @@ export class SuperAdminController {
     @Param('id') id: string,
     @Param('sessionId') sessionId: string,
     @Body() _confirmation: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.forceCloseSession(id, sessionId, req.user.id);
   }
@@ -241,7 +265,7 @@ export class SuperAdminController {
   adjustLoyaltyPoints(
     @Param('id') id: string,
     @Body() dto: AdjustLoyaltyPointsDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.adjustLoyaltyPoints(
       id,
@@ -258,7 +282,7 @@ export class SuperAdminController {
   clearLoyaltyPoints(
     @Param('id') id: string,
     @Body() dto: ClearLoyaltyPointsDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.clearLoyaltyPoints(
       id,
@@ -290,7 +314,7 @@ export class SuperAdminController {
   updateDataRequest(
     @Param('id') id: string,
     @Body() dto: UpdateDataRequestDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.updateDataRequest(id, dto, req.user.id);
   }
@@ -301,7 +325,7 @@ export class SuperAdminController {
   impersonate(
     @Param('id') id: string,
     @Body() _confirmation: SuperAdminConfirmationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.service.createImpersonationSession(id, req.user.id);
   }

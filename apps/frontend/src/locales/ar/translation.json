@@ -176,6 +176,8 @@
     "createCustomOption": "إنشاء خيار مخصص",
     "doneness": "تم",
     "donenessTemplate": "نموذج درجة النضج",
+    "moved": "تم نقل هذه القائمة.",
+    "notFound": "القائمة غير موجودة.",
     "options": "الخيارات:",
     "quantity": "الكمية",
     "quantityTemplate": "قالب الكمية",

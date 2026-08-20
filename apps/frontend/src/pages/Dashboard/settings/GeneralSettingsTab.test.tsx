@@ -51,6 +51,11 @@ vi.mock("../../../context/AuthContext", () => ({
 vi.mock("../../../lib/api", () => ({
   updateRestaurant: vi.fn(),
   renameRestaurantSlug: vi.fn(),
+  getRestaurantSlugSettings: vi.fn().mockResolvedValue({
+    primary: null,
+    aliases: [],
+  }),
+  releaseRestaurantSlug: vi.fn(),
   triggerTranslation: vi.fn(),
   getTranslationStatus: vi.fn(),
 }));

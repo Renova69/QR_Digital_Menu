@@ -46,12 +46,11 @@ export class MenuViewService {
         },
       });
 
-      // Fire-and-forget: a customer just loaded the public menu, which is one
-      // of the three activity signals that freezes the vanity slug. Not
-      // awaited — commitOnActivity does its own DB work and must never delay
-      // this write's response, and it already swallows its own errors so it
-      // can never turn a successful view record into a failed one.
-      void this.slugs.commitOnActivity(restaurantId);
+      // The persisted view is a durable activity signal. Wait for the
+      // immediate idempotent commit attempt before completing this write;
+      // commitOnActivity absorbs and reports its own failure, while the
+      // scheduled reconciliation derives the same decision from this row.
+      await this.slugs.commitOnActivity(restaurantId);
     } catch (err) {
       this.logger.error('Failed to record menu view', err);
     }

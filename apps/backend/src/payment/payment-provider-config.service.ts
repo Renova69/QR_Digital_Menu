@@ -10,10 +10,14 @@ import {
 } from './mypos.provider';
 import { decryptSecret } from './secret-crypto';
 import { MyposConfig } from './payment.types';
+import { TenantUrlService } from '../restaurants/tenant-url.service';
 
 @Injectable()
 export class PaymentProviderConfigService {
-  constructor(private readonly featureService: FeatureService) {}
+  constructor(
+    private readonly featureService: FeatureService,
+    private readonly tenantUrls: TenantUrlService = new TenantUrlService(),
+  ) {}
 
   isStripeConfigured(restaurant: any): boolean {
     return !!(
@@ -187,15 +191,13 @@ export class PaymentProviderConfigService {
   }
 
   getFrontendBaseUrl(): string {
-    return (process.env.FRONTEND_URL || 'http://localhost:3001').replace(
-      /\/+$/,
-      '',
-    );
+    return this.tenantUrls.getFrontendBaseUrl();
   }
 
   buildPublicMenuReturnUrl(
     session: {
       restaurantId: string;
+      restaurant?: { id?: string; slug?: string | null } | null;
       table?: {
         name?: string | null;
         publicToken?: string | null;
@@ -203,9 +205,14 @@ export class PaymentProviderConfigService {
     },
     outcome: string,
   ): string {
-    const url = new URL(
-      `${this.getFrontendBaseUrl()}/menu/public/${session.restaurantId}`,
-    );
+    const restaurantId = session.restaurant?.id || session.restaurantId;
+    const baseUrl = restaurantId
+      ? this.tenantUrls.getMenuBaseUrl({
+          id: restaurantId,
+          slug: session.restaurant?.slug ?? null,
+        })
+      : this.getFrontendBaseUrl();
+    const url = new URL(baseUrl);
     if (session.table?.publicToken) {
       url.searchParams.set('sp', session.table.publicToken);
     } else if (session.table?.name) {

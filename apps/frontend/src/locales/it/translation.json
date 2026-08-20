@@ -516,6 +516,8 @@
     "createCustomOption": "Crea un'opzione personalizzata",
     "doneness": "Fatto",
     "donenessTemplate": "Modello di cottura",
+    "moved": "Questo menu è stato spostato.",
+    "notFound": "Menu non trovato.",
     "options": "Opzioni:",
     "quantity": "Quantità",
     "quantityTemplate": "Modello quantità",

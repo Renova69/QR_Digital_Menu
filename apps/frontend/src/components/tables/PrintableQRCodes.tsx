@@ -14,9 +14,11 @@ interface PrintableQRCodesProps {
   template?: PrintTemplate;
   orientation?: PrintOrientation;
   // The server-frozen slug commit, or null while none has been requested
-  // (or one is still in flight) for this session. Every QR value below is
-  // built from `committed.slug`, never from `restaurant.slug` — see the
-  // gating note above the portal content further down.
+  // (or one is still in flight) for this session. On success every QR
+  // value below is built from `committed.slug`, never from
+  // `restaurant.slug` — see the gating note above the portal content
+  // further down. On failure (commitError) the grid still renders, using
+  // the permanent legacy id URL instead.
   committed: { slug: string; committedAt: string } | null;
   commitError?: boolean;
 }
@@ -422,15 +424,25 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
   // the DOM for the browser's print pipeline to pick it up. That means a
   // bare Ctrl+P (bypassing the button entirely) would print whatever is
   // sitting in `.print-container` at that instant. So the container itself
-  // must never hold real QR codes until `committed` says the slug has
-  // actually been frozen server-side; until then it holds a placeholder
+  // must never hold real QR codes until the commit has actually settled —
+  // one way or the other — server-side; until then it holds a placeholder
   // that's safe to print (no codes, nothing that could point somewhere
-  // else next week). Every QR value is built from `committed.slug`, never
+  // else next week).
+  //
+  // Once the commit settles there are two safe outcomes, not one: success
+  // freezes `committed.slug` and every QR value is built from that, never
   // from `restaurant.slug` off the prop, so the sheet can't disagree with
-  // what the server just froze.
+  // what the server just froze. Failure falls back to the legacy
+  // `/menu/public/:id` URL — no slug segment, so it can never go stale —
+  // rather than leaving the owner with an unprintable sheet. Only the
+  // genuinely-still-pending state (neither committed nor errored yet) gets
+  // the placeholder.
   const restaurantForUrl = committed
     ? { ...restaurant, slug: committed.slug }
-    : restaurant;
+    : commitError
+      ? { ...restaurant, slug: null }
+      : restaurant;
+  const showGrid = Boolean(committed) || commitError;
 
   const content = (
     <div className="print-container" style={{ display: "none" }}>
@@ -466,7 +478,7 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
           }
         }
       `}</style>
-      {committed ? (
+      {showGrid ? (
         <div className="qr-grid" data-testid="printable-qr-grid">
           {tables.map((table) => (
             <div className="qr-grid-cell" key={table.id}>
@@ -498,24 +510,20 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
         // No role="alert" here on purpose: this node lives under
         // display:none the whole time this sub-tab is open and is only
         // ever exposed by @media print, so it's never something a screen
-        // reader would announce. The owner-facing error lives in the
-        // visible print-setup card next to the button instead — this text
-        // only has to be safe to put on paper if a bare Ctrl+P fires
-        // before (or instead of) that button.
+        // reader would announce. Reached only while the commit is still
+        // genuinely in flight — failure now falls through to the grid
+        // above (with the legacy fallback URL) instead of stopping here —
+        // so this text only has to be safe to put on paper if a bare
+        // Ctrl+P fires before (or instead of) the print button.
         <div
           data-testid="printable-qr-placeholder"
           style={{ padding: "40px", textAlign: "center" }}
         >
           <p>
-            {commitError
-              ? t(
-                  "tables.qrCommitFailed",
-                  "Could not prepare the menu link. Check your connection and try again.",
-                )
-              : t(
-                  "tables.printNotReady",
-                  'Press "Print all QR codes" to prepare codes for printing.',
-                )}
+            {t(
+              "tables.printNotReady",
+              'Press "Print all QR codes" to prepare codes for printing.',
+            )}
           </p>
         </div>
       )}

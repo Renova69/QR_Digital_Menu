@@ -1,7 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import RestaurantBasicsStep from "./RestaurantBasicsStep";
+import {
+  checkRestaurantSlugAvailable,
+  createRestaurant,
+} from "../../../services/restaurantService";
 
 const mockT = vi.fn((key: string, defaultValueOrOpts?: unknown) => {
   const fallbacks: Record<string, string> = {
@@ -12,7 +16,10 @@ const mockT = vi.fn((key: string, defaultValueOrOpts?: unknown) => {
     "onboarding.basics.restaurantName": "Restaurant name *",
     "onboarding.basics.menuAddress": "Menu address",
     "onboarding.basics.menuAddressHint":
-      "Generated automatically from your restaurant name — you can change it later in Settings.",
+      "Generated from your restaurant name. You can edit it now or leave it as suggested.",
+    "onboarding.basics.slugChecking": "Checking availability…",
+    "onboarding.basics.slugAvailable": "This address is available.",
+    "onboarding.basics.slugTaken": "This address is already taken.",
     "onboarding.basics.city": "City",
     "onboarding.basics.dashboardLanguage": "Dashboard language",
     "onboarding.basics.dashboardLanguageHint":
@@ -33,63 +40,86 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: mockT }),
 }));
 
-// No availability check is wired here on purpose — this step has no
-// restaurant id to check against until createRestaurant() resolves inside
-// handleSubmit, so GET /restaurants/:id/slug/available is unreachable from
-// this step. The server assigns the slug authoritatively at creation time;
-// this preview never calls the API.
 vi.mock("../../../services/restaurantService", () => ({
   createRestaurant: vi.fn(),
+  checkRestaurantSlugAvailable: vi.fn(),
 }));
 
 const noop = () => {};
 
-// The menu-address field is read-only by design, not merely by convention:
-// CreateRestaurantDto carries no slug field, so createRestaurant() cannot
-// send an owner-edited value — an editable control here would silently
-// discard whatever the owner typed on submit. See RestaurantBasicsStep.tsx
-// for the full rationale.
-describe("RestaurantBasicsStep slug preview (read-only)", () => {
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(checkRestaurantSlugAvailable).mockResolvedValue({
+    available: true,
+  });
+  vi.mocked(createRestaurant).mockResolvedValue({
+    id: "r1",
+    name: "Bistro One",
+    country: "Bulgaria",
+    ownerId: "owner-1",
+    slug: "owners-choice",
+  });
+});
+
+describe("RestaurantBasicsStep editable slug picker", () => {
   it("previews a transliterated menu URL live as the owner types the name", async () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
     await userEvent.type(
       screen.getByPlaceholderText("e.g. La Piazza"),
       "Бистро Оранж",
     );
-    const preview = screen.getByTestId("slug-preview") as HTMLInputElement;
-    await waitFor(() => expect(preview.value).toContain("bistro-oranzh"));
+    const slugInput = screen.getByTestId("slug-preview") as HTMLInputElement;
+    await waitFor(() => expect(slugInput.value).toBe("bistro-oranzh"));
   });
 
-  it("keeps deriving live from the name — there is no owner edit to freeze it", async () => {
+  it("keeps deriving from the name until the owner edits the slug", async () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
     const nameInput = screen.getByPlaceholderText("e.g. La Piazza");
-    const preview = screen.getByTestId("slug-preview") as HTMLInputElement;
+    const slugInput = screen.getByTestId("slug-preview") as HTMLInputElement;
 
     await userEvent.type(nameInput, "Bistro One");
-    await waitFor(() => expect(preview.value).toContain("bistro-one"));
+    await waitFor(() => expect(slugInput.value).toBe("bistro-one"));
+
+    await userEvent.clear(slugInput);
+    await userEvent.type(slugInput, "OWNERS-CHOICE");
+    expect(slugInput.value).toBe("owners-choice");
 
     await userEvent.type(nameInput, " Two");
-    await waitFor(() => expect(preview.value).toContain("bistro-one-two"));
+    expect(slugInput.value).toBe("owners-choice");
   });
 
-  it("does not let the owner type into the menu address field", () => {
+  it("checks an edited slug through the authenticated pre-creation endpoint", async () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
-    const preview = screen.getByTestId("slug-preview") as HTMLInputElement;
-    expect(preview).toHaveAttribute("readonly");
+    const slugInput = screen.getByTestId("slug-preview") as HTMLInputElement;
+
+    await userEvent.type(
+      screen.getByPlaceholderText("e.g. La Piazza"),
+      "Bistro One",
+    );
+    await userEvent.clear(slugInput);
+    await userEvent.type(slugInput, "owners-choice");
+
+    await waitFor(
+      () =>
+        expect(checkRestaurantSlugAvailable).toHaveBeenCalledWith(
+          "owners-choice",
+        ),
+      { timeout: 1500 },
+    );
+    expect(await screen.findByText("This address is available.")).toBeVisible();
   });
 
   it("shows the placeholder, not a generated address, before a name is typed", () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
-    const preview = screen.getByLabelText("Menu address") as HTMLInputElement;
-    expect(preview.value).toBe("");
-    expect(preview).toHaveAttribute("placeholder", "e.g. bistro-oranzh");
+    const slugInput = screen.getByLabelText("Menu address") as HTMLInputElement;
+    expect(slugInput.value).toBe("");
+    expect(slugInput).toHaveAttribute("placeholder", "e.g. bistro-oranzh");
   });
 
   it("does not gate the step (continue button) on the slug", () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
-    // Only the restaurant name is required; the menu-address preview is
-    // read-only and has no bearing on submit — the point is there is no
-    // slug-specific disable logic to find.
+    // Only the restaurant name is required. Skipping the picker lets the
+    // server derive the authoritative value.
     const button = screen.getByRole("button", { name: /continue/i });
     expect(button).toBeInTheDocument();
   });
@@ -101,5 +131,26 @@ describe("RestaurantBasicsStep slug preview (read-only)", () => {
       "Bistro One",
     );
     expect(screen.getByRole("button", { name: /continue/i })).toBeEnabled();
+  });
+
+  it("submits an owner-edited slug to atomic restaurant creation", async () => {
+    render(<RestaurantBasicsStep onCreated={noop} />);
+    await userEvent.type(
+      screen.getByPlaceholderText("e.g. La Piazza"),
+      "Bistro One",
+    );
+    const slugInput = screen.getByTestId("slug-preview");
+    await userEvent.clear(slugInput);
+    await userEvent.type(slugInput, "owners-choice");
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() =>
+      expect(createRestaurant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Bistro One",
+          slug: "owners-choice",
+        }),
+      ),
+    );
   });
 });

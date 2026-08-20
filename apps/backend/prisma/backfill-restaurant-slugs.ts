@@ -3,6 +3,10 @@ import {
   generateSlugBase,
   withSuffix,
 } from '../src/restaurants/slug/slug-generator';
+import {
+  type SlugRuleError,
+  validateSlug,
+} from '../src/restaurants/slug/slug-rules';
 
 const MAX_ATTEMPTS = 20;
 
@@ -95,16 +99,27 @@ export async function verifySlugInvariants(
 ): Promise<string[]> {
   const violations: string[] = [];
 
-  const missing = await prisma.$queryRaw<Array<{ id: string; name: string }>>`
-    SELECT r."id", r."name" FROM "restaurant" r
+  const invalidPrimaryCounts = await prisma.$queryRaw<
+    Array<{ id: string; name: string; primaryCount?: number }>
+  >`
+    SELECT
+      r."id",
+      r."name",
+      COUNT(s."slug")::int AS "primaryCount"
+    FROM "restaurant" r
+    LEFT JOIN "restaurant_slug" s
+      ON s."restaurantId" = r."id" AND s."isPrimary"
     WHERE r."deletedAt" IS NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM "restaurant_slug" s
-        WHERE s."restaurantId" = r."id" AND s."isPrimary"
-      )
+    GROUP BY r."id", r."name"
+    HAVING COUNT(s."slug") <> 1
   `;
-  for (const row of missing) {
-    violations.push(`Restaurant ${row.id} ("${row.name}") has no primary slug`);
+  for (const row of invalidPrimaryCounts) {
+    const count = Number(row.primaryCount ?? 0);
+    violations.push(
+      count === 0
+        ? `Restaurant ${row.id} ("${row.name}") has no primary slug`
+        : `Restaurant ${row.id} ("${row.name}") has ${count} primary slugs`,
+    );
   }
 
   const desynced = await prisma.$queryRaw<Array<{ id: string }>>`
@@ -131,15 +146,65 @@ export async function verifySlugInvariants(
     violations.push(`Slug "${row.slug}" is not lowercase`);
   }
 
+  const allSlugs = await prisma.$queryRaw<Array<{ slug: string }>>`
+    SELECT "slug" FROM "restaurant_slug"
+  `;
+  const ruleLabels: Record<SlugRuleError, string> = {
+    LENGTH: 'length',
+    FORMAT: 'format',
+    PUNYCODE: 'punycode prefix',
+    NUMERIC: 'numeric-only',
+    RESERVED: 'reserved-name',
+  };
+  for (const row of allSlugs) {
+    const rule = validateSlug(row.slug);
+    if (rule) {
+      violations.push(
+        `Slug "${row.slug}" violates the ${ruleLabels[rule]} rule`,
+      );
+    }
+  }
+
   return violations;
+}
+
+/**
+ * Release gate: the second pass proves the backfill is actually idempotent,
+ * then the complete application-level invariant check must be empty.
+ */
+export async function runSlugRollout(prisma: PrismaClient): Promise<{
+  firstPass: { created: number; skipped: number };
+  secondPass: { created: number; skipped: number };
+  violations: string[];
+}> {
+  const firstPass = await backfillSlugs(prisma);
+  const secondPass = await backfillSlugs(prisma);
+  const violations = await verifySlugInvariants(prisma);
+  if (secondPass.created !== 0) {
+    violations.unshift(
+      `Backfill was not idempotent: second pass created ${secondPass.created} slug(s)`,
+    );
+  }
+  return { firstPass, secondPass, violations };
 }
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   try {
-    const result = await backfillSlugs(prisma);
-    console.log(`Backfill complete: ${result.created} slugs created`);
-    const violations = await verifySlugInvariants(prisma);
+    const verifyOnly = process.argv.includes('--verify-only');
+    const result = verifyOnly
+      ? {
+          firstPass: null,
+          secondPass: null,
+          violations: await verifySlugInvariants(prisma),
+        }
+      : await runSlugRollout(prisma);
+    if (!verifyOnly) {
+      console.log(
+        `Backfill complete: ${result.firstPass?.created ?? 0} slugs created; second pass created ${result.secondPass?.created ?? 0}`,
+      );
+    }
+    const { violations } = result;
     if (violations.length > 0) {
       console.error('INVARIANT VIOLATIONS:');
       violations.forEach((v) => console.error(`  - ${v}`));

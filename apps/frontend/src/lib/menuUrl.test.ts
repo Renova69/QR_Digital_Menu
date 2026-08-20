@@ -16,6 +16,27 @@ describe("menuUrl", () => {
       "/menu/public/rest-1?table=Table%207",
     );
   });
+
+  // Finding #3: buildMenuReturnUrl gained an optional trailing slug param
+  // routed through getMenuPath — every existing 3-arg call site above must
+  // keep resolving to the legacy path exactly as before.
+  it("prefers the vanity path when a slug is supplied", () => {
+    expect(buildMenuReturnUrl("rest-1", "Table 7", null, "bistro-oranzh")).toBe(
+      "/m/bistro-oranzh?table=Table%207",
+    );
+  });
+
+  it("falls back to the legacy path when no slug is supplied", () => {
+    expect(buildMenuReturnUrl("rest-1", "Table 7", null, null)).toBe(
+      "/menu/public/rest-1?table=Table%207",
+    );
+  });
+
+  it("falls back to the legacy path when slug is simply omitted", () => {
+    expect(buildMenuReturnUrl("rest-1", null, "sp-token")).toBe(
+      "/menu/public/rest-1?sp=sp-token",
+    );
+  });
 });
 
 describe("getMenuPath", () => {

@@ -289,10 +289,7 @@ export const commitRestaurantSlug = async (
 };
 
 // OWNER-only rename of the restaurant's branded slug — mirrors
-// SlugController.rename (`PATCH /restaurants/:id/slug`). Not yet called from
-// any UI; the settings "Menu address" section (read-only) lands first, the
-// rename control lands in a later dispatch. Kept here alongside the other
-// slug endpoints so the API client changes stay in one reviewable place.
+// SlugController.rename (`PATCH /restaurants/:id/slug`).
 export const renameRestaurantSlug = async (
   restaurantId: string,
   slug: string,
@@ -307,7 +304,8 @@ export const renameRestaurantSlug = async (
 // SlugController.release (`POST /restaurants/:id/slug/release`). The server
 // independently validates `confirmation`; the caller sending the literal
 // string "CONFIRM" here is a usability mirror, never a substitute for that
-// check. Not yet called from any UI — see renameRestaurantSlug above.
+// check. The settings release dialog still mirrors this requirement locally
+// so the owner understands the destructive action before submission.
 export const releaseRestaurantSlug = async (
   restaurantId: string,
   slug: string,
@@ -318,6 +316,31 @@ export const releaseRestaurantSlug = async (
     confirmation,
   });
   return response.data as { released: string };
+};
+
+export interface RestaurantSlugAlias {
+  slug: string;
+  committedAt: string | null;
+  releasedAt: string | null;
+  createdAt: string;
+}
+
+export interface RestaurantSlugSettings {
+  primary: {
+    slug: string;
+    committedAt: string | null;
+    createdAt: string;
+  } | null;
+  aliases: RestaurantSlugAlias[];
+}
+
+export const getRestaurantSlugSettings = async (
+  restaurantId: string,
+): Promise<RestaurantSlugSettings> => {
+  const response = await api.get<RestaurantSlugSettings>(
+    `/restaurants/${restaurantId}/slug/aliases`,
+  );
+  return response.data;
 };
 
 export const getLogoBase64 = async (
@@ -1214,6 +1237,13 @@ api.interceptors.response.use(
         "/register",
         "/auth/callback",
         "/menu/public",
+        // Branded vanity menu URLs (/m/:slug) resolve to the same public
+        // menu flow as /menu/public/:id and must be exempt for the same
+        // reason: a customer mistyping an OTP on the login modal must see
+        // an inline error, not get hard-redirected off the restaurant's
+        // menu to the merchant login page mid-order. Trailing slash keeps
+        // this from also matching unrelated top-level routes like /msa.
+        "/m/",
         "/device-enroll",
         "/device-login",
       ];

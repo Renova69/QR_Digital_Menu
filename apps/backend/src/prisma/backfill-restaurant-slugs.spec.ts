@@ -7,6 +7,7 @@
 import { Prisma } from '@prisma/client';
 import {
   backfillSlugs,
+  runSlugRollout,
   verifySlugInvariants,
 } from '../../prisma/backfill-restaurant-slugs';
 
@@ -121,6 +122,7 @@ describe('verifySlugInvariants', () => {
         .fn()
         .mockResolvedValueOnce([{ id: 'r9', name: 'Orphan' }])
         .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
     } as any;
 
@@ -148,6 +150,7 @@ describe('verifySlugInvariants', () => {
         .fn()
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ id: 'r5' }])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
     } as any;
 
@@ -162,11 +165,78 @@ describe('verifySlugInvariants', () => {
         .fn()
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ slug: 'BadSlug' }]),
+        .mockResolvedValueOnce([{ slug: 'BadSlug' }])
+        .mockResolvedValueOnce([]),
     } as any;
 
     const violations = await verifySlugInvariants(prisma);
     expect(violations.join(' ')).toContain('BadSlug');
     expect(violations.join(' ')).toContain('lowercase');
+  });
+
+  it('reports multiple primaries if the partial unique index is missing or drifted', async () => {
+    const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([
+          { id: 'r7', name: 'Drifted', primaryCount: BigInt(2) },
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]),
+    } as any;
+
+    const violations = await verifySlugInvariants(prisma);
+    expect(violations.join(' ')).toContain('2 primary slugs');
+  });
+
+  it('reports reserved, numeric, punycode, and malformed namespace rows', async () => {
+    const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { slug: 'admin' },
+          { slug: '12345' },
+          { slug: 'xn--fake' },
+          { slug: 'bad_slug' },
+        ]),
+    } as any;
+
+    const violations = await verifySlugInvariants(prisma);
+    expect(violations).toHaveLength(4);
+    expect(violations.join(' ')).toContain('reserved');
+    expect(violations.join(' ')).toContain('numeric');
+    expect(violations.join(' ')).toContain('punycode');
+    expect(violations.join(' ')).toContain('format');
+  });
+});
+
+describe('runSlugRollout', () => {
+  it('runs the additive backfill twice and requires the second pass to be a no-op', async () => {
+    const prisma = {
+      restaurant: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 'r1', name: 'New Place' }])
+          .mockResolvedValueOnce([]),
+        update: jest.fn(),
+      },
+      restaurantSlug: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
+      $transaction: jest.fn((fn: any) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
+    } as any;
+
+    await expect(runSlugRollout(prisma)).resolves.toEqual({
+      firstPass: { created: 1, skipped: 0 },
+      secondPass: { created: 0, skipped: 0 },
+      violations: [],
+    });
+    expect(prisma.restaurant.findMany).toHaveBeenCalledTimes(2);
   });
 });

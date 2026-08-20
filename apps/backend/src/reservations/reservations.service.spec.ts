@@ -535,7 +535,7 @@ describe('ReservationsService.createPublic (consent gate + entitlement)', () => 
     expect(slugs.commitOnActivity).not.toHaveBeenCalled();
   });
 
-  it('does not await commitOnActivity before returning the booking result', async () => {
+  it('waits for the first-activity commit attempt before returning the booking result', async () => {
     const { service, prisma, slugs } = build();
     prisma.reservationSettings.findUnique.mockResolvedValue({
       enabled: true,
@@ -544,22 +544,34 @@ describe('ReservationsService.createPublic (consent gate + entitlement)', () => 
       requirePhone: true,
     });
     let resolveCommit!: () => void;
-    slugs.commitOnActivity.mockReturnValue(
-      new Promise<void>((resolve) => {
+    let markCommitStarted!: () => void;
+    const commitStarted = new Promise<void>((resolve) => {
+      markCommitStarted = resolve;
+    });
+    slugs.commitOnActivity.mockImplementation(() => {
+      markCommitStarted();
+      return new Promise<void>((resolve) => {
         resolveCommit = resolve;
-      }),
-    );
-
-    // createPublic must resolve even though the fire-and-forget commit is
-    // still pending — otherwise slug bookkeeping would delay the booking
-    // confirmation returned to the guest.
-    const result = await service.createPublic('rest1', {
-      ...baseDto,
-      dietaryConsent: true,
+      });
     });
 
-    expect(result.referenceCode).toBe('ABC234');
+    let settled = false;
+    const create = service
+      .createPublic('rest1', {
+        ...baseDto,
+        dietaryConsent: true,
+      })
+      .then((result) => {
+        settled = true;
+        return result;
+      });
+
+    await commitStarted;
+    await Promise.resolve();
+    expect(settled).toBe(false);
     resolveCommit();
+    const result = await create;
+    expect(result.referenceCode).toBe('ABC234');
   });
 });
 

@@ -102,17 +102,29 @@ describe("QrCodeModal commit precondition", () => {
     expect(await screen.findByTestId("qr-canvas")).toBeInTheDocument();
   });
 
-  // The whole point: an unprintable QR is strictly better than a QR whose URL
-  // might still change.
-  it("shows an error and no QR when commit fails", async () => {
-    commitRestaurantSlug.mockRejectedValue(new Error("offline"));
+  // The whole point: a QR against the permanent legacy URL is strictly
+  // better than no QR at all — that URL carries no slug segment, so it can
+  // never go stale.
+  it("falls back to the legacy id URL when the deployed backend has no commit endpoint", async () => {
+    commitRestaurantSlug.mockRejectedValue({
+      message: "Request failed with status code 404",
+      response: { status: 404 },
+    });
     renderModal();
     // QrCodeModal's query retries once with the library's default backoff
-    // (~1s) before settling into the error state, so give findByRole more
+    // (~1s) before settling into the error state, so give findByTestId more
     // headroom than RTL's 1s default.
     expect(
-      await screen.findByRole("alert", {}, { timeout: 3000 }),
+      await screen.findByTestId("qr-canvas", {}, { timeout: 3000 }),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("qr-canvas")).not.toBeInTheDocument();
+    // QRCodeSVG is mocked to render its `value` prop as plain text — assert
+    // the fallback is the slug-less legacy URL, never the restaurant's
+    // (possibly still-uncommitted) slug off the prop.
+    expect(
+      screen.getByText((content) =>
+        content.includes("/menu/public/r1?table=5"),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

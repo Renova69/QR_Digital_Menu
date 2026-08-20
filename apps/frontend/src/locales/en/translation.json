@@ -318,7 +318,17 @@
     "slugLengthError": "Your menu address must be between 2 and 40 characters.",
     "slugReservedError": "This address is reserved and can't be used. Try a different one.",
     "slugNumericError": "Your menu address can't be all numbers — add a letter or word.",
-    "slugPunycodeError": "Your menu address can't start with \"xn--\". Choose a different address."
+    "slugPunycodeError": "Your menu address can't start with \"xn--\". Choose a different address.",
+    "menuAddressCommitted": "This address is frozen for printed QR safety. You can change it again on {{date}}.",
+    "menuAddressUncommitted": "This address is not frozen yet. Changes are free and no previous URL is kept.",
+    "previousMenuAddresses": "Previous URLs",
+    "menuAddressReleased": "Released",
+    "releaseMenuAddress": "Release",
+    "releaseMenuAddressAria": "Release {{slug}}",
+    "releaseMenuAddressTitle": "Release previous URL",
+    "releaseMenuAddressDesc": "This release is permanent and irreversible. QR codes pointing at this URL will stop working, and the name cannot be reused without contacting support.",
+    "releaseMenuAddressConfirm": "Type CONFIRM to continue",
+    "releaseMenuAddressAction": "Release URL"
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",
@@ -3174,6 +3184,8 @@
     }
   },
   "menu": {
+    "moved": "This menu has moved.",
+    "notFound": "Menu not found.",
     "options": "Options:",
     "quickTemplates": "Quick Templates",
     "sizeTemplate": "Size Template",
@@ -3266,7 +3278,10 @@
       "ownerName": "Your name",
       "restaurantName": "Restaurant name *",
       "menuAddress": "Menu address",
-      "menuAddressHint": "Generated automatically from your restaurant name — you can change it later in Settings.",
+      "menuAddressHint": "Generated from your restaurant name. You can edit it now or leave it as suggested.",
+      "slugChecking": "Checking availability…",
+      "slugAvailable": "This address is available.",
+      "slugTaken": "This address is already taken.",
       "city": "City",
       "dashboardLanguage": "Dashboard language",
       "dashboardLanguageHint": "Language used for your owner dashboard.",

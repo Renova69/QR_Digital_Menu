@@ -126,6 +126,144 @@ function uniqueViolation() {
   });
 }
 
+describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
+  function makeAtomicCreatePrisma(options?: { slugCollision?: boolean }) {
+    const committedRestaurants: Array<Record<string, unknown>> = [];
+    let sequence = 0;
+
+    const prisma = {
+      $transaction: jest.fn(async (fn: (tx: any) => Promise<unknown>) => {
+        sequence += 1;
+        const created = {
+          id: `restaurant-${sequence}`,
+          name: 'New Place',
+          ownerId: 'owner-1',
+          slug: null,
+        };
+        const tx = {
+          restaurant: {
+            create: jest.fn().mockResolvedValue(created),
+            update: jest
+              .fn()
+              .mockImplementation(({ data }: { data: { slug: string } }) =>
+                Promise.resolve({ ...created, slug: data.slug }),
+              ),
+          },
+          restaurantSlug: {
+            create: options?.slugCollision
+              ? jest.fn().mockRejectedValue(uniqueViolation())
+              : jest.fn().mockResolvedValue(undefined),
+          },
+        };
+
+        const result = await fn(tx);
+        committedRestaurants.push(result as Record<string, unknown>);
+        return result;
+      }),
+    } as any;
+
+    return { prisma, committedRestaurants };
+  }
+
+  it('returns a restaurant whose primary slug was created in the same transaction', async () => {
+    const { prisma, committedRestaurants } = makeAtomicCreatePrisma();
+    const service = new RestaurantSlugService(prisma);
+
+    const restaurant = await service.createRestaurantWithInitialSlug({
+      name: 'New Place',
+      ownerId: 'owner-1',
+    });
+
+    expect(restaurant).toMatchObject({
+      id: 'restaurant-1',
+      slug: 'new-place',
+    });
+    expect(committedRestaurants).toEqual([restaurant]);
+  });
+
+  it('leaves no committed restaurant when slug allocation is exhausted', async () => {
+    const { prisma, committedRestaurants } = makeAtomicCreatePrisma({
+      slugCollision: true,
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.createRestaurantWithInitialSlug({
+        name: 'New Place',
+        ownerId: 'owner-1',
+      }),
+    ).rejects.toThrow('Could not allocate a unique slug');
+    expect(committedRestaurants).toEqual([]);
+  });
+
+  it('claims an owner-edited onboarding slug exactly, in the restaurant transaction', async () => {
+    const slugCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) =>
+        fn({
+          restaurant: {
+            create: jest.fn().mockResolvedValue({
+              id: 'r1',
+              name: 'New Place',
+              ownerId: 'owner-1',
+              slug: null,
+            }),
+            update: jest.fn().mockResolvedValue({
+              id: 'r1',
+              name: 'New Place',
+              ownerId: 'owner-1',
+              slug: 'owners-choice',
+            }),
+          },
+          restaurantSlug: { create: slugCreate },
+        }),
+      ),
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await service.createRestaurantWithInitialSlug(
+      { name: 'New Place', ownerId: 'owner-1' },
+      'owners-choice',
+    );
+
+    expect(slugCreate).toHaveBeenCalledWith({
+      data: {
+        slug: 'owners-choice',
+        restaurantId: 'r1',
+        isPrimary: true,
+      },
+    });
+  });
+
+  it('does not silently suffix an owner-edited slug when the namespace race is lost', async () => {
+    const prisma = {
+      $transaction: jest.fn().mockRejectedValue(uniqueViolation()),
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.createRestaurantWithInitialSlug(
+        { name: 'New Place', ownerId: 'owner-1' },
+        'owners-choice',
+      ),
+    ).rejects.toThrow('This slug is already taken');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an invalid owner-edited slug before opening a transaction', async () => {
+    const prisma = { $transaction: jest.fn() } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.createRestaurantWithInitialSlug(
+        { name: 'New Place', ownerId: 'owner-1' },
+        'admin',
+      ),
+    ).rejects.toThrow('reserved');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
 describe('RestaurantSlugService.claimInitialSlug', () => {
   function makeClaimPrisma() {
     return {
@@ -273,5 +411,58 @@ describe('RestaurantSlugService.isSlugAvailable', () => {
 
     const result = await service.resolve('alias');
     expect(result?.canonicalSlug).toBe('alias');
+  });
+});
+
+describe('RestaurantSlugService.listAliases', () => {
+  it('returns live and released non-primary URLs newest first', async () => {
+    const aliases = [
+      {
+        slug: 'recent-name',
+        committedAt: new Date('2026-08-01'),
+        releasedAt: null,
+        createdAt: new Date('2026-08-01'),
+      },
+      {
+        slug: 'released-name',
+        committedAt: new Date('2026-01-01'),
+        releasedAt: new Date('2026-07-01'),
+        createdAt: new Date('2026-01-01'),
+      },
+    ];
+    const prisma = {
+      restaurantSlug: { findMany: jest.fn().mockResolvedValue(aliases) },
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.listAliases('r1')).resolves.toEqual(aliases);
+    expect(prisma.restaurantSlug.findMany).toHaveBeenCalledWith({
+      where: { restaurantId: 'r1', isPrimary: false },
+      select: {
+        slug: true,
+        committedAt: true,
+        releasedAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
+  it('returns the primary commit state needed to explain the grace window and cooldown', async () => {
+    const primary = {
+      slug: 'current-name',
+      committedAt: new Date('2026-08-01'),
+      createdAt: new Date('2026-07-01'),
+    };
+    const prisma = {
+      restaurantSlug: { findFirst: jest.fn().mockResolvedValue(primary) },
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.getPrimaryState('r1')).resolves.toEqual(primary);
+    expect(prisma.restaurantSlug.findFirst).toHaveBeenCalledWith({
+      where: { restaurantId: 'r1', isPrimary: true },
+      select: { slug: true, committedAt: true, createdAt: true },
+    });
   });
 });

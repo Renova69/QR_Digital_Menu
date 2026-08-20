@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Copy,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useSocket } from "../../../context/SocketContext";
@@ -16,8 +17,11 @@ import { useAuth } from "../../../context/AuthContext";
 import {
   updateRestaurant,
   renameRestaurantSlug,
+  releaseRestaurantSlug,
+  getRestaurantSlugSettings,
   triggerTranslation,
   getTranslationStatus,
+  type RestaurantSlugSettings,
   type TranslationStatus,
 } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
@@ -126,15 +130,18 @@ const GeneralSettingsTab: React.FC = () => {
     error: "",
     success: "",
   });
-  // "Menu address" section (#Task20a copy-to-clipboard, #Task20b rename).
-  // Release UI is explicitly out of scope — see task-20b-report.md: the
-  // slug controller has no findMany, so there is no way to list a
-  // restaurant's retired aliases for a release picker to show.
+  // Menu-address lifecycle, rename, history, and irreversible alias release.
   const [menuAddressCopied, setMenuAddressCopied] = useState(false);
   const [slugDialogOpen, setSlugDialogOpen] = useState(false);
   const [slugDraft, setSlugDraft] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugError, setSlugError] = useState("");
+  const [slugSettings, setSlugSettings] =
+    useState<RestaurantSlugSettings | null>(null);
+  const [releaseTarget, setReleaseTarget] = useState<string | null>(null);
+  const [releaseConfirmation, setReleaseConfirmation] = useState("");
+  const [releaseSaving, setReleaseSaving] = useState(false);
+  const [releaseError, setReleaseError] = useState("");
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState<{
     phase: string;
@@ -165,6 +172,31 @@ const GeneralSettingsTab: React.FC = () => {
       mountedRef.current = false;
     };
   }, []);
+
+  const loadSlugSettings = useCallback(async (restaurantId: string) => {
+    const result = await getRestaurantSlugSettings(restaurantId);
+    if (mountedRef.current) setSlugSettings(result);
+    return result;
+  }, []);
+
+  useEffect(() => {
+    if (!isOwner || !activeRestaurant?.id) {
+      setSlugSettings(null);
+      return;
+    }
+
+    let cancelled = false;
+    getRestaurantSlugSettings(activeRestaurant.id)
+      .then((result) => {
+        if (!cancelled) setSlugSettings(result);
+      })
+      .catch(() => {
+        if (!cancelled) setSlugSettings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRestaurant?.id, isOwner]);
 
   const refreshTranslationStatus = useCallback(async (restaurantId: string) => {
     try {
@@ -599,6 +631,56 @@ const GeneralSettingsTab: React.FC = () => {
     }
   };
 
+  const openReleaseDialog = (slug: string) => {
+    setReleaseTarget(slug);
+    setReleaseConfirmation("");
+    setReleaseError("");
+  };
+
+  const handleReleaseDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setReleaseTarget(null);
+      setReleaseConfirmation("");
+      setReleaseError("");
+    }
+  };
+
+  const handleReleaseSlug = async () => {
+    if (
+      !activeRestaurant ||
+      !releaseTarget ||
+      releaseConfirmation !== "CONFIRM"
+    ) {
+      return;
+    }
+
+    setReleaseSaving(true);
+    setReleaseError("");
+    try {
+      await releaseRestaurantSlug(
+        activeRestaurant.id,
+        releaseTarget,
+        releaseConfirmation,
+      );
+      await loadSlugSettings(activeRestaurant.id);
+      setReleaseTarget(null);
+      setReleaseConfirmation("");
+    } catch (err: unknown) {
+      setReleaseError(extractSlugErrorMessage(err) || t(getApiError(err)));
+    } finally {
+      setReleaseSaving(false);
+    }
+  };
+
+  const slugCooldownDate = (() => {
+    const committedAt = slugSettings?.primary?.committedAt;
+    if (!committedAt) return null;
+    const date = new Date(committedAt);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setUTCDate(date.getUTCDate() + 14);
+    return date.toISOString().slice(0, 10);
+  })();
+
   const tzLabel =
     TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone;
   const langCount = targetLanguages.filter(
@@ -802,31 +884,88 @@ const GeneralSettingsTab: React.FC = () => {
             )}
           </p>
           {activeRestaurant?.slug ? (
-            <div className="flex flex-wrap items-center gap-2 max-w-xl">
-              <code className="flex-1 min-w-0 truncate rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
-                {getMenuUrl(activeRestaurant)}
-              </code>
-              <DashboardButton
-                density="compact"
-                type="button"
-                onClick={handleCopyMenuAddress}
-                className="bg-secondary text-foreground hover:bg-secondary/80"
-              >
-                <Copy size={14} />
-                {menuAddressCopied
-                  ? t("common.copied", "Copied")
-                  : t("settings.copyMenuAddress", "Copy")}
-              </DashboardButton>
-              {isOwner && (
+            <div className="max-w-xl space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="flex-1 min-w-0 truncate rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
+                  {getMenuUrl(activeRestaurant)}
+                </code>
                 <DashboardButton
                   density="compact"
                   type="button"
-                  onClick={handleOpenSlugDialog}
+                  onClick={handleCopyMenuAddress}
                   className="bg-secondary text-foreground hover:bg-secondary/80"
                 >
-                  <Pencil size={14} />
-                  {t("settings.changeMenuAddress", "Change")}
+                  <Copy size={14} />
+                  {menuAddressCopied
+                    ? t("common.copied", "Copied")
+                    : t("settings.copyMenuAddress", "Copy")}
                 </DashboardButton>
+                {isOwner && (
+                  <DashboardButton
+                    density="compact"
+                    type="button"
+                    onClick={handleOpenSlugDialog}
+                    className="bg-secondary text-foreground hover:bg-secondary/80"
+                  >
+                    <Pencil size={14} />
+                    {t("settings.changeMenuAddress", "Change")}
+                  </DashboardButton>
+                )}
+              </div>
+
+              {isOwner && slugSettings?.primary && (
+                <p className="text-xs text-muted-foreground">
+                  {slugSettings.primary.committedAt
+                    ? t("settings.menuAddressCommitted", {
+                        date: slugCooldownDate ?? "—",
+                        defaultValue:
+                          "This address is frozen for printed QR safety. You can change it again on {{date}}.",
+                      })
+                    : t(
+                        "settings.menuAddressUncommitted",
+                        "This address is not frozen yet. Changes are free and no previous URL is kept.",
+                      )}
+                </p>
+              )}
+
+              {isOwner && (slugSettings?.aliases.length ?? 0) > 0 && (
+                <div className="space-y-2 pt-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    {t("settings.previousMenuAddresses", "Previous URLs")}
+                  </h4>
+                  {slugSettings?.aliases.map((alias) => (
+                    <div
+                      key={alias.slug}
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 p-2"
+                    >
+                      <code className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                        {getMenuUrl({
+                          id: activeRestaurant.id,
+                          slug: alias.slug,
+                        })}
+                      </code>
+                      {alias.releasedAt ? (
+                        <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
+                          {t("settings.menuAddressReleased", "Released")}
+                        </span>
+                      ) : (
+                        <DashboardButton
+                          density="compact"
+                          type="button"
+                          aria-label={t("settings.releaseMenuAddressAria", {
+                            slug: alias.slug,
+                            defaultValue: "Release {{slug}}",
+                          })}
+                          onClick={() => openReleaseDialog(alias.slug)}
+                          className="bg-destructive/10 text-destructive hover:bg-destructive/20"
+                        >
+                          <Trash2 size={14} />
+                          {t("settings.releaseMenuAddress", "Release")}
+                        </DashboardButton>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           ) : (
@@ -1178,9 +1317,7 @@ const GeneralSettingsTab: React.FC = () => {
         </div>
       </form>
 
-      {/* Rename dialog — OWNER only, opened from the "Change" button in the
-          Menu Address section above. Release UI is out of scope (see the
-          block comment near menuAddressCopied). */}
+      {/* Rename dialog — OWNER only, opened from the Menu Address section. */}
       <Modal
         dashboardUi
         open={slugDialogOpen}
@@ -1236,6 +1373,71 @@ const GeneralSettingsTab: React.FC = () => {
               {slugSaving
                 ? t("settings.saving")
                 : t("settings.saveMenuAddress", "Save address")}
+            </DashboardButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        dashboardUi
+        open={releaseTarget !== null}
+        onOpenChange={handleReleaseDialogOpenChange}
+        title={t("settings.releaseMenuAddressTitle", "Release previous URL")}
+        description={t(
+          "settings.releaseMenuAddressDesc",
+          "This release is permanent and irreversible. QR codes pointing at this URL will stop working, and the name cannot be reused without contacting support.",
+        )}
+      >
+        <div className="space-y-4">
+          <code className="block rounded-lg border border-border bg-muted p-3 text-sm">
+            {releaseTarget
+              ? getMenuUrl({
+                  id: activeRestaurant?.id ?? "",
+                  slug: releaseTarget,
+                })
+              : ""}
+          </code>
+          <div>
+            <label
+              htmlFor="release-menu-address-confirmation"
+              className="mb-1 block text-sm font-medium text-foreground/80"
+            >
+              {t(
+                "settings.releaseMenuAddressConfirm",
+                "Type CONFIRM to continue",
+              )}
+            </label>
+            <input
+              id="release-menu-address-confirmation"
+              type="text"
+              value={releaseConfirmation}
+              onChange={(event) => setReleaseConfirmation(event.target.value)}
+              className={inputCls}
+              autoComplete="off"
+            />
+          </div>
+          {releaseError && (
+            <p className="text-sm text-destructive">{releaseError}</p>
+          )}
+          <div className="flex justify-end gap-2">
+            <DashboardButton
+              density="compact"
+              type="button"
+              onClick={() => handleReleaseDialogOpenChange(false)}
+              className="bg-secondary text-foreground hover:bg-secondary/80"
+            >
+              {t("common.cancel", "Cancel")}
+            </DashboardButton>
+            <DashboardButton
+              density="compact"
+              type="button"
+              onClick={handleReleaseSlug}
+              disabled={releaseSaving || releaseConfirmation !== "CONFIRM"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {releaseSaving
+                ? t("settings.saving")
+                : t("settings.releaseMenuAddressAction", "Release URL")}
             </DashboardButton>
           </div>
         </div>

@@ -57,11 +57,11 @@ describe("slugifyForPreview", () => {
     expect(slug).toBe("aaaaaaaaaa-bbbbbbbbbb-cccccccccc");
   });
 
-  it("hard-cuts when the first token alone exceeds the length bound", () => {
+  it("falls back rather than splitting an overlong first token", () => {
     const name = "a".repeat(50);
     const slug = slugifyForPreview(name);
-    expect(slug.length).toBe(40);
-    expect(slug.endsWith("-")).toBe(false);
+    expect(slug).toMatch(/^restaurant-[a-z0-9]{6}$/);
+    expect(slug).toBe(slugifyForPreview(name));
   });
 
   // Backend equivalent: generateSlugBase falls back to

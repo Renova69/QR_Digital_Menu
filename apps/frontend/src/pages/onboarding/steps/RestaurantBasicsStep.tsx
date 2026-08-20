@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createRestaurant } from "../../../services/restaurantService";
+import {
+  checkRestaurantSlugAvailable,
+  createRestaurant,
+} from "../../../services/restaurantService";
 import { getApiError } from "../../../lib/apiError";
 import { slugifyForPreview } from "../../../lib/slugPreview";
-import { getMenuUrl } from "../../../lib/menuUrl";
+import { getMenuUrlPrefix } from "../../../lib/menuUrl";
 
 const DASHBOARD_LANGUAGES = [
   { value: "bg", label: "Български" },
@@ -31,8 +34,40 @@ export default function RestaurantBasicsStep({
   const [name, setName] = useState(existingRestaurantName || "");
   const [city, setCity] = useState("");
   const [dashboardLanguage, setDashboardLanguage] = useState("bg");
+  const [editedSlug, setEditedSlug] = useState<string | null>(null);
+  const [slugAvailability, setSlugAvailability] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const derivedSlug = name.trim() ? slugifyForPreview(name) : "";
+  const slugDraft = editedSlug ?? derivedSlug;
+
+  useEffect(() => {
+    if (existingRestaurantId || editedSlug === null || !slugDraft.trim()) {
+      setSlugAvailability("idle");
+      return;
+    }
+
+    let cancelled = false;
+    setSlugAvailability("checking");
+    const timeout = window.setTimeout(async () => {
+      try {
+        const result = await checkRestaurantSlugAvailable(slugDraft.trim());
+        if (!cancelled) {
+          setSlugAvailability(result.available ? "available" : "taken");
+        }
+      } catch {
+        if (!cancelled) setSlugAvailability("error");
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [editedSlug, existingRestaurantId, slugDraft]);
 
   // Restaurant was already created in a prior onboarding attempt — skip creation
   if (existingRestaurantId) {
@@ -75,29 +110,17 @@ export default function RestaurantBasicsStep({
     try {
       const restaurant = await createRestaurant({
         name: name.trim(),
+        slug: editedSlug?.trim() || undefined,
         city: city.trim() || undefined,
         dashboardLanguage,
       });
       onCreated(restaurant.id, restaurant.name, ownerName.trim());
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(t(getApiError(err)));
     } finally {
       setLoading(false);
     }
   };
-
-  // Read-only preview, derived live from the name — not editable here.
-  // CreateRestaurantDto has no slug field, so createRestaurant() cannot
-  // carry an owner-edited value; an editable control whose value is
-  // silently discarded on submit would be worse than not offering one.
-  // The server derives the real slug from the name at creation time (see
-  // slugPreview.ts header) and it can be changed afterwards in Settings —
-  // a free rename during the grace window, before any alias is created —
-  // so this step is never gated on it.
-  const derivedSlug = name.trim() ? slugifyForPreview(name) : "";
-  const previewUrl = derivedSlug
-    ? getMenuUrl({ id: "preview", slug: derivedSlug })
-    : "";
 
   return (
     <div className="space-y-6 max-w-md">
@@ -145,21 +168,51 @@ export default function RestaurantBasicsStep({
           >
             {t("onboarding.basics.menuAddress", "Menu address")}
           </label>
-          <input
-            id="menu-slug"
-            type="text"
-            readOnly
-            value={previewUrl}
-            data-testid="slug-preview"
-            placeholder={t("auto.eGBistroOranzh", "e.g. bistro-oranzh")}
-            className="w-full px-3 py-2.5 rounded-xl border border-border bg-muted/30 text-muted-foreground text-sm cursor-default focus:outline-none placeholder:text-muted-foreground"
-          />
+          <div className="flex items-center rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/40">
+            <span className="shrink-0 pl-3 text-sm text-muted-foreground">
+              {getMenuUrlPrefix()}
+            </span>
+            <input
+              id="menu-slug"
+              type="text"
+              value={slugDraft}
+              onChange={(e) => {
+                setEditedSlug(e.target.value.toLowerCase());
+                setSlugAvailability("idle");
+              }}
+              data-testid="slug-preview"
+              placeholder={t("auto.eGBistroOranzh", "e.g. bistro-oranzh")}
+              maxLength={40}
+              className="min-w-0 flex-1 rounded-r-xl bg-transparent px-1 py-2.5 pr-3 text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             {t(
               "onboarding.basics.menuAddressHint",
-              "Generated automatically from your restaurant name — you can change it later in Settings.",
+              "Generated from your restaurant name. You can edit it now or leave it as suggested.",
             )}
           </p>
+          {slugAvailability === "checking" && (
+            <p className="text-xs text-muted-foreground">
+              {t("onboarding.basics.slugChecking", "Checking availability…")}
+            </p>
+          )}
+          {slugAvailability === "available" && (
+            <p className="text-xs text-emerald-600">
+              {t(
+                "onboarding.basics.slugAvailable",
+                "This address is available.",
+              )}
+            </p>
+          )}
+          {slugAvailability === "taken" && (
+            <p className="text-xs text-destructive">
+              {t(
+                "onboarding.basics.slugTaken",
+                "This address is already taken.",
+              )}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">

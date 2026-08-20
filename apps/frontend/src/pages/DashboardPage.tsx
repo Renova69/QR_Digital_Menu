@@ -238,7 +238,7 @@ const DashboardPage = () => {
   };
   const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
   const publicMenuUrl = activeRestaurantId
-    ? buildMenuReturnUrl(activeRestaurantId, "1")
+    ? buildMenuReturnUrl(activeRestaurantId, "1", null, activeRestaurant?.slug)
     : null;
   const canAnalytics = useFeature("analytics:full");
   const canOrders = useFeature("orders:receive");

@@ -16,6 +16,10 @@ import { ReleaseSlugDto } from './dto/release-slug.dto';
 import { UpdateSlugDto } from './dto/update-slug.dto';
 import { RestaurantSlugService } from './restaurant-slug.service';
 
+interface AuthenticatedRequest {
+  user: { id: string };
+}
+
 // There is no @Roles decorator anywhere in this backend. Authorization is
 // performed inside a service method that takes req.user.id and checks it.
 // Do not introduce a RolesGuard here.
@@ -46,7 +50,7 @@ export class SlugController {
    * findOneForManagement seam rather than a third bespoke check.
    */
   @Post('commit')
-  async commit(@Param('id') id: string, @Request() req: any) {
+  async commit(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     await this.restaurants.findOneForManagement(id, req.user.id);
     return this.slugs.commitSlug(id);
   }
@@ -60,7 +64,7 @@ export class SlugController {
   async rename(
     @Param('id') id: string,
     @Body() dto: UpdateSlugDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     await this.slugs.assertOwner(id, req.user.id);
     const slug = await this.slugs.renameSlug(id, dto.slug);
@@ -73,14 +77,41 @@ export class SlugController {
   async release(
     @Param('id') id: string,
     @Body() dto: ReleaseSlugDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     await this.slugs.assertOwner(id, req.user.id);
     await this.slugs.releaseSlug(id, dto.slug);
     return { released: dto.slug };
   }
 
+  /** OWNER-only history used by settings release controls. */
+  @Get('aliases')
+  async aliases(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    await this.slugs.assertOwner(id, req.user.id);
+    const [primary, aliases] = await Promise.all([
+      this.slugs.getPrimaryState(id),
+      this.slugs.listAliases(id),
+    ]);
+    return { primary, aliases };
+  }
+
   /** Advisory only — the unique index is the authority at write time. */
+  @Get('available')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  async available(@Query('slug') slug: string) {
+    return { available: await this.slugs.isSlugAvailable(slug ?? '') };
+  }
+}
+
+/**
+ * Signup-time availability has no restaurant id yet. Keep this authenticated
+ * and advisory; exact ownership is established by the atomic create write.
+ */
+@Controller('restaurants/slug')
+@UseGuards(JwtAuthGuard)
+export class OnboardingSlugController {
+  constructor(private readonly slugs: RestaurantSlugService) {}
+
   @Get('available')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   async available(@Query('slug') slug: string) {

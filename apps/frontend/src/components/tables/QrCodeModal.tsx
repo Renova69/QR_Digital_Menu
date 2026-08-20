@@ -69,10 +69,21 @@ const QrCodeModal = ({
   // Built from the slug the server just froze, never from the restaurant
   // object the caller handed in — that way the rendered code can never
   // disagree with what the commit response returned.
-  const qrUrl =
-    target && committed
+  //
+  // On commit failure, fall back to the legacy `/menu/public/:id` URL
+  // instead of refusing to render anything. That URL carries no slug
+  // segment, so it can never go stale — a QR printed against it stays
+  // valid forever, which is strictly better than no QR at all. This does
+  // NOT weaken the precondition above: a QR still never renders against a
+  // slug that could still change, it just also never blocks on the commit
+  // succeeding when a permanently-valid alternative exists.
+  const qrUrl = !target
+    ? ""
+    : committed
       ? buildQrUrl({ id: restaurant.id, slug: committed.slug }, target)
-      : "";
+      : commitFailed
+        ? buildQrUrl({ id: restaurant.id, slug: null }, target)
+        : "";
 
   const handleDownload = () => {
     const sourceCanvas = qrCanvasRef.current?.querySelector("canvas");
@@ -125,20 +136,11 @@ const QrCodeModal = ({
   };
 
   // Keep the modal chrome constant across states — only the body swaps.
+  // No separate error branch: a failed commit still produces a real,
+  // permanently-valid QR (see the qrUrl fallback above), so the only
+  // remaining "empty" state is genuinely still loading.
   let body: ReactNode = null;
-  if (commitFailed) {
-    body = (
-      <div
-        role="alert"
-        className="text-sm font-medium text-destructive text-center"
-      >
-        {t(
-          "tables.qrCommitFailed",
-          "Could not prepare the menu link. Check your connection and try again.",
-        )}
-      </div>
-    );
-  } else if (!isCommitting && committed && target && qrUrl) {
+  if (!isCommitting && target && qrUrl) {
     body = (
       <div className="flex flex-col items-center">
         <div className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-4 shadow-inner sm:p-6">

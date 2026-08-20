@@ -71,15 +71,42 @@ describe('commitOnActivity', () => {
   });
 });
 
-// The 24h clock backstop does NOT live in commitSlug — see
-// restaurant-slug-lifecycle.spec.ts's "renameSlug — 24h clock backstop"
-// describe block. commitSlug only ever fires from a caller that already has
-// a concrete reason to lock the slug (a QR request, real activity); a
-// restaurant nobody ever interacts with never calls commitSlug at all, so a
-// backstop gated on "the next call to commitSlug" would never run for
-// exactly the case it exists to catch. What remains true of commitSlug
-// itself, and is worth guarding here, is that it stays unconditional and
-// idempotent regardless of the primary's age.
+describe('commitExpiredUncommittedSlugs', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('atomically commits primaries after durable activity or 24h', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-20T12:00:00.000Z'));
+    const updateMany = jest.fn().mockResolvedValue({ count: 2 });
+    const service = new RestaurantSlugService({
+      restaurantSlug: { updateMany },
+    } as any);
+
+    await expect(service.commitExpiredUncommittedSlugs()).resolves.toBe(2);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        isPrimary: true,
+        committedAt: null,
+        restaurant: {
+          deletedAt: null,
+          OR: [
+            { createdAt: { lte: new Date('2026-08-19T12:00:00.000Z') } },
+            { menuViews: { some: {} } },
+            { orders: { some: {} } },
+            { reservations: { some: {} } },
+          ],
+        },
+      },
+      data: { committedAt: new Date('2026-08-20T12:00:00.000Z') },
+    });
+  });
+});
+
+// commitSlug itself remains unconditional: every real activity or QR request
+// commits immediately, while commitExpiredUncommittedSlugs covers restaurants
+// with no observed activity at all. Both paths are idempotent because their
+// writes are restricted to rows whose committedAt is still null.
 describe('commitSlug remains unconditional and idempotent regardless of age', () => {
   it('commits an uncommitted slug whether it is brand new or long abandoned', async () => {
     const freshPrimary = {

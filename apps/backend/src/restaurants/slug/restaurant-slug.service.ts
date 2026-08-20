@@ -3,9 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generateSlugBase, withSuffix } from './slug-generator';
 import {
@@ -47,7 +49,69 @@ function isUniqueViolation(error: unknown): boolean {
 
 @Injectable()
 export class RestaurantSlugService {
+  private readonly logger = new Logger(RestaurantSlugService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Create an active restaurant together with its required primary slug.
+   *
+   * This is the creation interface for slug-enabled restaurants. Keeping the
+   * restaurant row, namespace claim, and denormalized slug copy inside one
+   * transaction prevents a successful signup from ever exposing a restaurant
+   * with no primary slug. A namespace race retries the entire transaction, so
+   * a failed candidate cannot strand the restaurant row from that attempt.
+   */
+  async createRestaurantWithInitialSlug(
+    data: Prisma.RestaurantUncheckedCreateInput,
+    preferredSlug?: string,
+  ) {
+    if (preferredSlug) {
+      const ruleViolation = validateSlug(preferredSlug);
+      if (ruleViolation) {
+        throw new BadRequestException(RENAME_REJECTION_MESSAGES[ruleViolation]);
+      }
+    }
+
+    const attemptLimit = preferredSlug ? 1 : MAX_CLAIM_ATTEMPTS;
+    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const restaurant = await tx.restaurant.create({
+            data: { ...data, slug: null },
+          });
+          const base = generateSlugBase(restaurant.name, restaurant.id);
+          const candidate = preferredSlug
+            ? preferredSlug
+            : attempt === 1
+              ? base
+              : withSuffix(base, attempt);
+
+          await tx.restaurantSlug.create({
+            data: {
+              slug: candidate,
+              restaurantId: restaurant.id,
+              isPrimary: true,
+            },
+          });
+
+          return tx.restaurant.update({
+            where: { id: restaurant.id },
+            data: { slug: candidate },
+          });
+        });
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        if (preferredSlug) {
+          throw new ConflictException('This slug is already taken');
+        }
+      }
+    }
+
+    throw new ConflictException(
+      `Could not allocate a unique slug for "${data.name}" after ${MAX_CLAIM_ATTEMPTS} attempts`,
+    );
+  }
 
   /**
    * Slug -> restaurant. Deliberately cheap: a single primary-key lookup that
@@ -115,9 +179,13 @@ export class RestaurantSlugService {
     );
   }
 
-  private async primaryOrThrow(tx: any, restaurantId: string) {
+  private async primaryOrThrow(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+  ) {
     const primary = await tx.restaurantSlug.findFirst({
       where: { restaurantId, isPrimary: true },
+      include: { restaurant: { select: { createdAt: true } } },
     });
     if (!primary) {
       throw new BadRequestException('Restaurant has no primary slug');
@@ -136,16 +204,10 @@ export class RestaurantSlugService {
    * (MenuView / Order / Reservation), for the same reason: genuine activity
    * should lock the slug immediately, not after a delay.
    *
-   * The 24h clock backstop does NOT live here — see renameSlug's isCommitted
-   * check. commitSlug only ever fires from a caller that already has a
-   * concrete reason to lock the slug (a QR request, real activity); a
-   * restaurant that nobody ever interacts with and never requests a QR has
-   * nothing calling commitSlug at all, so a backstop gated on "the next call
-   * to commitSlug" would never actually run for exactly the case it exists
-   * to catch. The one place an uncommitted-but-abandoned slug is provably
-   * still reachable is a rename attempt, since that is the one action an
-   * owner can take on a slug regardless of whether it was ever committed —
-   * see renameSlug for the real mechanism.
+   * The automatic 24h backstop is handled by
+   * commitExpiredUncommittedSlugs(). commitSlug only fires from a caller that
+   * already has a concrete reason to lock the slug immediately (a QR request
+   * or real activity).
    *
    * Export tracking was rejected as the trigger because it is best-effort —
    * a beacon can fail while the download still succeeds.
@@ -168,30 +230,55 @@ export class RestaurantSlugService {
   }
 
   /**
-   * Fire-and-forget commit triggered by the first real external reference to
+   * Immediate commit attempt triggered by the first real external reference to
    * a restaurant: a public menu view, an order (including POS, which
    * involves no menu view), or a reservation (which never touches the slug
    * at all otherwise). Callers are customer-facing write paths — placing an
    * order, recording a menu view, creating a reservation — so a
-   * slug-bookkeeping failure must never fail that write.
-   *
-   * Deliberately swallows every error from commitSlug rather than letting it
-   * propagate, and does so *inside* this method rather than relying on the
-   * caller to guard it: an async function only rejects its returned promise
-   * if an error escapes the function body, so catching here — not merely
-   * writing `void service.commitOnActivity(id)` at the call site — is what
-   * guarantees this promise can never reject, regardless of what the caller
-   * does with it. An unhandled rejection here would surface as a process
-   * warning at best and crash the process under some Node configurations at
-   * worst, for a purely best-effort side effect.
+   * slug-bookkeeping failure must never fail that write. Callers await this
+   * attempt, while failures are logged and reconciled from the durable
+   * activity rows by commitExpiredUncommittedSlugs.
    */
   async commitOnActivity(restaurantId: string): Promise<void> {
     try {
       await this.commitSlug(restaurantId);
-    } catch {
-      // Intentionally ignored — see doc comment above. Slug bookkeeping
-      // must never fail an order, a reservation, or a menu view.
+    } catch (error) {
+      this.logger.warn(
+        `Immediate activity commit failed for restaurant ${restaurantId}; scheduled reconciliation will retry: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
+  }
+
+  /**
+   * Durable clock backstop for restaurants with no observed external
+   * activity. Cloud Run may run this on more than one instance, so the sweep
+   * is one idempotent updateMany restricted to rows that are still
+   * uncommitted. The clock is restaurant.createdAt, as specified; editing an
+   * uncommitted slug must not restart the restaurant's 24-hour grace period.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async commitExpiredUncommittedSlugs(): Promise<number> {
+    const committedAt = new Date();
+    const cutoff = new Date(committedAt.getTime() - DAY_MS);
+    const result = await this.prisma.restaurantSlug.updateMany({
+      where: {
+        isPrimary: true,
+        committedAt: null,
+        restaurant: {
+          deletedAt: null,
+          OR: [
+            { createdAt: { lte: cutoff } },
+            { menuViews: { some: {} } },
+            { orders: { some: {} } },
+            { reservations: { some: {} } },
+          ],
+        },
+      },
+      data: { committedAt },
+    });
+    return result.count;
   }
 
   private assertRenameAllowed(primary: { committedAt: Date | null }): void {
@@ -213,7 +300,7 @@ export class RestaurantSlugService {
    * duplicate. The old primary survives as a permanent alias either way.
    */
   private async repromoteOwnAlias(
-    tx: any,
+    tx: Prisma.TransactionClient,
     restaurantId: string,
     oldSlug: string,
     nextSlug: string,
@@ -224,7 +311,10 @@ export class RestaurantSlugService {
     });
     await tx.restaurantSlug.update({
       where: { slug: nextSlug },
-      data: { isPrimary: true },
+      // Re-promotion is a real committed rename. Reset the cooldown clock on
+      // the row becoming primary; retaining this alias row's historical
+      // committedAt would let the owner rename again immediately.
+      data: { isPrimary: true, committedAt: new Date() },
     });
     await tx.restaurant.update({
       where: { id: restaurantId },
@@ -240,7 +330,7 @@ export class RestaurantSlugService {
    * authority — see the P2002 catch below.
    */
   private async claimFreshSlug(
-    tx: any,
+    tx: Prisma.TransactionClient,
     restaurantId: string,
     primary: { slug: string },
     nextSlug: string,
@@ -314,21 +404,20 @@ export class RestaurantSlugService {
         return primary.slug;
       }
 
-      // 24h clock backstop lives here, not in commitSlug. The escape path
-      // this guards against never calls commitSlug at all: an owner can
-      // copy their menu URL straight off the settings page and paste it
-      // into an Instagram bio, a Google Business listing, or a printed
-      // flyer without the backend ever observing it — no QR render, no
-      // menu view, no order, no reservation. A rename is the one action an
-      // owner can still take on an abandoned, never-committed slug, so it
-      // is the one place this codebase can still intercept "this slug may
-      // already be out in the world" once enough time has passed that an
-      // unobserved external reference is plausible. Short-circuit: when
-      // primary.committedAt is already truthy, primary.createdAt is never
-      // read, so a genuinely committed row needs no createdAt fixture.
+      // Defensive 24h check. The hourly scheduler is the automatic backstop,
+      // but a delayed or temporarily failed scheduler run must not let an
+      // owner rename a slug whose restaurant-level grace window has already
+      // elapsed. Short-circuit: when primary.committedAt is already truthy,
+      // the creation clock is never read, so a genuinely committed row needs
+      // no createdAt fixture.
+      // The authoritative clock belongs to the restaurant, not the current
+      // slug row: an edit during the grace period creates a new row and must
+      // not restart the restaurant's original 24-hour deadline.
+      const backstopStartedAt =
+        primary.restaurant?.createdAt ?? primary.createdAt;
       const isCommitted =
         Boolean(primary.committedAt) ||
-        Date.now() - primary.createdAt.getTime() >= DAY_MS;
+        Date.now() - backstopStartedAt.getTime() >= DAY_MS;
 
       // The cooldown itself is keyed on primary.committedAt directly (never
       // on the isCommitted flag above) — a backstop-forced isCommitted with
@@ -399,6 +488,119 @@ export class RestaurantSlugService {
         where: { slug },
         data: { releasedAt: new Date() },
       });
+    });
+  }
+
+  /**
+   * Previous public URLs for the owner settings screen. Released rows remain
+   * visible so the UI can distinguish a working alias from an irreversible
+   * tombstone instead of making a disappeared URL look reusable.
+   */
+  async listAliases(restaurantId: string) {
+    return this.prisma.restaurantSlug.findMany({
+      where: { restaurantId, isPrimary: false },
+      select: {
+        slug: true,
+        committedAt: true,
+        releasedAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPrimaryState(restaurantId: string) {
+    return this.prisma.restaurantSlug.findFirst({
+      where: { restaurantId, isPrimary: true },
+      select: { slug: true, committedAt: true, createdAt: true },
+    });
+  }
+
+  /**
+   * Support-only business-sale recovery. A tombstone is transferred as a
+   * committed alias of the buyer's existing primary URL; making it primary
+   * would violate the one-primary invariant and unnecessarily replace the
+   * buyer's current public address. The compare-and-update predicate prevents
+   * two concurrent support actions from transferring the same name twice.
+   * Namespace mutation and its audit record deliberately share one database
+   * transaction.
+   */
+  async reassignReleasedSlug(
+    rawSlug: string,
+    targetRestaurantId: string,
+    actorUserId: string,
+  ): Promise<{
+    slug: string;
+    restaurantId: string;
+    previousRestaurantId: string;
+  }> {
+    const slug = rawSlug.trim().toLowerCase();
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.restaurantSlug.findUnique({ where: { slug } });
+      if (!row) {
+        throw new NotFoundException(`Slug "${slug}" not found`);
+      }
+      if (row.isPrimary || !row.releasedAt) {
+        throw new BadRequestException(
+          'Only a released alias can be reassigned',
+        );
+      }
+
+      const target = await tx.restaurant.findUnique({
+        where: { id: targetRestaurantId },
+        select: { id: true, slug: true, deletedAt: true },
+      });
+      if (!target || target.deletedAt) {
+        throw new NotFoundException(
+          `Restaurant "${targetRestaurantId}" not found`,
+        );
+      }
+      if (!target.slug) {
+        throw new BadRequestException(
+          'Target restaurant has no canonical slug',
+        );
+      }
+
+      const reassigned = await tx.restaurantSlug.updateMany({
+        where: {
+          slug,
+          restaurantId: row.restaurantId,
+          isPrimary: false,
+          releasedAt: row.releasedAt,
+        },
+        data: {
+          restaurantId: targetRestaurantId,
+          isPrimary: false,
+          releasedAt: null,
+          committedAt: row.committedAt ?? new Date(),
+        },
+      });
+      if (reassigned.count !== 1) {
+        throw new ConflictException(
+          'The released slug changed during reassignment; retry the operation',
+        );
+      }
+
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'SLUG_REASSIGNED',
+          targetType: 'RestaurantSlug',
+          targetId: slug,
+          metadata: {
+            fromRestaurantId: row.restaurantId,
+            toRestaurantId: targetRestaurantId,
+            canonicalSlug: target.slug,
+          },
+        },
+      });
+
+      return {
+        slug,
+        restaurantId: targetRestaurantId,
+        previousRestaurantId: row.restaurantId,
+      };
     });
   }
 

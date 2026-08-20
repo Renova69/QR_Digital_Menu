@@ -10,7 +10,10 @@ import { PaymentModule } from '../payment/payment.module';
 import { UsersModule } from '../users/users.module';
 import { MenuModule } from '../menu/menu.module';
 import { SlugModule } from './slug/slug.module';
-import { SlugController } from './slug/slug.controller';
+import {
+  OnboardingSlugController,
+  SlugController,
+} from './slug/slug.controller';
 
 @Module({
   imports: [
@@ -25,6 +28,7 @@ import { SlugController } from './slug/slug.controller';
     RestaurantsController,
     DeviceEnrollmentController,
     StaffController,
+    OnboardingSlugController,
     SlugController,
   ],
   providers: [RestaurantsService, DeviceEnrollmentService],

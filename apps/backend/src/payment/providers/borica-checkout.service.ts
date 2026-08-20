@@ -786,6 +786,7 @@ export class BoricaCheckoutService {
       include: {
         restaurant: {
           select: {
+            slug: true,
             boricaMode: true,
             boricaPrivateKeyEncrypted: true,
             boricaPublicCert: true,
@@ -803,6 +804,15 @@ export class BoricaCheckoutService {
     if (!payment) {
       return `${this.config.getFrontendBaseUrl()}/?payment=borica-cancel`;
     }
+
+    const returnSession = {
+      restaurantId: payment.restaurantId,
+      restaurant: {
+        id: payment.restaurantId,
+        slug: payment.restaurant?.slug ?? null,
+      },
+      table: payment.tableSession?.table,
+    };
 
     const certPem =
       payment.restaurant?.boricaMode === 'LIVE'
@@ -822,10 +832,7 @@ export class BoricaCheckoutService {
           validTo: certificateValidity.validTo?.toISOString(),
         });
         return this.config.buildPublicMenuReturnUrl(
-          {
-            restaurantId: payment.restaurantId,
-            table: payment.tableSession?.table,
-          },
+          returnSession,
           'borica-cancel',
         );
       }
@@ -842,10 +849,7 @@ export class BoricaCheckoutService {
     const result = this.borica.verifyResult(body, certPem);
 
     const cancelUrl = this.config.buildPublicMenuReturnUrl(
-      {
-        restaurantId: payment.restaurantId,
-        table: payment.tableSession?.table,
-      },
+      returnSession,
       'borica-cancel',
     );
 
@@ -995,10 +999,7 @@ export class BoricaCheckoutService {
       });
       await this.core.emitPaymentClaimEvents(payment, mismatchClaim);
       return this.config.buildPublicMenuReturnUrl(
-        {
-          restaurantId: payment.restaurantId,
-          table: payment.tableSession?.table,
-        },
+        returnSession,
         mismatchClaim.claimed || payment.status === 'SUCCEEDED'
           ? 'borica-ok'
           : 'borica-cancel',
@@ -1032,10 +1033,7 @@ export class BoricaCheckoutService {
     await this.core.emitPaymentClaimEvents(payment, claim);
 
     return this.config.buildPublicMenuReturnUrl(
-      {
-        restaurantId: payment.restaurantId,
-        table: payment.tableSession?.table,
-      },
+      returnSession,
       claim.claimed || payment.status === 'SUCCEEDED'
         ? 'borica-ok'
         : 'borica-cancel',

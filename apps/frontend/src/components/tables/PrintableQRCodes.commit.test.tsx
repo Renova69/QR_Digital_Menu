@@ -178,7 +178,14 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
   });
 
-  it("shows an error, produces no printable QR codes, and never reaches window.print() when the commit fails", async () => {
+  // Fix round 2 (merge blocker): a commit failure used to leave the sheet
+  // showing only its safe placeholder — completely unprintable. It now
+  // falls back to a real grid built against the permanent legacy id URL
+  // (see PrintableQRCodes.fallback.test.tsx for the URL-value assertions),
+  // and the original print action still completes. Requiring the owner to
+  // discover Ctrl+P after clicking the explicit print button would leave
+  // the production regression only partially fixed.
+  it("shows an error, renders fallback QR codes, and completes printing when the commit fails", async () => {
     commitRestaurantSlug.mockRejectedValue(new Error("offline"));
     renderTableView();
     await screen.findByText("5");
@@ -186,7 +193,10 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByTestId("printable-qr-grid")).not.toBeInTheDocument();
-    expect(printSpy).not.toHaveBeenCalled();
+    expect(await screen.findByTestId("printable-qr-grid")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("printable-qr-placeholder"),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
   });
 });

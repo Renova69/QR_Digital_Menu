@@ -1298,12 +1298,11 @@ export class OrdersService {
       throw error;
     }
 
-    // Fire-and-forget: the order transaction above committed, including POS
-    // orders that never triggered a public menu view. Not awaited —
-    // commitOnActivity does its own DB work and must never delay the order
-    // confirmation returned to the customer or POS terminal, and it already
-    // swallows its own errors so slug bookkeeping can never fail an order.
-    void this.slugs.commitOnActivity(finalOrder.restaurantId);
+    // The committed order (including POS) is a durable activity signal. Wait
+    // for the immediate idempotent slug-commit attempt; failures are reported
+    // and absorbed inside commitOnActivity, then repaired from durable order
+    // state by the scheduled reconciliation.
+    await this.slugs.commitOnActivity(finalOrder.restaurantId);
 
     const isAwaitingPayment = finalOrder.status === OrderStatus.PENDING_PAYMENT;
 

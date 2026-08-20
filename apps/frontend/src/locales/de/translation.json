@@ -516,6 +516,8 @@
     "createCustomOption": "Benutzerdefinierte Option erstellen",
     "doneness": "Fertig",
     "donenessTemplate": "Vorlage für den Gargrad",
+    "moved": "Dieses Menü wurde verschoben.",
+    "notFound": "Menü nicht gefunden.",
     "options": "Optionen:",
     "quantity": "Anzahl",
     "quantityTemplate": "Mengenvorlage",

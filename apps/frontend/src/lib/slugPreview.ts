@@ -74,10 +74,9 @@ function transliterateBg(input: string): string {
 }
 
 /**
- * Truncates to SLUG_MAX_LENGTH, preferring a hyphen boundary so a word is
- * not split. Mirrors truncateAtBoundary in slug-generator.ts exactly,
- * including the deliberate hard-cut when the 40-char window contains no
- * hyphen at all.
+ * Truncates to SLUG_MAX_LENGTH at a hyphen boundary so a word is never split.
+ * Mirrors truncateAtBoundary in slug-generator.ts exactly, including its
+ * fallback signal when no boundary exists inside the length bound.
  */
 function truncateAtBoundary(slug: string): string {
   if (slug.length <= SLUG_MAX_LENGTH) return slug;
@@ -86,7 +85,7 @@ function truncateAtBoundary(slug: string): string {
   if (lastHyphen > 0) {
     return cut.slice(0, lastHyphen).replace(/-+$/, "");
   }
-  return cut.replace(/-+$/, "");
+  return "";
 }
 
 /**

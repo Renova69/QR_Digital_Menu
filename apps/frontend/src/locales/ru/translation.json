@@ -131,6 +131,8 @@
     "createCustomOption": "Создать пользовательский параметр",
     "doneness": "Готово",
     "donenessTemplate": "Шаблон «Степень прожарки»",
+    "moved": "Это меню было перемещено.",
+    "notFound": "Меню не найдено.",
     "options": "Варианты:",
     "quantity": "Количество",
     "quantityTemplate": "Шаблон количества",

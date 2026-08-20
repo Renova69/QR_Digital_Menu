@@ -516,6 +516,8 @@
     "createCustomOption": "Créer une option personnalisée",
     "doneness": "Terminé",
     "donenessTemplate": "Modèle de cuisson",
+    "moved": "Ce menu a été déplacé.",
+    "notFound": "Menu introuvable.",
     "options": "Options :",
     "quantity": "Quantité",
     "quantityTemplate": "Modèle de quantité",

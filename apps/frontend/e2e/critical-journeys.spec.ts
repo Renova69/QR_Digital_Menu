@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const RESTAURANT_ID = "e2e-restaurant";
+const CANONICAL_SLUG = "test-bistro";
 
 const menuMeta = {
   restaurant: {
@@ -115,6 +116,27 @@ async function mockPublicApi(page: Page): Promise<void> {
       return;
     }
 
+    if (path === `/api/v1/menu/public/resolve/${CANONICAL_SLUG}`) {
+      await fulfillJson(route, {
+        restaurantId: RESTAURANT_ID,
+        canonicalSlug: CANONICAL_SLUG,
+      });
+      return;
+    }
+
+    if (path === "/api/v1/menu/public/resolve/old-test-bistro") {
+      await fulfillJson(route, {
+        restaurantId: RESTAURANT_ID,
+        canonicalSlug: CANONICAL_SLUG,
+      });
+      return;
+    }
+
+    if (path === "/api/v1/menu/public/resolve/released-test-bistro") {
+      await fulfillJson(route, { message: "Gone" }, 410);
+      return;
+    }
+
     if (path === `/api/v1/menu/public/${RESTAURANT_ID}/meta`) {
       await fulfillJson(route, menuMeta);
       return;
@@ -181,6 +203,34 @@ test("customer can open a restaurant menu", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 3, name: "Tomato Soup" }),
   ).toBeVisible();
+});
+
+test("customer can open the canonical vanity URL", async ({ page }) => {
+  await page.goto(`/m/${CANONICAL_SLUG}?table=7&lang=en`);
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Test Bistro" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(`/m/${CANONICAL_SLUG}?table=7&lang=en`);
+});
+
+test("live alias canonicalization preserves table and language", async ({
+  page,
+}) => {
+  await page.goto("/m/old-test-bistro?table=7&lang=en");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Test Bistro" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(`/m/${CANONICAL_SLUG}?table=7&lang=en`);
+});
+
+test("released vanity URL shows the translated moved-menu state", async ({
+  page,
+}) => {
+  await page.goto("/m/released-test-bistro?lang=en");
+
+  await expect(page.getByRole("alert")).toHaveText("This menu has moved.");
 });
 
 test("customer can add a menu item to the cart", async ({ page }) => {

@@ -131,6 +131,8 @@
     "createCustomOption": "カスタムオプションを作成する",
     "doneness": "完了",
     "donenessTemplate": "焼き加減テンプレート",
+    "moved": "このメニューは移動しました。",
+    "notFound": "メニューが見つかりません。",
     "options": "オプション：",
     "quantity": "数量",
     "quantityTemplate": "数量テンプレート",

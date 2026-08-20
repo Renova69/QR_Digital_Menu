@@ -323,17 +323,25 @@ const TableView: React.FC = () => {
   const [pendingPrint, setPendingPrint] = useState(false);
 
   // window.print() must run strictly after PrintableQRCodes has re-rendered
-  // with the frozen slug, not from the mutation's onSuccess callback —
-  // that callback can fire before React has committed the new `committed`
-  // prop to the DOM, which would let the browser capture the sheet mid
-  // transition. Waiting on an effect keyed to the mutation's own success
-  // state guarantees the DOM already holds the real QR codes first.
+  // with either the frozen slug or the permanent legacy-id fallback, not
+  // from a mutation callback. A callback can fire before React has committed
+  // the new props to the DOM, which would let the browser capture the sheet
+  // mid-transition. Waiting on the settled mutation state guarantees the
+  // DOM already holds the real QR codes first.
   useEffect(() => {
-    if (pendingPrint && printSlugMutation.isSuccess) {
+    if (
+      pendingPrint &&
+      (printSlugMutation.isSuccess || printSlugMutation.isError)
+    ) {
       window.print();
       setPendingPrint(false);
     }
-  }, [pendingPrint, printSlugMutation.isSuccess, printSlugMutation.data]);
+  }, [
+    pendingPrint,
+    printSlugMutation.isSuccess,
+    printSlugMutation.isError,
+    printSlugMutation.data,
+  ]);
 
   const handlePrintAllClick = () => {
     if (!restaurantId) return;

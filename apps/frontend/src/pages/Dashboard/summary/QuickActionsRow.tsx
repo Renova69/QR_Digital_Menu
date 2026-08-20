@@ -11,6 +11,7 @@ import { buildMenuReturnUrl } from "../../../lib/menuUrl";
 
 interface QuickActionsRowProps {
   restaurantId: string;
+  restaurantSlug?: string | null;
 }
 
 interface QuickAction {
@@ -23,7 +24,10 @@ interface QuickAction {
   bgClass: string;
 }
 
-const QuickActionsRow = ({ restaurantId }: QuickActionsRowProps) => {
+const QuickActionsRow = ({
+  restaurantId,
+  restaurantSlug,
+}: QuickActionsRowProps) => {
   const { t } = useTranslation();
 
   const actions: QuickAction[] = [
@@ -31,7 +35,7 @@ const QuickActionsRow = ({ restaurantId }: QuickActionsRowProps) => {
       label: t("dashboard.viewMenu", "View Menu"),
       description: t("dashboard.viewMenuDesc", "Public digital menu"),
       Icon: ExternalLink,
-      href: buildMenuReturnUrl(restaurantId, "1"),
+      href: buildMenuReturnUrl(restaurantId, "1", null, restaurantSlug),
       external: true,
       colorClass: "text-blue-500",
       bgClass: "bg-blue-500/10 border-blue-500/15",

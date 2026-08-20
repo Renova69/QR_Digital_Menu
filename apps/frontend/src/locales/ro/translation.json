@@ -318,7 +318,17 @@
     "slugLengthError": "Adresa meniului trebuie să aibă între 2 și 40 de caractere.",
     "slugReservedError": "Această adresă este rezervată și nu poate fi folosită. Încearcă alta.",
     "slugNumericError": "Adresa meniului nu poate fi formată doar din cifre — adaugă o literă sau un cuvânt.",
-    "slugPunycodeError": "Adresa meniului nu poate începe cu „xn--”. Alege o altă adresă."
+    "slugPunycodeError": "Adresa meniului nu poate începe cu „xn--”. Alege o altă adresă.",
+    "menuAddressCommitted": "Această adresă este blocată pentru siguranța codurilor QR tipărite. O poți schimba din nou pe {{date}}.",
+    "menuAddressUncommitted": "Această adresă nu este încă blocată. Modificările sunt libere și nu se păstrează un URL anterior.",
+    "previousMenuAddresses": "URL-uri anterioare",
+    "menuAddressReleased": "Eliberat",
+    "releaseMenuAddress": "Eliberează",
+    "releaseMenuAddressAria": "Eliberează {{slug}}",
+    "releaseMenuAddressTitle": "Eliberează URL-ul anterior",
+    "releaseMenuAddressDesc": "Eliberarea este permanentă și ireversibilă. Codurile QR către acest URL nu vor mai funcționa, iar numele nu poate fi reutilizat fără contactarea suportului.",
+    "releaseMenuAddressConfirm": "Tastează CONFIRM pentru a continua",
+    "releaseMenuAddressAction": "Eliberează URL-ul"
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",
@@ -3261,6 +3271,8 @@
     }
   },
   "menu": {
+    "moved": "Acest meniu a fost mutat.",
+    "notFound": "Meniul nu a fost găsit.",
     "options": "Opțiuni:",
     "quickTemplates": "Șabloane rapide",
     "sizeTemplate": "Șablon de mărime",
@@ -3353,7 +3365,10 @@
       "ownerName": "Numele tău",
       "restaurantName": "Numele restaurantului *",
       "menuAddress": "Adresa meniului",
-      "menuAddressHint": "Generată automat din numele restaurantului — o poți schimba mai târziu în Setări.",
+      "menuAddressHint": "Generată din numele restaurantului. O poți edita acum sau poți păstra sugestia.",
+      "slugChecking": "Se verifică disponibilitatea…",
+      "slugAvailable": "Această adresă este disponibilă.",
+      "slugTaken": "Această adresă este deja folosită.",
       "city": "Oraș",
       "dashboardLanguage": "Limba tabloului de bord",
       "dashboardLanguageHint": "Limba utilizată pentru tabloul de bord.",

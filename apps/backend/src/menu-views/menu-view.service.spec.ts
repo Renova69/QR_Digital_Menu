@@ -110,20 +110,31 @@ describe('MenuViewService', () => {
       expect(mockSlugs.commitOnActivity).not.toHaveBeenCalled();
     });
 
-    it('does not await commitOnActivity before resolving', async () => {
+    it('waits for the first-activity commit attempt before resolving', async () => {
       let resolveCommit!: () => void;
-      mockSlugs.commitOnActivity.mockReturnValue(
-        new Promise<void>((resolve) => {
+      let markCommitStarted!: () => void;
+      const commitStarted = new Promise<void>((resolve) => {
+        markCommitStarted = resolve;
+      });
+      mockSlugs.commitOnActivity.mockImplementation(() => {
+        markCommitStarted();
+        return new Promise<void>((resolve) => {
           resolveCommit = resolve;
-        }),
-      );
+        });
+      });
 
-      // recordView must resolve even though the fire-and-forget commit is
-      // still pending — otherwise slug bookkeeping would delay the response
-      // to a customer loading the public menu.
-      await expect(service.recordView('rest1', {})).resolves.toBeUndefined();
+      let settled = false;
+      const record = service.recordView('rest1', {}).then(() => {
+        settled = true;
+      });
+      await commitStarted;
+      await Promise.resolve();
+      await Promise.resolve();
 
+      expect(settled).toBe(false);
       resolveCommit();
+      await record;
+      expect(settled).toBe(true);
     });
   });
 

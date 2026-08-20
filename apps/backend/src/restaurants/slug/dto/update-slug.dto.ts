@@ -1,5 +1,6 @@
 import { IsString, Length, Matches } from 'class-validator';
 import { SLUG_MAX_LENGTH, SLUG_MIN_LENGTH, SLUG_PATTERN } from '../slug-rules';
+import { IsRestaurantSlug } from './is-restaurant-slug.decorator';
 
 export class UpdateSlugDto {
   @IsString()
@@ -9,5 +10,6 @@ export class UpdateSlugDto {
   @Matches(SLUG_PATTERN, {
     message: 'slug must be lowercase letters, digits and inner hyphens only',
   })
+  @IsRestaurantSlug()
   slug!: string;
 }

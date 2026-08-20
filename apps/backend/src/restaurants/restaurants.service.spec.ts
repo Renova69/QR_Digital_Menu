@@ -209,6 +209,11 @@ describe('RestaurantsService', () => {
 
     mockRestaurantSlugService = {
       claimInitialSlug: jest.fn().mockResolvedValue('test-restaurant'),
+      createRestaurantWithInitialSlug: jest
+        .fn()
+        .mockImplementation((data: Record<string, unknown>) =>
+          Promise.resolve(makeRestaurant({ ...data, slug: 'test-restaurant' })),
+        ),
     };
 
     service = new RestaurantsService(
@@ -250,14 +255,21 @@ describe('RestaurantsService', () => {
   describe('create', () => {
     it('creates restaurant with ownerId set to userId', async () => {
       const dto = { name: 'New Place' };
-      const expected = makeRestaurant({ name: 'New Place' });
-      mockPrisma.restaurant.create.mockResolvedValue(expected);
+      const expected = makeRestaurant({
+        name: 'New Place',
+        slug: 'new-place',
+      });
+      mockRestaurantSlugService.createRestaurantWithInitialSlug.mockResolvedValue(
+        expected,
+      );
 
       const result = await service.create(dto, 'user1');
 
-      expect(mockPrisma.restaurant.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ ...dto, ownerId: 'user1' }),
-      });
+      expect(
+        mockRestaurantSlugService.createRestaurantWithInitialSlug,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ ...dto, ownerId: 'user1' }),
+      );
       expect(result).toBe(expected);
     });
 
@@ -267,54 +279,65 @@ describe('RestaurantsService', () => {
         logoUrl: 'https://r2/logo.webp',
         accentColor: '#abc',
       };
-      mockPrisma.restaurant.create.mockResolvedValue(makeRestaurant());
-
       await service.create(dto, 'user1');
 
-      const sentData = mockPrisma.restaurant.create.mock.calls[0][0].data;
+      const sentData =
+        mockRestaurantSlugService.createRestaurantWithInitialSlug.mock
+          .calls[0][0];
       expect(sentData).not.toHaveProperty('logoUrl');
       expect(sentData).not.toHaveProperty('accentColor');
       expect(sentData).toMatchObject({ name: 'New Place', ownerId: 'user1' });
     });
 
-    it('claims an initial slug for a newly created restaurant, after the row exists', async () => {
-      const created = makeRestaurant({ id: 'rest-new', name: 'New Place' });
-      mockPrisma.restaurant.create.mockResolvedValue(created);
-
+    it('delegates restaurant and initial-slug creation to one atomic interface', async () => {
       await service.create({ name: 'New Place' }, 'user1');
 
-      // Must be called with the real id from the created row, not a
-      // pre-create placeholder — proves the call happens after creation.
-      expect(mockRestaurantSlugService.claimInitialSlug).toHaveBeenCalledWith(
-        'rest-new',
-        'New Place',
+      expect(
+        mockRestaurantSlugService.createRestaurantWithInitialSlug,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'New Place',
+          ownerId: 'user1',
+          country: 'Bulgaria',
+        }),
+      );
+      expect(mockPrisma.restaurant.create).not.toHaveBeenCalled();
+    });
+
+    it('passes an owner-edited onboarding slug to the atomic creation interface without persisting it as restaurant data', async () => {
+      await service.create(
+        { name: 'New Place', slug: 'owners-choice' } as any,
+        'user1',
+      );
+
+      expect(
+        mockRestaurantSlugService.createRestaurantWithInitialSlug,
+      ).toHaveBeenCalledWith(
+        expect.not.objectContaining({ slug: expect.anything() }),
+        'owners-choice',
       );
     });
 
-    it('still returns the created restaurant when slug allocation is exhausted', async () => {
-      const created = makeRestaurant({ id: 'rest-new', name: 'New Place' });
-      mockPrisma.restaurant.create.mockResolvedValue(created);
-      mockRestaurantSlugService.claimInitialSlug.mockRejectedValue(
+    it('fails creation when initial slug allocation is exhausted', async () => {
+      mockRestaurantSlugService.createRestaurantWithInitialSlug.mockRejectedValue(
         new ConflictException(
           'Could not allocate a unique slug for "New Place" after 5 attempts',
         ),
       );
 
-      const result = await service.create({ name: 'New Place' }, 'user1');
-
-      expect(result).toBe(created);
+      await expect(
+        service.create({ name: 'New Place' }, 'user1'),
+      ).rejects.toThrow('Could not allocate a unique slug');
     });
 
-    it('does not propagate a slug-allocation failure of any kind — creation is unconditionally best-effort', async () => {
-      const created = makeRestaurant({ id: 'rest-new', name: 'New Place' });
-      mockPrisma.restaurant.create.mockResolvedValue(created);
-      mockRestaurantSlugService.claimInitialSlug.mockRejectedValue(
+    it('propagates unexpected transaction failures instead of returning a slugless restaurant', async () => {
+      mockRestaurantSlugService.createRestaurantWithInitialSlug.mockRejectedValue(
         new Error('unexpected db error'),
       );
 
       await expect(
         service.create({ name: 'New Place' }, 'user1'),
-      ).resolves.toBe(created);
+      ).rejects.toThrow('unexpected db error');
     });
   });
 

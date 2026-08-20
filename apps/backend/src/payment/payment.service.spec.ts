@@ -1153,6 +1153,8 @@ describe('PaymentService', () => {
 
   describe('createCheckout with ePay.bg', () => {
     const epayRestaurant = {
+      id: 'rest1',
+      slug: 'new-place',
       paymentsEnabled: true,
       stripeOnboarded: false,
       stripeAccountId: null,
@@ -1221,6 +1223,9 @@ describe('PaymentService', () => {
           amount: 22,
           currency: 'EUR',
           page: 'credit_paydirect',
+          urlOk: 'http://localhost:3001/m/new-place?table=7&payment=epay-ok',
+          urlCancel:
+            'http://localhost:3001/m/new-place?table=7&payment=epay-cancel',
         }),
       );
     });

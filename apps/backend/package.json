@@ -14,6 +14,8 @@
     "migrate:dev": "node scripts/prisma-migrate-guard.js && npx prisma migrate dev --create-only",
     "migrate:deploy": "npx prisma migrate deploy",
     "migrate:repair-checksum": "npx ts-node scripts/repair-migration-checksum.ts",
+    "slug:backfill-verify": "npx ts-node prisma/backfill-restaurant-slugs.ts",
+    "slug:verify": "npx ts-node prisma/backfill-restaurant-slugs.ts --verify-only",
     "migrate:payment-secrets": "node dist/payment/payment-secret-migration.cli.js",
     "migrate:reset": "node scripts/prisma-migrate-guard.js --allow-reset && npx prisma migrate reset",
     "db:backup": "node scripts/db-backup.js",

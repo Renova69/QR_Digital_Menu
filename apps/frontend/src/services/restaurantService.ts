@@ -113,6 +113,7 @@ export const getRestaurants = async (): Promise<Restaurant[]> => {
 
 export const createRestaurant = async (restaurantData: {
   name: string;
+  slug?: string;
   city?: string;
   dashboardLanguage?: string;
   menuSourceLanguage?: string;
@@ -124,6 +125,16 @@ export const createRestaurant = async (restaurantData: {
     console.error("Error creating restaurant:", error);
     throw error;
   }
+};
+
+export const checkRestaurantSlugAvailable = async (
+  slug: string,
+): Promise<{ available: boolean }> => {
+  const response = await api.get<{ available: boolean }>(
+    "/restaurants/slug/available",
+    { params: { slug } },
+  );
+  return response.data;
 };
 
 export const getRestaurantById = async (id: string): Promise<Restaurant> => {

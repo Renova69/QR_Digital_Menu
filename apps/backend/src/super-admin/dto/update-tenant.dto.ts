@@ -27,6 +27,12 @@ export class SuperAdminConfirmationDto {
   confirmation: string;
 }
 
+export class ReassignSlugDto extends SuperAdminConfirmationDto {
+  @IsString()
+  @MinLength(1)
+  targetRestaurantId: string;
+}
+
 export class UpdateTenantTierDto {
   @IsOptional()
   @IsIn(TIERS, { message: 'forceTier must be a valid SubscriptionTier' })

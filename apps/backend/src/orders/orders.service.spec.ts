@@ -2105,7 +2105,7 @@ describe('OrdersService', () => {
       expect(slugService.commitOnActivity).not.toHaveBeenCalled();
     });
 
-    it('does not await commitOnActivity before returning the created order', async () => {
+    it('waits for the first-activity commit attempt before returning the created order', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'table-cuid-1',
@@ -2116,24 +2116,36 @@ describe('OrdersService', () => {
         fn(tx),
       );
       let resolveCommit!: () => void;
-      slugService.commitOnActivity.mockReturnValue(
-        new Promise<void>((resolve) => {
+      let markCommitStarted!: () => void;
+      const commitStarted = new Promise<void>((resolve) => {
+        markCommitStarted = resolve;
+      });
+      slugService.commitOnActivity.mockImplementation(() => {
+        markCommitStarted();
+        return new Promise<void>((resolve) => {
           resolveCommit = resolve;
-        }),
-      );
+        });
+      });
 
-      // create() must resolve with the order even though the fire-and-forget
-      // commit is still pending — otherwise slug bookkeeping would delay the
-      // response returned to the customer or POS terminal.
-      const result = await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        tableId: 'T1',
-      } as unknown as Partial<
-        CreateOrderDto & UpdateOrderDto
-      > as CreateOrderDto & UpdateOrderDto);
+      let settled = false;
+      const create = service
+        .create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto)
+        .then((result) => {
+          settled = true;
+          return result;
+        });
 
-      expect(result.id).toBe('order-1');
+      await commitStarted;
+      await Promise.resolve();
+      expect(settled).toBe(false);
       resolveCommit();
+      const result = await create;
+      expect(result.id).toBe('order-1');
     });
 
     it('uses the OPEN session returned by the locked session read', async () => {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { RestaurantSlugService } from './restaurant-slug.service';
+import { TenantUrlService } from '../tenant-url.service';
 
 // Single home for RestaurantSlugService. Registering the service directly in
 // each consuming module's providers (as menu.module.ts originally did) gives
@@ -9,7 +10,7 @@ import { RestaurantSlugService } from './restaurant-slug.service';
 // SlugModule instead of listing RestaurantSlugService as a provider.
 @Module({
   imports: [PrismaModule],
-  providers: [RestaurantSlugService],
-  exports: [RestaurantSlugService],
+  providers: [RestaurantSlugService, TenantUrlService],
+  exports: [RestaurantSlugService, TenantUrlService],
 })
 export class SlugModule {}

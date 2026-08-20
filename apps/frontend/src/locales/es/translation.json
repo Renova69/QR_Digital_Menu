@@ -516,6 +516,8 @@
     "createCustomOption": "Crear una opción personalizada",
     "doneness": "Hecho",
     "donenessTemplate": "Plantilla de punto de cocción",
+    "moved": "Este menú se ha trasladado.",
+    "notFound": "Menú no encontrado.",
     "options": "Opciones:",
     "quantity": "Cantidad",
     "quantityTemplate": "Plantilla de cantidades",

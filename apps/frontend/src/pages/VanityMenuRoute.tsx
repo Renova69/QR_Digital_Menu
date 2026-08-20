@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { resolveMenuSlug } from "../lib/api";
 import { setResolvedRestaurantId } from "../lib/tenantResolution";
 import { useCanonicalUrl } from "../hooks/useCanonicalUrl";
-import { getMenuUrl } from "../lib/menuUrl";
+import { getMenuPath, getMenuUrl } from "../lib/menuUrl";
 import PublicMenuPage from "./PublicMenuPage";
 
 /**
@@ -38,9 +38,12 @@ export default function VanityMenuRoute() {
   useEffect(() => {
     if (!data) return;
     if (slug !== data.canonicalSlug) {
-      navigate(`/m/${data.canonicalSlug}${location.search}`, {
-        replace: true,
-      });
+      // Route through the same seam every other menu URL uses — do not
+      // hand-roll `/m/${slug}` here (see the comment on `canonical` below).
+      navigate(
+        `${getMenuPath({ id: data.restaurantId, slug: data.canonicalSlug })}${location.search}`,
+        { replace: true },
+      );
     }
   }, [data, slug, location.search, navigate]);
 
@@ -52,7 +55,9 @@ export default function VanityMenuRoute() {
     : null;
   useCanonicalUrl(canonical);
 
-  const status = (error as any)?.response?.status;
+  const status = (
+    error as { response?: { status?: number } } | null | undefined
+  )?.response?.status;
   if (status === 410) {
     return <div role="alert">{t("menu.moved", "This menu has moved.")}</div>;
   }

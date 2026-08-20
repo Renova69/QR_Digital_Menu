@@ -6,6 +6,23 @@ describe('PaymentProviderConfigService', () => {
   const service = new PaymentProviderConfigService(new FeatureService());
 
   describe('buildPublicMenuReturnUrl', () => {
+    it('returns hosted-payment customers to the branded slug URL', () => {
+      const url = new URL(
+        service.buildPublicMenuReturnUrl(
+          {
+            restaurantId: 'rest-1',
+            restaurant: { id: 'rest-1', slug: 'new-place' },
+            table: { name: '3' },
+          },
+          'epay-ok',
+        ),
+      );
+
+      expect(url.pathname).toBe('/m/new-place');
+      expect(url.searchParams.get('table')).toBe('3');
+      expect(url.searchParams.get('payment')).toBe('epay-ok');
+    });
+
     it('preserves a service-point token on hosted payment returns', () => {
       const url = new URL(
         service.buildPublicMenuReturnUrl(

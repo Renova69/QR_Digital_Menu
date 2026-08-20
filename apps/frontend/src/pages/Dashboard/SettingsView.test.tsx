@@ -81,6 +81,11 @@ vi.mock("../../lib/api", () => ({
   updateStaff: vi.fn(),
   createDeviceEnrollment: vi.fn(),
   revokeDeviceEnrollment: vi.fn(),
+  // These tests exercise SettingsView concerns outside the vanity-URL panel.
+  // Keep the owner-only lifecycle fetch pending so it cannot introduce an
+  // unrelated async state update while preserving the complete API contract.
+  getRestaurantSlugSettings: vi.fn(() => new Promise(() => {})),
+  releaseRestaurantSlug: vi.fn(),
 }));
 
 vi.mock("../../components/ui/BrandingEditor", () => ({

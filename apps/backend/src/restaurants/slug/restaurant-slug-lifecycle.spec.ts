@@ -14,6 +14,7 @@ function uniqueViolation() {
 function makePrisma(primary: any) {
   const tx = {
     restaurantSlug: {
+      findUnique: jest.fn(),
       findFirst: jest.fn().mockResolvedValue(primary),
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -24,7 +25,8 @@ function makePrisma(primary: any) {
       // dispatcher's explicit ruling, not an open question.
       delete: jest.fn(),
     },
-    restaurant: { update: jest.fn() },
+    restaurant: { findUnique: jest.fn(), update: jest.fn() },
+    adminAuditLog: { create: jest.fn() },
   };
   return {
     tx,
@@ -65,6 +67,23 @@ describe('commitSlug', () => {
 
     expect(tx.restaurantSlug.update).not.toHaveBeenCalled();
     expect(result.committedAt).toEqual(committedAt);
+  });
+
+  // Merge-blocker regression (frontend fix round 2): every existing fixture
+  // above seeds a primary row, which is exactly why the missing-primary case
+  // slipped through review. During a staged deploy, the frontend can reach
+  // a backend/database state where the migration or backfill has not yet
+  // supplied a RestaurantSlug row. commitSlug must throw cleanly there,
+  // and the frontend callers (QrCodeModal, PrintableQRCodes) must treat that
+  // throw as an expected, handled outcome, not an unhandled crash.
+  it('throws when the restaurant has no primary slug row at all', async () => {
+    const { prisma } = makePrisma(null);
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(service.commitSlug('r1')).rejects.toThrow(BadRequestException);
+    await expect(service.commitSlug('r1')).rejects.toThrow(
+      'Restaurant has no primary slug',
+    );
   });
 });
 
@@ -206,7 +225,7 @@ describe('renameSlug', () => {
     });
     expect(tx.restaurantSlug.update).toHaveBeenCalledWith({
       where: { slug: 'old-alias' },
-      data: { isPrimary: true },
+      data: { isPrimary: true, committedAt: expect.any(Date) },
     });
     expect(tx.restaurant.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { slug: 'old-alias' } }),
@@ -399,6 +418,29 @@ describe('renameSlug — 24h clock backstop', () => {
   // Business listing, a printed flyer). No QR render, no menu view, no
   // order, no reservation ever fires. A rename is the one action an owner
   // can still take on such a slug, so that is where the backstop lives.
+
+  it('uses restaurant creation time, so a recent slug edit cannot restart the 24h clock', async () => {
+    const primary = {
+      slug: 'recent-edit',
+      restaurantId: 'r1',
+      committedAt: null,
+      createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      restaurant: { createdAt: new Date(Date.now() - 25 * DAY_MS) },
+    };
+    const { prisma, tx } = makePrisma(primary);
+    tx.restaurantSlug.findFirst
+      .mockImplementationOnce(() => Promise.resolve(primary))
+      .mockImplementationOnce(() => Promise.resolve(null));
+    const service = new RestaurantSlugService(prisma);
+
+    await service.renameSlug('r1', 'another-name');
+
+    expect(tx.restaurantSlug.update).toHaveBeenCalledWith({
+      where: { slug: 'recent-edit' },
+      data: { isPrimary: false },
+    });
+    expect(tx.restaurantSlug.delete).not.toHaveBeenCalled();
+  });
 
   it('renames an uncommitted slug older than 24h into an alias, not a free edit', async () => {
     const primary = {
@@ -598,5 +640,84 @@ describe('releaseSlug', () => {
       service.releaseSlug('r1', 'old-name'),
     ).resolves.toBeUndefined();
     expect(tx.restaurantSlug.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('reassignReleasedSlug', () => {
+  it('moves a tombstone to the buyer as a live alias and audits in the same transaction', async () => {
+    const { prisma, tx } = makePrisma(null);
+    const releasedAt = new Date('2026-07-01');
+    tx.restaurantSlug.findUnique.mockResolvedValue({
+      slug: 'sold-business',
+      restaurantId: 'seller-restaurant',
+      isPrimary: false,
+      committedAt: new Date('2026-01-01'),
+      releasedAt,
+    });
+    tx.restaurant.findUnique.mockResolvedValue({
+      id: 'buyer-restaurant',
+      slug: 'buyers-current-name',
+      deletedAt: null,
+    });
+    tx.restaurantSlug.updateMany.mockResolvedValue({ count: 1 });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.reassignReleasedSlug(
+        'sold-business',
+        'buyer-restaurant',
+        'super-admin-1',
+      ),
+    ).resolves.toEqual({
+      slug: 'sold-business',
+      restaurantId: 'buyer-restaurant',
+      previousRestaurantId: 'seller-restaurant',
+    });
+
+    expect(tx.restaurantSlug.updateMany).toHaveBeenCalledWith({
+      where: {
+        slug: 'sold-business',
+        restaurantId: 'seller-restaurant',
+        isPrimary: false,
+        releasedAt,
+      },
+      data: {
+        restaurantId: 'buyer-restaurant',
+        isPrimary: false,
+        releasedAt: null,
+        committedAt: expect.any(Date),
+      },
+    });
+    expect(tx.adminAuditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorUserId: 'super-admin-1',
+        action: 'SLUG_REASSIGNED',
+        targetType: 'RestaurantSlug',
+        targetId: 'sold-business',
+        metadata: {
+          fromRestaurantId: 'seller-restaurant',
+          toRestaurantId: 'buyer-restaurant',
+          canonicalSlug: 'buyers-current-name',
+        },
+      },
+    });
+  });
+
+  it('refuses to transfer a live slug or alias', async () => {
+    const { prisma, tx } = makePrisma(null);
+    tx.restaurantSlug.findUnique.mockResolvedValue({
+      slug: 'still-live',
+      restaurantId: 'r1',
+      isPrimary: false,
+      committedAt: new Date('2026-01-01'),
+      releasedAt: null,
+    });
+    const service = new RestaurantSlugService(prisma);
+
+    await expect(
+      service.reassignReleasedSlug('still-live', 'r2', 'super-admin-1'),
+    ).rejects.toThrow(BadRequestException);
+    expect(tx.restaurantSlug.updateMany).not.toHaveBeenCalled();
+    expect(tx.adminAuditLog.create).not.toHaveBeenCalled();
   });
 });

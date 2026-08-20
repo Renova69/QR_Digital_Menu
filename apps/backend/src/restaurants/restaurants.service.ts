@@ -168,36 +168,22 @@ export class RestaurantsService {
         'Owner already has a restaurant. Contact support to enable multi-location.',
       );
     }
-    // New restaurants start on FREE — no branding entitlement. Strip any
-    // branding fields (logoUrl, accentColor) so creation can't seed them.
-    const restaurant = await this.prisma.restaurant.create({
-      data: {
-        ...stripBrandingFields({ ...createRestaurantDto }),
-        country: createRestaurantDto.country ?? 'Bulgaria',
-        ownerId: userId,
-      },
-    });
+    // New restaurants start on FREE — no branding entitlement. The slug
+    // module owns the creation transaction so an active restaurant and its
+    // required primary slug either become visible together or not at all.
+    const { slug: preferredSlug, ...restaurantFields } = createRestaurantDto;
+    const data = {
+      ...stripBrandingFields({ ...restaurantFields }),
+      country: createRestaurantDto.country ?? 'Bulgaria',
+      ownerId: userId,
+    };
 
-    // Best-effort vanity-URL allocation. This must run after the row exists
-    // — claimInitialSlug needs a real restaurant id to attach the slug to.
-    // It must never fail the signup: claimInitialSlug throws ConflictException
-    // once it exhausts MAX_CLAIM_ATTEMPTS, and a restaurant with a null slug
-    // (repaired later by the backfill script) is a far better outcome than an
-    // owner losing their new restaurant because a slug candidate collided.
-    try {
-      await this.restaurantSlugService.claimInitialSlug(
-        restaurant.id,
-        restaurant.name,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `claimInitialSlug failed for restaurant ${restaurant.id}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-
-    return restaurant;
+    return preferredSlug
+      ? this.restaurantSlugService.createRestaurantWithInitialSlug(
+          data,
+          preferredSlug,
+        )
+      : this.restaurantSlugService.createRestaurantWithInitialSlug(data);
   }
 
   private applyEffectiveTier<

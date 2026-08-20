@@ -712,13 +712,11 @@ export class ReservationsService {
 
     const created = outcome.reservation;
 
-    // Fire-and-forget: the reservation transaction above committed. A
-    // reservation never touches the slug otherwise (it arrives through
-    // /book/:restaurantId, not a public menu load or an order). Not
-    // awaited — commitOnActivity does its own DB work and must never delay
-    // the booking confirmation, and it already swallows its own errors so
-    // slug bookkeeping can never fail a reservation.
-    void this.slugs.commitOnActivity(restaurantId);
+    // A reservation is a durable activity signal even though it arrives via
+    // /book/:restaurantId. Wait for the immediate idempotent commit attempt;
+    // failures are absorbed and reported by commitOnActivity, then repaired
+    // from durable reservation state by scheduled reconciliation.
+    await this.slugs.commitOnActivity(restaurantId);
 
     this.events.emitReservationCreated(restaurantId, {
       id: created.id,

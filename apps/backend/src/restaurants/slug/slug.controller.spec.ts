@@ -1,7 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { SlugController } from './slug.controller';
+import { OnboardingSlugController, SlugController } from './slug.controller';
 import { ReleaseSlugDto } from './dto/release-slug.dto';
 import { UpdateSlugDto } from './dto/update-slug.dto';
 
@@ -184,6 +184,52 @@ describe('SlugController', () => {
     expect(service.releaseSlug).toHaveBeenCalledWith('r1', 'old');
   });
 
+  it('lists previous URLs for the owner', async () => {
+    const aliases = [
+      {
+        slug: 'old-name',
+        committedAt: new Date('2026-01-01'),
+        releasedAt: null,
+        createdAt: new Date('2026-01-01'),
+      },
+    ];
+    const service = {
+      assertOwner: jest.fn().mockResolvedValue(undefined),
+      listAliases: jest.fn().mockResolvedValue(aliases),
+      getPrimaryState: jest.fn().mockResolvedValue({
+        slug: 'current-name',
+        committedAt: null,
+        createdAt: new Date('2026-08-01'),
+      }),
+    } as any;
+    const controller = new SlugController(service, emptyRestaurants());
+
+    await expect(controller.aliases('r1', req('owner-1'))).resolves.toEqual({
+      primary: {
+        slug: 'current-name',
+        committedAt: null,
+        createdAt: new Date('2026-08-01'),
+      },
+      aliases,
+    });
+    expect(service.assertOwner).toHaveBeenCalledWith('r1', 'owner-1');
+    expect(service.listAliases).toHaveBeenCalledWith('r1');
+    expect(service.getPrimaryState).toHaveBeenCalledWith('r1');
+  });
+
+  it('does not disclose alias history to a non-owner', async () => {
+    const service = {
+      assertOwner: jest.fn().mockRejectedValue(new ForbiddenException()),
+      listAliases: jest.fn(),
+    } as any;
+    const controller = new SlugController(service, emptyRestaurants());
+
+    await expect(controller.aliases('r1', req('manager-1'))).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(service.listAliases).not.toHaveBeenCalled();
+  });
+
   it('reports availability from the service, advisory only', async () => {
     const service = {
       isSlugAvailable: jest.fn().mockResolvedValue(true),
@@ -256,5 +302,19 @@ describe('slug DTOs', () => {
   it('accepts a valid lowercase slug', async () => {
     const dto = plainToInstance(UpdateSlugDto, { slug: 'my-bistro-42' });
     expect(await validate(dto)).toHaveLength(0);
+  });
+});
+
+describe('OnboardingSlugController', () => {
+  it('checks global namespace availability before a restaurant id exists', async () => {
+    const service = {
+      isSlugAvailable: jest.fn().mockResolvedValue(true),
+    } as any;
+    const controller = new OnboardingSlugController(service);
+
+    await expect(controller.available('owners-choice')).resolves.toEqual({
+      available: true,
+    });
+    expect(service.isSlugAvailable).toHaveBeenCalledWith('owners-choice');
   });
 });

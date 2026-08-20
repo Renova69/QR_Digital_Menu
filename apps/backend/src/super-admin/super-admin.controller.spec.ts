@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
+import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { ReassignSlugDto } from './dto/update-tenant.dto';
 
 describe('SuperAdminController', () => {
   let c: SuperAdminController;
@@ -29,11 +33,17 @@ describe('SuperAdminController', () => {
     updateDataRequest: jest.fn(),
     createImpersonationSession: jest.fn(),
   };
+  const mockSlugs = {
+    reassignReleasedSlug: jest.fn(),
+  };
 
   beforeEach(async () => {
     const m = await Test.createTestingModule({
       controllers: [SuperAdminController],
-      providers: [{ provide: SuperAdminService, useValue: mockSvc }],
+      providers: [
+        { provide: SuperAdminService, useValue: mockSvc },
+        { provide: RestaurantSlugService, useValue: mockSlugs },
+      ],
     }).compile();
     c = m.get<SuperAdminController>(SuperAdminController);
   });
@@ -169,5 +179,37 @@ describe('SuperAdminController', () => {
     mockSvc.getTenantSessions.mockResolvedValue([]);
     await c.getTenantSessions('r1', 1, 20);
     expect(mockSvc.getTenantSessions).toHaveBeenCalledWith('r1', 1, 20);
+  });
+
+  it('reassigns a released slug through the namespace service', async () => {
+    const req = { user: { id: 'super-admin-1' } };
+    mockSlugs.reassignReleasedSlug.mockResolvedValue({
+      slug: 'sold-business',
+      restaurantId: 'buyer-restaurant',
+      previousRestaurantId: 'seller-restaurant',
+    });
+
+    await c.reassignSlug(
+      'sold-business',
+      { targetRestaurantId: 'buyer-restaurant', confirmation: 'CONFIRM' },
+      req,
+    );
+
+    expect(mockSlugs.reassignReleasedSlug).toHaveBeenCalledWith(
+      'sold-business',
+      'buyer-restaurant',
+      'super-admin-1',
+    );
+  });
+});
+
+describe('ReassignSlugDto', () => {
+  it('requires the exact server-validated CONFIRM token', async () => {
+    const dto = plainToInstance(ReassignSlugDto, {
+      targetRestaurantId: 'buyer-restaurant',
+      confirmation: 'yes',
+    });
+
+    expect(await validate(dto)).not.toHaveLength(0);
   });
 });

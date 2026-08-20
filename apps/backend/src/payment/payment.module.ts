@@ -15,8 +15,10 @@ import { BoricaCheckoutService } from './providers/borica-checkout.service';
 import { PaymentSessionService } from './session/payment-session.service';
 import { PaymentSettlementService } from './session/payment-settlement.service';
 import { PaymentNotificationFeedService } from './notifications/payment-notification-feed.service';
+import { SlugModule } from '../restaurants/slug/slug.module';
 
 @Module({
+  imports: [SlugModule],
   controllers: [PaymentController],
   providers: [
     PaymentService,
