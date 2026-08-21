@@ -86,12 +86,19 @@ async function main() {
   const restaurant = await prisma.restaurant.create({
     data: {
       name: 'The Azure Orchid',
+      slug: 'the-azure-orchid',
       country: 'Bulgaria',
       accentColor: '#4F46E5', // Indigo
       timezone: 'Europe/Sofia',
       targetLanguages: ['bg', 'ro'],
       owner: {
         connect: { id: demoUser.id },
+      },
+      slugs: {
+        create: {
+          slug: 'the-azure-orchid',
+          isPrimary: true,
+        },
       },
     },
   });

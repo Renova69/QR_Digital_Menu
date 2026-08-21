@@ -26,6 +26,10 @@ export interface ResolvedSlug {
 export const MAX_CLAIM_ATTEMPTS = 5;
 export const RENAME_COOLDOWN_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
+type RestaurantCreationData = Omit<
+  Prisma.RestaurantUncheckedCreateInput,
+  'slug'
+>;
 
 // Per-code messages for the renameSlug rejection gate below. Deliberately
 // distinct per SlugRuleError so a caller (or a support agent reading logs)
@@ -63,7 +67,7 @@ export class RestaurantSlugService {
    * a failed candidate cannot strand the restaurant row from that attempt.
    */
   async createRestaurantWithInitialSlug(
-    data: Prisma.RestaurantUncheckedCreateInput,
+    data: RestaurantCreationData,
     preferredSlug?: string,
   ) {
     if (preferredSlug) {
@@ -74,18 +78,18 @@ export class RestaurantSlugService {
     }
 
     const attemptLimit = preferredSlug ? 1 : MAX_CLAIM_ATTEMPTS;
+    const base = generateSlugBase(data.name, data.id ?? data.ownerId);
     for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+      const candidate = preferredSlug
+        ? preferredSlug
+        : attempt === 1
+          ? base
+          : withSuffix(base, attempt);
       try {
         return await this.prisma.$transaction(async (tx) => {
           const restaurant = await tx.restaurant.create({
-            data: { ...data, slug: null },
+            data: { ...data, slug: candidate },
           });
-          const base = generateSlugBase(restaurant.name, restaurant.id);
-          const candidate = preferredSlug
-            ? preferredSlug
-            : attempt === 1
-              ? base
-              : withSuffix(base, attempt);
 
           await tx.restaurantSlug.create({
             data: {
@@ -95,10 +99,7 @@ export class RestaurantSlugService {
             },
           });
 
-          return tx.restaurant.update({
-            where: { id: restaurant.id },
-            data: { slug: candidate },
-          });
+          return restaurant;
         });
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;

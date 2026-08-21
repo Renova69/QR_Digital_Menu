@@ -61,10 +61,13 @@ describeWithDatabase('Dashboard analytics PostgreSQL integration', () => {
         role: UserRole.OWNER,
       },
     });
+    const slug = `restaurant-${owner.id}`;
     const restaurant = await prisma.restaurant.create({
       data: {
         name: 'Analytics PostgreSQL Fixture',
-        ownerId: owner.id,
+        slug,
+        owner: { connect: { id: owner.id } },
+        slugs: { create: { slug, isPrimary: true } },
         tier: SubscriptionTier.ENTERPRISE,
         timezone: 'Europe/Sofia',
       },

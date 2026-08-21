@@ -78,10 +78,13 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         role: UserRole.CUSTOMER,
       },
     });
+    const slug = `restaurant-${owner.id}`;
     const restaurant = await prisma.restaurant.create({
       data: {
         name: `Concurrency ${suffix}`,
-        ownerId: owner.id,
+        slug,
+        owner: { connect: { id: owner.id } },
+        slugs: { create: { slug, isPrimary: true } },
         targetLanguages: ['de', 'fr'],
       },
     });

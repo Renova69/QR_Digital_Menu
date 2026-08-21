@@ -22,11 +22,11 @@ describe('backfillSlugs', () => {
   it('creates one primary slug per restaurant lacking one', async () => {
     const created: any[] = [];
     const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        { id: 'r1', name: 'Бистро Оранж' },
+        { id: 'r2', name: 'Restaurant OWEN' },
+      ]),
       restaurant: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 'r1', name: 'Бистро Оранж' },
-          { id: 'r2', name: 'Restaurant OWEN' },
-        ]),
         update: jest.fn(),
       },
       restaurantSlug: {
@@ -47,8 +47,8 @@ describe('backfillSlugs', () => {
 
   it('is idempotent — restaurants that already have a slug are skipped', async () => {
     const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       restaurant: {
-        findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
       },
       restaurantSlug: { findUnique: jest.fn(), create: jest.fn() },
@@ -68,10 +68,10 @@ describe('backfillSlugs', () => {
   it('retries with a deterministic suffix when the insert collides', async () => {
     const created: any[] = [];
     const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'r1', name: 'Бистро Оранж' }]),
       restaurant: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 'r1', name: 'Бистро Оранж' }]),
         update: jest.fn(),
       },
       restaurantSlug: {
@@ -95,10 +95,10 @@ describe('backfillSlugs', () => {
 
   it('rethrows a non-collision error rather than swallowing it as a retry', async () => {
     const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'r1', name: 'Бистро Оранж' }]),
       restaurant: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 'r1', name: 'Бистро Оранж' }]),
         update: jest.fn(),
       },
       restaurantSlug: {
@@ -116,11 +116,30 @@ describe('backfillSlugs', () => {
 });
 
 describe('verifySlugInvariants', () => {
+  it('reports a NULL denormalized slug even for a soft-deleted restaurant', async () => {
+    const prisma = {
+      $queryRaw: jest.fn((strings: TemplateStringsArray) => {
+        const sql = strings.join(' ');
+        return Promise.resolve(
+          sql.includes('r."slug" IS NULL') && !sql.includes('deletedAt')
+            ? [{ id: 'r-deleted', name: 'Archived Restaurant' }]
+            : [],
+        );
+      }),
+    } as any;
+
+    const violations = await verifySlugInvariants(prisma);
+
+    expect(violations.join(' ')).toContain('r-deleted');
+    expect(violations.join(' ')).toContain('NULL slug');
+  });
+
   it('reports a restaurant with no primary slug', async () => {
     const prisma = {
       $queryRaw: jest
         .fn()
         .mockResolvedValueOnce([{ id: 'r9', name: 'Orphan' }])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
@@ -151,6 +170,7 @@ describe('verifySlugInvariants', () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ id: 'r5' }])
         .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
     } as any;
 
@@ -166,6 +186,7 @@ describe('verifySlugInvariants', () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ slug: 'BadSlug' }])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
     } as any;
 
@@ -181,6 +202,7 @@ describe('verifySlugInvariants', () => {
         .mockResolvedValueOnce([
           { id: 'r7', name: 'Drifted', primaryCount: BigInt(2) },
         ])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
@@ -202,7 +224,8 @@ describe('verifySlugInvariants', () => {
           { slug: '12345' },
           { slug: 'xn--fake' },
           { slug: 'bad_slug' },
-        ]),
+        ])
+        .mockResolvedValueOnce([]),
     } as any;
 
     const violations = await verifySlugInvariants(prisma);
@@ -217,11 +240,11 @@ describe('verifySlugInvariants', () => {
 describe('runSlugRollout', () => {
   it('runs the additive backfill twice and requires the second pass to be a no-op', async () => {
     const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([{ id: 'r1', name: 'New Place' }])
+        .mockResolvedValue([]),
       restaurant: {
-        findMany: jest
-          .fn()
-          .mockResolvedValueOnce([{ id: 'r1', name: 'New Place' }])
-          .mockResolvedValueOnce([]),
         update: jest.fn(),
       },
       restaurantSlug: {
@@ -229,7 +252,6 @@ describe('runSlugRollout', () => {
         create: jest.fn(),
       },
       $transaction: jest.fn((fn: any) => fn(prisma)),
-      $queryRaw: jest.fn().mockResolvedValue([]),
     } as any;
 
     await expect(runSlugRollout(prisma)).resolves.toEqual({
@@ -237,6 +259,6 @@ describe('runSlugRollout', () => {
       secondPass: { created: 0, skipped: 0 },
       violations: [],
     });
-    expect(prisma.restaurant.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(7);
   });
 });

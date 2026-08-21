@@ -30,10 +30,15 @@ function isUniqueViolation(error: unknown): boolean {
 export async function backfillSlugs(
   prisma: PrismaClient,
 ): Promise<{ created: number; skipped: number }> {
-  const pending = await prisma.restaurant.findMany({
-    where: { slug: null, deletedAt: null },
-    select: { id: true, name: true },
-  });
+  // Keep the pre-Step-4 recovery path callable even after the Prisma model is
+  // required. The live database may still be on the earlier nullable schema
+  // when this rollout script is run, so a typed `slug: null` filter would no
+  // longer compile once schema.prisma declares the final NOT NULL state.
+  const pending = await prisma.$queryRaw<Array<{ id: string; name: string }>>`
+    SELECT "id", "name"
+    FROM "restaurant"
+    WHERE "slug" IS NULL AND "deletedAt" IS NULL
+  `;
 
   let created = 0;
   for (const restaurant of pending) {
@@ -91,8 +96,10 @@ export async function backfillSlugs(
  * (restaurant_slug_one_primary) enforces AT MOST one primary slug per
  * restaurant; it cannot enforce AT LEAST one. Step 4 of the staged migration
  * (making Restaurant.slug non-null) is gated on this returning empty against
- * production data. Every check is scoped to deletedAt IS NULL — a
- * soft-deleted restaurant having no slug is not a violation.
+ * production data. Primary-row and synchronization checks apply to active
+ * restaurants. Database-constraint readiness checks apply to every row,
+ * because PostgreSQL NOT NULL and CHECK constraints do not exempt soft-deleted
+ * restaurants.
  */
 export async function verifySlugInvariants(
   prisma: PrismaClient,
@@ -163,6 +170,22 @@ export async function verifySlugInvariants(
         `Slug "${row.slug}" violates the ${ruleLabels[rule]} rule`,
       );
     }
+  }
+
+  // Step 4 applies a database NOT NULL constraint to the whole restaurant
+  // table. Include soft-deleted rows: application-level deletion state cannot
+  // exempt a row from PostgreSQL constraint validation.
+  const nullDenormalizedSlugs = await prisma.$queryRaw<
+    Array<{ id: string; name: string }>
+  >`
+    SELECT r."id", r."name"
+    FROM "restaurant" r
+    WHERE r."slug" IS NULL
+  `;
+  for (const row of nullDenormalizedSlugs) {
+    violations.push(
+      `Restaurant ${row.id} ("${row.name}") has a NULL slug and blocks Restaurant.slug NOT NULL`,
+    );
   }
 
   return violations;

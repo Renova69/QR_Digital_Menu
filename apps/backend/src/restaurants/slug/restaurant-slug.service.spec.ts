@@ -127,6 +127,43 @@ function uniqueViolation() {
 }
 
 describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
+  it('inserts the restaurant with its final non-null slug before creating the primary row', async () => {
+    const restaurantCreate = jest.fn(({ data }: { data: any }) =>
+      Promise.resolve({ id: 'r1', ...data }),
+    );
+    const restaurantUpdate = jest.fn();
+    const slugCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) =>
+        fn({
+          restaurant: {
+            create: restaurantCreate,
+            update: restaurantUpdate,
+          },
+          restaurantSlug: { create: slugCreate },
+        }),
+      ),
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await service.createRestaurantWithInitialSlug({
+      name: 'New Place',
+      ownerId: 'owner-1',
+    } as any);
+
+    expect(restaurantCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ slug: 'new-place' }),
+    });
+    expect(slugCreate).toHaveBeenCalledWith({
+      data: {
+        slug: 'new-place',
+        restaurantId: 'r1',
+        isPrimary: true,
+      },
+    });
+    expect(restaurantUpdate).not.toHaveBeenCalled();
+  });
+
   function makeAtomicCreatePrisma(options?: { slugCollision?: boolean }) {
     const committedRestaurants: Array<Record<string, unknown>> = [];
     let sequence = 0;
@@ -138,15 +175,13 @@ describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
           id: `restaurant-${sequence}`,
           name: 'New Place',
           ownerId: 'owner-1',
-          slug: null,
         };
         const tx = {
           restaurant: {
-            create: jest.fn().mockResolvedValue(created),
-            update: jest
+            create: jest
               .fn()
               .mockImplementation(({ data }: { data: { slug: string } }) =>
-                Promise.resolve({ ...created, slug: data.slug }),
+                Promise.resolve({ ...created, ...data }),
               ),
           },
           restaurantSlug: {
@@ -202,18 +237,9 @@ describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
       $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) =>
         fn({
           restaurant: {
-            create: jest.fn().mockResolvedValue({
-              id: 'r1',
-              name: 'New Place',
-              ownerId: 'owner-1',
-              slug: null,
-            }),
-            update: jest.fn().mockResolvedValue({
-              id: 'r1',
-              name: 'New Place',
-              ownerId: 'owner-1',
-              slug: 'owners-choice',
-            }),
+            create: jest.fn(({ data }: { data: any }) =>
+              Promise.resolve({ id: 'r1', ...data }),
+            ),
           },
           restaurantSlug: { create: slugCreate },
         }),
