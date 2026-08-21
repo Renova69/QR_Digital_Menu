@@ -55,7 +55,8 @@ EXPOSE 3000
 # the contention rather than arbitrating it.
 #
 # Trade-off worth knowing: a container started outside deploy.ps1 no longer
-# self-heals its schema. Migrations are additive-only here, so an older
-# revision keeps working against a newer schema, but a fresh environment must
-# be migrated explicitly before its first boot.
+# self-heals its schema. Every migration must remain compatible with the
+# revision currently serving production. Contract migrations require a
+# separately deployed readiness revision first. A fresh environment must be
+# migrated explicitly before its first boot.
 CMD ["node", "dist/main"]

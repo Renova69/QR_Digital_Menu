@@ -163,7 +163,7 @@ model Restaurant {
   forceTierExpiresAt          DateTime?
   isActive                    Boolean                      @default(true)
   deletedAt                   DateTime?
-  slug                        String?                      @unique(map: "restaurant_slug_unique")
+  slug                        String                       @unique(map: "restaurant_slug_unique")
   assistanceRequests          AssistanceRequest[]
   cashPaymentRequests         CashPaymentRequest[]
   deviceEnrollmentTokens      DeviceEnrollmentToken[]

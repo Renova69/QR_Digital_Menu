@@ -1,4 +1,6 @@
 import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import {
   assertCanonicalMigrationBytes,
   assessMigrationIntegrity,
@@ -9,6 +11,58 @@ import {
 } from '../../scripts/verify-preproduction-readonly';
 
 describe('pre-production migration verification', () => {
+  it('gates migration deploy on the complete slug invariant verifier against the migration database', () => {
+    const deployScript = readFileSync(
+      resolve(__dirname, '../../../../deploy.ps1'),
+      'utf8',
+    );
+    const directDatabaseAssignment = deployScript.indexOf(
+      '$env:DATABASE_URL = $effectiveDirectUrl',
+    );
+    const directUrlAssignment = deployScript.indexOf(
+      '$env:DIRECT_URL = $effectiveDirectUrl',
+    );
+    const guardedTry = deployScript.indexOf('try {', directUrlAssignment);
+    const pushLocation = deployScript.indexOf(
+      'Push-Location',
+      directUrlAssignment,
+    );
+    const slugGate = deployScript.indexOf('npm run slug:verify');
+    const migration = deployScript.indexOf('npx prisma migrate deploy');
+    const guardedFinally = deployScript.indexOf('} finally {', migration);
+
+    expect(directDatabaseAssignment).toBeGreaterThan(-1);
+    expect(directUrlAssignment).toBeGreaterThan(directDatabaseAssignment);
+    expect(guardedTry).toBeGreaterThan(directUrlAssignment);
+    expect(pushLocation).toBeGreaterThan(guardedTry);
+    expect(slugGate).toBeGreaterThan(pushLocation);
+    expect(migration).toBeGreaterThan(slugGate);
+    expect(guardedFinally).toBeGreaterThan(migration);
+    expect(deployScript).toContain('$env:DATABASE_URL = $previousDatabaseUrl');
+    expect(deployScript).toContain('$env:DIRECT_URL = $previousDirectUrl');
+    expect(deployScript).toContain('Remove-Item Env:DATABASE_URL');
+    expect(deployScript).toContain('Remove-Item Env:DIRECT_URL');
+  });
+
+  it('documents the compatibility rule for contract migrations', () => {
+    const deployScript = readFileSync(
+      resolve(__dirname, '../../../../deploy.ps1'),
+      'utf8',
+    );
+    const dockerfile = readFileSync(
+      resolve(__dirname, '../../Dockerfile'),
+      'utf8',
+    );
+    const normalizedDockerfileComments = dockerfile.replace(/\r?\n#\s?/g, ' ');
+
+    expect(deployScript).toContain(
+      'Contract migrations require their readiness revision to be fully deployed first.',
+    );
+    expect(normalizedDockerfileComments).toContain(
+      'Contract migrations require a separately deployed readiness revision first.',
+    );
+  });
+
   it('hashes the exact canonical migration bytes Prisma records', () => {
     const migration = Buffer.from('SELECT 1;\nSELECT 2;\n', 'utf8');
 

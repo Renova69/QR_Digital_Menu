@@ -193,8 +193,9 @@ Invoke-Native -Description "Build" -Command {
 # This uses DIRECT_URL from apps/backend/.env -- the unpooled Neon endpoint --
 # because migrations need a real session. Ordering is deliberate: after the
 # build, so a broken build cannot leave a migrated database behind, and before
-# the deploy, so the schema is always at or ahead of the code. Migrations here
-# are additive-only, which is what makes "schema ahead of code" safe.
+# the deploy, so the schema is always at or ahead of the code. Every migration
+# must remain compatible with the revision currently serving production.
+# Contract migrations require their readiness revision to be fully deployed first.
 #
 # A failure aborts before any new revision exists, leaving $previousRevision
 # serving untouched.
@@ -234,12 +235,31 @@ host) and re-run:
     exit 1
 }
 
+# The slug verifier is an application query, so PrismaClient normally reads
+# DATABASE_URL rather than the CLI-only directUrl. Point both variables at the
+# exact migration target for this guarded block: the complete invariant check
+# and `prisma migrate deploy` must never inspect different databases.
+$hadDatabaseUrl = Test-Path Env:DATABASE_URL
+$previousDatabaseUrl = $env:DATABASE_URL
+$hadDirectUrl = Test-Path Env:DIRECT_URL
+$previousDirectUrl = $env:DIRECT_URL
+$env:DATABASE_URL = $effectiveDirectUrl
+$env:DIRECT_URL = $effectiveDirectUrl
+
 Write-Host "==> Applying database migrations..."
-Push-Location (Join-Path $PSScriptRoot $SRC)
+$migrationLocationPushed = $false
 try {
+    Push-Location (Join-Path $PSScriptRoot $SRC)
+    $migrationLocationPushed = $true
+
     Write-Host "==> Verifying applied migration integrity before migration..."
     Invoke-Native -Description "Pre-migration integrity verification" -Command {
         & npx ts-node scripts/verify-preproduction-readonly.ts --allow-pending-migrations
+    }
+
+    Write-Host "==> Verifying tenant slug invariants before migration..."
+    Invoke-Native -Description "Slug invariant verification" -Command {
+        & npm run slug:verify
     }
 
     Invoke-Native -Description "Database migration" -Command {
@@ -251,7 +271,19 @@ try {
         & npx ts-node scripts/verify-preproduction-readonly.ts
     }
 } finally {
-    Pop-Location
+    if ($migrationLocationPushed) {
+        Pop-Location
+    }
+    if ($hadDatabaseUrl) {
+        $env:DATABASE_URL = $previousDatabaseUrl
+    } else {
+        Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+    }
+    if ($hadDirectUrl) {
+        $env:DIRECT_URL = $previousDirectUrl
+    } else {
+        Remove-Item Env:DIRECT_URL -ErrorAction SilentlyContinue
+    }
 }
 
 # --- 3. Deploy with no traffic -- the new revision exists but serves nobody
