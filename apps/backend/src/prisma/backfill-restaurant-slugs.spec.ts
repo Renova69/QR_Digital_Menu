@@ -43,6 +43,9 @@ describe('backfillSlugs', () => {
       'bistro-oranzh',
       'restaurant-owen',
     ]);
+    expect(prisma.restaurant.update.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.restaurantSlug.create.mock.invocationCallOrder[0],
+    );
   });
 
   it('is idempotent — restaurants that already have a slug are skipped', async () => {

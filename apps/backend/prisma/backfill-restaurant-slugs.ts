@@ -62,12 +62,12 @@ export async function backfillSlugs(
 
       try {
         await prisma.$transaction(async (tx) => {
-          await tx.restaurantSlug.create({
-            data: { slug, restaurantId: restaurant.id, isPrimary: true },
-          });
           await tx.restaurant.update({
             where: { id: restaurant.id },
             data: { slug },
+          });
+          await tx.restaurantSlug.create({
+            data: { slug, restaurantId: restaurant.id, isPrimary: true },
           });
         });
         created++;

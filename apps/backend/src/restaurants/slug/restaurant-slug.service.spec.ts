@@ -147,6 +147,7 @@ describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
     const service = new RestaurantSlugService(prisma);
 
     await service.createRestaurantWithInitialSlug({
+      id: 'r1',
       name: 'New Place',
       ownerId: 'owner-1',
     } as any);
@@ -162,6 +163,41 @@ describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
       },
     });
     expect(restaurantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('derives an invalid-name fallback from the new restaurant id, not the owner id', async () => {
+    const restaurantCreate = jest.fn(({ data }: { data: any }) =>
+      Promise.resolve(data),
+    );
+    const slugCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) =>
+        fn({
+          restaurant: { create: restaurantCreate },
+          restaurantSlug: { create: slugCreate },
+        }),
+      ),
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    const restaurant = await service.createRestaurantWithInitialSlug({
+      name: '🍕🍕🍕',
+      ownerId: 'owner-must-not-seed-the-slug',
+    });
+
+    expect(restaurant.id).toEqual(expect.any(String));
+    expect(restaurant.id).not.toBe('owner-must-not-seed-the-slug');
+    const expectedSlug = `restaurant-${restaurant.id.slice(0, 6)}`;
+    expect(restaurantCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ id: restaurant.id, slug: expectedSlug }),
+    });
+    expect(slugCreate).toHaveBeenCalledWith({
+      data: {
+        slug: expectedSlug,
+        restaurantId: restaurant.id,
+        isPrimary: true,
+      },
+    });
   });
 
   function makeAtomicCreatePrisma(options?: { slugCollision?: boolean }) {
@@ -205,6 +241,7 @@ describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
     const service = new RestaurantSlugService(prisma);
 
     const restaurant = await service.createRestaurantWithInitialSlug({
+      id: 'restaurant-1',
       name: 'New Place',
       ownerId: 'owner-1',
     });
@@ -248,7 +285,7 @@ describe('RestaurantSlugService.createRestaurantWithInitialSlug', () => {
     const service = new RestaurantSlugService(prisma);
 
     await service.createRestaurantWithInitialSlug(
-      { name: 'New Place', ownerId: 'owner-1' },
+      { id: 'r1', name: 'New Place', ownerId: 'owner-1' },
       'owners-choice',
     );
 
@@ -308,6 +345,26 @@ describe('RestaurantSlugService.claimInitialSlug', () => {
 
     await expect(service.claimInitialSlug('r1', 'Бистро Оранж')).resolves.toBe(
       'bistro-oranzh',
+    );
+  });
+
+  it('claims the restaurant slug column before the global slug row', async () => {
+    const restaurantUpdate = jest.fn().mockResolvedValue(undefined);
+    const slugCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      $transaction: jest.fn((fn: any) =>
+        fn({
+          restaurant: { update: restaurantUpdate },
+          restaurantSlug: { create: slugCreate },
+        }),
+      ),
+    } as any;
+    const service = new RestaurantSlugService(prisma);
+
+    await service.claimInitialSlug('r1', 'Бистро Оранж');
+
+    expect(restaurantUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      slugCreate.mock.invocationCallOrder[0],
     );
   });
 

@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { createId } from '@paralleldrive/cuid2';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generateSlugBase, withSuffix } from './slug-generator';
@@ -77,8 +78,9 @@ export class RestaurantSlugService {
       }
     }
 
+    const restaurantId = data.id ?? createId();
     const attemptLimit = preferredSlug ? 1 : MAX_CLAIM_ATTEMPTS;
-    const base = generateSlugBase(data.name, data.id ?? data.ownerId);
+    const base = generateSlugBase(data.name, restaurantId);
     for (let attempt = 1; attempt <= attemptLimit; attempt++) {
       const candidate = preferredSlug
         ? preferredSlug
@@ -88,7 +90,7 @@ export class RestaurantSlugService {
       try {
         return await this.prisma.$transaction(async (tx) => {
           const restaurant = await tx.restaurant.create({
-            data: { ...data, slug: candidate },
+            data: { ...data, id: restaurantId, slug: candidate },
           });
 
           await tx.restaurantSlug.create({
@@ -161,12 +163,12 @@ export class RestaurantSlugService {
       const candidate = attempt === 1 ? base : withSuffix(base, attempt);
       try {
         await this.prisma.$transaction(async (tx) => {
-          await tx.restaurantSlug.create({
-            data: { slug: candidate, restaurantId, isPrimary: true },
-          });
           await tx.restaurant.update({
             where: { id: restaurantId },
             data: { slug: candidate },
+          });
+          await tx.restaurantSlug.create({
+            data: { slug: candidate, restaurantId, isPrimary: true },
           });
         });
         return candidate;
@@ -306,6 +308,10 @@ export class RestaurantSlugService {
     oldSlug: string,
     nextSlug: string,
   ): Promise<void> {
+    await tx.restaurant.update({
+      where: { id: restaurantId },
+      data: { slug: nextSlug },
+    });
     await tx.restaurantSlug.update({
       where: { slug: oldSlug },
       data: { isPrimary: false },
@@ -316,10 +322,6 @@ export class RestaurantSlugService {
       // the row becoming primary; retaining this alias row's historical
       // committedAt would let the owner rename again immediately.
       data: { isPrimary: true, committedAt: new Date() },
-    });
-    await tx.restaurant.update({
-      where: { id: restaurantId },
-      data: { slug: nextSlug },
     });
   }
 
@@ -337,21 +339,30 @@ export class RestaurantSlugService {
     nextSlug: string,
     isCommitted: boolean,
   ): Promise<void> {
-    if (isCommitted) {
-      // Committed: retire the old slug as a permanent alias so printed QR
-      // codes keep resolving. Aliases are never evicted.
-      await tx.restaurantSlug.update({
-        where: { slug: primary.slug },
-        data: { isPrimary: false },
-      });
-    } else {
-      // Uncommitted: this is an edit, not a rename. Nothing external
-      // references the old slug, so return it to the pool rather than
-      // permanently burning a name from a global namespace.
-      await tx.restaurantSlug.delete({ where: { slug: primary.slug } });
-    }
-
     try {
+      // Every writer claims Restaurant.slug before RestaurantSlug.slug.
+      // A concurrent create and rename can target the same candidate; taking
+      // these unique namespaces in one order prevents PostgreSQL's 40P01
+      // deadlock cycle and leaves the unique constraints as the authority.
+      await tx.restaurant.update({
+        where: { id: restaurantId },
+        data: { slug: nextSlug },
+      });
+
+      if (isCommitted) {
+        // Committed: retire the old slug as a permanent alias so printed QR
+        // codes keep resolving. Aliases are never evicted.
+        await tx.restaurantSlug.update({
+          where: { slug: primary.slug },
+          data: { isPrimary: false },
+        });
+      } else {
+        // Uncommitted: this is an edit, not a rename. Nothing external
+        // references the old slug, so return it to the pool rather than
+        // permanently burning a name from a global namespace.
+        await tx.restaurantSlug.delete({ where: { slug: primary.slug } });
+      }
+
       await tx.restaurantSlug.create({
         data: {
           slug: nextSlug,
@@ -369,11 +380,6 @@ export class RestaurantSlugService {
       }
       throw error;
     }
-
-    await tx.restaurant.update({
-      where: { id: restaurantId },
-      data: { slug: nextSlug },
-    });
   }
 
   async renameSlug(restaurantId: string, nextSlug: string): Promise<string> {
