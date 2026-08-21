@@ -211,8 +211,11 @@ const GeneralSettingsTab: React.FC = () => {
     }
 
     let cancelled = false;
-    setSlugAvailability("checking");
     const timeout = window.setTimeout(async () => {
+      // Only flip to "checking" when the request actually fires — showing it
+      // on every keystroke (with the request debounced separately) made the
+      // status line flicker and the centered modal bob on each key.
+      setSlugAvailability("checking");
       try {
         const result = await checkRestaurantSlugAvailable(candidate);
         // An active alias already belongs to this restaurant and can be
@@ -1418,45 +1421,53 @@ const GeneralSettingsTab: React.FC = () => {
             </div>
           </div>
 
-          {slugAvailability === "checking" && (
-            <p
-              id="settings-menu-slug-status"
-              className="text-sm text-muted-foreground"
-            >
-              {t("settings.slugChecking", "Checking availability…")}
-            </p>
-          )}
-          {slugAvailability === "available" && (
-            <p
-              id="settings-menu-slug-status"
-              className="text-sm text-emerald-600"
-            >
-              {t("settings.slugAvailable", "This address is available.")}
-            </p>
-          )}
-          {slugAvailability === "taken" && (
-            <p
-              id="settings-menu-slug-status"
-              role="alert"
-              className="text-sm text-destructive"
-            >
-              {t(
-                "settings.slugTakenError",
-                "This address is already taken. Try a different one.",
-              )}
-            </p>
-          )}
-          {slugAvailability === "error" && (
-            <p
-              id="settings-menu-slug-status"
-              className="text-sm text-amber-600"
-            >
-              {t(
-                "settings.slugCheckError",
-                "Availability could not be checked. Saving will still verify this exact address.",
-              )}
-            </p>
-          )}
+          {/* Fixed-height status slot: the modal is centered with
+              translate-y(-50%), so any height change re-centers the whole
+              dialog. Reserving two text-sm lines keeps its geometry constant
+              across idle/checking/available/taken/error — without this the
+              line appearing/disappearing on every keystroke made the modal
+              jump while typing. */}
+          <div className="min-h-10">
+            {slugAvailability === "checking" && (
+              <p
+                id="settings-menu-slug-status"
+                className="text-sm text-muted-foreground"
+              >
+                {t("settings.slugChecking", "Checking availability…")}
+              </p>
+            )}
+            {slugAvailability === "available" && (
+              <p
+                id="settings-menu-slug-status"
+                className="text-sm text-emerald-600"
+              >
+                {t("settings.slugAvailable", "This address is available.")}
+              </p>
+            )}
+            {slugAvailability === "taken" && (
+              <p
+                id="settings-menu-slug-status"
+                role="alert"
+                className="text-sm text-destructive"
+              >
+                {t(
+                  "settings.slugTakenError",
+                  "This address is already taken. Try a different one.",
+                )}
+              </p>
+            )}
+            {slugAvailability === "error" && (
+              <p
+                id="settings-menu-slug-status"
+                className="text-sm text-amber-600"
+              >
+                {t(
+                  "settings.slugCheckError",
+                  "Availability could not be checked. Saving will still verify this exact address.",
+                )}
+              </p>
+            )}
+          </div>
 
           {slugError && <p className="text-sm text-destructive">{slugError}</p>}
 
