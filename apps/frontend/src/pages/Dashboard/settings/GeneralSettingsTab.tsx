@@ -30,6 +30,7 @@ import { DashboardButton } from "../../../components/dashboard/DashboardButton";
 import { Modal } from "../../../components/ui/modal";
 import { getMenuUrl, getMenuUrlPrefix } from "../../../lib/menuUrl";
 import { copyToClipboard } from "../../../lib/tableViewUtils";
+import { checkRestaurantSlugAvailable } from "../../../services/restaurantService";
 
 // Server message for RestaurantSlugService.assertRenameAllowed's cooldown
 // rejection (apps/backend/src/restaurants/slug/restaurant-slug.service.ts) —
@@ -136,6 +137,9 @@ const GeneralSettingsTab: React.FC = () => {
   const [slugDraft, setSlugDraft] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugError, setSlugError] = useState("");
+  const [slugAvailability, setSlugAvailability] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
   const [slugSettings, setSlugSettings] =
     useState<RestaurantSlugSettings | null>(null);
   const [releaseTarget, setReleaseTarget] = useState<string | null>(null);
@@ -197,6 +201,45 @@ const GeneralSettingsTab: React.FC = () => {
       cancelled = true;
     };
   }, [activeRestaurant?.id, isOwner]);
+
+  useEffect(() => {
+    const candidate = slugDraft.trim();
+    const currentSlug = activeRestaurant?.slug?.toLowerCase() ?? "";
+    if (!slugDialogOpen || !candidate || candidate === currentSlug) {
+      setSlugAvailability("idle");
+      return;
+    }
+
+    let cancelled = false;
+    setSlugAvailability("checking");
+    const timeout = window.setTimeout(async () => {
+      try {
+        const result = await checkRestaurantSlugAvailable(candidate);
+        // An active alias already belongs to this restaurant and can be
+        // promoted again even though it is not globally unclaimed.
+        const isOwnActiveAlias = slugSettings?.aliases.some(
+          (alias) => alias.slug === candidate && !alias.releasedAt,
+        );
+        if (!cancelled) {
+          setSlugAvailability(
+            result.available || isOwnActiveAlias ? "available" : "taken",
+          );
+        }
+      } catch {
+        if (!cancelled) setSlugAvailability("error");
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    activeRestaurant?.slug,
+    slugDialogOpen,
+    slugDraft,
+    slugSettings?.aliases,
+  ]);
 
   const refreshTranslationStatus = useCallback(async (restaurantId: string) => {
     try {
@@ -525,18 +568,29 @@ const GeneralSettingsTab: React.FC = () => {
     if (!activeRestaurant?.slug) return;
     setSlugDraft(activeRestaurant.slug);
     setSlugError("");
+    setSlugAvailability("idle");
     setSlugDialogOpen(true);
   };
 
   const handleSlugDialogOpenChange = (open: boolean) => {
     setSlugDialogOpen(open);
-    if (!open) setSlugError("");
+    if (!open) {
+      setSlugError("");
+      setSlugAvailability("idle");
+    }
   };
 
   const handleRenameSlug = async () => {
     if (!activeRestaurant) return;
     const nextSlug = slugDraft.trim().toLowerCase();
-    if (!nextSlug) return;
+    if (
+      !nextSlug ||
+      nextSlug === activeRestaurant.slug?.toLowerCase() ||
+      slugAvailability === "checking" ||
+      slugAvailability === "taken"
+    ) {
+      return;
+    }
     setSlugSaving(true);
     setSlugError("");
     try {
@@ -544,6 +598,7 @@ const GeneralSettingsTab: React.FC = () => {
       await fetchRestaurants();
       setSlugDialogOpen(false);
     } catch (err: unknown) {
+      setSlugAvailability("idle");
       const message = extractSlugErrorMessage(err);
       const cooldownMatch = message?.match(RENAME_COOLDOWN_PATTERN);
 
@@ -559,12 +614,11 @@ const GeneralSettingsTab: React.FC = () => {
           }),
         );
       } else if (message === "This slug is already taken") {
-        setSlugError(
-          t(
-            "settings.slugTakenError",
-            "This address is already taken. Try a different one.",
-          ),
-        );
+        // The unique index can still win a race after a green advisory
+        // check. Flip the same inline state to red instead of showing a
+        // contradictory green availability message beside a server error.
+        setSlugAvailability("taken");
+        setSlugError("");
       } else if (
         message === "This slug was released and can only be restored by support"
       ) {
@@ -1344,13 +1398,65 @@ const GeneralSettingsTab: React.FC = () => {
                 id="menu-address-slug-input"
                 type="text"
                 value={slugDraft}
-                onChange={(e) => setSlugDraft(e.target.value.toLowerCase())}
-                className={inputCls}
+                onChange={(e) => {
+                  setSlugDraft(e.target.value.toLowerCase());
+                  setSlugError("");
+                  setSlugAvailability("idle");
+                }}
+                aria-invalid={slugAvailability === "taken"}
+                aria-describedby="settings-menu-slug-status"
+                className={`${inputCls} ${
+                  slugAvailability === "taken"
+                    ? "border-destructive focus:ring-destructive/30"
+                    : slugAvailability === "available"
+                      ? "border-emerald-500 focus:ring-emerald-500/30"
+                      : ""
+                }`}
                 maxLength={40}
                 autoFocus
               />
             </div>
           </div>
+
+          {slugAvailability === "checking" && (
+            <p
+              id="settings-menu-slug-status"
+              className="text-sm text-muted-foreground"
+            >
+              {t("settings.slugChecking", "Checking availability…")}
+            </p>
+          )}
+          {slugAvailability === "available" && (
+            <p
+              id="settings-menu-slug-status"
+              className="text-sm text-emerald-600"
+            >
+              {t("settings.slugAvailable", "This address is available.")}
+            </p>
+          )}
+          {slugAvailability === "taken" && (
+            <p
+              id="settings-menu-slug-status"
+              role="alert"
+              className="text-sm text-destructive"
+            >
+              {t(
+                "settings.slugTakenError",
+                "This address is already taken. Try a different one.",
+              )}
+            </p>
+          )}
+          {slugAvailability === "error" && (
+            <p
+              id="settings-menu-slug-status"
+              className="text-sm text-amber-600"
+            >
+              {t(
+                "settings.slugCheckError",
+                "Availability could not be checked. Saving will still verify this exact address.",
+              )}
+            </p>
+          )}
 
           {slugError && <p className="text-sm text-destructive">{slugError}</p>}
 
@@ -1367,7 +1473,13 @@ const GeneralSettingsTab: React.FC = () => {
               density="compact"
               type="button"
               onClick={handleRenameSlug}
-              disabled={slugSaving || !slugDraft.trim()}
+              disabled={
+                slugSaving ||
+                !slugDraft.trim() ||
+                slugDraft.trim() === activeRestaurant?.slug?.toLowerCase() ||
+                slugAvailability === "checking" ||
+                slugAvailability === "taken"
+              }
               className="brand-cta text-white"
             >
               {slugSaving

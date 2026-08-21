@@ -320,32 +320,19 @@ const TableView: React.FC = () => {
   const printSlugMutation = useMutation({
     mutationFn: () => commitRestaurantSlug(restaurantId as string),
   });
-  const [pendingPrint, setPendingPrint] = useState(false);
-
-  // window.print() must run strictly after PrintableQRCodes has re-rendered
-  // with either the frozen slug or the permanent legacy-id fallback, not
-  // from a mutation callback. A callback can fire before React has committed
-  // the new props to the DOM, which would let the browser capture the sheet
-  // mid-transition. Waiting on the settled mutation state guarantees the
-  // DOM already holds the real QR codes first.
-  useEffect(() => {
-    if (
-      pendingPrint &&
-      (printSlugMutation.isSuccess || printSlugMutation.isError)
-    ) {
-      window.print();
-      setPendingPrint(false);
-    }
-  }, [
-    pendingPrint,
-    printSlugMutation.isSuccess,
-    printSlugMutation.isError,
-    printSlugMutation.data,
-  ]);
+  const printSheetReady =
+    printSlugMutation.isSuccess || printSlugMutation.isError;
 
   const handlePrintAllClick = () => {
     if (!restaurantId) return;
-    setPendingPrint(true);
+    // Browsers may reject print requests made later from an async effect
+    // because the original user gesture has expired. Preparing and printing
+    // are therefore explicit phases: the first click commits the slug and
+    // renders the sheet; the next click calls print directly from the event.
+    if (printSheetReady) {
+      window.print();
+      return;
+    }
     printSlugMutation.mutate();
   };
 
@@ -920,13 +907,15 @@ const TableView: React.FC = () => {
                 <Printer className="h-4 w-4" />
                 {printSlugMutation.isPending
                   ? t("tables.preparingPrint", "Preparing…")
-                  : t("tables.printAllQr")}
+                  : printSheetReady
+                    ? t("tables.printAllQr")
+                    : t("tables.prepareQrForPrint", "Prepare QR codes")}
               </DashboardButton>
               {printSlugMutation.isError && (
                 <p role="alert" className="mt-2 text-xs font-bold text-red-600">
                   {t(
-                    "tables.qrCommitFailed",
-                    "Could not prepare the menu link. Check your connection and try again.",
+                    "tables.qrCommitFallbackReady",
+                    "The branded address could not be frozen. A permanent fallback is ready to print.",
                   )}
                 </p>
               )}

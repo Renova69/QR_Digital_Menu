@@ -43,9 +43,11 @@ export default function RestaurantBasicsStep({
 
   const derivedSlug = name.trim() ? slugifyForPreview(name) : "";
   const slugDraft = editedSlug ?? derivedSlug;
+  const slugIsBlocking =
+    slugAvailability === "checking" || slugAvailability === "taken";
 
   useEffect(() => {
-    if (existingRestaurantId || editedSlug === null || !slugDraft.trim()) {
+    if (existingRestaurantId || !slugDraft.trim()) {
       setSlugAvailability("idle");
       return;
     }
@@ -67,7 +69,7 @@ export default function RestaurantBasicsStep({
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [editedSlug, existingRestaurantId, slugDraft]);
+  }, [existingRestaurantId, slugDraft]);
 
   // Restaurant was already created in a prior onboarding attempt — skip creation
   if (existingRestaurantId) {
@@ -104,19 +106,33 @@ export default function RestaurantBasicsStep({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const requestedSlug = slugDraft.trim();
+    if (!name.trim() || !requestedSlug || slugIsBlocking) return;
     setLoading(true);
     setError("");
     try {
       const restaurant = await createRestaurant({
         name: name.trim(),
-        slug: editedSlug?.trim() || undefined,
+        // Always claim the address shown to the owner. Omitting this field
+        // asks the server to allocate a suffix on collision, which can make
+        // the public URL differ from the one the owner approved.
+        slug: requestedSlug,
         city: city.trim() || undefined,
         dashboardLanguage,
       });
       onCreated(restaurant.id, restaurant.name, ownerName.trim());
     } catch (err: unknown) {
-      setError(t(getApiError(err)));
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 409) {
+        // The advisory check can race another owner. The exact create write
+        // remains authoritative and must never fall back to a silent suffix.
+        setSlugAvailability("taken");
+        setError("");
+      } else {
+        setSlugAvailability("idle");
+        setError(t(getApiError(err)));
+      }
     } finally {
       setLoading(false);
     }
@@ -168,7 +184,15 @@ export default function RestaurantBasicsStep({
           >
             {t("onboarding.basics.menuAddress", "Menu address")}
           </label>
-          <div className="flex items-center rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/40">
+          <div
+            className={`flex items-center rounded-xl border bg-background focus-within:ring-2 ${
+              slugAvailability === "taken"
+                ? "border-destructive focus-within:ring-destructive/30"
+                : slugAvailability === "available"
+                  ? "border-emerald-500 focus-within:ring-emerald-500/30"
+                  : "border-border focus-within:ring-primary/40"
+            }`}
+          >
             <span className="shrink-0 pl-3 text-sm text-muted-foreground">
               {getMenuUrlPrefix()}
             </span>
@@ -181,6 +205,8 @@ export default function RestaurantBasicsStep({
                 setSlugAvailability("idle");
               }}
               data-testid="slug-preview"
+              aria-invalid={slugAvailability === "taken"}
+              aria-describedby="menu-slug-status"
               placeholder={t("auto.eGBistroOranzh", "e.g. bistro-oranzh")}
               maxLength={40}
               className="min-w-0 flex-1 rounded-r-xl bg-transparent px-1 py-2.5 pr-3 text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
@@ -193,12 +219,12 @@ export default function RestaurantBasicsStep({
             )}
           </p>
           {slugAvailability === "checking" && (
-            <p className="text-xs text-muted-foreground">
+            <p id="menu-slug-status" className="text-xs text-muted-foreground">
               {t("onboarding.basics.slugChecking", "Checking availability…")}
             </p>
           )}
           {slugAvailability === "available" && (
-            <p className="text-xs text-emerald-600">
+            <p id="menu-slug-status" className="text-xs text-emerald-600">
               {t(
                 "onboarding.basics.slugAvailable",
                 "This address is available.",
@@ -206,10 +232,22 @@ export default function RestaurantBasicsStep({
             </p>
           )}
           {slugAvailability === "taken" && (
-            <p className="text-xs text-destructive">
+            <p
+              id="menu-slug-status"
+              role="alert"
+              className="text-xs text-destructive"
+            >
               {t(
                 "onboarding.basics.slugTaken",
                 "This address is already taken.",
+              )}
+            </p>
+          )}
+          {slugAvailability === "error" && (
+            <p id="menu-slug-status" className="text-xs text-amber-600">
+              {t(
+                "onboarding.basics.slugCheckError",
+                "Availability could not be checked. Creation will still verify this exact address.",
               )}
             </p>
           )}
@@ -253,7 +291,9 @@ export default function RestaurantBasicsStep({
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            disabled={loading || !name.trim()}
+            disabled={
+              loading || !name.trim() || !slugDraft.trim() || slugIsBlocking
+            }
             className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading

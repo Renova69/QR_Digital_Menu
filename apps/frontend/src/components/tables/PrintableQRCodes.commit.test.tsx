@@ -135,7 +135,7 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     expect(screen.queryByTestId("printable-qr-grid")).not.toBeInTheDocument();
   });
 
-  it("calls commitRestaurantSlug when the owner initiates a print, then prints", async () => {
+  it("prepares the sheet first and only prints from a second explicit browser gesture", async () => {
     commitRestaurantSlug.mockResolvedValue({
       slug: "bistro-oranzh",
       committedAt: "2026-08-16T00:00:00Z",
@@ -143,15 +143,20 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     renderTableView();
     await screen.findByText("5");
 
-    fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prepare QR codes" }));
 
     await waitFor(() =>
       expect(commitRestaurantSlug).toHaveBeenCalledWith("restaurant-1"),
     );
-    await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
+    expect(await screen.findByTestId("printable-qr-grid")).toBeInTheDocument();
+    expect(printSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(commitRestaurantSlug).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the printable QR codes absent until the commit resolves, and only prints after", async () => {
+  it("keeps the printable QR codes absent until the commit resolves, then waits for Print", async () => {
     let resolveCommit: (value: unknown) => void = () => {};
     commitRestaurantSlug.mockReturnValue(
       new Promise((resolve) => {
@@ -161,7 +166,7 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     renderTableView();
     await screen.findByText("5");
 
-    fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prepare QR codes" }));
 
     await waitFor(() => expect(commitRestaurantSlug).toHaveBeenCalled());
     // Commit is in flight -- still no printable codes in the DOM, and the
@@ -175,7 +180,9 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     });
 
     expect(await screen.findByTestId("printable-qr-grid")).toBeInTheDocument();
-    await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
+    expect(printSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
   });
 
   // Fix round 2 (merge blocker): a commit failure used to leave the sheet
@@ -190,13 +197,41 @@ describe("PrintableQRCodes commit precondition (via TableView)", () => {
     renderTableView();
     await screen.findByText("5");
 
-    fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prepare QR codes" }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(await screen.findByTestId("printable-qr-grid")).toBeInTheDocument();
     expect(
       screen.queryByTestId("printable-qr-placeholder"),
     ).not.toBeInTheDocument();
-    await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
+    expect(printSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "tables.printAllQr" }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["classic", "minimal", "premium"])(
+    "prints the %s template from an explicit click after preparation",
+    async (template) => {
+      commitRestaurantSlug.mockResolvedValue({
+        slug: "bistro-oranzh",
+        committedAt: "2026-08-16T00:00:00Z",
+      });
+      renderTableView();
+      await screen.findByText("5");
+
+      fireEvent.change(screen.getByLabelText("Print template"), {
+        target: { value: template },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Prepare QR codes" }));
+
+      const grid = await screen.findByTestId("printable-qr-grid");
+      expect(grid).toHaveAttribute("data-template", template);
+      expect(printSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "tables.printAllQr" }),
+      );
+      expect(printSpy).toHaveBeenCalledTimes(1);
+    },
+  );
 });
