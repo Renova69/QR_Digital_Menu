@@ -7,6 +7,7 @@ import {
   releaseRestaurantSlug,
   renameRestaurantSlug,
 } from "../../../lib/api";
+import { checkRestaurantSlugAvailable } from "../../../services/restaurantService";
 
 // OWNER-only slug lifecycle controls: rename, history, and permanent release.
 
@@ -49,6 +50,10 @@ vi.mock("../../../lib/api", () => ({
   getTranslationStatus: vi.fn(),
 }));
 
+vi.mock("../../../services/restaurantService", () => ({
+  checkRestaurantSlugAvailable: vi.fn(),
+}));
+
 const fetchRestaurants = vi.fn();
 
 const baseRestaurant = {
@@ -82,6 +87,15 @@ function openRenameDialog(
   return screen.getByLabelText(/new menu address/i) as HTMLInputElement;
 }
 
+async function enterAvailableSlug(input: HTMLInputElement, value: string) {
+  fireEvent.change(input, { target: { value } });
+  await waitFor(
+    () => expect(checkRestaurantSlugAvailable).toHaveBeenCalledWith(value),
+    { timeout: 1500 },
+  );
+  await screen.findByText("This address is available.");
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuthState.role = "OWNER";
@@ -96,6 +110,9 @@ beforeEach(() => {
   });
   vi.mocked(releaseRestaurantSlug).mockResolvedValue({
     released: "old-name",
+  });
+  vi.mocked(checkRestaurantSlugAvailable).mockResolvedValue({
+    available: true,
   });
 });
 
@@ -119,6 +136,26 @@ describe("GeneralSettingsTab - slug rename dialog", () => {
     expect(input.value).toBe("bistro-new");
   });
 
+  it("live-checks a changed address and blocks Save when another restaurant owns it", async () => {
+    vi.mocked(checkRestaurantSlugAvailable).mockResolvedValue({
+      available: false,
+    });
+    const input = openRenameDialog();
+    fireEvent.change(input, { target: { value: "taken-name" } });
+
+    await waitFor(
+      () =>
+        expect(checkRestaurantSlugAvailable).toHaveBeenCalledWith("taken-name"),
+      { timeout: 1500 },
+    );
+    expect(await screen.findByText(/already taken/i)).toBeVisible();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(
+      screen.getByRole("button", { name: /save address/i }),
+    ).toBeDisabled();
+    expect(renameRestaurantSlug).not.toHaveBeenCalled();
+  });
+
   it("states plainly that existing QR codes keep working", () => {
     openRenameDialog();
     expect(screen.getByRole("dialog")).toHaveTextContent(
@@ -137,7 +174,7 @@ describe("GeneralSettingsTab - slug rename dialog", () => {
     });
 
     const input = openRenameDialog();
-    fireEvent.change(input, { target: { value: "bistro-new" } });
+    await enterAvailableSlug(input, "bistro-new");
     fireEvent.click(screen.getByRole("button", { name: /save address/i }));
 
     await screen.findByText(/2026-08-29/);
@@ -155,18 +192,52 @@ describe("GeneralSettingsTab - slug rename dialog", () => {
     });
 
     const input = openRenameDialog();
-    fireEvent.change(input, { target: { value: "taken-name" } });
+    await enterAvailableSlug(input, "taken-name");
     fireEvent.click(screen.getByRole("button", { name: /save address/i }));
 
     expect(await screen.findByText(/already taken/i)).toBeInTheDocument();
+    expect(screen.queryByText("This address is available.")).toBeNull();
     expect(screen.queryByText(/statusCode/i)).toBeNull();
+  });
+
+  it("allows an owner to re-promote their own active alias", async () => {
+    vi.mocked(getRestaurantSlugSettings).mockResolvedValue({
+      primary: {
+        slug: "bistro-oranzh",
+        committedAt: null,
+        createdAt: "2026-08-20T10:00:00.000Z",
+      },
+      aliases: [
+        {
+          slug: "old-bistro",
+          committedAt: "2026-07-01T10:00:00.000Z",
+          releasedAt: null,
+          createdAt: "2026-07-01T10:00:00.000Z",
+        },
+      ],
+    });
+    vi.mocked(checkRestaurantSlugAvailable).mockResolvedValue({
+      available: false,
+    });
+    vi.mocked(renameRestaurantSlug).mockResolvedValue({ slug: "old-bistro" });
+
+    const input = openRenameDialog();
+    fireEvent.change(input, { target: { value: "old-bistro" } });
+
+    expect(await screen.findByText("This address is available.")).toBeVisible();
+    const save = screen.getByRole("button", { name: /save address/i });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(renameRestaurantSlug).toHaveBeenCalledWith("rest-1", "old-bistro"),
+    );
   });
 
   it("refreshes the restaurant after a successful rename", async () => {
     vi.mocked(renameRestaurantSlug).mockResolvedValue({ slug: "bistro-new" });
 
     const input = openRenameDialog();
-    fireEvent.change(input, { target: { value: "bistro-new" } });
+    await enterAvailableSlug(input, "bistro-new");
     fireEvent.click(screen.getByRole("button", { name: /save address/i }));
 
     await waitFor(() => expect(fetchRestaurants).toHaveBeenCalledTimes(1));
@@ -188,7 +259,7 @@ describe("GeneralSettingsTab - slug rename dialog (reserved/numeric/punycode rej
     });
 
     const input = openRenameDialog();
-    fireEvent.change(input, { target: { value: "admin" } });
+    await enterAvailableSlug(input, "admin");
     fireEvent.click(screen.getByRole("button", { name: /save address/i }));
 
     expect(
@@ -213,7 +284,7 @@ describe("GeneralSettingsTab - slug rename dialog (reserved/numeric/punycode rej
     });
 
     const input = openRenameDialog();
-    fireEvent.change(input, { target: { value: "12345" } });
+    await enterAvailableSlug(input, "12345");
     fireEvent.click(screen.getByRole("button", { name: /save address/i }));
 
     expect(
@@ -239,7 +310,7 @@ describe("GeneralSettingsTab - slug rename dialog (reserved/numeric/punycode rej
     });
 
     const input = openRenameDialog();
-    fireEvent.change(input, { target: { value: "xn--abc" } });
+    await enterAvailableSlug(input, "xn--abc");
     fireEvent.click(screen.getByRole("button", { name: /save address/i }));
 
     expect(

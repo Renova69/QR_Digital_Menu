@@ -109,6 +109,35 @@ describe("RestaurantBasicsStep editable slug picker", () => {
     expect(await screen.findByText("This address is available.")).toBeVisible();
   });
 
+  it("checks the automatically derived slug and blocks a silently suffixed restaurant", async () => {
+    vi.mocked(checkRestaurantSlugAvailable).mockResolvedValue({
+      available: false,
+    });
+    render(<RestaurantBasicsStep onCreated={noop} />);
+
+    await userEvent.type(
+      screen.getByPlaceholderText("e.g. La Piazza"),
+      "Pri Bacho Kiro",
+    );
+
+    await waitFor(
+      () =>
+        expect(checkRestaurantSlugAvailable).toHaveBeenCalledWith(
+          "pri-bacho-kiro",
+        ),
+      { timeout: 1500 },
+    );
+    expect(
+      await screen.findByText("This address is already taken."),
+    ).toBeVisible();
+    expect(screen.getByTestId("slug-preview")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /continue/i })).toBeDisabled();
+    expect(createRestaurant).not.toHaveBeenCalled();
+  });
+
   it("shows the placeholder, not a generated address, before a name is typed", () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
     const slugInput = screen.getByLabelText("Menu address") as HTMLInputElement;
@@ -116,12 +145,10 @@ describe("RestaurantBasicsStep editable slug picker", () => {
     expect(slugInput).toHaveAttribute("placeholder", "e.g. bistro-oranzh");
   });
 
-  it("does not gate the step (continue button) on the slug", () => {
+  it("keeps Continue disabled until the displayed slug has been checked", () => {
     render(<RestaurantBasicsStep onCreated={noop} />);
-    // Only the restaurant name is required. Skipping the picker lets the
-    // server derive the authoritative value.
     const button = screen.getByRole("button", { name: /continue/i });
-    expect(button).toBeInTheDocument();
+    expect(button).toBeDisabled();
   });
 
   it("enables continue once a name is present", async () => {
@@ -130,6 +157,7 @@ describe("RestaurantBasicsStep editable slug picker", () => {
       screen.getByPlaceholderText("e.g. La Piazza"),
       "Bistro One",
     );
+    expect(await screen.findByText("This address is available.")).toBeVisible();
     expect(screen.getByRole("button", { name: /continue/i })).toBeEnabled();
   });
 
@@ -142,6 +170,7 @@ describe("RestaurantBasicsStep editable slug picker", () => {
     const slugInput = screen.getByTestId("slug-preview");
     await userEvent.clear(slugInput);
     await userEvent.type(slugInput, "owners-choice");
+    expect(await screen.findByText("This address is available.")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() =>
@@ -152,5 +181,52 @@ describe("RestaurantBasicsStep editable slug picker", () => {
         }),
       ),
     );
+  });
+
+  it("submits an available derived slug as the owner's exact choice", async () => {
+    render(<RestaurantBasicsStep onCreated={noop} />);
+    await userEvent.type(
+      screen.getByPlaceholderText("e.g. La Piazza"),
+      "Bistro One",
+    );
+
+    expect(await screen.findByText("This address is available.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() =>
+      expect(createRestaurant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Bistro One",
+          slug: "bistro-one",
+        }),
+      ),
+    );
+  });
+
+  it("turns a create-time collision race into the same red taken state", async () => {
+    const onCreated = vi.fn();
+    vi.mocked(createRestaurant).mockRejectedValue({
+      response: {
+        status: 409,
+        data: { message: "This slug is already taken" },
+      },
+    });
+    render(<RestaurantBasicsStep onCreated={onCreated} />);
+    await userEvent.type(
+      screen.getByPlaceholderText("e.g. La Piazza"),
+      "Last Available Name",
+    );
+    expect(await screen.findByText("This address is available.")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(
+      await screen.findByText("This address is already taken."),
+    ).toBeVisible();
+    expect(screen.getByTestId("slug-preview")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(onCreated).not.toHaveBeenCalled();
   });
 });

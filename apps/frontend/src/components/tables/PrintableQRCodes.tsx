@@ -479,7 +479,11 @@ const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
         }
       `}</style>
       {showGrid ? (
-        <div className="qr-grid" data-testid="printable-qr-grid">
+        <div
+          className="qr-grid"
+          data-testid="printable-qr-grid"
+          data-template={template}
+        >
           {tables.map((table) => (
             <div className="qr-grid-cell" key={table.id}>
               {template === "premium" ? (
