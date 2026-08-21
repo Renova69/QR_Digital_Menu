@@ -132,10 +132,13 @@ describeWithDatabase(
           role: UserRole.OWNER,
         },
       });
+      const slug = `restaurant-${owner.id}`;
       const restaurant = await prisma.restaurant.create({
         data: {
           name: `Payment race ${suffix}`,
-          ownerId: owner.id,
+          slug,
+          owner: { connect: { id: owner.id } },
+          slugs: { create: { slug, isPrimary: true } },
           tier: SubscriptionTier.PROFESSIONAL,
         },
       });

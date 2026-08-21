@@ -117,6 +117,12 @@ describe('renameSlug', () => {
     expect(tx.restaurant.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { slug: 'new-name' } }),
     );
+    expect(tx.restaurant.update.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.restaurantSlug.update.mock.invocationCallOrder[0],
+    );
+    expect(tx.restaurant.update.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.restaurantSlug.create.mock.invocationCallOrder[0],
+    );
   });
 
   it('creates no alias while the slug is uncommitted — it is an edit', async () => {
@@ -229,6 +235,9 @@ describe('renameSlug', () => {
     });
     expect(tx.restaurant.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { slug: 'old-alias' } }),
+    );
+    expect(tx.restaurant.update.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.restaurantSlug.update.mock.invocationCallOrder[0],
     );
   });
 

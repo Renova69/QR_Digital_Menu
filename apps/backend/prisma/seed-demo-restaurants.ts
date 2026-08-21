@@ -16,30 +16,35 @@ const DEMOS: {
   email: string;
   name: string;
   restaurantName: string;
+  slug: string;
   tier: SubscriptionTier;
 }[] = [
   {
     email: 'demo.free@qrmenu.test',
     name: 'Demo Free',
     restaurantName: 'Free Bistro',
+    slug: 'free-bistro',
     tier: SubscriptionTier.FREE,
   },
   {
     email: 'demo.starter@qrmenu.test',
     name: 'Demo Starter',
     restaurantName: 'Starter Kitchen',
+    slug: 'starter-kitchen',
     tier: SubscriptionTier.STARTER,
   },
   {
     email: 'demo.pro@qrmenu.test',
     name: 'Demo Professional',
     restaurantName: 'Pro Dining',
+    slug: 'pro-dining',
     tier: SubscriptionTier.PROFESSIONAL,
   },
   {
     email: 'demo.enterprise@qrmenu.test',
     name: 'Demo Enterprise',
     restaurantName: 'Enterprise Restaurant',
+    slug: 'enterprise-restaurant',
     tier: SubscriptionTier.ENTERPRISE,
   },
 ];
@@ -102,12 +107,19 @@ async function main() {
       await prisma.restaurant.create({
         data: {
           name: d.restaurantName,
+          slug: d.slug,
           country: 'BG',
-          ownerId: user.id,
+          owner: { connect: { id: user.id } },
           tier: d.tier,
           paymentsEnabled:
             d.tier === SubscriptionTier.PROFESSIONAL ||
             d.tier === SubscriptionTier.ENTERPRISE,
+          slugs: {
+            create: {
+              slug: d.slug,
+              isPrimary: true,
+            },
+          },
         },
       });
       console.log(
