@@ -152,7 +152,8 @@ function PaymentTrustGrid() {
 
 const CheckoutPage = () => {
   const { user } = useAuth();
-  const { items, tableNumber, orderLocation, getTotal, clearCart } = useCart();
+  const { items, tableNumber, tableToken, orderLocation, getTotal, clearCart } =
+    useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -638,6 +639,9 @@ const CheckoutPage = () => {
       customerName,
       customerPhone,
       tableId: tableNumber ?? undefined,
+      // P0-2: the table's publicToken is what actually authorises opening or
+      // joining this table's session; tableId above is only the display name.
+      tableToken: tableToken ?? undefined,
       servicePointToken: orderLocation?.token ?? undefined,
       fulfillmentType: isServicePointOrder
         ? (fulfillmentType ?? undefined)

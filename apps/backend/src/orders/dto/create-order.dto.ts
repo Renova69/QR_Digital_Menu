@@ -102,9 +102,28 @@ export class CreateOrderDto {
   @MaxLength(200)
   customerPhone?: string;
 
+  /**
+   * Legacy table identifier: the table's *name* (e.g. "5"), not its cuid.
+   *
+   * A name is not a secret — they are short and sequential in practice — so
+   * this can no longer reach a table that has been issued a `publicToken`.
+   * Retained only for tables predating the token backfill. Removed on the
+   * sunset date recorded in SECURITY_AUDIT_VERDICT_22082026.md (P0-2).
+   */
   @IsString()
   @IsOptional()
   tableId?: string;
+
+  /**
+   * The table's `publicToken`, carried by its QR code. This is the credential
+   * that proves the customer is actually at the table, and it is what gates
+   * access to the table's shared session (and therefore its bill). Mirrors
+   * `servicePointToken`, which has always worked this way.
+   */
+  @IsString()
+  @IsOptional()
+  @MaxLength(128)
+  tableToken?: string;
 
   @IsString()
   @IsOptional()

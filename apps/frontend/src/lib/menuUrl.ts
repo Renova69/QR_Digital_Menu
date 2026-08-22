@@ -48,7 +48,10 @@ export interface MenuUrlRestaurant {
 }
 
 export interface MenuUrlTarget {
+  /** Table display name, e.g. "5". Not a credential — see getMenuPath. */
   table?: string | null;
+  /** The table's publicToken. This is the credential the backend checks. */
+  tableToken?: string | null;
   servicePointToken?: string | null;
 }
 
@@ -84,7 +87,23 @@ export function getMenuPath(
     base = `/menu/public/${id}`;
   }
 
-  if (target.table) return `${base}?table=${encodeURIComponent(target.table)}`;
+  if (target.table) {
+    // P0-2: `table` is the display name and is not a secret — a name is short
+    // and sequential, so it cannot be what proves the customer is at the
+    // table. `t` is the table's publicToken, and it is what the backend
+    // actually authorises against. Both are carried: the name renders the
+    // "Table 5" heading, the token opens the session. Tables predating the
+    // token backfill emit the name alone and keep working until the sunset
+    // date in SECURITY_AUDIT_VERDICT_22082026.md.
+    //
+    // Built with encodeURIComponent rather than URLSearchParams: the latter
+    // form-encodes a space as "+" instead of "%20", which would silently
+    // rewrite every existing table URL.
+    const query = `table=${encodeURIComponent(target.table)}`;
+    return target.tableToken
+      ? `${base}?${query}&t=${encodeURIComponent(target.tableToken)}`
+      : `${base}?${query}`;
+  }
   if (target.servicePointToken)
     return `${base}?sp=${encodeURIComponent(target.servicePointToken)}`;
   return base;

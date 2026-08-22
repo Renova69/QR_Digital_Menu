@@ -142,7 +142,13 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { setTableNumber, orderLocation, setOrderLocation } = useCart();
+  const {
+    setTableNumber,
+    tableToken,
+    setTableToken,
+    orderLocation,
+    setOrderLocation,
+  } = useCart();
 
   // Menu data lifecycle: meta + batched items fetch, language resolution, view
   // tracking, and cart hygiene. Table/session bootstrap stays below.
@@ -346,6 +352,10 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const table = params.get("table");
+    // P0-2: `table` is the display name; `t` is the table's publicToken and is
+    // the credential the backend authorises against. Tables predating the
+    // token backfill arrive with the name alone.
+    const tableTokenParam = params.get("t");
     const servicePointToken = params.get("sp");
     let cancelled = false;
 
@@ -388,16 +398,24 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
     setTableNumberState(table);
     if (table) {
       setTableNumber(table);
+      setTableToken(tableTokenParam);
       const stored = localStorage.getItem(`session-${restaurantId}-${table}`);
       if (stored) setSessionToken(stored);
     } else {
       setTableNumber(null);
+      setTableToken(null);
       setSessionToken(null);
     }
     return () => {
       cancelled = true;
     };
-  }, [restaurantId, location.search, setOrderLocation, setTableNumber]);
+  }, [
+    restaurantId,
+    location.search,
+    setOrderLocation,
+    setTableNumber,
+    setTableToken,
+  ]);
 
   // IntersectionObserver: track active category for scroll-spy pill nav
   useEffect(() => {
@@ -525,7 +543,12 @@ const PublicMenuContent = ({ restaurantId }: { restaurantId: string }) => {
 
     try {
       setAssistanceLoading(true);
-      await createAssistanceRequest(tableNumber, restaurantId, type);
+      await createAssistanceRequest(
+        tableNumber,
+        restaurantId,
+        type,
+        tableToken,
+      );
       startCooldown();
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response

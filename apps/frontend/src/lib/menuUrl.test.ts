@@ -65,6 +65,20 @@ describe("getMenuPath", () => {
     );
   });
 
+  // P0-2: the QR must carry the table's publicToken, because the table *name*
+  // is guessable and no longer opens a session on its own.
+  it("appends the table token alongside the display name", () => {
+    expect(
+      getMenuPath(withSlug, { table: "Table 7", tableToken: "tok en" }),
+    ).toBe("/m/bistro-oranzh?table=Table%207&t=tok%20en");
+  });
+
+  it("omits the token for tables that predate the backfill", () => {
+    expect(getMenuPath(withSlug, { table: "Table 7", tableToken: null })).toBe(
+      "/m/bistro-oranzh?table=Table%207",
+    );
+  });
+
   it("prefers table over service point when both are supplied", () => {
     expect(getMenuPath(withSlug, { table: "5", servicePointToken: "t" })).toBe(
       "/m/bistro-oranzh?table=5",

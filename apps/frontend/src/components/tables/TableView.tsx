@@ -961,7 +961,12 @@ const TableView: React.FC = () => {
             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredTables.map((table: any) => {
                 const session = sessionByTableId.get(table.id);
-                const publicUrl = getMenuUrl(restaurant, { table: table.name });
+                // P0-2: include the table's publicToken — the name alone no
+                // longer opens a session for a tokened table.
+                const publicUrl = getMenuUrl(restaurant, {
+                  table: table.name,
+                  tableToken: table.publicToken,
+                });
                 const sessionStatusLabel = session
                   ? t(
                       SESSION_STATUS_LABEL_KEYS[session.status] ??

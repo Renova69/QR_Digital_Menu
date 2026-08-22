@@ -145,7 +145,11 @@ export class TablesService {
         restaurantId,
         zoneId,
         type,
-        publicToken: type === 'TABLE' ? null : this.createPublicToken(),
+        // P0-2: physical tables now get a token too. Previously only service
+        // points did, which left the table's *name* as its only credential —
+        // and a name is guessable. Issuing it at creation means no table is
+        // ever born on the legacy path.
+        publicToken: this.createPublicToken(),
         isActive: createTableDto.isActive ?? true,
         fulfillmentModes: this.normalizeFulfillmentModes(
           type,
@@ -199,6 +203,8 @@ export class TablesService {
             restaurantId,
             zoneId: defaultZone?.id ?? null,
             type: 'TABLE',
+            // P0-2: bulk-created tables need a QR token like any other.
+            publicToken: this.createPublicToken(),
             fulfillmentModes: DEFAULT_FULFILLMENT_MODES.TABLE,
             paymentMethods: DEFAULT_PAYMENT_METHODS.TABLE,
           },

@@ -261,11 +261,15 @@ export const createAssistanceRequest = async (
   tableId: string,
   restaurantId: string,
   type: AssistanceRequestType = "STANDARD",
+  // P0-2: the table's publicToken. tableId is only the display name and no
+  // longer reaches a table that has been issued a token.
+  tableToken?: string | null,
 ) => {
   const response = await api.post("/assistance-requests", {
     tableId,
     restaurantId,
     type,
+    ...(tableToken ? { tableToken } : {}),
   });
   return response.data;
 };

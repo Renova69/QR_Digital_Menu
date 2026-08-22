@@ -46,6 +46,10 @@ vi.mock("react-i18next", () => ({
 
 const cartMocks = vi.hoisted(() => ({
   setTableNumber: vi.fn(),
+  // P0-2: the page reads the table's publicToken from the QR's `?t=` param
+  // and hands it to the cart, which forwards it on order/assistance calls.
+  tableToken: null,
+  setTableToken: vi.fn(),
   setOrderLocation: vi.fn(),
   orderLocation: null,
   pruneInvalidItems: vi.fn(() => 0),

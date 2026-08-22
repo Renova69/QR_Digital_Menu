@@ -147,6 +147,16 @@ interface CartContextType {
   getTotal: (redeemedBasePriceCartIds?: Set<string>) => number;
   tableNumber: string | null;
   setTableNumber: (table: string | null) => void;
+  /**
+   * The table's publicToken, taken from the QR code's `?t=` parameter.
+   *
+   * P0-2: `tableNumber` is a display name and is not a credential — names are
+   * short and sequential, so anyone could claim to be at "table 5". This token
+   * is what the backend authorises against when opening or joining a table
+   * session. Null for tables that predate the token backfill.
+   */
+  tableToken: string | null;
+  setTableToken: (token: string | null) => void;
   orderLocation: OrderLocation | null;
   setOrderLocation: (location: OrderLocation | null) => void;
   pruneInvalidItems: (validItemIds: string[]) => number;
@@ -169,6 +179,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Initialize table number from localStorage
   const [tableNumber, setTableNumberState] = useState<string | null>(() => {
     return safeLocalStorage.getItem("tableNumber") || null;
+  });
+  const [tableToken, setTableTokenState] = useState<string | null>(() => {
+    return safeLocalStorage.getItem("tableToken") || null;
   });
   const [orderLocation, setOrderLocationState] = useState<OrderLocation | null>(
     loadOrderLocationFromStorage,
@@ -223,6 +236,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       safeLocalStorage.removeItem("tableNumber");
     }
   }, [tableNumber]);
+
+  // Persist alongside the table number so a reload mid-order keeps the
+  // credential that opened the session, not just the label.
+  useEffect(() => {
+    if (tableToken) {
+      safeLocalStorage.setItem("tableToken", tableToken);
+    } else {
+      safeLocalStorage.removeItem("tableToken");
+    }
+  }, [tableToken]);
 
   useEffect(() => {
     if (orderLocation) {
@@ -303,6 +326,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setTableNumberState(table);
   }, []);
 
+  const setTableToken = useCallback((token: string | null) => {
+    setTableTokenState(token);
+  }, []);
+
   const setOrderLocation = useCallback((location: OrderLocation | null) => {
     setOrderLocationState(location);
   }, []);
@@ -333,6 +360,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       getTotal,
       tableNumber,
       setTableNumber,
+      tableToken,
+      setTableToken,
       orderLocation,
       setOrderLocation,
       pruneInvalidItems,
@@ -347,6 +376,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       getTotal,
       tableNumber,
       setTableNumber,
+      tableToken,
+      setTableToken,
       orderLocation,
       setOrderLocation,
       pruneInvalidItems,

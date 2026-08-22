@@ -33,8 +33,16 @@ function resolveLogoUrl(restaurant: any): string | null {
       ) + `/${restaurant.logoUrl}`;
 }
 
-function getQrCodeUrl(restaurant: any, tableName: string): string {
-  return getMenuUrl(restaurant, { table: tableName });
+function getQrCodeUrl(
+  restaurant: any,
+  table: { name: string; publicToken?: string | null },
+): string {
+  // P0-2: the printed code must carry the table's publicToken, not just its
+  // name. A name is guessable, so it can no longer open a session on its own.
+  return getMenuUrl(restaurant, {
+    table: table.name,
+    tableToken: table.publicToken,
+  });
 }
 
 // ------------------------------------------------------------------
@@ -110,7 +118,7 @@ function ClassicCard({
         }}
       >
         <QRCodeSVG
-          value={getQrCodeUrl(restaurant, table.name)}
+          value={getQrCodeUrl(restaurant, table)}
           size={120}
           fgColor={accent}
           bgColor="#ffffff"
@@ -283,7 +291,7 @@ function PremiumCard({
         }}
       >
         <QRCodeSVG
-          value={getQrCodeUrl(restaurant, table.name)}
+          value={getQrCodeUrl(restaurant, table)}
           size={120}
           fgColor="#0f0e0c"
           bgColor="#ffffff"
@@ -354,7 +362,7 @@ function MinimalCard({
       }}
     >
       <QRCodeSVG
-        value={getQrCodeUrl(restaurant, table.name)}
+        value={getQrCodeUrl(restaurant, table)}
         size={130}
         fgColor={accent}
         bgColor="#ffffff"
