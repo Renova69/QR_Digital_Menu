@@ -12,6 +12,7 @@ import {
   Headers,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -35,6 +36,18 @@ export class OrdersController {
 
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
+  // P0-6: this route is public, CSRF-exempt, and resolves a table by its
+  // (guessable) name, so it was the cheapest lever for probing a restaurant's
+  // tables one after another. It previously fell back to the global 100/60s
+  // bucket. 30/60s matches POST /payments/session and leaves ample headroom
+  // over real ordering volume.
+  //
+  // Note this is only as strong as the throttler's key. Until the tracker is
+  // fixed to key on the real client (see P1-1 — `trust proxy` is unset, so
+  // req.ip resolves to infrastructure rather than the caller), this behaves
+  // closer to a platform-wide budget than a per-caller one, which is why the
+  // limit is set generously rather than tight.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   create(
     @Body() createOrderDto: CreateOrderDto,
     @Request() req: any,
