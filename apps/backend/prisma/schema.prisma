@@ -32,6 +32,12 @@ model User {
   pinHash                        String?
   pinAttempts                    Int                          @default(0)
   pinLockedUntil                 DateTime?
+  // P1-2: password-login equivalent of the PIN lockout above. Rate limiting
+  // alone cannot defend credential stuffing here — an anonymous caller is
+  // keyed by address, and the address is spoofable on the direct Cloud Run
+  // origin (see IdentityThrottlerGuard). An account-scoped counter is not.
+  failedLoginAttempts            Int                          @default(0)
+  loginLockedUntil               DateTime?
   isActive                       Boolean                      @default(true)
   disabledAt                     DateTime?
   disabledReason                 String?
