@@ -172,10 +172,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    const { password, staffRestaurant, lastLoginDeviceTokenId, ...result } =
-      user as any;
+    // P0-4: allowlist, never a blocklist. This value becomes req.user and is
+    // serialised verbatim by GET /auth/me, so a destructure-the-bad-fields
+    // approach leaks every column added to User afterwards — which is how
+    // pinHash (bcrypt over a 4-digit PIN, a 10,000-candidate keyspace) ended
+    // up in the browser. Anything added here is a deliberate decision to
+    // expose it to the client; jwt.strategy.spec.ts pins the exact key set.
     return {
-      ...result,
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      name: user.name,
+      // Not user.role from the DB row directly: the tier check above may have
+      // demoted it in flight, and callers must see the effective role.
+      role: user.role,
+      restaurantId: user.restaurantId,
+      onboardingComplete: user.onboardingComplete,
+      onboardingStep: user.onboardingStep,
+      isActive: user.isActive,
       ...(payload.isImpersonation
         ? {
             isImpersonation: true,
