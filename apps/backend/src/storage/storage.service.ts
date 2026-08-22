@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { randomBytes } from 'crypto';
 
 const sharp = require('sharp');
@@ -59,6 +60,14 @@ export class StorageService {
 
     this.s3 = new S3Client({
       region: 'auto',
+      // P1-5: the AWS SDK's node handler defaults to no request timeout at
+      // all (DEFAULT_REQUEST_TIMEOUT = 0), so a hung R2 upload held a Cloud
+      // Run request slot until the platform's own 300s ceiling. Image uploads
+      // are large-ish, hence a generous body timeout and a tight connect one.
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: 3_000,
+        requestTimeout: 20_000,
+      }),
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: accessKeyId || '',

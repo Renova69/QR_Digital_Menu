@@ -17,6 +17,13 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
       process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder',
       {
         apiVersion: '2026-05-27.dahlia',
+        // P1-4: the SDK defaults to an 80s timeout with 2 retries, so a
+        // degraded Stripe could hold a Cloud Run request slot for four
+        // minutes. Money calls still need room to answer, hence 15s rather
+        // than something tighter, but one retry rather than two keeps the
+        // worst case bounded at ~30s.
+        timeout: 15_000,
+        maxNetworkRetries: 1,
       },
     );
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';

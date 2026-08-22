@@ -26,6 +26,15 @@ import {
 
 const STAFF_DEVICE_LIMIT = 3;
 
+// P1-3: these three calls sit on the interactive login path and had no
+// deadline at all, so undici's 300s default applied — a hung Twilio or Resend
+// would hold a Cloud Run request slot for five minutes while the user stared
+// at a spinner, and with 80 slots per instance and only three instances, a
+// provider outage was a straightforward path to exhausting the whole service.
+// Ten seconds is far longer than either provider's normal response and short
+// enough to fail visibly.
+const AUTH_PROVIDER_TIMEOUT_MS = 10_000;
+
 // P1-2: password-login lockout. Deliberately more generous than the PIN
 // lockout (5 attempts / 15 min) on the first strike — a password is long
 // enough that a handful of typos is ordinary, whereas a 4-digit PIN has a
@@ -358,6 +367,7 @@ export class AuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: phone, Channel: channel }).toString(),
+      signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -386,6 +396,7 @@ export class AuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: phone, Code: code }).toString(),
+      signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
     });
     const data: any = await res.json().catch(() => ({}));
     return data.status === 'approved';
@@ -570,6 +581,7 @@ export class AuthService {
         }
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
+          signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
             'Content-Type': 'application/json',

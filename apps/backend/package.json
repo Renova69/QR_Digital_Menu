@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1035.0",
+    "@smithy/node-http-handler": "^4.7.5",
     "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",

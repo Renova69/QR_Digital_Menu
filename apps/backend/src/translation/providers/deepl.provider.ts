@@ -27,6 +27,8 @@ export class DeepLProvider implements ITranslationProvider {
   // 4xx are NOT retried — retrying a quota wall just wastes time.
   private static readonly MAX_RETRIES = 5;
   private static readonly RETRY_BASE_MS = 500;
+  // P1-6: ceiling on a provider-supplied Retry-After. See the use site.
+  private static readonly MAX_RETRY_WAIT_MS = 30_000;
 
   private get apiKey(): string | undefined {
     return process.env.DEEPL_API_KEY;
@@ -139,10 +141,17 @@ export class DeepLProvider implements ITranslationProvider {
         const backoff =
           DeepLProvider.RETRY_BASE_MS * 2 ** attempt +
           Math.floor(Math.random() * 250);
-        const waitMs =
+        // P1-6: honour Retry-After, but never unconditionally. DeepL is free
+        // to send `Retry-After: 3600`, and obeying it literally parked the
+        // translation worker for an hour on a single 429 — a remote service
+        // deciding how long our own worker sleeps. Cap it at the point where
+        // waiting longer stops being a retry and starts being an outage.
+        const waitMs = Math.min(
           Number.isFinite(retryAfter) && retryAfter > 0
             ? retryAfter * 1000
-            : backoff;
+            : backoff,
+          DeepLProvider.MAX_RETRY_WAIT_MS,
+        );
         this.logger.warn(
           `DeepL ${status} for ${targetLang} — retry ${attempt + 1}/${DeepLProvider.MAX_RETRIES} in ${waitMs}ms`,
         );
