@@ -362,6 +362,17 @@ async function bootstrap() {
     await app.get(PrismaService).connectWithRetry();
 
     const port = parseInt(process.env.PORT || '3000', 10);
+    // P1-7: Node defaults keepAliveTimeout to 5s, below the front end's own
+    // idle timeout. When the proxy reuses a connection the server has just
+    // closed, the request dies as a 502 that no application log explains.
+    // Keeping the server's window wider than the proxy's makes the server the
+    // one that never closes first. headersTimeout must exceed
+    // keepAliveTimeout, or Node can time out the headers of a request it was
+    // still willing to keep alive.
+    const server = app.getHttpServer();
+    server.keepAliveTimeout = 65_000;
+    server.headersTimeout = 66_000;
+
     await app.listen(port, '0.0.0.0');
     logger.log(`✅ Application is running on port ${port}`);
   } catch (error) {
