@@ -8,6 +8,6 @@
 --
 -- Additive and idempotent: two nullable/defaulted columns, no rewrite of
 -- existing rows, no lock held beyond the catalog update.
-ALTER TABLE "user"
+ALTER TABLE "app_user"
   ADD COLUMN IF NOT EXISTS "failedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS "loginLockedUntil" TIMESTAMP(3);
