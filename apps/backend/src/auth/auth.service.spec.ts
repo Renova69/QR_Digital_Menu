@@ -40,6 +40,7 @@ describe('AuthService', () => {
   let mockPrisma: any;
   let mockUsersService: any;
   let mockJwt: Partial<JwtService>;
+  let mockEvents: any;
 
   beforeEach(() => {
     const real = jest.requireActual('bcryptjs');
@@ -105,12 +106,16 @@ describe('AuthService', () => {
       create: jest.fn(),
     };
     mockJwt = { sign: jest.fn().mockReturnValue('test-jwt-token') };
+    mockEvents = { evictUser: jest.fn().mockResolvedValue(undefined) };
 
     service = new AuthService(
       mockUsersService,
       mockJwt as JwtService,
       mockPrisma,
       new FeatureService(),
+      // P1-13: a password change must also tear down live sockets, not just
+      // invalidate the next HTTP request.
+      mockEvents as any,
     );
   });
 
@@ -835,6 +840,38 @@ describe('AuthService', () => {
         data: { password: 'new-hash', passwordChangedAt: expect.any(Date) },
       });
       expect(result).toEqual({ success: true });
+    });
+
+    // P1-13: passwordChangedAt only takes effect on the *next* HTTP request.
+    // A socket authenticated before the change keeps its connection and goes
+    // on receiving live order and payment events, so changing a password on a
+    // compromised account left the attacker's realtime feed intact.
+    it('tears down live sockets, not just the next HTTP request', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        makeUser({ password: 'old-hash' }),
+      );
+      mockCompare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      mockHash.mockResolvedValue('new-hash');
+
+      await service.changePassword('usr1', 'old-password', 'new-password');
+
+      expect(mockEvents.evictUser).toHaveBeenCalledWith(
+        'usr1',
+        'password_changed',
+      );
+    });
+
+    it('does not evict when the password change was rejected', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        makeUser({ password: 'old-hash' }),
+      );
+      mockCompare.mockResolvedValue(false);
+
+      await service
+        .changePassword('usr1', 'wrong-password', 'new-password')
+        .catch(() => undefined);
+
+      expect(mockEvents.evictUser).not.toHaveBeenCalled();
     });
 
     it('rejects when current password is wrong', async () => {

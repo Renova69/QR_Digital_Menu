@@ -16,6 +16,7 @@ import { UsersService } from '../users/users.service';
 import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { buildPhonePlaceholderEmail } from './phone-placeholder';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import {
@@ -58,6 +59,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
+    private readonly events: EventsGateway,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -1079,6 +1081,12 @@ export class AuthService {
         passwordChangedAt: new Date(),
       },
     });
+
+    // P1-13: passwordChangedAt kills the old token on the next HTTP request,
+    // but a socket authenticated before the change keeps its connection and
+    // carries on receiving live order and payment events. resetStaffPin
+    // already evicted; the password paths did not.
+    void this.events.evictUser(userId, 'password_changed');
 
     return { success: true };
   }

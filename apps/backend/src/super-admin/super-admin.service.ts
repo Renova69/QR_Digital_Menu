@@ -581,6 +581,13 @@ export class SuperAdminService {
       }),
     ]);
 
+    // P1-13: passwordChangedAt invalidates the old token on the next HTTP
+    // request, but a socket authenticated before the reset keeps its
+    // connection and carries on receiving live events. forceLogout already
+    // evicted; this path did not — which matters more here, since an admin
+    // resetting an owner's password is usually responding to a compromise.
+    void this.events.evictUser(restaurant.ownerId, 'password_changed');
+
     return { success: true };
   }
 
