@@ -43,6 +43,51 @@ import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../restaurants/restaurant-langu
 // history (and the groupBy scan stays bounded).
 const TRENDING_WINDOW_DAYS = 30;
 
+// P0-5: the exact MenuItem shape the public (unauthenticated) menu may see.
+//
+// Every public menu query previously used `include: { options: true }`, which
+// returns the whole row — including `costPrice`, the restaurant's food cost.
+// That field feeds owner margin analytics only (see DashboardService), so
+// publishing it let anyone with curl compute every dish's margin.
+//
+// This is an allowlist on purpose: a new column added to MenuItem stays
+// private until someone deliberately adds it here. `createdAt`/`updatedAt`
+// are omitted as unused noise rather than as a secret.
+const PUBLIC_MENU_ITEM_SELECT = {
+  id: true,
+  name: true,
+  description: true,
+  price: true,
+  weight: true,
+  currency: true,
+  allergens: true,
+  dietaryTags: true,
+  tags: true,
+  imageUrl: true,
+  thumbnailUrl: true,
+  isOutOfStock: true,
+  categoryId: true,
+  order: true,
+  translations: true,
+  // Drive the upsell / perfect-pairing / trending surfaces on the public menu.
+  isFeatured: true,
+  relatedItemIds: true,
+  upsellContexts: true,
+  // Loyalty: the public menu renders a points price per item.
+  rewardPointsMode: true,
+  rewardPointsPrice: true,
+  options: {
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      choices: true,
+      menuItemId: true,
+      translations: true,
+    },
+  },
+} satisfies Prisma.MenuItemSelect;
+
 // Rows to skip when checking whether a stored image is still referenced вЂ” the
 // row(s) currently being deleted/updated must not count as a live reference.
 type ImageRefExclusions = {
@@ -390,6 +435,10 @@ export class MenuCrudService {
     const loyaltyRedeemRate = restaurantClone.loyaltyRedeemRate ?? 150;
     delete restaurantClone.forceTier;
     delete restaurantClone.loyaltyRedeemRate;
+    // P0-5: fetched only to drive assertRestaurantActive() above. They carry
+    // no meaning for a diner and leak soft-delete state, so they stop here.
+    delete restaurantClone.isActive;
+    delete restaurantClone.deletedAt;
 
     const allCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },
@@ -397,7 +446,7 @@ export class MenuCrudService {
         items: {
           where: { isOutOfStock: false },
           orderBy: { order: 'asc' },
-          include: { options: true },
+          select: PUBLIC_MENU_ITEM_SELECT,
         },
       },
       orderBy: { order: 'asc' },
@@ -507,6 +556,9 @@ export class MenuCrudService {
     const restaurantClone = { ...restaurant } as any;
     restaurantClone.tier = restaurantClone.forceTier ?? restaurantClone.tier;
     delete restaurantClone.forceTier;
+    // P0-5: internal lifecycle flags — see getPublicMenu.
+    delete restaurantClone.isActive;
+    delete restaurantClone.deletedAt;
 
     const allCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },
@@ -608,7 +660,7 @@ export class MenuCrudService {
     const items = await this.prisma.menuItem.findMany({
       where: { categoryId, isOutOfStock: false },
       orderBy: { order: 'asc' },
-      include: { options: true },
+      select: PUBLIC_MENU_ITEM_SELECT,
     });
 
     const requestedLang = this.resolveStoredTranslationLang(
@@ -654,7 +706,7 @@ export class MenuCrudService {
         items: {
           where: { isOutOfStock: false },
           orderBy: { order: 'asc' },
-          include: { options: true },
+          select: PUBLIC_MENU_ITEM_SELECT,
         },
       },
       orderBy: { order: 'asc' },

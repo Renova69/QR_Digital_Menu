@@ -2393,4 +2393,69 @@ describe('MenuCrudService', () => {
       expect(mockPrisma.menuItem.findMany).toHaveBeenCalled();
     });
   });
+
+  // ── P0-5: public menu payload discipline ────────────────────────────────
+  // costPrice is the restaurant's food cost. It is consumed only by owner
+  // analytics (dashboard.service margin reporting), yet all three public menu
+  // queries used `include`, which returns every column. Any diner — or
+  // competitor — could curl the public endpoint and compute every margin.
+  // These assertions are on the QUERY SHAPE, not the response: with an
+  // explicit `select` the column never leaves Postgres, so there is no
+  // serialisation step left to get wrong later.
+  describe('public menu payload does not leak internal fields', () => {
+    const itemSelectFrom = (call: any) =>
+      call?.include?.items?.select ?? call?.select?.items?.select;
+
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        isActive: true,
+        deletedAt: null,
+        forceTier: null,
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([]);
+    });
+
+    it('getPublicMenu selects menu item fields explicitly, without costPrice', async () => {
+      await service.getPublicMenu('rest-1');
+
+      const select = itemSelectFrom(
+        mockPrisma.menuCategory.findMany.mock.calls[0][0],
+      );
+      expect(select).toBeDefined();
+      expect(select).not.toHaveProperty('costPrice');
+      // The fields the public menu genuinely renders must survive.
+      expect(select.id).toBe(true);
+      expect(select.name).toBe(true);
+      expect(select.price).toBe(true);
+      expect(select.allergens).toBe(true);
+      expect(select.translations).toBe(true);
+      expect(select.options).toBeDefined();
+    });
+
+    it('getPublicMenuItems selects menu item fields explicitly, without costPrice', async () => {
+      await service.getPublicMenuItems('rest-1');
+
+      const select = itemSelectFrom(
+        mockPrisma.menuCategory.findMany.mock.calls[0][0],
+      );
+      expect(select).toBeDefined();
+      expect(select).not.toHaveProperty('costPrice');
+      expect(select.price).toBe(true);
+    });
+
+    it('does not return the restaurant row’s internal lifecycle flags', async () => {
+      const result: any = await service.getPublicMenu('rest-1');
+
+      // isActive/deletedAt exist only to drive assertRestaurantActive(); they
+      // tell an outsider nothing useful and leak soft-delete state.
+      expect(result.restaurant).not.toHaveProperty('isActive');
+      expect(result.restaurant).not.toHaveProperty('deletedAt');
+      expect(result.restaurant).not.toHaveProperty('forceTier');
+      // tier and features stay: the public menu gates rendering on them.
+      expect(result.restaurant.tier).toBeDefined();
+      expect(result.restaurant.features).toBeDefined();
+    });
+  });
 });
