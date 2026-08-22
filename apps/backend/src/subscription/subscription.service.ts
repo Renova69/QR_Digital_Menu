@@ -98,6 +98,9 @@ export class SubscriptionService {
       'sk_test_placeholder';
     this.stripe = new Stripe(stripeKey, {
       apiVersion: '2026-05-27.dahlia',
+      // P1-4: bound the same way as StripeProvider — see the note there.
+      timeout: 15_000,
+      maxNetworkRetries: 1,
     });
 
     // Built here (not at module load) so env vars injected after import are

@@ -578,17 +578,43 @@ export class OrdersService {
 
     if (!posSubmission && !tableSessionId && servicePoint) {
       resolvedTableCuid = servicePoint.id;
-    } else if (!posSubmission && !tableSessionId && createOrderDto.tableId) {
-      // Frontend sends table name (e.g. "1"), not cuid — resolve to real id
-      const table = await this.prisma.restaurantTable.findFirst({
-        where: {
-          name: createOrderDto.tableId,
-          restaurantId,
-          type: 'TABLE',
-          isActive: true,
-        },
-      });
+    } else if (
+      !posSubmission &&
+      !tableSessionId &&
+      (createOrderDto.tableToken || createOrderDto.tableId)
+    ) {
+      // P0-2: a table is reached by its QR code's publicToken. The legacy path
+      // resolved it by *name*, and a name is not a secret — so anyone who knew
+      // a restaurant id could post an order for "table 5", be joined to
+      // whoever was actually sitting there, and receive that session's token,
+      // which authorises reading the bill and driving its payment.
+      //
+      // Tables without a token predate the backfill and keep the legacy path
+      // until the sunset date in SECURITY_AUDIT_VERDICT_22082026.md.
+      const table = createOrderDto.tableToken
+        ? await this.prisma.restaurantTable.findFirst({
+            where: {
+              publicToken: createOrderDto.tableToken,
+              restaurantId,
+              type: 'TABLE',
+              isActive: true,
+            },
+          })
+        : await this.prisma.restaurantTable.findFirst({
+            where: {
+              name: createOrderDto.tableId,
+              restaurantId,
+              type: 'TABLE',
+              isActive: true,
+            },
+          });
       if (!table)
+        throw new NotFoundException('Table not found for this restaurant');
+
+      // Once a table has a token, the name stops working. The error is
+      // deliberately identical to "no such table" so it cannot be used as an
+      // oracle to enumerate which tables exist or which have been migrated.
+      if (!createOrderDto.tableToken && table.publicToken)
         throw new NotFoundException('Table not found for this restaurant');
 
       const tableCuid = table.id;

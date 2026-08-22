@@ -277,4 +277,154 @@ describe('JwtStrategy', () => {
       }),
     ).rejects.toThrow('DEVICE_SESSION_EXPIRED');
   });
+
+  // P0-4: validate()'s return value becomes req.user and is serialised
+  // verbatim by GET /auth/me. It must therefore be an explicit allowlist, not
+  // a destructure-the-few-bad-fields blocklist — a blocklist silently leaks
+  // every column added to User afterwards. pinHash is the acute case: it is
+  // bcrypt over a 4-digit PIN (users.service.ts issues crypto.randomInt(0,
+  // 10000)), a 10,000-candidate keyspace that is brute-forced offline in
+  // seconds, and a recovered PIN mints a WAITER/KITCHEN JWT.
+  describe('validate() response shape', () => {
+    const fullUserRow = {
+      id: 'waiter-1',
+      email: 'waiter@test.com',
+      phone: '+359888000111',
+      name: 'Waiter One',
+      role: 'WAITER',
+      restaurantId: 'rest-1',
+      onboardingComplete: true,
+      onboardingStep: null,
+      isActive: true,
+      // Everything below must never reach the client.
+      password: 'bcrypt-password-hash',
+      pinHash: 'bcrypt-pin-hash',
+      pinAttempts: 2,
+      pinLockedUntil: null,
+      googleId: 'google-oauth-subject-id',
+      disabledAt: null,
+      disabledReason: null,
+      passwordChangedAt: new Date('2026-01-01T00:00:00Z'),
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+      lastLoginDeviceTokenId: null,
+      sharedDeviceModeEnabled: false,
+      staffRestaurant: {
+        isActive: true,
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+      },
+    };
+
+    it('never returns pinHash or any other credential material', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ ...fullUserRow });
+
+      const result: any = await strategy.validate({
+        sub: 'waiter-1',
+        email: 'waiter@test.com',
+      });
+
+      for (const leaked of [
+        'pinHash',
+        'password',
+        'pinAttempts',
+        'pinLockedUntil',
+        'googleId',
+        'passwordChangedAt',
+        'disabledReason',
+        'lastLoginDeviceTokenId',
+        'staffRestaurant',
+      ]) {
+        expect(result).not.toHaveProperty(leaked);
+      }
+    });
+
+    it('returns exactly the allowlisted identity fields and nothing else', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ ...fullUserRow });
+
+      const result: any = await strategy.validate({
+        sub: 'waiter-1',
+        email: 'waiter@test.com',
+      });
+
+      // Pinned deliberately: adding a field here is a conscious decision to
+      // expose it to the browser, not an accident of a new schema column.
+      expect(Object.keys(result).sort()).toEqual(
+        [
+          'email',
+          'id',
+          'isActive',
+          'name',
+          'onboardingComplete',
+          'onboardingStep',
+          'phone',
+          'restaurantId',
+          'role',
+        ].sort(),
+      );
+    });
+
+    it('keeps the fields the app actually consumes off req.user', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ ...fullUserRow });
+
+      const result: any = await strategy.validate({
+        sub: 'waiter-1',
+        email: 'waiter@test.com',
+      });
+
+      // id/role/isActive are read by guards and services; restaurantId scopes
+      // tenant queries (orders.service, assistance.service, menu-crud);
+      // email/name/phone/onboardingComplete back the frontend User contract.
+      expect(result.id).toBe('waiter-1');
+      expect(result.role).toBe('WAITER');
+      expect(result.isActive).toBe(true);
+      expect(result.restaurantId).toBe('rest-1');
+      expect(result.email).toBe('waiter@test.com');
+      expect(result.phone).toBe('+359888000111');
+      expect(result.onboardingComplete).toBe(true);
+    });
+
+    it('still surfaces the in-flight role demotion, not the stored role', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({
+        ...fullUserRow,
+        role: 'WAITER',
+        staffRestaurant: { isActive: true, tier: 'FREE', forceTier: null },
+      });
+      (strategy as any).featureService.getAllowedStaffRoles.mockReturnValueOnce(
+        ['STAFF'],
+      );
+
+      const result: any = await strategy.validate({
+        sub: 'waiter-1',
+        email: 'waiter@test.com',
+      });
+
+      expect(result.role).toBe('STAFF');
+    });
+
+    it('appends impersonation markers when the token carries them', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({
+        ...fullUserRow,
+        role: 'OWNER',
+        staffRestaurant: null,
+      });
+      (prisma as any).impersonationSession = {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        }),
+      };
+
+      const result: any = await strategy.validate({
+        sub: 'waiter-1',
+        email: 'waiter@test.com',
+        isImpersonation: true,
+        impersonationSessionId: 'imp-1',
+      });
+
+      expect(result.isImpersonation).toBe(true);
+      expect(result.impersonationSessionId).toBe('imp-1');
+      expect(result).not.toHaveProperty('pinHash');
+    });
+  });
 });

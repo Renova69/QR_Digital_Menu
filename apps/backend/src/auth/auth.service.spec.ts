@@ -40,6 +40,7 @@ describe('AuthService', () => {
   let mockPrisma: any;
   let mockUsersService: any;
   let mockJwt: Partial<JwtService>;
+  let mockEvents: any;
 
   beforeEach(() => {
     const real = jest.requireActual('bcryptjs');
@@ -105,12 +106,16 @@ describe('AuthService', () => {
       create: jest.fn(),
     };
     mockJwt = { sign: jest.fn().mockReturnValue('test-jwt-token') };
+    mockEvents = { evictUser: jest.fn().mockResolvedValue(undefined) };
 
     service = new AuthService(
       mockUsersService,
       mockJwt as JwtService,
       mockPrisma,
       new FeatureService(),
+      // P1-13: a password change must also tear down live sockets, not just
+      // invalidate the next HTTP request.
+      mockEvents as any,
     );
   });
 
@@ -136,6 +141,144 @@ describe('AuthService', () => {
       await expect(
         service.validateUser('user@example.com', 'wrong'),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    // P1-2: throttling cannot defend credential stuffing on its own here. An
+    // anonymous caller is keyed by address, and X-Forwarded-For is
+    // caller-controlled on the direct Cloud Run origin, so an attacker
+    // rotating the header has an unlimited budget. This counter is scoped to
+    // the account and cannot be rotated away.
+    describe('per-account lockout (P1-2)', () => {
+      it('counts a failed attempt without locking before the threshold', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({ password: 'hashed', failedLoginAttempts: 2 }),
+        );
+        mockCompare.mockResolvedValue(false);
+
+        await expect(
+          service.validateUser('user@example.com', 'wrong'),
+        ).rejects.toThrow('Invalid email or password.');
+
+        expect(mockPrisma.user.update).toHaveBeenCalledWith({
+          where: { id: 'usr1' },
+          data: { failedLoginAttempts: 3 },
+        });
+      });
+
+      it('locks the account once the threshold is reached', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({ password: 'hashed', failedLoginAttempts: 7 }),
+        );
+        mockCompare.mockResolvedValue(false);
+
+        await expect(
+          service.validateUser('user@example.com', 'wrong'),
+        ).rejects.toThrow('Invalid email or password.');
+
+        const data = mockPrisma.user.update.mock.calls.at(-1)![0].data;
+        expect(data.failedLoginAttempts).toBe(8);
+        expect(data.loginLockedUntil).toBeInstanceOf(Date);
+      });
+
+      it('lengthens the window on each further failure past the threshold', async () => {
+        mockCompare.mockResolvedValue(false);
+
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({ password: 'hashed', failedLoginAttempts: 7 }),
+        );
+        await service.validateUser('user@example.com', 'wrong').catch(() => {});
+        const first = mockPrisma.user.update.mock.calls.at(-1)![0].data
+          .loginLockedUntil as Date;
+
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({ password: 'hashed', failedLoginAttempts: 9 }),
+        );
+        await service.validateUser('user@example.com', 'wrong').catch(() => {});
+        const later = mockPrisma.user.update.mock.calls.at(-1)![0].data
+          .loginLockedUntil as Date;
+
+        expect(later.getTime()).toBeGreaterThan(first.getTime());
+      });
+
+      it('hides the lockout from someone who does not know the password', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({
+            password: 'hashed',
+            failedLoginAttempts: 8,
+            loginLockedUntil: new Date(Date.now() + 60_000),
+          }),
+        );
+        mockCompare.mockResolvedValue(false);
+
+        // Identical to a plain wrong password — an attacker gets no signal
+        // that they have found a real, active account (#M3).
+        await expect(
+          service.validateUser('user@example.com', 'wrong'),
+        ).rejects.toThrow('Invalid email or password.');
+      });
+
+      it('tells someone who does know the password that they are locked out', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({
+            password: 'hashed',
+            failedLoginAttempts: 8,
+            loginLockedUntil: new Date(Date.now() + 60_000),
+          }),
+        );
+        mockCompare.mockResolvedValue(true);
+
+        const error: any = await service
+          .validateUser('user@example.com', 'correct')
+          .catch((e) => e);
+
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        expect(error.getResponse().code).toBe('ACCOUNT_TEMPORARILY_LOCKED');
+        expect(error.getResponse().retryInSeconds).toBeGreaterThan(0);
+      });
+
+      it('clears the counter on a successful sign-in', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({ password: 'hashed', failedLoginAttempts: 3 }),
+        );
+        mockCompare.mockResolvedValue(true);
+
+        await expect(
+          service.validateUser('user@example.com', 'correct'),
+        ).resolves.toBeDefined();
+
+        expect(mockPrisma.user.update).toHaveBeenCalledWith({
+          where: { id: 'usr1' },
+          data: { failedLoginAttempts: 0, loginLockedUntil: null },
+        });
+      });
+
+      it('lets a user back in once the window has passed', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({
+            password: 'hashed',
+            failedLoginAttempts: 8,
+            loginLockedUntil: new Date(Date.now() - 1000),
+          }),
+        );
+        mockCompare.mockResolvedValue(true);
+
+        await expect(
+          service.validateUser('user@example.com', 'correct'),
+        ).resolves.toBeDefined();
+      });
+
+      it('does not write on a clean successful sign-in', async () => {
+        mockUsersService.findByEmail.mockResolvedValue(
+          makeUser({ password: 'hashed', failedLoginAttempts: 0 }),
+        );
+        mockCompare.mockResolvedValue(true);
+        mockPrisma.user.update.mockClear();
+
+        await service.validateUser('user@example.com', 'correct');
+
+        // The happy path is the hot path; it must not cost a write.
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      });
     });
 
     it('rejects PIN-only device roles from dashboard password login', async () => {
@@ -697,6 +840,38 @@ describe('AuthService', () => {
         data: { password: 'new-hash', passwordChangedAt: expect.any(Date) },
       });
       expect(result).toEqual({ success: true });
+    });
+
+    // P1-13: passwordChangedAt only takes effect on the *next* HTTP request.
+    // A socket authenticated before the change keeps its connection and goes
+    // on receiving live order and payment events, so changing a password on a
+    // compromised account left the attacker's realtime feed intact.
+    it('tears down live sockets, not just the next HTTP request', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        makeUser({ password: 'old-hash' }),
+      );
+      mockCompare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      mockHash.mockResolvedValue('new-hash');
+
+      await service.changePassword('usr1', 'old-password', 'new-password');
+
+      expect(mockEvents.evictUser).toHaveBeenCalledWith(
+        'usr1',
+        'password_changed',
+      );
+    });
+
+    it('does not evict when the password change was rejected', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        makeUser({ password: 'old-hash' }),
+      );
+      mockCompare.mockResolvedValue(false);
+
+      await service
+        .changePassword('usr1', 'wrong-password', 'new-password')
+        .catch(() => undefined);
+
+      expect(mockEvents.evictUser).not.toHaveBeenCalled();
     });
 
     it('rejects when current password is wrong', async () => {

@@ -109,3 +109,10 @@ apps/backend/scripts/wipe-demo-translations.ts
 
 # Sentry User auth token for scripts/sentry-alerts.ps1 - never commit
 scripts/.sentry-token
+
+# Agent/tooling scratch trees that live at the repo root. These are untracked
+# but were not ignored, so `git add -A` from the root would try to stage entire
+# nested worktrees — including whatever a future session leaves inside one.
+# (.opencode/ is deliberately NOT here: it is tracked config, like .claude/.)
+.release-worktrees/
+.codex/

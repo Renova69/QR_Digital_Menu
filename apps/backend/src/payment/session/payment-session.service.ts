@@ -344,7 +344,8 @@ export class PaymentSessionService {
             },
           },
         },
-        staff: { select: { name: true, email: true, role: true } },
+        // P0-3: email deliberately absent — this row feeds a public response.
+        staff: { select: { name: true, role: true } },
       },
     });
 
@@ -470,12 +471,25 @@ export class PaymentSessionService {
         };
       });
 
+      // P0-3: this bill is served to anyone holding the table session token,
+      // which is shared by every diner on the tab. Two fields were leaking
+      // beyond what a co-diner needs to settle up:
+      //
+      //  - customerPhone: a co-diner's phone number. Its only consumer was a
+      //    convenience prefill of the BORICA phone field, which picked an
+      //    arbitrary order's number rather than the payer's — so dropping it
+      //    removes a personal-data disclosure and a prefill bug at once.
+      //  - staff.email: the `name ?? email` fallback put a staff member's
+      //    email address on a public response whenever their name was unset.
+      //    The bill only needs to attribute the order to a person, so fall
+      //    back to the role label the response already carries.
+      //
+      // customerName stays: a shared bill has to show who ordered what.
       return {
         id: order.id,
         source: order.source,
         customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
+        staffName: order.staff?.name ?? null,
         staffRole: order.staff?.role ?? null,
         totalPrice: order.totalPrice,
         items: allocatedItems,

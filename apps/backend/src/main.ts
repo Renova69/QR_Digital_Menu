@@ -115,6 +115,30 @@ async function bootstrap() {
     });
     app.useLogger(appLogger);
 
+    // P1-1: trust the proxy chain so req.ip resolves to the caller instead of
+    // infrastructure. Without this, Express reports the socket peer — which on
+    // Cloud Run is Google's front end, the same value for every request — so
+    // ThrottlerGuard keyed every caller into a single shared bucket. The login
+    // limit of 5/60s was therefore platform-wide: no per-attacker limit at
+    // all, and one attacker could exhaust everyone else's ability to log in.
+    //
+    // Measured behaviour of the two live paths (22 Aug 2026, probe against
+    // production):
+    //   - Through the Vercel rewrite, Vercel *overwrites* X-Forwarded-For with
+    //     the true client address, so the leftmost entry is trustworthy.
+    //   - Straight to the run.app URL, X-Forwarded-For is whatever the caller
+    //     sent — Google appends rather than replaces, so it is spoofable.
+    //
+    // 'true' takes the leftmost entry, which is correct for the Vercel path.
+    // The direct path stays spoofable, and no setting here can fix that; only
+    // restricting Cloud Run ingress does (PD-1). This is still strictly better
+    // than the shared bucket: an attacker rotating the header gets themselves
+    // more budget but no longer drains everyone else's, legitimate traffic
+    // gets real per-client limits, and audit records finally carry the caller
+    // rather than the proxy. Credential stuffing is defended by the
+    // per-account lockout (P1-2), which no header can spoof.
+    app.getHttpAdapter().getInstance().set('trust proxy', true);
+
     app.useGlobalPipes(
       new ValidationPipe({
         transform: true,
@@ -338,6 +362,17 @@ async function bootstrap() {
     await app.get(PrismaService).connectWithRetry();
 
     const port = parseInt(process.env.PORT || '3000', 10);
+    // P1-7: Node defaults keepAliveTimeout to 5s, below the front end's own
+    // idle timeout. When the proxy reuses a connection the server has just
+    // closed, the request dies as a 502 that no application log explains.
+    // Keeping the server's window wider than the proxy's makes the server the
+    // one that never closes first. headersTimeout must exceed
+    // keepAliveTimeout, or Node can time out the headers of a request it was
+    // still willing to keep alive.
+    const server = app.getHttpServer();
+    server.keepAliveTimeout = 65_000;
+    server.headersTimeout = 66_000;
+
     await app.listen(port, '0.0.0.0');
     logger.log(`✅ Application is running on port ${port}`);
   } catch (error) {

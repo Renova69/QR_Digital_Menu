@@ -102,7 +102,9 @@ function billWithProviders(
         id: "order1",
         source: "CUSTOMER",
         customerName: "Maria Petrova",
-        customerPhone: "+359893999888",
+        // P0-3: the session bill no longer carries customerPhone. It is served
+        // to anyone holding the shared table token, so a diner's phone number
+        // has no business on it — the payer types their own below.
         staffName: null,
         staffRole: null,
         totalPrice: 20,
@@ -1248,9 +1250,17 @@ describe("PaymentModal hosted provider choices", () => {
       />,
     );
 
+    // Cardholder name is still prefilled from the bill; the phone field is not
+    // (P0-3) and must be entered by the person actually paying.
     expect(await screen.findByDisplayValue("Maria Petrova")).toBeTruthy();
+    expect(
+      (screen.getByLabelText("Phone (optional)") as HTMLInputElement).value,
+    ).toBe("");
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "maria@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Phone (optional)"), {
+      target: { value: "+359893999888" },
     });
     fireEvent.change(screen.getByLabelText("Billing address"), {
       target: { value: "1 Vitosha Blvd" },

@@ -82,14 +82,30 @@ export class AssistanceService {
     }
 
     // Issue 4: validate table exists for this restaurant.
-    const table = await this.prisma.restaurantTable.findFirst({
-      where: {
-        name: createAssistanceDto.tableId,
-        restaurantId: createAssistanceDto.restaurantId,
-        type: 'TABLE',
-      },
-    });
+    // P0-2: prefer the QR code's publicToken; a table name is not a secret, so
+    // once a table has a token the name no longer reaches it. Without this,
+    // anyone could summon a waiter to any table in any restaurant.
+    const table = createAssistanceDto.tableToken
+      ? await this.prisma.restaurantTable.findFirst({
+          where: {
+            publicToken: createAssistanceDto.tableToken,
+            restaurantId: createAssistanceDto.restaurantId,
+            type: 'TABLE',
+          },
+        })
+      : await this.prisma.restaurantTable.findFirst({
+          where: {
+            name: createAssistanceDto.tableId,
+            restaurantId: createAssistanceDto.restaurantId,
+            type: 'TABLE',
+          },
+        });
     if (!table) {
+      throw new NotFoundException('Table not found');
+    }
+    // Identical error to "no such table" — never an oracle for which tables
+    // exist or which have been migrated.
+    if (!createAssistanceDto.tableToken && table.publicToken) {
       throw new NotFoundException('Table not found');
     }
 

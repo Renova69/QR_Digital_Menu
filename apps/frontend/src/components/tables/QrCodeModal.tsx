@@ -34,7 +34,12 @@ function buildQrUrl(
     if (!target.publicToken) return "";
     return getMenuUrl(restaurant, { servicePointToken: target.publicToken });
   }
-  return getMenuUrl(restaurant, { table: target.name });
+  // P0-2: carry the table's publicToken alongside the display name. The name
+  // alone is guessable and no longer opens a session for a tokened table.
+  return getMenuUrl(restaurant, {
+    table: target.name,
+    tableToken: target.publicToken,
+  });
 }
 
 const QrCodeModal = ({

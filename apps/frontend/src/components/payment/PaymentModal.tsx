@@ -80,7 +80,9 @@ interface BillOrder {
   id: string;
   source: "CUSTOMER" | "POS";
   customerName?: string | null;
-  customerPhone?: string | null;
+  // P0-3: customerPhone is deliberately absent. The session bill is served to
+  // anyone holding the shared table token, so a co-diner's phone number has no
+  // business on it. The payer types their own number.
   staffName: string | null;
   staffRole: string | null;
   totalPrice: number;
@@ -821,9 +823,9 @@ export function PaymentModal({
         (current) => current || customerOrder.customerName || "",
       );
     }
-    if (customerOrder?.customerPhone) {
-      setBoricaPhone((current) => current || customerOrder.customerPhone || "");
-    }
+    // The phone field is no longer prefilled: the bill stopped carrying
+    // customerPhone (P0-3). The old prefill took the first customer order on
+    // the tab, which on a shared table was usually somebody else's number.
   }, [bill]);
 
   useEffect(() => {

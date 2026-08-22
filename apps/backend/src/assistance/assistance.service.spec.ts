@@ -109,6 +109,66 @@ describe('AssistanceService', () => {
       await expect(service.create(dto)).rejects.toThrow(NotFoundException);
     });
 
+    // P0-2: a table name is not a secret. Once a table carries a QR
+    // publicToken, the name must stop reaching it — otherwise anyone can
+    // summon a waiter to any table in any restaurant.
+    describe('table token enforcement (P0-2)', () => {
+      it('refuses a name-based request once the table has a publicToken', async () => {
+        mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: 't-1',
+          publicToken: 'tok-secret',
+        });
+
+        await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+        expect(mockPrisma.assistanceRequest.create).not.toHaveBeenCalled();
+      });
+
+      it('reports the same error as a missing table, so it is not an oracle', async () => {
+        mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: 't-1',
+          publicToken: 'tok-secret',
+        });
+        const gated = await service.create(dto).catch((e) => e);
+
+        mockPrisma.restaurantTable.findFirst.mockResolvedValue(null);
+        const missing = await service.create(dto).catch((e) => e);
+
+        expect(gated.message).toBe(missing.message);
+      });
+
+      it('accepts the request when the QR token is presented', async () => {
+        mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: 't-1',
+          publicToken: 'tok-secret',
+        });
+
+        await expect(
+          service.create({ ...dto, tableToken: 'tok-secret' }),
+        ).resolves.toEqual(req);
+        // Looked up by the token, never by the client-supplied name.
+        expect(mockPrisma.restaurantTable.findFirst).toHaveBeenCalledWith({
+          where: {
+            publicToken: 'tok-secret',
+            restaurantId: 'rest-1',
+            type: 'TABLE',
+          },
+        });
+      });
+
+      it('still serves legacy tables that predate the token backfill', async () => {
+        mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: 't-1',
+          publicToken: null,
+        });
+
+        await expect(service.create(dto)).resolves.toEqual(req);
+      });
+    });
+
     it('throws ConflictException when a recent same-type request exists (Issue 54)', async () => {
       mockPrisma.assistanceRequest.findFirst.mockResolvedValue({ id: 'dup' });
 

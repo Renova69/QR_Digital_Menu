@@ -35,6 +35,20 @@ $GITHUB_REPOSITORY = "Renova69/QR_Digital_Menu"
 $REQUIRED_BRANCH   = "main"
 $REQUIRED_CHECK    = "verify"
 $GITHUB_API_VERSION = "2026-03-10"
+# Serving shape. These were never passed, so every deploy silently inherited
+# whatever was already on the service -- Cloud Run's defaults of 80 concurrent
+# requests and a 300s request timeout, with maxScale pinned at 3. That is up to
+# 240 request slots, each holdable for five minutes by a single hung
+# dependency. Pinning them here makes the shape reviewable in source rather
+# than discoverable only by querying the live service.
+#
+# 30s is comfortably above the slowest legitimate request now that every
+# outbound call carries its own deadline (the longest, Stripe, is bounded at
+# ~30s worst case including its one retry). Anything still running past 30s is
+# wedged, not slow, and holding the slot helps nobody.
+$CONCURRENCY   = 40
+$MAX_INSTANCES = 3
+$REQUEST_TIMEOUT = 30
 $SMOKE_RETRIES = 10
 $SMOKE_DELAY_SECONDS = 3
 
@@ -301,6 +315,9 @@ Invoke-Native -Description "Deploy" -Command {
         --platform=managed `
         --session-affinity `
         --no-traffic `
+        --concurrency=$CONCURRENCY `
+        --max-instances=$MAX_INSTANCES `
+        --timeout=$REQUEST_TIMEOUT `
         --update-secrets=DIRECT_URL=DIRECT_URL:latest `
         --tag=$revisionTag
 }

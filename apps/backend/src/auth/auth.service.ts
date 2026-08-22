@@ -16,6 +16,7 @@ import { UsersService } from '../users/users.service';
 import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { buildPhonePlaceholderEmail } from './phone-placeholder';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import {
@@ -25,6 +26,24 @@ import {
 } from '../common/sms/sms-gateway';
 
 const STAFF_DEVICE_LIMIT = 3;
+
+// P1-3: these three calls sit on the interactive login path and had no
+// deadline at all, so undici's 300s default applied — a hung Twilio or Resend
+// would hold a Cloud Run request slot for five minutes while the user stared
+// at a spinner, and with 80 slots per instance and only three instances, a
+// provider outage was a straightforward path to exhausting the whole service.
+// Ten seconds is far longer than either provider's normal response and short
+// enough to fail visibly.
+const AUTH_PROVIDER_TIMEOUT_MS = 10_000;
+
+// P1-2: password-login lockout. Deliberately more generous than the PIN
+// lockout (5 attempts / 15 min) on the first strike — a password is long
+// enough that a handful of typos is ordinary, whereas a 4-digit PIN has a
+// 10,000-candidate keyspace and needs a tighter leash. The doubling below is
+// what makes a sustained attack pointless.
+const LOGIN_ATTEMPT_LIMIT = 8;
+const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
+const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
 
 type PinLoginMeta = {
   ipAddress?: string;
@@ -40,6 +59,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
+    private readonly events: EventsGateway,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -68,11 +88,88 @@ export class AuthService {
     if (isPinRole(user.role)) {
       throw new UnauthorizedException(INVALID);
     }
-    if (user.password && (await bcrypt.compare(pass, user.password))) {
+
+    // P1-2: per-account lockout, mirroring the PIN lockout. Throttling cannot
+    // carry this alone — an anonymous caller is keyed by address, and
+    // X-Forwarded-For is caller-controlled on the direct Cloud Run origin, so
+    // an attacker rotating the header has an unlimited budget. A counter
+    // scoped to the account cannot be rotated away.
+    const lockedUntil = user.loginLockedUntil;
+    const isLocked = !!lockedUntil && lockedUntil.getTime() > Date.now();
+    const passwordMatches =
+      !!user.password && (await bcrypt.compare(pass, user.password));
+
+    if (isLocked) {
+      // Only disclose the lockout to someone who proved they know the
+      // password. To anyone else this is indistinguishable from a wrong
+      // password, so the endpoint still cannot be used to discover which
+      // addresses are registered (#M3) — an attacker gets no signal that they
+      // have found a real account. A legitimate user who mistyped a few times
+      // gets a message they can act on as soon as they type it correctly.
+      if (passwordMatches) {
+        const retryInSeconds = Math.max(
+          1,
+          Math.ceil((lockedUntil.getTime() - Date.now()) / 1000),
+        );
+        throw new UnauthorizedException({
+          code: 'ACCOUNT_TEMPORARILY_LOCKED',
+          message:
+            'Too many failed sign-in attempts. Please try again shortly.',
+          retryInSeconds,
+        });
+      }
+      throw new UnauthorizedException(INVALID);
+    }
+
+    if (passwordMatches) {
+      if (user.failedLoginAttempts > 0 || user.loginLockedUntil) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, loginLockedUntil: null },
+        });
+      }
       const { password, ...result } = user;
       return result;
     }
+
+    await this.registerFailedLogin(user.id, user.failedLoginAttempts ?? 0);
     throw new UnauthorizedException(INVALID);
+  }
+
+  /**
+   * Count a failed password attempt and lock the account once the threshold is
+   * reached. The lock window grows with each subsequent lockout so a
+   * persistent attacker faces rapidly diminishing returns, while a user who
+   * simply mistyped waits only the base window.
+   */
+  private async registerFailedLogin(
+    userId: string,
+    previousAttempts: number,
+  ): Promise<void> {
+    const attempts = previousAttempts + 1;
+    if (attempts < LOGIN_ATTEMPT_LIMIT) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { failedLoginAttempts: attempts },
+      });
+      return;
+    }
+
+    // Every further failure past the threshold doubles the window, capped so a
+    // locked-out owner is never shut out for an unreasonable stretch.
+    const overshoot = attempts - LOGIN_ATTEMPT_LIMIT;
+    const windowMs = Math.min(
+      LOGIN_LOCKOUT_BASE_MS * 2 ** overshoot,
+      LOGIN_LOCKOUT_MAX_MS,
+    );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: attempts,
+        loginLockedUntil: new Date(Date.now() + windowMs),
+      },
+    });
   }
 
   async login(user: any) {
@@ -272,6 +369,7 @@ export class AuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: phone, Channel: channel }).toString(),
+      signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -300,6 +398,7 @@ export class AuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: phone, Code: code }).toString(),
+      signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
     });
     const data: any = await res.json().catch(() => ({}));
     return data.status === 'approved';
@@ -484,6 +583,7 @@ export class AuthService {
         }
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
+          signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
             'Content-Type': 'application/json',
@@ -981,6 +1081,12 @@ export class AuthService {
         passwordChangedAt: new Date(),
       },
     });
+
+    // P1-13: passwordChangedAt kills the old token on the next HTTP request,
+    // but a socket authenticated before the change keeps its connection and
+    // carries on receiving live order and payment events. resetStaffPin
+    // already evicted; the password paths did not.
+    void this.events.evictUser(userId, 'password_changed');
 
     return { success: true };
   }

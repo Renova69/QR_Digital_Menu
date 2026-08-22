@@ -250,6 +250,34 @@ describe('DeepLProvider', () => {
       provider['sleep'] = jest.fn().mockResolvedValue(undefined);
     });
 
+    // P1-6: a remote service must not get to decide how long our worker
+    // sleeps. Obeying `Retry-After: 3600` literally parked the translation
+    // worker for an hour on a single 429.
+    it('caps a hostile Retry-After rather than obeying it', async () => {
+      mockPost
+        .mockRejectedValueOnce({
+          response: { status: 429, headers: { 'retry-after': '3600' } },
+        })
+        .mockResolvedValueOnce({ data: { translations: [{ text: 'Soupe' }] } });
+
+      await provider.translateBatch(['Soup'], 'FR');
+
+      const waited = (provider['sleep'] as jest.Mock).mock.calls[0][0];
+      expect(waited).toBeLessThanOrEqual(30_000);
+    });
+
+    it('still honours a short Retry-After as sent', async () => {
+      mockPost
+        .mockRejectedValueOnce({
+          response: { status: 429, headers: { 'retry-after': '2' } },
+        })
+        .mockResolvedValueOnce({ data: { translations: [{ text: 'Soupe' }] } });
+
+      await provider.translateBatch(['Soup'], 'FR');
+
+      expect((provider['sleep'] as jest.Mock).mock.calls[0][0]).toBe(2000);
+    });
+
     it('retries transient 429 then succeeds', async () => {
       mockPost
         .mockRejectedValueOnce({ response: { status: 429, headers: {} } })

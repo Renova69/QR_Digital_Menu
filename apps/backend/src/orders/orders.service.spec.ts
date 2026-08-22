@@ -423,6 +423,85 @@ describe('OrdersService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    // P0-2 — the critical one. POST /orders resolved a table by its *name*,
+    // joined whatever session was already open there, and returned that
+    // session's token in the response. Since a name is short and sequential,
+    // anyone who knew a restaurant id could post an order for "table 5",
+    // receive the token belonging to the people actually sitting there, and
+    // use it to read their bill and drive their payment. Once a table carries
+    // a QR publicToken, the name must no longer reach it.
+    describe('table token enforcement (P0-2)', () => {
+      const orderFor = (extra: Record<string, unknown>) =>
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          ...extra,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto);
+
+      beforeEach(() => {
+        prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+        prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+          fn(makeTx()),
+        );
+      });
+
+      it('refuses to resolve a tokened table by name', async () => {
+        prisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: '5',
+          publicToken: 'tok-secret',
+        });
+
+        await expect(orderFor({ tableId: '5' })).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+
+      it('gives the same error as a missing table, so it is not an oracle', async () => {
+        prisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: '5',
+          publicToken: 'tok-secret',
+        });
+        const gated = await orderFor({ tableId: '5' }).catch((e) => e);
+
+        prisma.restaurantTable.findFirst.mockResolvedValue(null);
+        const missing = await orderFor({ tableId: '5' }).catch((e) => e);
+
+        expect(gated.message).toBe(missing.message);
+      });
+
+      it('looks the table up by token when one is supplied', async () => {
+        prisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: '5',
+          publicToken: 'tok-secret',
+        });
+
+        await orderFor({ tableToken: 'tok-secret' }).catch(() => undefined);
+
+        expect(prisma.restaurantTable.findFirst).toHaveBeenCalledWith({
+          where: {
+            publicToken: 'tok-secret',
+            restaurantId: expect.anything(),
+            type: 'TABLE',
+            isActive: true,
+          },
+        });
+      });
+
+      it('still serves legacy tables that predate the token backfill', async () => {
+        prisma.restaurantTable.findFirst.mockResolvedValue({
+          id: 'tbl-1',
+          name: '5',
+          publicToken: null,
+        });
+
+        await expect(orderFor({ tableId: '5' })).resolves.toBeDefined();
+      });
+    });
+
     it('recalculates total from DB prices, ignores client price', async () => {
       const tx = makeTx();
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
