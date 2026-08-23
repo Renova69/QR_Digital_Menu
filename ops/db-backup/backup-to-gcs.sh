@@ -49,10 +49,14 @@ netloc += url.hostname or ""
 if url.port:
     netloc += f":{url.port}"
 
+# sslmode is forced, never inherited. This dump is every tenant's data crossing
+# the public internet, so a weaker value arriving in the secret -- "disable" or
+# "prefer" -- must not silently downgrade the transport. Dropping the inbound
+# key and re-adding our own is what makes that a guarantee rather than a
+# default.
 query = [(k, v) for k, v in parse_qsl(url.query) if k not in
-         {"pgbouncer", "connection_limit", "pool_timeout"}]
-if not any(k == "sslmode" for k, _ in query):
-    query.append(("sslmode", "require"))
+         {"pgbouncer", "connection_limit", "pool_timeout", "sslmode"}]
+query.append(("sslmode", "require"))
 
 print(urlunsplit((url.scheme, netloc, url.path, urlencode(query), "")))
 print(unquote(url.password or ""))
