@@ -41,6 +41,20 @@ const AUTH_PROVIDER_TIMEOUT_MS = 10_000;
 // enough that a handful of typos is ordinary, whereas a 4-digit PIN has a
 // 10,000-candidate keyspace and needs a tighter leash. The doubling below is
 // what makes a sustained attack pointless.
+// A device-bound PIN session runs on a tablet that stays in the restaurant
+// overnight, is shared between staff, and is unlocked by four digits. The
+// module default of one day means a token minted at opening is still valid at
+// opening the next morning -- so the tablet is a working credential all night,
+// which is exactly when nobody is watching it.
+//
+// 12h, not 8h: a trading day is roughly 11:00-23:00, and an 8h session would
+// expire in the middle of dinner service. 12h covers the day and dies at close,
+// which is the window that actually matters.
+//
+// Deliberately not applied to dashboard logins: those are a person on a machine
+// they control, and shortening them only trains people to re-authenticate.
+const STAFF_DEVICE_SESSION_TTL = '12h';
+
 const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
 const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
@@ -975,7 +989,9 @@ export class AuthService {
         deviceSessionVersion: enrolledDevice.sessionVersion ?? 0,
       };
       return {
-        token: this.jwtService.sign(payload),
+        token: this.jwtService.sign(payload, {
+          expiresIn: STAFF_DEVICE_SESSION_TTL,
+        }),
         user: {
           id: user.id,
           email: user.email,

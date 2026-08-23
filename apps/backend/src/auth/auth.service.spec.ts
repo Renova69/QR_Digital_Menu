@@ -318,6 +318,17 @@ describe('AuthService', () => {
         sub: user.id,
       });
     });
+
+    // A dashboard login is a person at a machine they control, so it keeps the
+    // module default. Only the shared-device case is shortened.
+    it('does not shorten the session for a dashboard login', async () => {
+      const user = makeUser();
+
+      await service.login(user);
+
+      const [, options] = (mockJwt.sign as jest.Mock).mock.calls[0];
+      expect(options).toBeUndefined();
+    });
   });
 
   // ─── validateGoogleUser ──────────────────────────────────────────────────────
@@ -598,6 +609,13 @@ describe('AuthService', () => {
       const result = await service.pinLogin('rest1', '1234', deviceToken);
 
       expect(result.token).toBe('test-jwt-token');
+      // A device-bound PIN session lives on a tablet that stays in the
+      // restaurant overnight, unattended and shared. A full day of validity
+      // means it is still a working credential all night. 12h covers a
+      // trading day and expires at close, rather than mid-service.
+      expect((mockJwt.sign as jest.Mock).mock.calls[0][1]).toEqual({
+        expiresIn: '12h',
+      });
       expect(mockJwt.sign).toHaveBeenCalledWith(
         expect.objectContaining({
           email: staff.email,
@@ -605,6 +623,8 @@ describe('AuthService', () => {
           deviceTokenId: 'device-token-1',
           deviceSessionVersion: 0,
         }),
+        // Second argument is the shortened device-session TTL, asserted above.
+        expect.objectContaining({ expiresIn: expect.any(String) }),
       );
       // Attempts reset on the device token, not via user.updateMany
       expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
