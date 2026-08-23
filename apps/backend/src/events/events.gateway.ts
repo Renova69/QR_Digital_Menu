@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import type { WrapperType } from '../common/wrapper-type';
 import { JwtService } from '@nestjs/jwt';
+import { SessionRevocationService } from '../auth/session-revocation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrintStationService } from '../print-station/print-station.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -115,6 +116,7 @@ export class EventsGateway
     @Inject(forwardRef(() => PrintStationService))
     private readonly printStationService: WrapperType<PrintStationService>,
     private readonly featureService: FeatureService,
+    private readonly sessionRevocation: SessionRevocationService,
   ) {}
 
   private isWsRateLimited(ip: string): boolean {
@@ -159,14 +161,21 @@ export class EventsGateway
       try {
         const payload = this.jwt.verify(token);
         if (payload?.sub) {
+          // A signature and an unexpired `exp` are not proof the session is
+          // still alive. Password rotation, staff-device revocation and account
+          // disable all happen after the token is minted, and the HTTP path has
+          // always rejected on them — the handshake did not, so a stale cookie
+          // opened a socket that kept receiving live order traffic. Same rules,
+          // one implementation (P1-14).
+          await this.sessionRevocation.assertSessionUsable(payload);
           client.data.userId = payload.sub;
           if (typeof payload.deviceTokenId === 'string') {
             client.data.deviceTokenId = payload.deviceTokenId;
           }
         }
       } catch (error) {
-        // invalid/expired — stay anonymous. debug (not warn): expired tokens
-        // are routine on reconnect; this just keeps the failure reason
+        // invalid/expired/revoked — stay anonymous. debug (not warn): expired
+        // tokens are routine on reconnect; this just keeps the failure reason
         // searchable if a token-refresh regression starts spiking these.
         this.logger.debug(
           `Socket JWT auth failed, staying anonymous: ${

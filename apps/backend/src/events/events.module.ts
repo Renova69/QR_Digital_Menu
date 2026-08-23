@@ -5,6 +5,7 @@ import { EventsGateway } from './events.gateway';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrintStationModule } from '../print-station/print-station.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { SessionRevocationModule } from '../auth/session-revocation.module';
 
 @Global()
 @Module({
@@ -12,6 +13,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     PrismaModule,
     forwardRef(() => PrintStationModule),
     SubscriptionModule,
+    SessionRevocationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

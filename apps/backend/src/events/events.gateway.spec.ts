@@ -10,6 +10,7 @@ describe('EventsGateway — room authorization', () => {
   let mockJwt: any;
   let mockPrisma: any;
   let mockFeatureService: any;
+  let mockSessionRevocation: any;
 
   const makeClient = (data: Record<string, unknown> = {}) =>
     ({
@@ -55,11 +56,15 @@ describe('EventsGateway — room authorization', () => {
     mockFeatureService = {
       restaurantHasFeature: jest.fn().mockReturnValue(true),
     };
+    mockSessionRevocation = {
+      assertSessionUsable: jest.fn().mockResolvedValue({ id: 'user-1' }),
+    };
     gateway = new EventsGateway(
       mockJwt,
       mockPrisma,
       mockPrintStationService,
       mockFeatureService,
+      mockSessionRevocation,
     );
   });
 
@@ -134,9 +139,7 @@ describe('EventsGateway — room authorization', () => {
       const client = makeClient();
       client.handshake.headers.cookie = 'foo=bar; token=valid.jwt.here';
 
-      await gateway.handleConnection(
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleConnection(client);
 
       expect(client.data.userId).toBe('user-1');
     });
@@ -150,9 +153,7 @@ describe('EventsGateway — room authorization', () => {
       const client = makeClient();
       client.handshake.headers.cookie = 'token=valid.jwt.here';
 
-      await gateway.handleConnection(
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleConnection(client);
 
       expect(client.data.userId).toBe('user-1');
       expect(client.data.deviceTokenId).toBe('device-token-1');
@@ -161,11 +162,65 @@ describe('EventsGateway — room authorization', () => {
     it('stays anonymous when no cookie is present (public order tracking)', async () => {
       const client = makeClient();
 
-      await gateway.handleConnection(
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleConnection(client);
 
       expect(client.data.userId).toBeUndefined();
+    });
+
+    // P1-14: `jwt.verify` only proves the signature and expiry. Every rule that
+    // can kill a session mid-life -- a password reset, a revoked staff device,
+    // a disabled account -- lives outside the token, and the handshake used to
+    // skip all of it. A cookie minted before a password reset kept a live
+    // socket streaming order traffic until it expired on its own.
+    it('re-checks revocation, not just the signature', async () => {
+      mockJwt.verify.mockReturnValue({ sub: 'user-1', email: 'a@b.c', iat: 1 });
+      const client = makeClient();
+      client.handshake.headers.cookie = 'token=valid.jwt.here';
+
+      await gateway.handleConnection(client);
+
+      expect(mockSessionRevocation.assertSessionUsable).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'user-1', iat: 1 }),
+      );
+    });
+
+    it('stays anonymous when the session was revoked after the token was issued', async () => {
+      mockJwt.verify.mockReturnValue({ sub: 'user-1', email: 'a@b.c', iat: 1 });
+      mockSessionRevocation.assertSessionUsable.mockRejectedValue(
+        new Error('PASSWORD_CHANGED'),
+      );
+      const client = makeClient();
+      client.handshake.headers.cookie = 'token=valid.jwt.here';
+
+      await gateway.handleConnection(client);
+
+      expect(client.data.userId).toBeUndefined();
+    });
+
+    it('stays anonymous when the staff device behind the token was revoked', async () => {
+      mockJwt.verify.mockReturnValue({
+        sub: 'user-1',
+        email: 'a@b.c',
+        deviceTokenId: 'device-token-1',
+      });
+      mockSessionRevocation.assertSessionUsable.mockRejectedValue(
+        new Error('DEVICE_REVOKED'),
+      );
+      const client = makeClient();
+      client.handshake.headers.cookie = 'token=valid.jwt.here';
+
+      await gateway.handleConnection(client);
+
+      expect(client.data.userId).toBeUndefined();
+      expect(client.data.deviceTokenId).toBeUndefined();
+    });
+
+    it('does not hit the database when there is no token cookie', async () => {
+      const client = makeClient();
+
+      await gateway.handleConnection(client);
+
+      expect(mockSessionRevocation.assertSessionUsable).not.toHaveBeenCalled();
     });
 
     it('stays anonymous when the token is invalid', async () => {
@@ -175,9 +230,7 @@ describe('EventsGateway — room authorization', () => {
       const client = makeClient();
       client.handshake.headers.cookie = 'token=garbage';
 
-      await gateway.handleConnection(
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleConnection(client);
 
       expect(client.data.userId).toBeUndefined();
     });
@@ -191,10 +244,7 @@ describe('EventsGateway — room authorization', () => {
       const warnSpy = jest.spyOn(gatewayLogger(), 'warn');
       const debugSpy = jest.spyOn(gatewayLogger(), 'debug');
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(client.emit).toHaveBeenCalledWith(
@@ -217,10 +267,7 @@ describe('EventsGateway — room authorization', () => {
       const client = makeClient({ userId: 'user-1' });
 
       await expect(
-        gateway.handleJoinRoom(
-          null as unknown as string,
-          client as unknown as import('socket.io').Socket,
-        ),
+        gateway.handleJoinRoom(null as unknown as string, client),
       ).resolves.toEqual({ event: 'roomError', data: null });
 
       expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
@@ -236,10 +283,7 @@ describe('EventsGateway — room authorization', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'user-1' });
       const client = makeClient({ userId: 'user-1' });
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).toHaveBeenCalledWith('restaurant_rest-1');
     });
@@ -254,10 +298,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'user-2' });
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).toHaveBeenCalledWith('restaurant_rest-1');
     });
@@ -272,10 +313,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'admin-1' });
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).toHaveBeenCalledWith('restaurant_rest-1');
     });
@@ -290,10 +328,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'user-3' });
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(client.emit).toHaveBeenCalledWith(
@@ -314,10 +349,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'user-1' });
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).not.toHaveBeenCalled();
     });
@@ -334,10 +366,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'user-1' });
 
-      await gateway.handleJoinRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRoom('rest-1', client);
 
       expect(client.join).not.toHaveBeenCalled();
     });
@@ -351,10 +380,7 @@ describe('EventsGateway — room authorization', () => {
       const warnSpy = jest.spyOn(gatewayLogger(), 'warn');
       const debugSpy = jest.spyOn(gatewayLogger(), 'debug');
 
-      await gateway.handleJoinRestaurantOrdersRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(warnSpy).not.toHaveBeenCalled();
@@ -378,10 +404,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'user-1' });
 
-      await gateway.handleJoinRestaurantOrdersRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client);
 
       expect(client.join).toHaveBeenCalledWith('restaurant_orders_rest-1');
       expect(mockFeatureService.restaurantHasFeature).toHaveBeenCalled();
@@ -403,10 +426,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'user-1' });
 
-      await gateway.handleJoinRestaurantOrdersRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(client.emit).toHaveBeenCalledWith(
@@ -435,10 +455,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient({ userId: 'admin-1' });
 
-      await gateway.handleJoinRestaurantOrdersRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client);
 
       expect(client.join).toHaveBeenCalledWith('restaurant_orders_rest-1');
       expect(mockFeatureService.restaurantHasFeature).not.toHaveBeenCalled();
@@ -452,7 +469,7 @@ describe('EventsGateway — room authorization', () => {
 
       const result = await gateway.handleJoinTableSessionRoom(
         { token: 'session-token' },
-        client as unknown as import('socket.io').Socket,
+        client,
       );
 
       expect(mockPrisma.tableSession.findUnique).toHaveBeenCalledWith({
@@ -472,7 +489,7 @@ describe('EventsGateway — room authorization', () => {
 
       const result = await gateway.handleJoinTableSessionRoom(
         { token: 'missing-token' },
-        client as unknown as import('socket.io').Socket,
+        client,
       );
 
       expect(client.join).not.toHaveBeenCalled();
@@ -491,10 +508,7 @@ describe('EventsGateway — room authorization', () => {
     it('joins the public menu room for any restaurantId — no auth required', () => {
       const client = makeClient();
 
-      const result = gateway.handleJoinPublicMenuRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      const result = gateway.handleJoinPublicMenuRoom('rest-1', client);
 
       expect(client.join).toHaveBeenCalledWith('public_menu_rest-1');
       expect(result).toEqual({ event: 'joinedPublicMenuRoom', data: 'rest-1' });
@@ -505,7 +519,7 @@ describe('EventsGateway — room authorization', () => {
 
       const result = gateway.handleJoinPublicMenuRoom(
         undefined as unknown as string,
-        client as unknown as import('socket.io').Socket,
+        client,
       );
 
       expect(client.join).not.toHaveBeenCalled();
@@ -515,10 +529,7 @@ describe('EventsGateway — room authorization', () => {
     it('leaves the public menu room', () => {
       const client = makeClient();
 
-      const result = gateway.handleLeavePublicMenuRoom(
-        'rest-1',
-        client as unknown as import('socket.io').Socket,
-      );
+      const result = gateway.handleLeavePublicMenuRoom('rest-1', client);
 
       expect(client.leave).toHaveBeenCalledWith('public_menu_rest-1');
       expect(result).toEqual({ event: 'leftPublicMenuRoom', data: 'rest-1' });
@@ -531,10 +542,7 @@ describe('EventsGateway — room authorization', () => {
       const client = makeClient();
 
       for (let i = 0; i < 5; i++) {
-        const result = gateway.handleJoinPublicMenuRoom(
-          `rest-${i}`,
-          client as unknown as import('socket.io').Socket,
-        );
+        const result = gateway.handleJoinPublicMenuRoom(`rest-${i}`, client);
         expect(result).toEqual({
           event: 'joinedPublicMenuRoom',
           data: `rest-${i}`,
@@ -542,10 +550,7 @@ describe('EventsGateway — room authorization', () => {
       }
       expect(client.join).toHaveBeenCalledTimes(5);
 
-      const rejected = gateway.handleJoinPublicMenuRoom(
-        'rest-5',
-        client as unknown as import('socket.io').Socket,
-      );
+      const rejected = gateway.handleJoinPublicMenuRoom('rest-5', client);
 
       expect(rejected).toEqual({ event: 'roomError', data: 'public-menu' });
       expect(client.join).toHaveBeenCalledTimes(5);
@@ -555,15 +560,9 @@ describe('EventsGateway — room authorization', () => {
       const client = makeClient();
 
       for (let i = 0; i < 5; i++) {
-        gateway.handleJoinPublicMenuRoom(
-          `rest-${i}`,
-          client as unknown as import('socket.io').Socket,
-        );
+        gateway.handleJoinPublicMenuRoom(`rest-${i}`, client);
       }
-      const result = gateway.handleJoinPublicMenuRoom(
-        'rest-0',
-        client as unknown as import('socket.io').Socket,
-      );
+      const result = gateway.handleJoinPublicMenuRoom('rest-0', client);
 
       expect(result).toEqual({ event: 'joinedPublicMenuRoom', data: 'rest-0' });
     });
@@ -596,10 +595,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom(
-        { orderId: 'order-1', token: 't' },
-        client as unknown as import('socket.io').Socket,
-      );
+      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: 't' }, client);
 
       expect(client.join).toHaveBeenCalledWith('order_order-1');
     });
@@ -611,10 +607,7 @@ describe('EventsGateway — room authorization', () => {
       });
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom(
-        { orderId: 'order-1', token: 't' },
-        client as unknown as import('socket.io').Socket,
-      );
+      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: 't' }, client);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(client.emit).toHaveBeenCalledWith(
@@ -627,10 +620,7 @@ describe('EventsGateway — room authorization', () => {
       mockJwt.verify.mockReturnValue({ sub: 'user-1', email: 'a@b.c' });
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom(
-        { orderId: 'order-1', token: 't' },
-        client as unknown as import('socket.io').Socket,
-      );
+      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: 't' }, client);
 
       expect(client.join).not.toHaveBeenCalled();
     });
@@ -638,10 +628,7 @@ describe('EventsGateway — room authorization', () => {
     it('rejects when token is missing', () => {
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom(
-        { orderId: 'order-1', token: '' },
-        client as unknown as import('socket.io').Socket,
-      );
+      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: '' }, client);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(mockJwt.verify).not.toHaveBeenCalled();
@@ -661,7 +648,7 @@ describe('EventsGateway — room authorization', () => {
 
       await gateway.handleJoinReservationRoom(
         { restaurantId: 'rest-1', token: 'manage-secret' },
-        client as unknown as import('socket.io').Socket,
+        client,
       );
 
       expect(mockPrisma.reservation.findUnique).toHaveBeenCalledWith({
@@ -685,7 +672,7 @@ describe('EventsGateway — room authorization', () => {
 
       await gateway.handleJoinReservationRoom(
         { restaurantId: 'rest-1', token: 'manage-secret' },
-        client as unknown as import('socket.io').Socket,
+        client,
       );
 
       expect(client.join).not.toHaveBeenCalled();

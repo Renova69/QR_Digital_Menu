@@ -923,14 +923,24 @@ export const refundPayment = (
   api.post(`/payments/${paymentId}/refund`, data ?? {}).then((res) => res.data);
 
 // Feedback
-export const submitFeedback = async (data: {
-  rating: number;
-  comment?: string;
-  orderId: string;
-  restaurantId: string;
-  redirectedToGoogle?: boolean;
-}) => {
-  const response = await api.post("/feedback", data);
+// Legacy order-bound feedback. The table-session token is required: the server
+// resolves the order through that session, so this is the only proof that the
+// reviewer was actually seated at the table.
+export const submitFeedback = async (
+  sessionToken: string,
+  data: {
+    rating: number;
+    comment?: string;
+    orderId: string;
+    restaurantId: string;
+    redirectedToGoogle?: boolean;
+  },
+) => {
+  const response = await api.post(
+    "/feedback",
+    data,
+    withTableSessionToken(sessionToken),
+  );
   return response.data;
 };
 

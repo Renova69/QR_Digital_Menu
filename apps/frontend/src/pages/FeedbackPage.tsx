@@ -12,6 +12,7 @@ import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { useTranslation } from "react-i18next";
 import { buildMenuReturnUrl } from "../lib/menuUrl";
+import { readPaymentConfirmationContext } from "../lib/paymentConfirmationContext";
 
 type FeedbackStep = "rating" | "comment" | "redirect" | "thankyou";
 
@@ -23,6 +24,14 @@ const FeedbackPage = () => {
   const orderId = searchParams.get("orderId");
   const returnUrl =
     searchParams.get("returnUrl") || buildMenuReturnUrl(restaurantId);
+
+  // The server resolves the order through its table session, so a review needs
+  // the same credential the rest of the public flow carries. It is written when
+  // the visit is settled and lives in sessionStorage for the same 48h window
+  // the server allows feedback in.
+  const [sessionToken] = useState(
+    () => readPaymentConfirmationContext()?.sessionToken ?? null,
+  );
 
   const [step, setStep] = useState<FeedbackStep>("rating");
   const [rating, setRating] = useState(0);
@@ -50,7 +59,7 @@ const FeedbackPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!orderId || !restaurantId) {
+    if (!orderId || !restaurantId || !sessionToken) {
       setError(t("feedback.missingInfo"));
       return;
     }
@@ -61,7 +70,7 @@ const FeedbackPage = () => {
 
       const shouldOfferGoogle = !!googleReviewUrl;
 
-      await submitFeedback({
+      await submitFeedback(sessionToken, {
         rating,
         comment: comment.trim() || undefined,
         orderId,

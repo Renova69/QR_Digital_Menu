@@ -4,6 +4,7 @@ import { JwtStrategy } from './jwt.strategy';
 
 import { FeatureService } from '../subscription/feature.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SessionRevocationService } from './session-revocation.service';
 
 describe('JwtStrategy', () => {
   const prisma = {
@@ -19,8 +20,12 @@ describe('JwtStrategy', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // A real SessionRevocationService over the same prisma mock: the revocation
+    // rules moved out of the strategy, and driving them through the real
+    // collaborator keeps this suite testing the behaviour rather than a stub
+    // that would happily agree with a broken implementation.
     strategy = new JwtStrategy(
-      prisma as unknown as PrismaService,
+      new SessionRevocationService(prisma as unknown as PrismaService),
       {
         get: jest.fn().mockReturnValue('test-secret'),
       } as unknown as ConfigService,

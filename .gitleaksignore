@@ -1,0 +1,20 @@
+# Fingerprints of findings gitleaks should not re-report.
+#
+# Format: <commit>:<file>:<rule-id>:<line>
+#
+# Only for values that are already dead. A live secret belongs in Secret
+# Manager and must be rotated -- never silenced here.
+
+# MyPOS publishes this keypair in its integration docs for the demo store; it
+# is the sandbox credential every MyPOS integrator uses, exported as
+# MYPOS_TEST_PRIVATE_KEY.
+apps/backend/src/payment/mypos.provider.ts:private-key:49
+
+# Stripe idempotency keys ('refund_pay_123') are request de-duplication ids in
+# a unit test, not credentials.
+apps/backend/src/payment/stripe.provider.spec.ts:generic-api-key:148
+apps/backend/src/payment/stripe.provider.spec.ts:generic-api-key:161
+
+# Fingerprints are file:rule:line. If one of these lines moves the finding
+# reappears -- that is intended: it forces a re-read rather than a permanent
+# blind spot.

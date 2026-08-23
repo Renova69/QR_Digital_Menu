@@ -30,6 +30,7 @@ const mockPrisma = {
   },
   order: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
   tableSession: {
     findFirst: jest.fn(),
@@ -441,16 +442,17 @@ describe('FeedbackService', () => {
       rating: 5,
       comment: 'Great!',
     };
+    const SESSION_TOKEN = 'session-token-1';
 
-    it('creates feedback when no existing entry and order exists', async () => {
-      mockPrisma.feedback.findUnique.mockResolvedValue(null);
-      mockPrisma.order.findUnique.mockResolvedValue({
+    it('creates feedback when the order belongs to the caller session', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue({
         id: 'order-1',
         restaurantId: 'rest-1',
       });
+      mockPrisma.feedback.findUnique.mockResolvedValue(null);
       mockPrisma.feedback.create.mockResolvedValue({ id: 'fb-1', ...dto });
 
-      const result = await service.create(dto);
+      const result = await service.create(SESSION_TOKEN, dto);
 
       expect(result).toHaveProperty('id', 'fb-1');
       expect(mockPrisma.feedback.create).toHaveBeenCalledWith({
@@ -464,30 +466,84 @@ describe('FeedbackService', () => {
       });
     });
 
-    it('throws ConflictException when feedback already exists for order', async () => {
+    // The guarantee has to hold at the query, not at a later `if`. Asserting
+    // the shape is what stops a future refactor from widening the lookup back
+    // to "any order with this id".
+    it('scopes the order lookup to the session the token names', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue({
+        id: 'order-1',
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.feedback.findUnique.mockResolvedValue(null);
+      mockPrisma.feedback.create.mockResolvedValue({ id: 'fb-1' });
+
+      await service.create(SESSION_TOKEN, dto);
+
+      expect(mockPrisma.order.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'order-1',
+            tableSession: { token: SESSION_TOKEN },
+          }),
+        }),
+      );
+    });
+
+    // Rating an order you were never seated at pollutes the restaurant score
+    // and -- because Feedback.orderId is unique -- permanently locks the real
+    // guest out of reviewing their own meal.
+    it('refuses an order that belongs to someone else session', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue(null);
+
+      await expect(service.create('other-session', dto)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.feedback.create).not.toHaveBeenCalled();
+    });
+
+    // Authorization runs before any state is disclosed, so "does a review
+    // already exist for order X" cannot be probed with an unrelated session's
+    // token.
+    it('does not reveal existing feedback before authorizing the caller', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue(null);
       mockPrisma.feedback.findUnique.mockResolvedValue({ id: 'existing' });
 
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
-      expect(mockPrisma.order.findUnique).not.toHaveBeenCalled();
+      await expect(service.create('other-session', dto)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.feedback.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when feedback already exists for order', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue({
+        id: 'order-1',
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.feedback.findUnique.mockResolvedValue({ id: 'existing' });
+
+      await expect(service.create(SESSION_TOKEN, dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('throws NotFoundException when order not found', async () => {
-      mockPrisma.feedback.findUnique.mockResolvedValue(null);
-      mockPrisma.order.findUnique.mockResolvedValue(null);
+      mockPrisma.order.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+      await expect(service.create(SESSION_TOKEN, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('does not count a claimed Google redirect before an actual click', async () => {
       const dtoWithRedirect = { ...dto, redirectedToGoogle: true };
-      mockPrisma.feedback.findUnique.mockResolvedValue(null);
-      mockPrisma.order.findUnique.mockResolvedValue({
+      mockPrisma.order.findFirst.mockResolvedValue({
         id: 'order-1',
         restaurantId: 'rest-1',
       });
+      mockPrisma.feedback.findUnique.mockResolvedValue(null);
       mockPrisma.feedback.create.mockResolvedValue({ id: 'fb-2' });
 
-      await service.create(dtoWithRedirect);
+      await service.create(SESSION_TOKEN, dtoWithRedirect);
 
       expect(mockPrisma.feedback.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -497,14 +553,14 @@ describe('FeedbackService', () => {
     });
 
     it('rejects a restaurantId that does not match the order', async () => {
-      mockPrisma.feedback.findUnique.mockResolvedValue(null);
-      mockPrisma.order.findUnique.mockResolvedValue({
+      mockPrisma.order.findFirst.mockResolvedValue({
         id: 'order-1',
         restaurantId: 'rest-1',
       });
+      mockPrisma.feedback.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.create({ ...dto, restaurantId: 'rest-2' }),
+        service.create(SESSION_TOKEN, { ...dto, restaurantId: 'rest-2' }),
       ).rejects.toThrow(BadRequestException);
     });
   });

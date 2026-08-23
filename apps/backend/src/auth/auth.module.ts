@@ -10,6 +10,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
 import { OptionalJwtStrategy } from './optional-jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SessionRevocationModule } from './session-revocation.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     PassportModule,
     ConfigModule,
     PrismaModule,
+    SessionRevocationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

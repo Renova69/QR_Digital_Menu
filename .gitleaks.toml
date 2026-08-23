@@ -1,0 +1,73 @@
+# gitleaks config for the CI secret-scan gate (and for the local pre-commit
+# hook when the binary happens to be installed).
+#
+# Extends the upstream ruleset rather than replacing it -- the point is to get
+# every provider rule gitleaks maintains, and add only the exceptions this repo
+# genuinely needs.
+#
+# Rule for changing this file: an exception is for a value that CANNOT be a
+# credential (published vendor sandbox key, test fixture, upstream boilerplate,
+# a string that only looks key-shaped). A real secret is never allowlisted --
+# it is removed and rotated.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Build byproducts, local env files, and verified non-secrets"
+
+paths = [
+  # ── Not in a CI checkout; present locally and would make the gate
+  #    unreproducible on a developer machine. ────────────────────────────────
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)build/''',
+  '''(^|/)coverage/''',
+  '''^\.worktrees/''',
+  '''^\.release-worktrees/''',
+  '''(^|/)\.next/''',
+  '''(^|/)\.turbo/''',
+
+  # ── Local, gitignored env files. ─────────────────────────────────────────
+  # These hold real credentials, which is exactly why they are gitignored and
+  # never reach CI. What stops one being committed is the pre-commit hook's
+  # staged-diff scan (scripts/scan-staged-secrets.js), not this scan of an
+  # already-checked-out tree.
+  '''(^|/)\.env$''',
+  '''(^|/)\.env\.(local|test|development|production)$''',
+  '''(^|/)\.env\.example$''',
+
+  # ── Verified non-secrets. ────────────────────────────────────────────────
+  # Upstream NestJS scaffold README, still carrying its CircleCI badge example.
+  '''^apps/backend/README\.md$''',
+  # RSA keypairs generated solely to exercise the BORICA signer.
+  '''(^|/)__fixtures__/''',
+  # Planning notes: `questionKey: "..."` are i18n lookup keys.
+  '''^docs/superpowers/''',
+  # An extracted-strings dump; the "private key" is a textarea placeholder
+  # string from PaymentSettingsTab.
+  '''^scratch/''',
+  # This repo's own secret scanner is tested with realistic fake credentials.
+  # Weakening them to satisfy this scan would gut the test.
+  '''^scripts/scan-staged-secrets\.test\.js$''',
+]
+
+regexes = [
+  # MyPOS publishes this keypair in its integration docs for the demo store.
+  '''MYPOS_TEST_(PRIVATE_KEY|CLIENT_NUMBER|STORE_ID|KEY_INDEX)''',
+  # Fake token in the provider-log redaction test.
+  '''SECRET_XYZ789''',
+  # CI stand-ins from .github/workflows/ci.yml. Real values reach CI through
+  # GitHub Actions secrets, never through the workflow file.
+  '''ci-jwt-secret-not-for-production''',
+  '''postgresql://ci:ci@localhost:5432/ci_test''',
+  # The literal every backend spec signs its fixtures with.
+  '''(?i)test-secret''',
+  # Documented placeholders.
+  '''(?i)(your|example|placeholder|changeme|dummy|sample)[-_a-z0-9]*''',
+  '''x{4,}''',
+]
+
+# Per-finding exemptions live in .gitleaksignore, not here: `targetRules` on a
+# top-level allowlist is not honoured in 8.28, and path-allowlisting a whole
+# payment provider to silence one demo key would hide a real one added later.
