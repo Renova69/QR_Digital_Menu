@@ -1,16 +1,15 @@
-import { isPinRole } from '../users/staff-roles';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { FeatureService } from '../subscription/feature.service';
 import { isBearerJwtAuthEnabled } from './auth-runtime-policy';
+import { SessionRevocationService } from './session-revocation.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly sessionRevocation: SessionRevocationService,
     private readonly configService: ConfigService,
     private readonly featureService: FeatureService,
   ) {
@@ -43,110 +42,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     isImpersonation?: boolean;
     impersonationSessionId?: string;
   }) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: {
-        staffRestaurant: {
-          select: { isActive: true, tier: true, forceTier: true },
-        },
-        // Issue 21: do NOT fetch restaurants[] — OWNER suspension deferred
-        // to verifyDashboardAccess to avoid arbitrary restaurants[0] selection.
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException();
-    }
-
-    if (user.isActive === false || user.disabledAt) {
-      throw new UnauthorizedException('ACCOUNT_DISABLED');
-    }
-
-    if (payload.deviceTokenId) {
-      const deviceToken = await this.prisma.deviceEnrollmentToken.findUnique({
-        where: { id: payload.deviceTokenId },
-        select: {
-          restaurantId: true,
-          usedAt: true,
-          revokedAt: true,
-          sessionVersion: true,
-          restaurant: {
-            select: {
-              sharedDeviceModeEnabled: true,
-              isActive: true,
-            },
-          },
-        },
-      });
-
-      if (
-        !deviceToken ||
-        !deviceToken.usedAt ||
-        deviceToken.revokedAt ||
-        deviceToken.restaurantId !== user.restaurantId
-      ) {
-        throw new UnauthorizedException('DEVICE_REVOKED');
-      }
-
-      const payloadDeviceSessionVersion =
-        typeof payload.deviceSessionVersion === 'number'
-          ? payload.deviceSessionVersion
-          : 0;
-
-      if (payloadDeviceSessionVersion !== deviceToken.sessionVersion) {
-        throw new UnauthorizedException('DEVICE_SESSION_EXPIRED');
-      }
-
-      if (deviceToken.restaurant.isActive === false) {
-        throw new UnauthorizedException('ACCOUNT_SUSPENDED');
-      }
-
-      if (deviceToken.restaurant.sharedDeviceModeEnabled === false) {
-        throw new UnauthorizedException('SHARED_DEVICE_MODE_DISABLED');
-      }
-
-      // Device-bound JWT must only authenticate PIN-role users (WAITER/KITCHEN).
-      // Role promotion without re-auth would let a 4-digit PIN mint dashboard
-      // JWTs — this is the last line of defense after passwordChangedAt (#DEVICE-M1).
-      if (!isPinRole(user.role)) {
-        throw new UnauthorizedException('DEVICE_SESSION_EXPIRED');
-      }
-    }
-
-    // Invalidate tokens issued before the last password change (e.g. super-admin
-    // reset). `iat` is in seconds; passwordChangedAt is a Date. Reject stale tokens.
-    if (
-      user.passwordChangedAt &&
-      payload.iat &&
-      payload.iat * 1000 < user.passwordChangedAt.getTime()
-    ) {
-      throw new UnauthorizedException('PASSWORD_CHANGED');
-    }
-
-    // Validate impersonation session is still active (not revoked/expired).
-    if (payload.isImpersonation && payload.impersonationSessionId) {
-      const impSession = await this.prisma.impersonationSession.findUnique({
-        where: { id: payload.impersonationSessionId },
-        select: { revokedAt: true, expiresAt: true },
-      });
-      if (
-        !impSession ||
-        impSession.revokedAt ||
-        new Date() > impSession.expiresAt
-      ) {
-        throw new UnauthorizedException('IMPERSONATION_REVOKED');
-      }
-    }
-
-    if (user.role !== 'SUPER_ADMIN') {
-      // Issue 21: only check staffRestaurant (staff roles). OWNER restaurant
-      // suspension is deferred to verifyDashboardAccess — this avoids blocking
-      // an OWNER who has one active and one suspended restaurant via a
-      // non-deterministic restaurants[0] pick.
-      if (user.staffRestaurant?.isActive === false) {
-        throw new UnauthorizedException('ACCOUNT_SUSPENDED');
-      }
-    }
+    // Every "is this session still alive?" rule lives in one service so the
+    // websocket handshake enforces exactly what this path does. Throws a 401
+    // carrying the specific revocation code.
+    const user = await this.sessionRevocation.assertSessionUsable(payload);
 
     if (
       user.role !== 'SUPER_ADMIN' &&

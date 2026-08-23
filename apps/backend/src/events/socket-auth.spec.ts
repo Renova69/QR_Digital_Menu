@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrintStationService } from '../print-station/print-station.service';
 import { FeatureService } from '../subscription/feature.service';
+import { SessionRevocationService } from '../auth/session-revocation.service';
 import { Socket } from 'socket.io';
 
 describe('Socket Auth Tests', () => {
@@ -17,6 +18,7 @@ describe('Socket Auth Tests', () => {
         { provide: PrismaService, useValue: {} },
         { provide: PrintStationService, useValue: {} },
         { provide: FeatureService, useValue: {} },
+        { provide: SessionRevocationService, useValue: {} },
       ],
     }).compile();
 
