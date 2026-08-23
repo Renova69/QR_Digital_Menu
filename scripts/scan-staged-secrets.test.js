@@ -74,10 +74,10 @@ test("catches Stripe secret and webhook keys", () => {
     `const w = '${FAKE.stripeWebhook}';`,
   ]);
 
-  assert.deepEqual(
-    findings.map((f) => f.rule).sort(),
-    ["stripe-secret-key", "stripe-webhook-secret"],
-  );
+  assert.deepEqual(findings.map((f) => f.rule).sort(), [
+    "stripe-secret-key",
+    "stripe-webhook-secret",
+  ]);
 });
 
 test("catches a secret-named variable assigned a long literal", () => {
@@ -155,4 +155,28 @@ test("the exemption does not extend to neighbouring files", () => {
   ]);
 
   assert.equal(findings.length, 1);
+});
+
+// The private-key rule matches only the BEGIN header, so judging the match
+// alone can never see that the body is a stub. A real fixture in this repo
+// ('-----BEGIN RSA PRIVATE KEY-----\nMIIE...') tripped it.
+test("treats a truncated private-key fixture as a placeholder", () => {
+  const findings = scan("apps/backend/src/payment/x.spec.ts", 1, [
+    // Escaped \\n, matching how the sequence actually appears in a source
+    // file. A real newline would split the diff line and hide the stub body,
+    // which is the whole thing being asserted here.
+    "const rawKey = '-----BEGIN RSA PRIVATE KEY-----\\nMIIE...\\n-----END RSA PRIVATE KEY-----';",
+  ]);
+
+  assert.deepEqual(findings, []);
+});
+
+// ...but a key whose body is actually present must still be caught.
+test("still catches a private-key block with real-looking body", () => {
+  const findings = scan("apps/backend/src/payment/x.ts", 1, [
+    "-----BEGIN RSA PRIVATE KEY-----MIIEowIBAAKCAQEAvR9kZm2p0qL",
+  ]);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].rule, "private-key-block");
 });

@@ -668,6 +668,123 @@ describe('LoyaltyService', () => {
       expect(result.points).toBe(0);
       expect(result.lifetimePoints).toBe(0);
     });
+
+    it('creates new account and awards signup bonus points when eligible', async () => {
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValueOnce(null) // first check in enroll
+        .mockResolvedValue({
+          id: 'acc-new',
+          userId: 'user-new',
+          restaurantId: 'r1',
+          points: 50,
+          lifetimePoints: 50,
+        });
+
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+        loyaltySignupBonus: 50,
+        loyaltyPointExpiryDays: 90,
+        loyaltyExchangeRate: 10,
+        loyaltyRedeemRate: 150,
+        loyaltyMaxRedemptionPercent: 50,
+        loyaltyExpiryReminderDays: 15,
+        timezone: 'UTC',
+        happyHourEnable: false,
+        happyHourDays: '',
+        happyHourStartTime: '17:00',
+        happyHourEndTime: '19:00',
+        happyHourMultiplier: 1.5,
+        loyaltySilverThreshold: 500,
+        loyaltyGoldThreshold: 2000,
+        loyaltySilverMultiplier: 1.2,
+        loyaltyGoldMultiplier: 1.5,
+      });
+
+      mockTx.loyaltyAccount.create.mockResolvedValue({ id: 'acc-new' });
+      mockTx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-new',
+        points: 50,
+        lifetimePoints: 50,
+      });
+      mockTx.loyaltyPointLedger.findMany.mockResolvedValue([]);
+
+      const result = await service.enroll('user-new', 'r1');
+
+      expect(mockTx.loyaltyAccount.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'user-new',
+          restaurantId: 'r1',
+          points: 50,
+          lifetimePoints: 50,
+        },
+      });
+      expect(mockTx.loyaltyPointLedger.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            loyaltyAccountId: 'acc-new',
+            points: 50,
+            remainingPoints: 50,
+            type: 'SIGNUP',
+          }),
+        }),
+      );
+      expect(result.points).toBe(50);
+    });
+
+    it('gracefully handles P2002 unique constraint collision during concurrent enroll', async () => {
+      (mockPrisma.loyaltyAccount as any).findUnique = jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({
+          id: 'acc-winner',
+          userId: 'user-1',
+          restaurantId: 'r1',
+          points: 50,
+          lifetimePoints: 50,
+        });
+
+      (mockPrisma.restaurant as any).findUnique = jest.fn().mockResolvedValue({
+        id: 'r1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        isActive: true,
+        isLoyaltyEnabled: true,
+        loyaltySignupBonus: 50,
+        loyaltyPointExpiryDays: 90,
+        loyaltyExchangeRate: 10,
+        loyaltyRedeemRate: 150,
+        loyaltyExpiryReminderDays: 15,
+        loyaltyMaxRedemptionPercent: 50,
+        timezone: 'UTC',
+        happyHourEnable: false,
+        happyHourDays: '',
+        happyHourStartTime: '17:00',
+        happyHourEndTime: '19:00',
+        happyHourMultiplier: 1.5,
+        loyaltySilverThreshold: 500,
+        loyaltyGoldThreshold: 2000,
+        loyaltySilverMultiplier: 1.2,
+        loyaltyGoldMultiplier: 1.5,
+      });
+
+      const p2002Error: any = new Error('Unique constraint failed');
+      p2002Error.code = 'P2002';
+      mockTx.loyaltyAccount.create.mockRejectedValue(p2002Error);
+      mockTx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-winner',
+        points: 50,
+        lifetimePoints: 50,
+      });
+      mockTx.loyaltyPointLedger.findMany.mockResolvedValue([]);
+
+      const result = await service.enroll('user-1', 'r1');
+      expect(result.points).toBe(50);
+    });
   });
 
   describe('getPoints', () => {

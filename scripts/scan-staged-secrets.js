@@ -92,6 +92,11 @@ const RULES = [
     id: "private-key-block",
     pattern: /-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/g,
     description: "Private key block",
+    // The match is only the header, so the placeholder check would never see
+    // the body -- and a fixture whose body is a stub such as "MIIE..." is
+    // obviously not a key precisely because of what follows the header.
+    // Judge the whole line instead of the matched fragment.
+    placeholderScope: "line",
   },
   {
     id: "assigned-secret-literal",
@@ -154,7 +159,8 @@ function scanAddedLines(addedLines) {
       let match;
       while ((match = rule.pattern.exec(text)) !== null) {
         const value = rule.valueGroup ? match[rule.valueGroup] : match[0];
-        if (isPlaceholder(value)) continue;
+        const subject = rule.placeholderScope === "line" ? text : value;
+        if (isPlaceholder(subject)) continue;
         findings.push({
           file,
           line,

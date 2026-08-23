@@ -14,7 +14,11 @@ import { ForbiddenException } from '@nestjs/common';
  */
 export function assertRestaurantActive(
   restaurant:
-    | { isActive?: boolean | null; deletedAt?: Date | string | null }
+    | {
+        isActive?: boolean | null;
+        deletedAt?: Date | string | null;
+        [key: string]: any;
+      }
     | null
     | undefined,
 ): void {
