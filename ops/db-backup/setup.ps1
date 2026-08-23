@@ -23,11 +23,23 @@ $SCHEDULE  = "15 2 * * *"
 
 Set-Location (Join-Path $PSScriptRoot "..\..")
 
+# Both helpers drop $ErrorActionPreference to Continue around the native call.
+# Windows PowerShell 5.1 wraps a native command's stderr in an ErrorRecord, and
+# with the script-level "Stop" that turns any stderr output into a terminating
+# error -- so gcloud writing a routine "NOT_FOUND" (or even a progress line)
+# aborts the script. Exit code is the only trustworthy success signal here.
+
 function Invoke-Native {
     param([string]$File, [string[]]$Arguments, [switch]$AllowFailure)
     Write-Host "> $File $($Arguments -join ' ')" -ForegroundColor DarkGray
-    & $File @Arguments
-    $code = $LASTEXITCODE
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $File @Arguments
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
     if ($code -ne 0 -and -not $AllowFailure) {
         throw "Command failed with exit code $code"
     }
@@ -36,8 +48,16 @@ function Invoke-Native {
 
 function Test-Exists {
     param([string[]]$Arguments)
-    & $GCLOUD @Arguments 2>$null | Out-Null
-    return ($LASTEXITCODE -eq 0)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        # *> redirects every stream, including the native stderr that would
+        # otherwise surface as a NativeCommandError.
+        & $GCLOUD @Arguments *> $null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $previous
+    }
 }
 
 Write-Host "`n=== 1/7  APIs ===" -ForegroundColor Cyan
@@ -107,15 +127,23 @@ if (-not (Test-Exists @("iam", "service-accounts", "describe", $SCHED_SA_EMAIL, 
 }
 
 Write-Host "`n=== 4/7  IAM (least privilege) ===" -ForegroundColor Cyan
-# objectCreator, NOT objectAdmin: the job can write a new backup and can never
-# delete or overwrite an existing one. Anything that compromises the job cannot
-# destroy the thing you would restore from.
-Invoke-Native $GCLOUD @(
-    "storage", "buckets", "add-iam-policy-binding", "gs://$BUCKET",
-    "--member=serviceAccount:$SA_EMAIL",
-    "--role=roles/storage.objectCreator",
-    "--project=$PROJECT"
-) | Out-Null
+# objectCreator + objectViewer, NOT objectAdmin or objectUser. Neither role
+# grants storage.objects.delete, so nothing that compromises this job can
+# destroy the thing you would restore from -- and with versioning enabled above,
+# even an overwrite leaves the previous generation intact.
+#
+# objectViewer is required, not optional: `gcloud storage cp` issues a GET to
+# check whether the destination already exists before uploading, so a
+# create-only binding fails the upload with a 403 on storage.objects.get after
+# the dump has already succeeded. Read access is needed to restore in any case.
+foreach ($role in @("roles/storage.objectCreator", "roles/storage.objectViewer")) {
+    Invoke-Native $GCLOUD @(
+        "storage", "buckets", "add-iam-policy-binding", "gs://$BUCKET",
+        "--member=serviceAccount:$SA_EMAIL",
+        "--role=$role",
+        "--project=$PROJECT"
+    ) | Out-Null
+}
 # Scoped to the one secret it needs, not project-wide secretAccessor.
 Invoke-Native $GCLOUD @(
     "secrets", "add-iam-policy-binding", "DIRECT_URL",

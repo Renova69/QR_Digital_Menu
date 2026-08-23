@@ -24,27 +24,35 @@ timestamp="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 object_path="$(date -u +%Y/%m)/qr-menu-db-${timestamp}.bak"
 dump_file="/tmp/qr-menu-db-${timestamp}.bak"
 
-# Never let the URL reach the process list or the logs. pg_dump reads
-# PGPASSWORD from the environment; everything else stays in the URL so Neon's
-# sslmode and channel-binding parameters are preserved.
+# Never let the password reach the process list or the logs. pg_dump reads it
+# from PGPASSWORD; everything else stays in the URL so sslmode and channel
+# binding are preserved.
+#
+# The host is used exactly as DIRECT_URL gives it. That secret is already the
+# endpoint migrations run against -- Supabase's session-mode pooler on :5432 --
+# and session mode gives pg_dump the real session it needs. (An earlier version
+# stripped a "-pooler" suffix, which was Neon-specific: there the pooled host
+# ran PgBouncer in transaction mode and rejected pg_dump's SET commands. On
+# Supabase that rewrite would point at a host that does not exist.)
+#
+# Only the transaction-pooling flags are dropped, since they are meaningless to
+# pg_dump and it errors on unknown keywords.
 python3 - "$DIRECT_URL" <<'PY' > /tmp/conn
 import sys
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, unquote
 
 url = urlsplit(sys.argv[1])
-# The pooled host cannot serve pg_dump: PgBouncer in transaction mode rejects
-# the SET commands it issues. Strip the pooler suffix if one slipped in.
-host = (url.hostname or "").replace("-pooler", "")
 netloc = url.username or ""
 if netloc:
     netloc += "@"
-netloc += host
+netloc += url.hostname or ""
 if url.port:
     netloc += f":{url.port}"
 
 query = [(k, v) for k, v in parse_qsl(url.query) if k not in
-         {"pgbouncer", "connection_limit", "connect_timeout", "pool_timeout"}]
-query.append(("sslmode", "require"))
+         {"pgbouncer", "connection_limit", "pool_timeout"}]
+if not any(k == "sslmode" for k, _ in query):
+    query.append(("sslmode", "require"))
 
 print(urlunsplit((url.scheme, netloc, url.path, urlencode(query), "")))
 print(unquote(url.password or ""))
@@ -55,8 +63,13 @@ PGPASSWORD="$(sed -n '2p' /tmp/conn)"
 export PGPASSWORD
 rm -f /tmp/conn
 
-echo "Dumping ${conn_url%%\?*}"
-pg_dump -Fc -d "$conn_url" -f "$dump_file"
+# --schema=public: this application owns only `public`. A whole-database dump on
+# Supabase also drags in its managed auth/storage/realtime schemas (87 tables
+# instead of 53), which collide with the managed schemas of whatever project you
+# restore into. Scoping to public keeps the artifact restorable anywhere,
+# including plain Postgres.
+echo "Dumping ${conn_url%%\?*} (schema: public)"
+pg_dump -Fc --schema=public -d "$conn_url" -f "$dump_file"
 
 size="$(stat -c %s "$dump_file")"
 if [ "$size" -lt "$MIN_PLAUSIBLE_BYTES" ]; then
