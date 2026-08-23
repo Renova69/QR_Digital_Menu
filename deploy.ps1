@@ -365,11 +365,50 @@ if (-not $healthy) {
 Write-Host "==> Smoke check passed."
 
 # --- 5. Shift traffic only now that the new revision proved healthy -------
-Write-Host "==> Shifting 100% traffic to $newRevision ..."
+#
+# Route to the revision by name and drop the tag in the same call.
+#
+# Shifting `--to-tags "$revisionTag=100"` used to leave the tag in place
+# forever, and a tagged revision keeps its own public URL
+# (https://<tag>---<service>-<hash>.run.app) regardless of its traffic share.
+# Twenty deploys had accumulated twenty permanently reachable URLs, each still
+# answering 200 and each serving whatever code that revision shipped -- so every
+# security fix in this repo was bypassable by addressing an older revision
+# directly. The traffic split does not gate a tag.
+#
+# The tag still earns its keep during the smoke check above; it just must not
+# outlive it. One atomic update so traffic is never pointed at a tag that is
+# being removed in the same breath.
+Write-Host "==> Shifting 100% traffic to $newRevision and retiring the canary tag ..."
 Invoke-Native -Description "Traffic shift ($previousRevision may still be serving -- verify with: gcloud run services describe $SERVICE --project=$PROJECT --region=$REGION --format='value(status.traffic)')" -Command {
     & $GCLOUD run services update-traffic $SERVICE `
         --project=$PROJECT --region=$REGION `
-        --to-tags "$revisionTag=100"
+        --to-revisions "$newRevision=100" `
+        --remove-tags $revisionTag
+}
+
+# Sweep any tag left behind by an earlier deploy that predates the cleanup
+# above, so the exposure cannot silently rebuild.
+$staleTagsJson = Invoke-Native -Description "Listing leftover revision tags" -Command {
+    & $GCLOUD run services describe $SERVICE `
+        --project=$PROJECT --region=$REGION --format=json
+}
+try {
+    $staleTags = ($staleTagsJson | ConvertFrom-Json).status.traffic |
+        Where-Object { $_.tag } |
+        ForEach-Object { $_.tag }
+    if ($staleTags) {
+        Write-Host "==> Removing $($staleTags.Count) leftover tag(s) from earlier deploys ..."
+        Invoke-Native -Description "Stale tag cleanup" -Command {
+            & $GCLOUD run services update-traffic $SERVICE `
+                --project=$PROJECT --region=$REGION `
+                --remove-tags ($staleTags -join ',')
+        }
+    }
+} catch {
+    # Never fail a healthy deploy over cleanup; the tag exposure is reported
+    # loudly enough to be handled on the next run.
+    Write-Warning "Could not sweep leftover tags: $($_.Exception.Message)"
 }
 
 Write-Host ""
