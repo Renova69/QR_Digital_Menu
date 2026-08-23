@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` directory (the README mentions one but it doesn't exist):
 
-- **`apps/backend`** — NestJS 11 + Prisma 6 + Neon (hosted Postgres, pooled). API on `:3000` under `/api`, Swagger at `/api-docs`.
+- **`apps/backend`** — NestJS 11 + Prisma 6 + Supabase (hosted Postgres 17, Supavisor pooler). API on `:3000` under `/api`, Swagger at `/api-docs`.
 - **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
 - **Currency** — `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` at BNB fixed rate 1 EUR = 1.95583 BGN. Used in CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions.
 
@@ -55,7 +55,7 @@ npm start        # serve dist/ on :3002 (kept off :3001 so a built PWA's service
 ## Environment & DB
 
 - Per-app `.env` files: `apps/backend/.env`, `apps/frontend/.env` — copy from `.env.example`.
-- DB is **hosted Neon Postgres** — no local Postgres in dev. The root `docker:up` / `docker:down` scripts exist but are not part of daily flow.
+- DB is **hosted Supabase Postgres** (free tier, EU Frankfurt) — no local Postgres in dev. Migrated off Neon on 23 Aug 2026: Neon bills compute-hours and this backend's per-minute crons stop its database ever suspending, so an always-on 0.25 CU exceeded the free allowance on idle alone. Supabase does not meter compute. The root `docker:up` / `docker:down` scripts exist but are not part of daily flow.
 - API base URL: **`/api/v1`** (same-origin in dev, cross-origin in production). In development, Vite dev server proxies `/api` and `/socket.io` to backend target derived from `VITE_API_URL` env. In production (Vercel → Cloud Run), frontend uses `VITE_API_URL` directly — cross-origin with `sameSite: 'none'` cookies + CORS.
 - `VITE_API_URL` in `apps/frontend/.env` is used by `vite.config.js` for proxy target in dev, and by `api.ts` for cross-origin API calls in production.
 - **Production:** `COOKIE_SAMESITE` env-driven, defaults to `'none'` in production (required for cross-origin cookie send from Vercel → Cloud Run). Set `COOKIE_SAMESITE=lax` for same-origin deploys.
@@ -173,7 +173,7 @@ Key files for the options flow:
 - **NEVER read token from localStorage** in AuthContext or anywhere else. Token lives in httpOnly cookie only. Use `/auth/me` to get current user.
 - **CSRF middleware ordering in main.ts**: Helmet CSP → cookieParser → CSRF validation → app.useGlobalPipes. CSRF must run after cookieParser but before guards.
 - **Seed safety**: `seed.ts` has 3-layer guard — production check, remote DB check, user count > 5 (refuses unless `FORCE_SEED_WIPE=true`). `seed-help-content.ts` and `seed-demo-restaurants.ts` use idempotent upsert patterns — never delete existing data. `seed-help-only.ts` is single-purpose, zero destructive ops. Never bypass these guards without explicit user approval.
-- **Prisma PgBouncer**: Neon uses PgBouncer in transaction mode. PrismaService constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion. Connection URL includes `pgbouncer=true`.
+- **Prisma + Supavisor**: Supabase fronts Postgres with Supavisor. `DATABASE_URL` is the **transaction** pooler (`:6543`, `?pgbouncer=true&connection_limit=10`) and `DIRECT_URL` is the **session** pooler (`:5432`), used only by the Prisma CLI because migrations need session semantics transaction pooling cannot give. Never use the `db.<ref>.supabase.co` host — it is IPv6-only on the free tier and Cloud Run egress is IPv4. PrismaService constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion.
 - **Security — Account disable**: `User.isActive` (default true), `disabledAt`, `disabledReason`. JWT strategy rejects disabled users including SUPER_ADMIN with `UnauthorizedException('ACCOUNT_DISABLED')`. Login rejects disabled accounts before token issuance.
 - **Security — Dangerous action confirmation**: 5 super-admin actions require `@Matches(/^CONFIRM$/) confirmation: string` in DTOs: tier override, suspend/reactivate, reset password, payments toggle, delete/restore. Frontend `ConfirmationField` with "Type CONFIRM to continue" input. Server-enforced via class-validator pipeline.
 - **Security — Super-admin rate limiting**: All dangerous mutations throttled independently: tier 5/60s, status 5/60s, password reset 3/60s, payments 5/60s, delete 3/60s, restore 3/60s. Help-content admin writes: 10/60s. Platform-settings update: 5/60s.
@@ -236,3 +236,35 @@ Rules:
 ## Deployment
 
 When asked to deploy, deploy backend to existing GCloud (installed at `C:\google-cloud-sdk\bin`) and frontend via Vercel MCP.
+
+
+
+## Token Saving & Coworker Delegation Rules
+
+You have access to a fast, cheap worker LLM (DeepSeek) via local CLI tools. **Always delegate token-heavy I/O and repetitive drafting to save tokens:**
+
+### 1. Bulk File Reading & Analysis (`ask-kimi`)
+When asked to analyze, summarize, or search across files >300 lines or when reading 3+ files:
+```bash
+ask-kimi --paths <path1> <path2> ... --question "<specific question or extraction query>"
+```
+- Use the returned structured summary instead of ingesting all raw files into context.
+- Only read files directly when you need to edit specific lines.
+
+### 2. Boilerplate & Test Generation (`kimi-write`)
+When generating unit tests, config files, type definitions, or repetitive boilerplate:
+```bash
+kimi-write --spec "<what to write>" --context <similar_existing_file> --target <output_path>
+```
+- Review the generated output file and edit only what needs refinement.
+
+### 3. Session Review (`extract-chat`)
+To extract human-readable text from session logs for documentation/changelogs:
+```bash
+extract-chat <session.jsonl>
+```
+
+### ⛔ DO NOT Delegate:
+- Architecture and system design decisions
+- Complex cross-module debugging or edge-case reasoning
+- Final code reviews and security-critical refactoring

@@ -7,7 +7,7 @@ Welcome to the modernized QR Menu project! This guide will walk you through sett
 Before you start, make sure you have:
 
 1. **Node.js 24.x** (`24.18.0` is pinned in `.nvmrc`; Node 25 is unsupported because it breaks the Nest/SWC development watcher)
-2. **Neon.tech Account**: Get a free Serverless PostgreSQL database URL.
+2. **Supabase Account**: Create a free project in the **EU (Frankfurt)** region. The free tier is not metered on compute, which is why it suits this backend -- see the note under Step 2.
 3. **NPM**: (Standard with Node.js)
 
 ---
@@ -34,7 +34,10 @@ The application now uses app-specific environment files.
 
 1. **Backend**:
    - Copy `apps/backend/.env.example` to `apps/backend/.env`.
-   - Update `DATABASE_URL` with your **Neon.tech** connection string.
+   - Set `DATABASE_URL` and `DIRECT_URL` from **Supabase -> Connect -> ORMs -> Prisma**. Both go through the Supavisor pooler; they are not interchangeable:
+     - `DATABASE_URL` -- **transaction** pooler, port `6543`, plus `?pgbouncer=true&connection_limit=10`. Used by the running app.
+     - `DIRECT_URL` -- **session** pooler, port `5432`. Used only by the Prisma CLI, because migrations need real session semantics that transaction pooling cannot provide.
+     - Do **not** use the `db.<ref>.supabase.co` host shown elsewhere in the dashboard: it is IPv6-only on the free tier, and Cloud Run egress is IPv4, so it fails in production while appearing to work locally.
    - Set a custom `JWT_SECRET`.
    - **Stripe payments** — set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`.
    - **Stripe webhook testing** — use `stripe-webhook.bat` (in `apps/backend/`) to forward Stripe webhook events to your local dev server via the Stripe CLI. Requires `stripe` CLI installed and logged in.
@@ -65,6 +68,74 @@ npx prisma db push
 ```
 
 > **Note:** Schema is managed locally via `prisma db push`. The production container does NOT run `prisma db push` on startup (removed May 23, 2026 to prevent accidental schema drift in Cloud Run). Always push schema changes from your local environment before deploying.
+
+### What you get on the Supabase free tier
+
+Moved from Neon on 23 Aug 2026. Neon's free tier bills **compute-hours**, and its
+minimum compute is 0.25 CU -- so an always-on database costs
+`0.25 x 730 = 182.5` CU-hours against a 100 CU-hour allowance. This backend runs
+six crons every minute, so the database never idles long enough to suspend, and
+the free tier was structurally unreachable. Supabase does not meter compute at
+all, which is why that same polling architecture is free here.
+
+| Limit | Allowance | Currently using |
+| ----- | --------- | --------------- |
+| Database size | 500 MB | ~53 MB |
+| Egress | 5 GB / month | ~140 MB / month |
+| Compute | shared CPU, 500 MB RAM, **not metered** | -- |
+| Managed backups | **none** | see below |
+
+Two things to keep in mind:
+
+- **The project pauses after 7 days of _inactivity_.** The crons keep it awake
+  in normal operation, but it will pause if the backend is ever left stopped.
+- **There are no managed backups on the free tier.** The nightly job below is
+  the only automated copy that exists.
+
+### Backups
+
+A Cloud Run Job (`ops/db-backup`) runs nightly at **02:15 UTC** via Cloud
+Scheduler. It takes a `pg_dump -Fc --schema=public` through the session pooler,
+verifies the artifact is a readable archive before uploading, and writes it to
+`gs://qr-menu-db-backups-469216/YYYY/MM/`.
+
+The job's service account holds `objectCreator` + `objectViewer` and
+deliberately **not** `storage.objects.delete`, so nothing that compromises it
+can destroy the backups; bucket versioning preserves superseded generations.
+
+```bash
+# Run one now
+gcloud run jobs execute db-backup --region=europe-west1 --project=qr-menu-app-469216 --wait
+
+# List what exists
+gcloud storage ls -r gs://qr-menu-db-backups-469216
+
+# Restore drill -- verify a backup actually restores, into a throwaway container
+docker run -d --name pg-drill -e POSTGRES_PASSWORD=drill -e POSTGRES_DB=drill postgres:17-alpine
+docker cp <backup>.bak pg-drill:/tmp/b.bak
+# PGPASSWORD comes from the container's own env -- never inline a password in a
+# connection string, in docs or anywhere else.
+docker exec -e PGPASSWORD=$POSTGRES_PASSWORD pg-drill   pg_restore --no-owner --no-privileges --no-comments   -U postgres -d drill /tmp/b.bak
+docker rm -f pg-drill
+```
+
+`schema "public" already exists` is the one expected error -- every Postgres has
+that schema.
+
+> **After any restore, run `ANALYZE;`.** `pg_restore` copies data and indexes but
+> not planner statistics, so Postgres plans queries as if every table were empty
+> and falls back to sequential scans.
+
+### Health endpoints
+
+| Route | Meaning | Use for |
+| ----- | ------- | ------- |
+| `GET /api/v1/health` | liveness -- process is up. **Never touches the database.** | container liveness probes |
+| `GET /api/v1/health/ready` | readiness -- runs `SELECT 1`, returns **503** when the database is unreachable | uptime monitoring / alerting |
+
+Keep liveness dependency-free on purpose: if it failed during a database outage,
+Cloud Run would restart every container at once and turn a recoverable outage
+into a restart storm against an already-struggling database.
 
 ---
 
@@ -134,7 +205,7 @@ Your environment is now running natively on your host machine for maximum perfor
 | ------------------ | ------------------ | -------------------------- |
 | **Start Time**     | 2-5 Minutes        | **~5 Seconds**             |
 | **HMR Speed**      | 5-10 Seconds       | **Instant (<100ms)**       |
-| **DB Reliability** | Hard to reset      | **Cloud-persisted (Neon)** |
+| **DB Reliability** | Hard to reset      | **Cloud-persisted (Supabase)** |
 | **Complexity**     | High (Docker YAML) | **Low (NPM Scripts)**      |
 
 ---
@@ -201,7 +272,7 @@ The app is deployed with a cross-origin architecture:
 | ------------ | ------------------------- | ----------------------------------------------------------- |
 | **Frontend** | Vercel (Static)           | `https://qr-digital-menu-ivory.vercel.app`                  |
 | **Backend**  | Google Cloud Run (Docker) | `https://qr-menu-backend-822584248302.europe-west1.run.app` |
-| **Database** | Neon PostgreSQL           | Serverless, auto-scaling                                    |
+| **Database** | Supabase (PostgreSQL 17.6) | Free tier, EU Frankfurt, always-on shared compute           |
 
 ### Deploy Backend (Cloud Run)
 
@@ -255,7 +326,7 @@ pushed and must be rotated — the point is to catch it before that.
 **Pre-commit (local).** `npm install` installs `.git/hooks/pre-commit`, which
 delegates to the tracked `scripts/hooks/pre-commit`. It scans only the *added*
 lines of the staged diff for the credential shapes this repo actually handles
-(Neon URLs, Stripe, DeepL, R2, Twilio, Google OAuth, private keys, and any
+(Postgres URLs with an inline password, Stripe, DeepL, R2, Twilio, Google OAuth, private keys, and any
 secret-named variable assigned a long literal). No external binary needed. If
 `gitleaks` is on PATH it runs as well.
 
@@ -294,10 +365,10 @@ After the first successful CI run, enable branch protection in GitHub → Settin
 ## Troubleshooting
 
 - **"Module not found"**: Always run `npm install` at the root, not inside subfolders.
-- **"Database Error"**: Ensure your Neon DB URL includes `?sslmode=require` at the end.
+- **"Database Error"**: Check you are using the **pooler** host (`aws-0-eu-central-1.pooler.supabase.com`), not `db.<ref>.supabase.co` -- the latter is IPv6-only. `sslmode` is not required on the pooler URLs; Supabase enforces TLS.
 - **"Port Conflict"**: If localhost:3000 or 3001 is taken, check for hanging node processes in your task manager.
 - **"HMR not working"**: Ensure you are running `npm run dev` from the root folder.
 - **"CI tests fail with tdd-guard-jest path error"**: The project has a `tdd-guard-jest` reporter with a hardcoded Windows path in `jest.config.js`. CI overrides it with `--reporters=default --ci`, which is correct. If you see this locally, use `npm test` (which uses the jest config), not `npx jest --reporters=default`.
 - **"Seed refuses to run — database has existing users"**: This is the safety guard working correctly. Use `FORCE_SEED_WIPE=true npm run seed` only if you intend to wipe all data. For adding help content to an existing database, use `npm run seed:help` instead.
 - **"Help Center shows no content"**: Run `npm run seed:help` from `apps/backend` to populate the HelpContent table with initial FAQ data. This is safe on any database — it only inserts, never deletes.
-- **"Prisma connection pool errors"**: Neon uses PgBouncer in transaction mode. Ensure `pgbouncer=true` is in the `DATABASE_URL` connection string. The PrismaService logs pool warnings to Cloud Run logs for diagnosis.
+- **"Prisma connection pool errors"**: Supabase fronts Postgres with Supavisor in transaction mode, so `DATABASE_URL` must carry `?pgbouncer=true&connection_limit=10`. Without `pgbouncer=true` Prisma's prepared statements break against a transaction pooler. `PrismaService` logs pool warnings to Cloud Run logs for diagnosis. If migrations specifically fail, check `DIRECT_URL` points at the **session** pooler on `:5432`.

@@ -10,15 +10,14 @@ datasource db {
   //
   // Migrations need a real session, which transaction pooling cannot give
   // them: the advisory lock Prisma takes to stop two processes migrating at
-  // once is session-scoped, and through the pooler each statement may land on
-  // a different server connection, so the lock protects nothing. That is why
-  // PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 is set on Cloud Run today -- the
-  // lock was switched off rather than made to work. With maxScale 3 and
-  // `prisma migrate deploy` running on every container start, nothing
-  // currently prevents concurrent instances applying the same migration.
+  // once is session-scoped, and through a transaction pooler each statement may
+  // land on a different server connection, so the lock protects nothing.
   //
-  // Pointing the CLI at the unpooled endpoint restores session semantics, so
-  // that flag can be removed and the lock does its job again.
+  // Supabase's SESSION pooler (:5432) restores real session semantics, which is
+  // why DIRECT_URL points there and not at the transaction pooler used by the
+  // app. The migration-race handling itself lives in the Dockerfile -- this is
+  // not governed by PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK on the Cloud Run
+  // service, despite what an earlier version of this comment claimed.
   directUrl = env("DIRECT_URL")
 }
 
