@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   CategoryController,
   CategoryDetailController,
@@ -142,12 +142,67 @@ describe('CategoryDetailController', () => {
   });
 
   describe('uploadImage', () => {
+    const file = {
+      buffer: Buffer.from('x'),
+      originalname: 'a.png',
+      mimetype: 'image/png',
+    } as any;
+    const req = { user: { id: 'user-1' } };
+
     it('should throw BadRequestException when no file', async () => {
       await expect(
         controller.uploadImage('cat-1', undefined as any, {
           user: { id: 'user-1' },
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // The ownership check runs inside the same try block as the upload, so a
+    // catch-all rethrow turned every 403 into a 400 -- telling the caller their
+    // request was malformed when in fact they were not allowed to touch this
+    // category.
+    it('preserves the status of an authorization failure', async () => {
+      mockCrud.verifyCategoryOwnership.mockRejectedValue(
+        new ForbiddenException('Forbidden access'),
+      );
+
+      await expect(
+        controller.uploadImage('cat-1', file, req),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    // Everything in this block is internal: the R2 client, sharp, and Prisma.
+    // Their messages carry bucket names, endpoints, constraint names and query
+    // fragments, none of which belongs in a response to a tenant.
+    it('does not echo an internal error back to the caller', async () => {
+      mockCrud.verifyCategoryOwnership.mockResolvedValue(undefined);
+      mockStorage.uploadWithThumbnail.mockRejectedValue(
+        new Error(
+          'connect ECONNREFUSED 10.0.0.5:443 bucket=qr-menu-uploads key=AKIAIOSFODNN7',
+        ),
+      );
+
+      await expect(controller.uploadImage('cat-1', file, req)).rejects.toThrow(
+        new BadRequestException('Failed to upload image'),
+      );
+      await expect(
+        controller.uploadImage('cat-1', file, req),
+      ).rejects.not.toThrow(/ECONNREFUSED|AKIA|bucket=/);
+    });
+
+    it('still removes the uploaded object when persistence fails', async () => {
+      mockCrud.verifyCategoryOwnership.mockResolvedValue(undefined);
+      mockStorage.uploadWithThumbnail.mockResolvedValue({
+        url: 'u',
+        thumbnailUrl: 't',
+      });
+      mockCrud.updateCategoryImage.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        controller.uploadImage('cat-1', file, req),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockStorage.delete).toHaveBeenCalledWith('u');
+      expect(mockStorage.delete).toHaveBeenCalledWith('t');
     });
   });
 });

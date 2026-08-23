@@ -1,19 +1,20 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Request,
-  ValidationPipe,
-  UseInterceptors,
-  UploadedFile,
   BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
+  HttpException,
   Logger,
+  Param,
+  Patch,
+  Post,
+  Request,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -138,7 +139,16 @@ export class RestaurantsController {
 
       return { logoUrl: url, logoThumbnailUrl: thumbnailUrl };
     } catch (error: any) {
-      throw new BadRequestException(error.message || 'Failed to upload logo');
+      // Preserve a real 403/404 from the ownership check rather than
+      // flattening it to 400, and never echo an internal storage or database
+      // message back to the caller.
+      if (error instanceof HttpException) throw error;
+      this.logger.error(
+        `Logo upload failed for restaurant ${id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadRequestException('Failed to upload logo');
     }
   }
 

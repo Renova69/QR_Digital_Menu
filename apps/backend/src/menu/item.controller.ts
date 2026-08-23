@@ -1,18 +1,20 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpException,
+  Logger,
+  Param,
+  Patch,
   Post,
   Put,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
   Request,
-  ValidationPipe,
-  UseInterceptors,
   UploadedFile,
-  BadRequestException,
+  UseGuards,
+  UseInterceptors,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
@@ -66,6 +68,7 @@ export class ItemController {
 @UseGuards(JwtAuthGuard)
 @Controller('items')
 export class ItemDetailController {
+  private readonly logger = new Logger(ItemDetailController.name);
   constructor(
     private readonly crud: MenuCrudService,
     private readonly storageService: StorageService,
@@ -164,7 +167,20 @@ export class ItemDetailController {
           this.storageService.delete(uploaded.thumbnailUrl),
         ]);
       }
-      throw new BadRequestException(error.message || 'Failed to upload image');
+      // The ownership check runs inside this same try, so a blanket rethrow
+      // turned every 403 into a 400 -- telling the caller their request was
+      // malformed when they simply were not allowed to touch this resource.
+      // Anything Nest already classified keeps its own status.
+      if (error instanceof HttpException) throw error;
+      // Everything else here is internal: the R2 client, sharp, Prisma. Their
+      // messages carry bucket names, endpoints, constraint names and query
+      // fragments. Log it in full, return none of it.
+      this.logger.error(
+        `Image upload failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadRequestException('Failed to upload image');
     }
   }
 }
