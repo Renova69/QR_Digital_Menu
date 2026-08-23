@@ -25,7 +25,7 @@
     "docs:dev": "npm run start --workspace @qr-menu/documentation",
     "docs:build": "npm run build --workspace @qr-menu/documentation",
     "lint": "turbo lint",
-    "test": "npm run test:node-version && npm run test --workspace apps/backend -- --runInBand && npm run test:run --workspace apps/frontend && npm run test:ci --workspace apps/printer-agent",
+    "test": "npm run test:node-version && npm run test:secret-scan && npm run test --workspace apps/backend -- --runInBand && npm run test:run --workspace apps/frontend && npm run test:ci --workspace apps/printer-agent",
     "test:coverage": "npm run test:cov --workspace apps/backend && npm run test:cov --workspace apps/frontend && npm run test:cov --workspace apps/printer-agent",
     "test:e2e": "npm run test:e2e --workspace apps/backend",
     "test:browser": "npm run test:e2e --workspace apps/frontend",
@@ -36,7 +36,10 @@
     "logs:client": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind client",
     "logs:all": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind all",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "hooks:install": "node scripts/install-git-hooks.js",
+    "secrets:scan": "node scripts/scan-staged-secrets.js",
+    "test:secret-scan": "node --test scripts/scan-staged-secrets.test.js"
   },
   "devDependencies": {
     "@swc/cli": "^0.8.1",

@@ -252,6 +252,31 @@ Task IDs are stable; tick them off in place.
 
 ### P1 — This week
 
+**Status as of 23 Aug 2026: all P1 code shipped.** P1-1 through P1-7, P1-9,
+P1-10 and P1-13 landed with the P0 batch (merged as PR #39 and deployed).
+P1-8, P1-12 and P1-14 follow on `fix/p1-security-remainder`. Backend 2576 /
+frontend 688 tests green, both apps lint-clean.
+
+- **P1-11 — not implemented, deliberately.** The Neon IP-allowlist half would
+  have taken production down: there is no VPC connector and no Cloud NAT on the
+  Cloud Run service (Compute API disabled), so egress has no static IP to
+  allowlist. Verified against the live project, not assumed. The branch-protection
+  half is unverified — Neon's MCP does not expose it, and protected branches
+  appear to be a paid-tier feature.
+- **P1-12 — done.** `POST /feedback` now resolves the order *through* the table
+  session named by `x-table-session-token`; an order id alone is worthless.
+  Authorization deliberately runs before the duplicate check so the endpoint
+  cannot be used to probe "has order X been reviewed?" across tenants.
+- **P1-14 — done.** Revocation rules extracted to
+  `auth/session-revocation.service.ts` and called by both `jwt.strategy` and
+  `EventsGateway.handleConnection`. A cookie issued before a password reset, or
+  belonging to a revoked staff device, no longer opens a socket.
+- **P1-8 — done, two layers.** A dependency-free staged-diff scanner in the
+  pre-commit hook (installed by `postinstall`) plus pinned, checksum-verified
+  gitleaks as the first CI step. Calibrated against the current tree: 151 raw
+  findings triaged to zero, each exemption carrying the reason it cannot be a
+  credential. No live secret was found.
+
 | ID    | Task                                                                                                                                                                                                      | Files                                                                      | Effort | Done when                                                        |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------- |
 | P1-1  | Confirm the `req.ip` behaviour empirically, then set `app.set('trust proxy', …)` for the Vercel→Cloud Run hop count and add a `getTracker` keyed on `userId ?? XFF client`.                               | `main.ts:112`, `app.module.ts:110-113`                                     | S      | Two clients from different IPs get independent buckets, verified |

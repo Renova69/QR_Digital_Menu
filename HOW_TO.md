@@ -247,14 +247,47 @@ Then push to trigger automatic deploy via Vercel GitHub integration.
 
 ---
 
+## Secret Scanning
+
+Two layers, because catching a credential in CI means it has already been
+pushed and must be rotated — the point is to catch it before that.
+
+**Pre-commit (local).** `npm install` installs `.git/hooks/pre-commit`, which
+delegates to the tracked `scripts/hooks/pre-commit`. It scans only the *added*
+lines of the staged diff for the credential shapes this repo actually handles
+(Neon URLs, Stripe, DeepL, R2, Twilio, Google OAuth, private keys, and any
+secret-named variable assigned a long literal). No external binary needed. If
+`gitleaks` is on PATH it runs as well.
+
+Install it by hand after a clone that skipped postinstall:
+
+```bash
+npm run hooks:install
+npm run test:secret-scan   # the scanner's own tests
+```
+
+Bypass a false positive with `SKIP_SECRET_SCAN=1 git commit ...` — but prefer
+making the placeholder obviously fake (`example`, `xxxx`, `<your-key>`), which
+the scanner already recognises.
+
+**CI (enforced).** The `verify` job runs `gitleaks` — pinned to a version and
+verified by SHA256 — over the checked-out tree before anything else, so a leak
+fails in seconds rather than after the full suite. Config is `.gitleaks.toml`;
+per-finding exemptions are fingerprints in `.gitleaksignore`, each with a
+comment saying why the value cannot be a credential.
+
+A real secret is never allowlisted. Remove it, move it to `.env` or Secret
+Manager, and rotate it.
+
 ## CI Gate
 
 A GitHub Actions workflow at `.github/workflows/ci.yml` blocks merging to `main`/`master` if any check fails:
 
-1. Backend unit tests — `npx jest --reporters=default --ci`
-2. Frontend type-check — `npx tsc --noEmit`
-3. Frontend tests — `npx vitest run`
-4. Full build — `npx turbo run build`
+1. Secret scan — pinned `gitleaks` over the working tree
+2. Backend unit tests — `npx jest --reporters=default --ci`
+3. Frontend type-check — `npx tsc --noEmit`
+4. Frontend tests — `npx vitest run`
+5. Full build — `npx turbo run build`
 
 After the first successful CI run, enable branch protection in GitHub → Settings → Branches → `main` → require status check `verify`.
 

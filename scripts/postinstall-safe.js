@@ -16,6 +16,20 @@ if (process.env.VERCEL) {
   process.exit(0);
 }
 
+// Install the tracked pre-commit secret gate. A hook nobody runs is worth
+// nothing, and "remember to run npm run hooks:install" is a step people skip.
+// Skipped on CI, which enforces the same scan in a way that cannot be
+// bypassed, and the installer refuses to overwrite a hook it did not write.
+if (!process.env.CI) {
+  try {
+    require("./install-git-hooks").install();
+  } catch (error) {
+    // Not a git checkout (a tarball install, a Docker build context) --
+    // never fail `npm install` over an optional developer convenience.
+    console.warn(`[postinstall] Skipping git hook install: ${error.message}`);
+  }
+}
+
 // Bare `prisma`, not `npx prisma`: npm lifecycle scripts already put
 // node_modules/.bin on PATH, so this resolves the project's pinned local
 // version. `npx` falls back to fetching the latest registry version when it

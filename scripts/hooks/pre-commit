@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# Versioned pre-commit gate. `.git/hooks/` is not tracked, so the real logic
+# lives here and `.git/hooks/pre-commit` only delegates -- installed by
+# `npm run hooks:install`. That also keeps the plugin-installed post-checkout /
+# post-commit hooks untouched, which switching core.hooksPath would have
+# orphaned.
+#
+# Bypass with SKIP_SECRET_SCAN=1 (recorded in the scan output). CI runs the same
+# checks and cannot be bypassed.
+
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+
+# Repo-specific patterns. Dependency-free, so a fresh clone is protected before
+# anyone installs anything.
+node "$repo_root/scripts/scan-staged-secrets.js" || exit 1
+
+# gitleaks is the broad ruleset and the CI gate. Run it too when the binary
+# happens to be present; its absence is not a reason to block a commit the
+# scan above already cleared.
+if [ "${SKIP_SECRET_SCAN}" != "1" ] && command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner \
+    --config "$repo_root/.gitleaks.toml" || {
+    echo ""
+    echo "  BLOCKED by gitleaks. See the finding above."
+    echo "  False positive? Add its fingerprint to .gitleaksignore."
+    echo ""
+    exit 1
+  }
+fi
