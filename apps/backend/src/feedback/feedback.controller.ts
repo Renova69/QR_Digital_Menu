@@ -24,12 +24,16 @@ import { TableSessionToken } from '../payment/table-session-token.decorator';
 export class FeedbackController {
   constructor(private readonly feedbackService: FeedbackService) {}
 
-  // Public — customers submit feedback without auth.
-  // Strict throttle (Issue 5): 5 submissions per minute per IP.
+  // Public — no dashboard login, but not unauthenticated: the table-session
+  // token proves the caller was seated at the table whose order they are
+  // rating. Strict throttle (Issue 5): 5 submissions per minute.
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post()
-  create(@Body(ValidationPipe) createFeedbackDto: CreateFeedbackDto) {
-    return this.feedbackService.create(createFeedbackDto);
+  create(
+    @TableSessionToken() token: string,
+    @Body(ValidationPipe) createFeedbackDto: CreateFeedbackDto,
+  ) {
+    return this.feedbackService.create(token, createFeedbackDto);
   }
 
   @Throttle({ default: { limit: 60, ttl: 60000 } })

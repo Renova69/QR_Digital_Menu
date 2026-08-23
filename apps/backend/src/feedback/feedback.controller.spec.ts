@@ -47,9 +47,12 @@ describe('FeedbackController', () => {
         ...dto,
       });
 
-      const result = await controller.create(dto);
+      const result = await controller.create('session-token-1', dto);
 
-      expect(mockFeedbackService.create).toHaveBeenCalledWith(dto);
+      expect(mockFeedbackService.create).toHaveBeenCalledWith(
+        'session-token-1',
+        dto,
+      );
       expect(result).toMatchObject({ id: 'fb-1' });
     });
   });

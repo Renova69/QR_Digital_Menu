@@ -368,20 +368,32 @@ export class FeedbackService {
     throw new ForbiddenException('Forbidden access');
   }
 
-  async create(createFeedbackDto: CreateFeedbackDto) {
-    // Check if feedback already exists for this order
-    const existing = await this.prisma.feedback.findUnique({
-      where: { orderId: createFeedbackDto.orderId },
-    });
-    if (existing) {
-      throw new ConflictException('Feedback already submitted for this order');
-    }
-
-    // Verify the order exists
-    const order = await this.prisma.order.findUnique({
-      where: { id: createFeedbackDto.orderId },
+  /**
+   * Legacy order-bound feedback. The table-session token is the authorization:
+   * the order is resolved *through* the session it belongs to, so a scraped or
+   * guessed order id is worthless without the credential handed to whoever was
+   * actually seated there. Without this the endpoint accepted any order id from
+   * anyone -- letting a stranger skew a restaurant's rating and, because
+   * Feedback.orderId is unique, permanently lock the real guest out of
+   * reviewing their own meal.
+   *
+   * Authorization runs before the duplicate check on purpose: reversing them
+   * would let one restaurant's diner probe "has order X been reviewed?" across
+   * every other tenant.
+   */
+  async create(
+    tableSessionToken: string,
+    createFeedbackDto: CreateFeedbackDto,
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: createFeedbackDto.orderId,
+        tableSession: { token: tableSessionToken },
+      },
       select: { id: true, restaurantId: true },
     });
+    // Deliberately the same message as a genuinely missing order -- the
+    // response must not tell a caller whether the id exists elsewhere.
     if (!order) {
       throw new NotFoundException('Order not found');
     }
@@ -390,6 +402,13 @@ export class FeedbackService {
       createFeedbackDto.restaurantId !== order.restaurantId
     ) {
       throw new BadRequestException('Feedback restaurant does not match order');
+    }
+
+    const existing = await this.prisma.feedback.findUnique({
+      where: { orderId: createFeedbackDto.orderId },
+    });
+    if (existing) {
+      throw new ConflictException('Feedback already submitted for this order');
     }
 
     return this.prisma.feedback.create({
