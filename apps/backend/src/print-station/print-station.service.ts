@@ -168,7 +168,7 @@ export class PrintStationService {
   // ─── Station CRUD ─────────────────────────────────────────────────────────
 
   async list(restaurantId: string) {
-    return this.prisma.printStation.findMany({
+    const stations = await this.prisma.printStation.findMany({
       where: { restaurantId },
       include: {
         agentTokens: {
@@ -182,9 +182,6 @@ export class PrintStationService {
             createdAt: true,
             staleWarnedAt: true,
             quarantinedAt: true,
-            // The dashboard derives every deadline it shows from this, rather
-            // than hardcoding a date that would be wrong in any environment
-            // whose rollout differed.
             stalenessEnforcedAt: true,
           },
         },
@@ -196,6 +193,32 @@ export class PrintStationService {
       },
       orderBy: { name: 'asc' },
     });
+
+    return stations.map((station) => ({
+      ...station,
+      agentTokens: station.agentTokens.map((token) => {
+        const silentSince = token.lastSeenAt ?? token.createdAt;
+        const inactiveAt = new Date(
+          silentSince.getTime() +
+            PRINT_AGENT_QUARANTINE_DAYS * 24 * 60 * 60 * 1000,
+        );
+        return {
+          ...token,
+          // This is the real sweep boundary: both the per-token rollout gate
+          // and 180 days of silence must have elapsed. Returning the combined
+          // timestamp keeps policy on the backend and stops the dashboard from
+          // showing "0 days" while a printer still has months of grace.
+          quarantineEligibleAt: token.stalenessEnforcedAt
+            ? new Date(
+                Math.max(
+                  token.stalenessEnforcedAt.getTime(),
+                  inactiveAt.getTime(),
+                ),
+              )
+            : null,
+        };
+      }),
+    }));
   }
 
   async create(restaurantId: string, dto: CreatePrintStationDto) {
@@ -403,7 +426,8 @@ export class PrintStationService {
     warned: number;
     quarantined: number;
   }> {
-    const unseenSince = (days: number) => new Date(now.getTime() - days * DAY_MS);
+    const unseenSince = (days: number) =>
+      new Date(now.getTime() - days * DAY_MS);
 
     // A live socket is the strongest possible evidence the device is alive, and
     // it outranks a lastSeenAt that has not moved because the station simply

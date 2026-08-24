@@ -180,3 +180,12 @@ test("still catches a private-key block with real-looking body", () => {
   assert.equal(findings.length, 1);
   assert.equal(findings[0].rule, "private-key-block");
 });
+
+test("placeholder words outside the key body do not exempt a real key", () => {
+  const findings = scan("apps/backend/src/payment/x.ts", 1, [
+    "const examplePrivateKey = '-----BEGIN RSA PRIVATE KEY-----\\nMIIEowIBAAKCAQEAvR9kZm2p0qL\\n-----END RSA PRIVATE KEY-----';",
+  ]);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].rule, "private-key-block");
+});

@@ -64,7 +64,6 @@ const STAFF_DEVICE_SESSION_TTL = '12h';
 // progress, so it is never enforced mid-session.
 export const DEVICE_TRUST_DAYS = 180;
 
-
 const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
 const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
@@ -457,6 +456,18 @@ export class AuthService {
 
   private hashDeviceToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private throwActivePinDeviceLock(lockedUntil: Date): never {
+    const minutes = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
+    throw new HttpException(
+      {
+        message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+        attemptsRemaining: 0,
+        lockedUntil: lockedUntil.toISOString(),
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 
   private async recordPinLoginAudit(data: {
@@ -972,17 +983,7 @@ export class AuthService {
     let lockCleared = false;
     if (enrolledDevice.pinLockedUntil) {
       if (enrolledDevice.pinLockedUntil > new Date()) {
-        const minutes = Math.ceil(
-          (enrolledDevice.pinLockedUntil.getTime() - Date.now()) / 60000,
-        );
-        throw new HttpException(
-          {
-            message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
-            attemptsRemaining: 0,
-            lockedUntil: enrolledDevice.pinLockedUntil.toISOString(),
-          },
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
+        this.throwActivePinDeviceLock(enrolledDevice.pinLockedUntil);
       }
 
       // The lock has expired, so retire it here rather than leaving a stale
@@ -995,13 +996,52 @@ export class AuthService {
       //
       // Guarded on the value we read, so two concurrent requests cannot both
       // clear it and lose a real attempt between them.
-      await this.prisma.deviceEnrollmentToken.updateMany({
+      const cleared = await this.prisma.deviceEnrollmentToken.updateMany({
         where: {
           id: enrolledDevice.id,
           pinLockedUntil: enrolledDevice.pinLockedUntil,
         },
         data: { pinAttempts: 0, pinLockedUntil: null },
       });
+
+      if (cleared.count === 0) {
+        // Another request changed the row after our read. Re-read before doing
+        // bcrypt work: blindly setting lockCleared here would let this request
+        // continue through a lock another request has just renewed.
+        const current = await this.prisma.deviceEnrollmentToken.findUnique({
+          where: { id: enrolledDevice.id },
+          select: { pinLockedUntil: true },
+        });
+        if (!current) {
+          throw new UnauthorizedException(
+            'This device is not enrolled for staff PIN login.',
+          );
+        }
+        if (current.pinLockedUntil && current.pinLockedUntil > new Date()) {
+          this.throwActivePinDeviceLock(current.pinLockedUntil);
+        }
+        if (current.pinLockedUntil) {
+          // A second expired value is unusual but can be handled safely with the
+          // same compare-and-clear. If it races again, reject this request rather
+          // than guessing which lock state is authoritative.
+          const retried = await this.prisma.deviceEnrollmentToken.updateMany({
+            where: {
+              id: enrolledDevice.id,
+              pinLockedUntil: current.pinLockedUntil,
+            },
+            data: { pinAttempts: 0, pinLockedUntil: null },
+          });
+          if (retried.count === 0) {
+            throw new HttpException(
+              {
+                message: 'Device lock state changed. Try again.',
+                attemptsRemaining: 0,
+              },
+              HttpStatus.TOO_MANY_REQUESTS,
+            );
+          }
+        }
+      }
       lockCleared = true;
     }
 

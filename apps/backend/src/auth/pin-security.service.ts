@@ -196,22 +196,39 @@ export class PinSecurityService {
     detail: Record<string, number>,
   ): Promise<boolean> {
     const dedupeWindow = DEDUPE_MS[kind] ?? SHORT_WINDOW_MS;
-    const existing = await this.prisma.securityAlert.findFirst({
-      where: {
-        restaurantId,
-        kind,
-        // Device-scoped signals dedupe per device, so one noisy tablet cannot
-        // suppress an alert about a different one.
-        ...(deviceTokenId ? { deviceTokenId } : {}),
-        createdAt: { gte: new Date(now.getTime() - dedupeWindow) },
-      },
-      select: { id: true },
-    });
-    if (existing) return false;
+    const scope = `${restaurantId}:${kind}:${deviceTokenId ?? 'restaurant'}`;
+    const recorded = await this.prisma.$transaction(async (tx) => {
+      // findFirst + create is not a dedupe boundary on its own: two Cloud Run
+      // instances can both observe no row and both alert. A transaction-scoped
+      // advisory lock serializes this exact signal scope across every instance.
+      // Transaction scope is essential with PgBouncer transaction pooling: the
+      // lock is released with this transaction and never leaks to a later user
+      // of the same database connection.
+      // executeRaw avoids asking Prisma to deserialize PostgreSQL's `void`
+      // return type from pg_advisory_xact_lock.
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtextextended(${scope}, 0))
+      `;
 
-    await this.prisma.securityAlert.create({
-      data: { restaurantId, kind, deviceTokenId, detail },
+      const existing = await tx.securityAlert.findFirst({
+        where: {
+          restaurantId,
+          kind,
+          // Device-scoped signals dedupe per device, so one noisy tablet cannot
+          // suppress an alert about a different one.
+          deviceTokenId,
+          createdAt: { gte: new Date(now.getTime() - dedupeWindow) },
+        },
+        select: { id: true },
+      });
+      if (existing) return false;
+
+      await tx.securityAlert.create({
+        data: { restaurantId, kind, deviceTokenId, detail },
+      });
+      return true;
     });
+    if (!recorded) return false;
 
     if (PUSH_KINDS.has(kind)) {
       void this.notifyOwner(restaurantId, kind, detail);

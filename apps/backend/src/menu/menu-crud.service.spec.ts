@@ -16,7 +16,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 
 const mockPrisma = {
-  restaurant: { findUnique: jest.fn() },
+  restaurant: { findUnique: jest.fn(), count: jest.fn() },
   // Non-owner ownership checks now look up the user to allow assigned MANAGERs
   // (#15). Default null в†’ not a manager в†’ ForbiddenException as before.
   user: { findUnique: jest.fn().mockResolvedValue(null) },
@@ -63,6 +63,7 @@ const mockTranslationWorker = { kick: jest.fn() };
 const mockStorage = {
   delete: jest.fn().mockResolvedValue(undefined),
   deleteExact: jest.fn().mockResolvedValue(undefined),
+  isTenantNamespacedObject: jest.fn().mockReturnValue(false),
 };
 const mockEvents = { emitPublicMenuItemAvailability: jest.fn() };
 const mockWeatherUpsell = { getContexts: jest.fn() };
@@ -169,8 +170,10 @@ describe('MenuCrudService', () => {
     mockTranslationEnqueue.enqueueOption.mockResolvedValue(undefined);
     mockStorage.delete.mockResolvedValue(undefined);
     mockStorage.deleteExact.mockResolvedValue(undefined);
+    mockStorage.isTenantNamespacedObject.mockReturnValue(false);
     mockWeatherUpsell.getContexts.mockResolvedValue(new Set());
     mockPrisma.menuTranslationState.findMany.mockResolvedValue([]);
+    mockPrisma.restaurant.count.mockResolvedValue(0);
     mockPrisma.$transaction.mockResolvedValue([]);
   });
 
@@ -2333,6 +2336,22 @@ describe('MenuCrudService', () => {
       expect(mockStorage.deleteExact).not.toHaveBeenCalled();
     });
 
+    it('preserves a legacy object still referenced by a restaurant logo', async () => {
+      arrangeRemoveItem();
+      mockPrisma.menuItem.count.mockResolvedValue(0);
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+      mockPrisma.restaurant.count.mockResolvedValue(1);
+
+      await service.removeItem('item-1', 'user-1');
+
+      expect(mockPrisma.restaurant.count).toHaveBeenCalledWith({
+        where: {
+          OR: [{ logoUrl: SHARED }, { logoThumbnailUrl: SHARED }],
+        },
+      });
+      expect(mockStorage.deleteExact).not.toHaveBeenCalled();
+    });
+
     it('deletes the R2 object when no other row references it', async () => {
       arrangeRemoveItem();
       mockPrisma.menuItem.count.mockResolvedValue(0);
@@ -2340,8 +2359,11 @@ describe('MenuCrudService', () => {
 
       await service.removeItem('item-1', 'user-1');
 
-      expect(mockStorage.deleteExact).toHaveBeenCalledWith(SHARED);
-      expect(mockStorage.deleteExact).toHaveBeenCalledWith(SHARED_THUMB);
+      expect(mockStorage.deleteExact).toHaveBeenCalledWith(SHARED, 'rest-1');
+      expect(mockStorage.deleteExact).toHaveBeenCalledWith(
+        SHARED_THUMB,
+        'rest-1',
+      );
     });
 
     it('excludes the row being deleted from the reference check', async () => {
@@ -2356,6 +2378,34 @@ describe('MenuCrudService', () => {
           where: expect.objectContaining({ id: { notIn: ['item-1'] } }),
         }),
       );
+    });
+
+    it('scopes namespaced reference counts to the owning restaurant', async () => {
+      arrangeRemoveItem();
+      mockStorage.isTenantNamespacedObject.mockReturnValue(true);
+      mockPrisma.menuItem.count.mockResolvedValue(0);
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+
+      await service.removeItem('item-1', 'user-1');
+
+      expect(mockPrisma.menuItem.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: { restaurantId: 'rest-1' },
+          }),
+        }),
+      );
+      expect(mockPrisma.menuCategory.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ restaurantId: 'rest-1' }),
+        }),
+      );
+      expect(mockPrisma.restaurant.count).toHaveBeenCalledWith({
+        where: {
+          OR: [{ logoUrl: SHARED }, { logoThumbnailUrl: SHARED }],
+          id: 'rest-1',
+        },
+      });
     });
   });
 

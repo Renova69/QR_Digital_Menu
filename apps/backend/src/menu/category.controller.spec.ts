@@ -166,9 +166,9 @@ describe('CategoryDetailController', () => {
         new ForbiddenException('Forbidden access'),
       );
 
-      await expect(
-        controller.uploadImage('cat-1', file, req),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(controller.uploadImage('cat-1', file, req)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     // Everything in this block is internal: the R2 client, sharp, and Prisma.
@@ -191,18 +191,18 @@ describe('CategoryDetailController', () => {
     });
 
     it('still removes the uploaded object when persistence fails', async () => {
-      mockCrud.verifyCategoryOwnership.mockResolvedValue(undefined);
+      mockCrud.verifyCategoryOwnership.mockResolvedValue('rest-1');
       mockStorage.uploadWithThumbnail.mockResolvedValue({
         url: 'u',
         thumbnailUrl: 't',
       });
       mockCrud.updateCategoryImage.mockRejectedValue(new Error('db down'));
 
-      await expect(
-        controller.uploadImage('cat-1', file, req),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockStorage.delete).toHaveBeenCalledWith('u');
-      expect(mockStorage.delete).toHaveBeenCalledWith('t');
+      await expect(controller.uploadImage('cat-1', file, req)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockStorage.delete).toHaveBeenCalledWith('u', 'rest-1');
+      expect(mockStorage.delete).toHaveBeenCalledWith('t', 'rest-1');
     });
   });
 });

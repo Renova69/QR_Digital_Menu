@@ -441,6 +441,7 @@
     "deviceTrustExpiring": "Нужна е повторна регистрация след {{days}} дни",
     "deviceTrustExpired": "Доверието изтече — регистрирайте устройството отново за PIN вход",
     "deviceTrustUnknown": "Датата за повторна регистрация не е записана — регистрирайте отново",
+    "devicePinLockedUntil": "Входът с PIN е заключен до {{time}}",
     "pinAlert": {
       "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} устройства бяха заключени в рамките на {{windowMinutes}} минути",
       "PIN_SPIKE": "{{failures}} неуспешни опита с PIN в рамките на {{windowMinutes}} минути",

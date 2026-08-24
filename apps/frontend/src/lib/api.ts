@@ -1818,6 +1818,7 @@ export const listDeviceEnrollments = async (restaurantId: string) => {
     expiresAt: string;
     usedAt: string | null;
     revokedAt: string | null;
+    pinLockedUntil: string | null;
     // NULL means the row predates the trust backfill -- unknown, not "forever".
     deviceTrustExpiresAt: string | null;
     createdBy: { id: string; name: string | null; email: string };

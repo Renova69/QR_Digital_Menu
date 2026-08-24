@@ -70,17 +70,43 @@ export function deviceTrustState(
   return { level: "ok", daysRemaining };
 }
 
+/** A persisted past lock is historical state, not a current block. */
+export function isDevicePinLocked(
+  pinLockedUntil: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!pinLockedUntil) return false;
+  const lockedUntil = new Date(pinLockedUntil).getTime();
+  return !Number.isNaN(lockedUntil) && lockedUntil > now.getTime();
+}
+
+/**
+ * Keep the compact recent-history view without hiding a credential that can
+ * still authenticate. Older pending/expired links and revoked rows may remain
+ * collapsed, but every used, non-revoked device must stay owner-visible for
+ * trust-expiry warnings, lock badges, and manual revocation.
+ */
+export function deviceEnrollmentsForDashboard<
+  T extends { usedAt: string | null; revokedAt: string | null },
+>(enrollments: readonly T[], recentLimit = 5): T[] {
+  return enrollments.filter(
+    (enrollment, index) =>
+      index < recentLimit ||
+      (enrollment.usedAt !== null && enrollment.revokedAt === null),
+  );
+}
+
 /**
  * Days until a stale token becomes eligible for quarantine, or null when that
  * cannot be known. Derived from the backend's own timestamp so the number an
  * owner sees matches the date the sweep will actually act on.
  */
-export function daysUntilEnforcement(
-  stalenessEnforcedAt: string | null,
+export function daysUntilQuarantine(
+  quarantineEligibleAt: string | null,
   now: Date = new Date(),
 ): number | null {
-  if (!stalenessEnforcedAt) return null;
-  const at = new Date(stalenessEnforcedAt).getTime();
+  if (!quarantineEligibleAt) return null;
+  const at = new Date(quarantineEligibleAt).getTime();
   if (Number.isNaN(at)) return null;
   const ms = at - now.getTime();
   return ms <= 0 ? 0 : Math.ceil(ms / DAY_MS);

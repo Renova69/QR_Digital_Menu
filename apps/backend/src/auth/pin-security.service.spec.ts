@@ -13,6 +13,8 @@ const mockPrisma: any = {
     findMany: jest.fn(),
   },
   restaurant: { findUnique: jest.fn() },
+  $executeRaw: jest.fn(),
+  $transaction: jest.fn(),
 };
 const mockPush = {
   sendPushNotification: jest.fn().mockResolvedValue(undefined),
@@ -30,6 +32,10 @@ describe('PinSecurityService', () => {
     mockPrisma.staffPinLoginAudit.count.mockResolvedValue(0);
     mockPrisma.securityAlert.findFirst.mockResolvedValue(null);
     mockPrisma.securityAlert.create.mockResolvedValue({ id: 'a1' });
+    mockPrisma.$executeRaw.mockResolvedValue(1);
+    mockPrisma.$transaction.mockImplementation(
+      (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+    );
     mockPrisma.restaurant.findUnique.mockResolvedValue({
       ownerId: 'owner-1',
       name: 'Cafe Nova',
@@ -125,6 +131,27 @@ describe('PinSecurityService', () => {
     expect(mockPrisma.securityAlert.create).not.toHaveBeenCalled();
   });
 
+  it('serializes the dedupe decision across application instances', async () => {
+    mockPrisma.staffPinLoginAudit.findMany.mockResolvedValue(failures(20));
+
+    await service.evaluate('rest-1', 'dev-1');
+
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+    expect(mockPrisma.$executeRaw.mock.calls[0][0].join('')).toContain(
+      'pg_advisory_xact_lock',
+    );
+    expect(mockPrisma.$executeRaw.mock.calls[0][1]).toBe(
+      'rest-1:PIN_SPIKE:restaurant',
+    );
+    expect(mockPrisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPrisma.securityAlert.findFirst.mock.invocationCallOrder[0],
+    );
+    expect(
+      mockPrisma.securityAlert.findFirst.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockPrisma.securityAlert.create.mock.invocationCallOrder[0]);
+  });
+
   // One noisy tablet must not suppress an alert about a different one.
   it('dedupes device signals per device', async () => {
     mockPrisma.staffPinLoginAudit.count
@@ -199,7 +226,9 @@ describe('PinSecurityService', () => {
       { status: 'LOCKED', deviceTokenId: 'dev-1' },
       { status: 'LOCKED', deviceTokenId: 'dev-2' },
     ]);
-    mockPush.sendPushNotification.mockRejectedValue(new Error('no subscription'));
+    mockPush.sendPushNotification.mockRejectedValue(
+      new Error('no subscription'),
+    );
 
     await service.evaluate('rest-1', 'dev-1');
     await new Promise((r) => setImmediate(r));

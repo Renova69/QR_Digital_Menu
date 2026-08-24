@@ -147,9 +147,10 @@ export class ItemDetailController {
     // nothing to clean up. If the DB write throws, the R2 objects are orphaned
     // without this guard (M1.1).
     let uploaded: { url: string; thumbnailUrl: string } | null = null;
+    let restaurantId: string | null = null;
     try {
       // Server-derived tenant; see CategoryDetailController.uploadImage.
-      const restaurantId = await this.crud.verifyItemOwnership(id, req.user.id);
+      restaurantId = await this.crud.verifyItemOwnership(id, req.user.id);
       uploaded = await this.storageService.uploadWithThumbnail(
         file.buffer,
         file.originalname,
@@ -163,10 +164,10 @@ export class ItemDetailController {
         req.user.id,
       );
     } catch (error: any) {
-      if (uploaded) {
+      if (uploaded && restaurantId) {
         await Promise.allSettled([
-          this.storageService.delete(uploaded.url),
-          this.storageService.delete(uploaded.thumbnailUrl),
+          this.storageService.delete(uploaded.url, restaurantId),
+          this.storageService.delete(uploaded.thumbnailUrl, restaurantId),
         ]);
       }
       // The ownership check runs inside this same try, so a blanket rethrow

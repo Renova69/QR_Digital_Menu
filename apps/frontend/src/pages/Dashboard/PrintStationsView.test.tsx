@@ -39,6 +39,7 @@ const token = (over: Record<string, unknown> = {}) => ({
   staleWarnedAt: null,
   quarantinedAt: null,
   stalenessEnforcedAt: null,
+  quarantineEligibleAt: null,
   ...over,
 });
 
@@ -93,10 +94,9 @@ describe("PrintStationsView credential states", () => {
     expect(screen.queryByTestId("token-reactivate-tok-1")).toBeNull();
   });
 
-  // The countdown must come from the backend's own enforcement date, never a
-  // date computed here -- otherwise the number an owner reads would not match
-  // the day the sweep acts.
-  it("counts down to the backend's enforcement date", async () => {
+  // The countdown must come from the backend's combined rollout + inactivity
+  // boundary, never from only one of those gates.
+  it("counts down to the backend's quarantine eligibility date", async () => {
     const inTenDays = new Date(
       Date.now() + 10 * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -104,7 +104,10 @@ describe("PrintStationsView credential states", () => {
       station([
         token({
           staleWarnedAt: "2026-08-10T00:00:00.000Z",
-          stalenessEnforcedAt: inTenDays,
+          stalenessEnforcedAt: new Date(
+            Date.now() - 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          quarantineEligibleAt: inTenDays,
         }),
       ]),
     ]);

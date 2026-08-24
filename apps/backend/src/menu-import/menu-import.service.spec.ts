@@ -25,6 +25,7 @@ const makeTx = () => ({
     findMany: jest.fn().mockResolvedValue([]),
     create: jest.fn().mockResolvedValue({ id: 'cat-1' }),
     update: jest.fn().mockResolvedValue({}),
+    count: jest.fn().mockResolvedValue(0),
     deleteMany: jest.fn(), // must NOT be called (L3.2)
   },
   menuItem: {
@@ -42,6 +43,7 @@ const makeTx = () => ({
 const mockStorageService = {
   delete: jest.fn().mockResolvedValue(undefined),
   deleteExact: jest.fn().mockResolvedValue(undefined),
+  isTenantNamespacedObject: jest.fn().mockReturnValue(false),
 };
 
 // Default: dayparting enabled (ENTERPRISE tier) so SCHEDULED is preserved in tests
@@ -58,6 +60,7 @@ const mockPrisma = {
       .fn()
       .mockResolvedValue({ tier: 'ENTERPRISE', forceTier: null }),
     update: jest.fn().mockResolvedValue({}),
+    count: jest.fn().mockResolvedValue(0),
   },
   menuCategory: {
     // Preload — returns [] (no existing cats) by default
@@ -88,12 +91,14 @@ describe('MenuImportService', () => {
     service = module.get<MenuImportService>(MenuImportService);
     jest.clearAllMocks();
     mockPrisma.restaurant.update.mockResolvedValue({});
+    mockPrisma.restaurant.count.mockResolvedValue(0);
     // Default: no existing categories (all creates)
     mockPrisma.menuCategory.findMany.mockResolvedValue([]);
     mockPrisma.menuCategory.count.mockResolvedValue(0);
     mockPrisma.menuItem.count.mockResolvedValue(0);
     mockStorageService.delete.mockResolvedValue(undefined);
     mockStorageService.deleteExact.mockResolvedValue(undefined);
+    mockStorageService.isTenantNamespacedObject.mockReturnValue(false);
   });
 
   // ── checkOwnership ────────────────────────────────────────────────────────
@@ -635,7 +640,10 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(
+        OLD_URL,
+        'rest-1',
+      );
     });
 
     it('does NOT delete old image when same URL is re-sent', async () => {
@@ -687,6 +695,7 @@ describe('MenuImportService', () => {
       );
       mockPrisma.menuItem.count.mockResolvedValue(1);
       mockPrisma.menuCategory.count.mockResolvedValue(0);
+      mockStorageService.isTenantNamespacedObject.mockReturnValue(true);
 
       await service.upsertMenu('rest-1', {
         categories: [
@@ -702,9 +711,25 @@ describe('MenuImportService', () => {
       expect(mockStorageService.deleteExact).not.toHaveBeenCalled();
       expect(mockPrisma.menuCategory.count).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: { notIn: ['cat-existing'] } }),
+          where: expect.objectContaining({
+            id: { notIn: ['cat-existing'] },
+            restaurantId: 'rest-1',
+          }),
         }),
       );
+      expect(mockPrisma.menuItem.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: { restaurantId: 'rest-1' },
+          }),
+        }),
+      );
+      expect(mockPrisma.restaurant.count).toHaveBeenCalledWith({
+        where: {
+          OR: [{ logoUrl: OLD_URL }, { logoThumbnailUrl: OLD_URL }],
+          id: 'rest-1',
+        },
+      });
     });
 
     it('does not fail a committed import when best-effort image cleanup cannot count references', async () => {
@@ -875,7 +900,10 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(
+        OLD_URL,
+        'rest-1',
+      );
     });
 
     it('deletes old R2 objects when image is replaced on existing item', async () => {
@@ -918,7 +946,10 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(
+        OLD_URL,
+        'rest-1',
+      );
     });
 
     it('deletes old R2 objects when thumbnail is replaced on existing item', async () => {
@@ -961,7 +992,10 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(
+        OLD_URL,
+        'rest-1',
+      );
     });
 
     it('uses provided txClient if passed and does not open a new transaction', async () => {
@@ -1021,7 +1055,10 @@ describe('MenuImportService', () => {
 
       await postCommitCleanup[0]();
 
-      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(
+        OLD_URL,
+        'rest-1',
+      );
     });
 
     it('rejects aggregate imports that exceed the total option cap', async () => {

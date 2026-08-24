@@ -279,6 +279,7 @@ describe('DeviceEnrollmentService', () => {
       expect(mockTokenStore.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.objectContaining({
+            pinLockedUntil: true,
             createdBy: {
               select: { id: true, name: true, email: true },
             },

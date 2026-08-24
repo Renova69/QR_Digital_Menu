@@ -91,6 +91,46 @@ describe('PrintStationService', () => {
     );
   });
 
+  describe('list', () => {
+    it('returns the later of rollout enforcement and inactivity eligibility', async () => {
+      mockPrisma.printStation.findMany.mockResolvedValue([
+        {
+          id: 'station-1',
+          agentTokens: [
+            {
+              id: 'agent-inactivity-later',
+              createdAt: new Date('2026-01-01T00:00:00Z'),
+              lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+              stalenessEnforcedAt: new Date('2026-09-01T00:00:00Z'),
+            },
+            {
+              id: 'agent-rollout-later',
+              createdAt: new Date('2025-01-01T00:00:00Z'),
+              lastSeenAt: null,
+              stalenessEnforcedAt: new Date('2026-11-22T00:00:00Z'),
+            },
+            {
+              id: 'agent-no-gate',
+              createdAt: new Date('2025-01-01T00:00:00Z'),
+              lastSeenAt: null,
+              stalenessEnforcedAt: null,
+            },
+          ],
+        },
+      ]);
+
+      const [station] = await service.list('rest-1');
+
+      expect(station.agentTokens[0].quarantineEligibleAt).toEqual(
+        new Date('2027-01-28T00:00:00Z'),
+      );
+      expect(station.agentTokens[1].quarantineEligibleAt).toEqual(
+        new Date('2026-11-22T00:00:00Z'),
+      );
+      expect(station.agentTokens[2].quarantineEligibleAt).toBeNull();
+    });
+  });
+
   describe('create', () => {
     it('throws ConflictException when name already exists', async () => {
       mockPrisma.printStation.findUnique.mockResolvedValue({ id: 'existing' });

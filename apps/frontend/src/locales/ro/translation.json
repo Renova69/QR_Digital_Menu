@@ -439,6 +439,7 @@
     "deviceTrustExpiring": "Reînrolare necesară în {{days}} zile",
     "deviceTrustExpired": "Încredere expirată — reînrolați dispozitivul pentru autentificare PIN",
     "deviceTrustUnknown": "Data reînrolării nu este înregistrată — reînrolați pentru a o seta",
+    "devicePinLockedUntil": "Autentificarea cu PIN este blocată până la {{time}}",
     "pinAlert": {
       "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} dispozitive au fost blocate în {{windowMinutes}} minute",
       "PIN_SPIKE": "{{failures}} încercări PIN eșuate în {{windowMinutes}} minute",

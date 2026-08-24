@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   printAgentState,
   deviceTrustState,
-  daysUntilEnforcement,
+  deviceEnrollmentsForDashboard,
+  isDevicePinLocked,
+  daysUntilQuarantine,
   pinAlertSeverity,
 } from "./credentialState";
 
@@ -95,25 +97,72 @@ describe("deviceTrustState", () => {
   });
 });
 
-describe("daysUntilEnforcement", () => {
-  const now = new Date("2026-08-24T00:00:00Z");
+describe("isDevicePinLocked", () => {
+  const now = new Date("2026-08-24T12:00:00Z");
 
-  it("counts down to the backend's own enforcement date", () => {
-    const at = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString();
-
-    expect(daysUntilEnforcement(at, now)).toBe(10);
+  it("shows only a lock whose expiry is still in the future", () => {
+    expect(isDevicePinLocked("2026-08-24T12:01:00Z", now)).toBe(true);
+    expect(isDevicePinLocked("2026-08-24T11:59:00Z", now)).toBe(false);
   });
 
-  it("is zero once enforcement has begun", () => {
+  it("treats missing or invalid lock timestamps as inactive", () => {
+    expect(isDevicePinLocked(null, now)).toBe(false);
+    expect(isDevicePinLocked("not-a-date", now)).toBe(false);
+  });
+});
+
+describe("deviceEnrollmentsForDashboard", () => {
+  const enrollment = (
+    id: string,
+    usedAt: string | null = null,
+    revokedAt: string | null = null,
+  ) => ({ id, usedAt, revokedAt });
+
+  it("keeps every active enrolled device visible beyond the recent-row limit", () => {
+    const rows = [
+      enrollment("recent-1"),
+      enrollment("recent-2"),
+      enrollment("recent-3"),
+      enrollment("recent-4"),
+      enrollment("recent-5"),
+      enrollment("older-active", "2026-01-01T00:00:00Z"),
+      enrollment(
+        "older-revoked",
+        "2026-01-01T00:00:00Z",
+        "2026-02-01T00:00:00Z",
+      ),
+    ];
+
+    expect(deviceEnrollmentsForDashboard(rows).map(({ id }) => id)).toEqual([
+      "recent-1",
+      "recent-2",
+      "recent-3",
+      "recent-4",
+      "recent-5",
+      "older-active",
+    ]);
+  });
+});
+
+describe("daysUntilQuarantine", () => {
+  const now = new Date("2026-08-24T00:00:00Z");
+
+  it("counts down to the backend's combined quarantine boundary", () => {
+    const at = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString();
+
+    expect(daysUntilQuarantine(at, now)).toBe(10);
+  });
+
+  it("is zero once quarantine eligibility has begun", () => {
     const at = new Date(now.getTime() - 1000).toISOString();
 
-    expect(daysUntilEnforcement(at, now)).toBe(0);
+    expect(daysUntilQuarantine(at, now)).toBe(0);
   });
 
   // Unknown, not "enforced". The dashboard must not invent a deadline the
   // backend never recorded.
-  it("is null when the backend recorded no enforcement date", () => {
-    expect(daysUntilEnforcement(null, now)).toBeNull();
+  it("is null when the backend cannot establish an eligibility date", () => {
+    expect(daysUntilQuarantine(null, now)).toBeNull();
   });
 });
 

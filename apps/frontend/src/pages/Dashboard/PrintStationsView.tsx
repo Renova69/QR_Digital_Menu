@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   Settings,
 } from "lucide-react";
-import { printAgentState, daysUntilEnforcement } from "./credentialState";
+import { printAgentState, daysUntilQuarantine } from "./credentialState";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "../../components/ui/toast";
 import {
@@ -53,6 +53,7 @@ interface AgentToken {
   staleWarnedAt: string | null;
   quarantinedAt: string | null;
   stalenessEnforcedAt: string | null;
+  quarantineEligibleAt: string | null;
 }
 
 interface ReceiptTemplate {
@@ -264,8 +265,7 @@ export default function PrintStationsView() {
     },
   });
 
-  if (isLoading)
-    return <div className="p-4 text-sm sm:p-6">Loading...</div>;
+  if (isLoading) return <div className="p-4 text-sm sm:p-6">Loading...</div>;
 
   return (
     <div className="space-y-6">
@@ -652,12 +652,13 @@ export default function PrintStationsView() {
                           className="ml-3 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
                         >
                           {(() => {
-                            const days = daysUntilEnforcement(
-                              tok.stalenessEnforcedAt,
+                            const days = daysUntilQuarantine(
+                              tok.quarantineEligibleAt,
                             );
                             // Advisory only: printing still works. The countdown
-                            // comes from the backend's own date so it matches
-                            // the day the sweep will actually act.
+                            // comes from the backend's combined rollout +
+                            // inactivity boundary, so it matches when the sweep
+                            // can actually act.
                             return days === null
                               ? t("printStations.staleWarning")
                               : t("printStations.staleWarningCountdown", {
@@ -681,9 +682,7 @@ export default function PrintStationsView() {
                           size="sm"
                           variant="outline"
                           data-testid={`token-reactivate-${tok.id}`}
-                          onClick={() =>
-                            reactivateTokenMutation.mutate(tok.id)
-                          }
+                          onClick={() => reactivateTokenMutation.mutate(tok.id)}
                           disabled={reactivateTokenMutation.isPending}
                         >
                           {t("printStations.reactivate")}

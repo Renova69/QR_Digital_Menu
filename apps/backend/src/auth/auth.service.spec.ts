@@ -86,6 +86,7 @@ describe('AuthService', () => {
         }),
         update: jest.fn().mockResolvedValue({ pinAttempts: 1 }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn(),
       },
       staffDeviceBinding: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -762,23 +763,23 @@ describe('AuthService', () => {
       );
     });
 
-    // The reset is guarded on the exact value this request read, so a request
-    // that arrives after another has already established a NEW lock cannot
-    // clear it -- the WHERE simply matches nothing.
+    // The guarded update returning count=0 means another request changed the
+    // row. Re-read it and honour a renewed lock before bcrypt or counters run.
     it('cannot clear a lock another request has since renewed', async () => {
       const observed = expiredLockDevice();
+      const renewed = new Date(Date.now() + 60_000);
       mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue(observed);
-      mockPrisma.user.findMany.mockResolvedValue([
-        makeUser({ role: 'WAITER', pinHash: 'hash' }),
-      ]);
-      mockCompare.mockResolvedValue(false);
-      mockPrisma.deviceEnrollmentToken.update.mockResolvedValue({
-        pinAttempts: 1,
+      mockPrisma.deviceEnrollmentToken.updateMany.mockResolvedValue({
+        count: 0,
       });
+      mockPrisma.deviceEnrollmentToken.findUnique.mockResolvedValue({
+        pinLockedUntil: renewed,
+      });
+      mockCompare.mockClear();
 
       await expect(
         service.pinLogin('rest1', '9999', 'device-token'),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({ status: 429 });
 
       const reset =
         mockPrisma.deviceEnrollmentToken.updateMany.mock.calls[0][0];
@@ -786,6 +787,8 @@ describe('AuthService', () => {
         id: 'device-token-1',
         pinLockedUntil: observed.pinLockedUntil,
       });
+      expect(mockCompare).not.toHaveBeenCalled();
+      expect(mockPrisma.deviceEnrollmentToken.update).not.toHaveBeenCalled();
     });
 
     it('returns JWT and resets device attempt counter on valid PIN', async () => {

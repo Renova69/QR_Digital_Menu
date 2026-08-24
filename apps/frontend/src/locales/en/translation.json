@@ -439,6 +439,7 @@
     "deviceTrustExpiring": "Re-enrolment needed in {{days}} days",
     "deviceTrustExpired": "Trust expired — re-enrol this device to allow PIN login",
     "deviceTrustUnknown": "Re-enrolment date not recorded — re-enrol to set one",
+    "devicePinLockedUntil": "PIN login locked until {{time}}",
     "pinAlert": {
       "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} devices were locked out within {{windowMinutes}} minutes",
       "PIN_SPIKE": "{{failures}} failed staff PIN attempts within {{windowMinutes}} minutes",

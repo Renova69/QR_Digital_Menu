@@ -110,13 +110,11 @@ export class CategoryDetailController {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
     let uploaded: { url: string; thumbnailUrl: string } | null = null;
+    let restaurantId: string | null = null;
     try {
       // Tenant comes from the resource whose ownership was just verified --
       // never from the request, which the client controls.
-      const restaurantId = await this.crud.verifyCategoryOwnership(
-        id,
-        req.user.id,
-      );
+      restaurantId = await this.crud.verifyCategoryOwnership(id, req.user.id);
       uploaded = await this.storageService.uploadWithThumbnail(
         file.buffer,
         file.originalname,
@@ -130,10 +128,10 @@ export class CategoryDetailController {
         req.user.id,
       );
     } catch (error: any) {
-      if (uploaded) {
+      if (uploaded && restaurantId) {
         await Promise.allSettled([
-          this.storageService.delete(uploaded.url),
-          this.storageService.delete(uploaded.thumbnailUrl),
+          this.storageService.delete(uploaded.url, restaurantId),
+          this.storageService.delete(uploaded.thumbnailUrl, restaurantId),
         ]);
       }
       // The ownership check runs inside this same try, so a blanket rethrow

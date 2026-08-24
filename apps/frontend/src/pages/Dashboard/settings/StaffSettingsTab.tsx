@@ -32,12 +32,19 @@ import {
   revokeDeviceEnrollment,
   updateRestaurant,
   updateStaff,
+  type PinSecurityAlert,
   type StaffMember,
 } from "../../../lib/api";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useFeature, useTier } from "../../../hooks/useFeature";
 import { useMinuteTicker } from "../../../hooks/useMinuteTicker";
 import { getApiError } from "../../../lib/apiError";
+import {
+  deviceEnrollmentsForDashboard,
+  deviceTrustState,
+  isDevicePinLocked,
+  pinAlertSeverity,
+} from "../credentialState";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
@@ -48,6 +55,7 @@ type DeviceEnrollment = {
   expiresAt: string;
   usedAt: string | null;
   revokedAt: string | null;
+  pinLockedUntil: string | null;
   deviceTrustExpiresAt: string | null;
   createdBy: { id: string; name: string | null; email: string };
   staffBindings?: Array<{
@@ -130,9 +138,6 @@ const displayEmail = (email: string) => {
   const domain = email?.split("@")[1] ?? "";
   return domain.endsWith(".local") ? "-" : email;
 };
-
-import { deviceTrustState, pinAlertSeverity } from "../credentialState";
-import type { PinSecurityAlert } from "../../../lib/api";
 
 type DeviceEnrollmentStatus = "pending" | "used" | "expired" | "revoked";
 
@@ -225,6 +230,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   const [deviceEnrollments, setDeviceEnrollments] = useState<
     DeviceEnrollment[]
   >([]);
+  const displayedDeviceEnrollments =
+    deviceEnrollmentsForDashboard(deviceEnrollments);
   const [pinAlerts, setPinAlerts] = useState<PinSecurityAlert[]>([]);
   const [deviceEnrollmentsLoading, setDeviceEnrollmentsLoading] =
     useState(false);
@@ -1269,7 +1276,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       {t("staff.deviceSessionsEmpty")}
                     </p>
                   ) : (
-                    deviceEnrollments.slice(0, 5).map((enrollment) => {
+                    displayedDeviceEnrollments.map((enrollment) => {
                       const status = getEnrollmentStatus(enrollment, now);
                       const lastStaffBinding = enrollment.staffBindings?.[0];
                       const lastStaffName =
@@ -1295,6 +1302,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                             : status === "used"
                               ? t("staff.deviceStatusUsed")
                               : t("staff.deviceStatusPending");
+                      const pinLocked =
+                        status === "used" &&
+                        isDevicePinLocked(
+                          enrollment.pinLockedUntil,
+                          new Date(now),
+                        );
                       return (
                         <div
                           key={enrollment.id}
@@ -1315,6 +1328,19 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               )}
                             </p>
                           </div>
+                          {pinLocked && (
+                            <span
+                              data-testid={`device-pin-locked-${enrollment.id}`}
+                              className="mt-2 inline-flex rounded-full bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive"
+                            >
+                              {t("staff.devicePinLockedUntil", {
+                                time: formatDateTime(
+                                  enrollment.pinLockedUntil!,
+                                  activeRestaurant.timezone,
+                                ),
+                              })}
+                            </span>
+                          )}
                           {status === "used" &&
                             (() => {
                               // Only an enrolled device has trust to lose; a

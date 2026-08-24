@@ -135,6 +135,9 @@ export class DeviceEnrollmentService {
         expiresAt: true,
         usedAt: true,
         revokedAt: true,
+        // A current device lock is a dashboard badge only. It does not create a
+        // restaurant-wide block or an outbound alert by itself.
+        pinLockedUntil: true,
         // How long this device stays trusted to accept a PIN. Surfaced so an
         // owner sees it approaching rather than discovering it when staff
         // cannot log in mid-shift. NULL means the row predates the backfill,
