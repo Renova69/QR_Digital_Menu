@@ -219,6 +219,9 @@ describe('RestaurantsController', () => {
         file.buffer,
         file.originalname,
         file.mimetype,
+        // Tenant prefix comes from the route's restaurant id, whose ownership
+        // findOneForManagement just verified -- never from the client.
+        'rest-1',
       );
       expect(result).toEqual({
         logoUrl: 'https://r2.example.com/logo.webp',

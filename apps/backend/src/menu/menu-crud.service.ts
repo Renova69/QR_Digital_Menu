@@ -1075,6 +1075,10 @@ export class MenuCrudService {
     }
 
     await this.checkRestaurantOwnership(category.restaurantId, userId);
+    // Returned so callers can namespace storage by tenant without taking the
+    // id from the request -- it is derived from the resource they just proved
+    // they own.
+    return category.restaurantId;
   }
 
   async verifyItemOwnership(itemId: string, userId: string) {
@@ -1088,6 +1092,8 @@ export class MenuCrudService {
     }
 
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
+    // See verifyCategoryOwnership: server-derived tenant for storage keys.
+    return item.category.restaurantId;
   }
 
   // Thin public wrapper so sibling services (e.g. bulk menu edit) can reuse

@@ -50,7 +50,8 @@ describe('StorageService', () => {
   describe('upload', () => {
     it('throws for unsupported MIME type (gif)', async () => {
       await expect(
-        service.upload(Buffer.from('data'), 'file.gif', 'image/gif'),
+        service.upload(Buffer.from('data'), 'file.gif', 'image/gif',
+        'rest-1'),
       ).rejects.toThrow('Unsupported image type');
     });
 
@@ -59,6 +60,7 @@ describe('StorageService', () => {
         Buffer.from('data'),
         'photo.jpg',
         'image/jpeg',
+        'rest-1',
       );
       expect(url).toMatch(/^https:\/\/cdn\.example\.com\//);
       expect(url).toMatch(/\.webp$/);
@@ -69,6 +71,7 @@ describe('StorageService', () => {
         Buffer.from('data'),
         'photo.png',
         'image/png',
+        'rest-1',
       );
       expect(url).toBeTruthy();
     });
@@ -78,12 +81,14 @@ describe('StorageService', () => {
         Buffer.from('data'),
         'photo.webp',
         'image/webp',
+        'rest-1',
       );
       expect(url).toBeTruthy();
     });
 
     it('calls S3 send twice (main + thumbnail) per upload', async () => {
-      await service.upload(Buffer.from('data'), 'photo.jpg', 'image/jpeg');
+      await service.upload(Buffer.from('data'), 'photo.jpg', 'image/jpeg',
+        'rest-1');
       expect(mockS3Send).toHaveBeenCalledTimes(2);
     });
   });
@@ -95,6 +100,7 @@ describe('StorageService', () => {
           Buffer.from('data'),
           'file.bmp',
           'image/bmp',
+          'rest-1',
         ),
       ).rejects.toThrow('Unsupported image type');
     });
@@ -104,6 +110,7 @@ describe('StorageService', () => {
         Buffer.from('data'),
         'photo.jpg',
         'image/jpeg',
+        'rest-1',
       );
       expect(result).toHaveProperty('url');
       expect(result).toHaveProperty('thumbnailUrl');
@@ -116,8 +123,96 @@ describe('StorageService', () => {
         Buffer.from('data'),
         'photo.png',
         'image/png',
+        'rest-1',
       );
       expect(result.url).not.toBe(result.thumbnailUrl);
+    });
+  });
+
+  describe('tenant namespacing', () => {
+    const png = 'image/png';
+
+    // Namespacing is isolation and operations -- per-tenant lifecycle rules,
+    // bulk purge, comprehensible storage bills, and blast radius on a bad
+    // delete. It is NOT confidentiality: the bucket is public, so the prefix
+    // conceals nothing from anyone holding a URL.
+    it('writes objects under the owning tenant prefix', async () => {
+      const { url, thumbnailUrl } = await service.uploadWithThumbnail(
+        Buffer.from('x'),
+        'a.png',
+        png,
+        'rest-1',
+      );
+
+      expect(url).toContain('/tenants/rest-1/');
+      expect(thumbnailUrl).toContain('/tenants/rest-1/');
+      expect(thumbnailUrl).toMatch(/_thumb\.webp$/);
+    });
+
+    // Two tenants uploading a file with the same name must never collide. The
+    // random id already prevents that, but the prefix means a collision would
+    // be scoped to one tenant even if id generation were ever weakened.
+    it('keeps identical filenames from different tenants apart', async () => {
+      const a = await service.uploadWithThumbnail(
+        Buffer.from('x'),
+        'logo.png',
+        png,
+        'rest-1',
+      );
+      const b = await service.uploadWithThumbnail(
+        Buffer.from('x'),
+        'logo.png',
+        png,
+        'rest-2',
+      );
+
+      expect(a.url).toContain('/tenants/rest-1/');
+      expect(b.url).toContain('/tenants/rest-2/');
+      expect(a.url).not.toBe(b.url);
+    });
+
+    it('refuses to delete an object belonging to another tenant', async () => {
+      await service.deleteExact(
+        'https://cdn.example.com/tenants/rest-2/abc.webp',
+        'rest-1',
+      );
+
+      expect(mockS3Send).not.toHaveBeenCalled();
+    });
+
+    it('deletes an object belonging to the requesting tenant', async () => {
+      await service.deleteExact(
+        'https://cdn.example.com/tenants/rest-1/abc.webp',
+        'rest-1',
+      );
+
+      expect(mockS3Send).toHaveBeenCalled();
+    });
+
+    // Objects uploaded before namespacing have no tenant in their key. They are
+    // deliberately left in place -- no destructive migration -- so deletion has
+    // to keep working for them or existing menu images become unremovable.
+    it('still deletes a legacy un-namespaced object', async () => {
+      await service.deleteExact(
+        'https://cdn.example.com/abc123.webp',
+        'rest-1',
+      );
+
+      expect(mockS3Send).toHaveBeenCalled();
+    });
+
+    // The key used to be reduced to its last path segment, which would silently
+    // rewrite tenants/rest-2/abc.webp to abc.webp and delete the wrong object.
+    it('preserves the full key path rather than the basename', async () => {
+      await service.deleteExact(
+        'https://cdn.example.com/tenants/rest-1/abc.webp',
+        'rest-1',
+      );
+
+      const sentKey = (
+        require('@aws-sdk/client-s3').DeleteObjectCommand as jest.Mock
+      ).mock.calls[0][0].Key;
+      expect(sentKey).toBe('tenants/rest-1/abc.webp');
     });
   });
 
@@ -156,6 +251,7 @@ describe('StorageService', () => {
         Buffer.from('data'),
         'photo.jpg',
         'image/jpeg',
+        'rest-1',
       );
       expect(url).toBeTruthy();
     });

@@ -148,11 +148,13 @@ export class ItemDetailController {
     // without this guard (M1.1).
     let uploaded: { url: string; thumbnailUrl: string } | null = null;
     try {
-      await this.crud.verifyItemOwnership(id, req.user.id);
+      // Server-derived tenant; see CategoryDetailController.uploadImage.
+      const restaurantId = await this.crud.verifyItemOwnership(id, req.user.id);
       uploaded = await this.storageService.uploadWithThumbnail(
         file.buffer,
         file.originalname,
         file.mimetype,
+        restaurantId,
       );
       return await this.crud.updateItemImage(
         id,

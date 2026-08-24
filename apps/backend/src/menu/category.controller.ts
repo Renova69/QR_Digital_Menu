@@ -111,11 +111,17 @@ export class CategoryDetailController {
     }
     let uploaded: { url: string; thumbnailUrl: string } | null = null;
     try {
-      await this.crud.verifyCategoryOwnership(id, req.user.id);
+      // Tenant comes from the resource whose ownership was just verified --
+      // never from the request, which the client controls.
+      const restaurantId = await this.crud.verifyCategoryOwnership(
+        id,
+        req.user.id,
+      );
       uploaded = await this.storageService.uploadWithThumbnail(
         file.buffer,
         file.originalname,
         file.mimetype,
+        restaurantId,
       );
       return await this.crud.updateCategoryImage(
         id,

@@ -113,6 +113,9 @@ export class RestaurantsController {
           file.buffer,
           file.originalname,
           file.mimetype,
+          // The route's own restaurant id, already checked by
+          // findOneForManagement above.
+          id,
         );
 
       // Persist the reference immediately rather than waiting for the
