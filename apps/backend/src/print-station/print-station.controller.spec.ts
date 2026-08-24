@@ -22,6 +22,7 @@ describe('PrintStationController behavior', () => {
     retryFailedJob: jest.Mock;
     generateToken: jest.Mock;
     revokeToken: jest.Mock;
+    reactivateAgentToken: jest.Mock;
   };
   let restaurants: {
     findOne: jest.Mock;
@@ -42,6 +43,7 @@ describe('PrintStationController behavior', () => {
       retryFailedJob: jest.fn(),
       generateToken: jest.fn(),
       revokeToken: jest.fn(),
+      reactivateAgentToken: jest.fn(),
     };
     restaurants = {
       findOne: jest.fn(),
@@ -157,6 +159,15 @@ describe('PrintStationController behavior', () => {
       service.revokeToken.mockResolvedValue(undefined);
       const result = await controller.revokeToken(ownerReq, 't1', 'r1');
       expect(service.revokeToken).toHaveBeenCalledWith('r1', 't1');
+      expect(result).toEqual({ success: true });
+    });
+
+    // Reactivation hands back a working credential, so it must be scoped to the
+    // owning restaurant exactly as revocation is -- never the weaker of the two.
+    it('reactivates a token scoped to the resolved restaurant', async () => {
+      service.reactivateAgentToken.mockResolvedValue(undefined);
+      const result = await controller.reactivateToken(ownerReq, 't1', 'r1');
+      expect(service.reactivateAgentToken).toHaveBeenCalledWith('r1', 't1');
       expect(result).toEqual({ success: true });
     });
   });

@@ -325,22 +325,40 @@ describe('PrintStationService', () => {
       );
     });
 
-    // Tokens that predate this feature have a lastSeenAt from before anyone was
-    // recording it meaningfully. Quarantining them on the first sweep would
-    // stop printing with no warning -- the exact failure this design exists to
-    // avoid.
-    it('does not quarantine during the rollout grace period', async () => {
+    // Grace is a property of each token, not a date in this file. A token is
+    // only ever quarantined once its own window has opened, so every
+    // environment -- staging, a fresh self-host, a restore -- gets a correct
+    // timeline instead of inheriting one that began before its data existed.
+    it('only quarantines tokens whose own grace window has opened', async () => {
       mockEvents.listConnectedAgentTokenIds.mockResolvedValue([]);
       mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 0 });
 
-      const duringGrace = new Date('2026-09-01T00:00:00Z');
-      await service.retireStalePrintAgents(duringGrace);
+      const now = new Date('2027-06-01T00:00:00Z');
+      await service.retireStalePrintAgents(now);
 
       const quarantineCall =
         mockPrisma.printAgentToken.updateMany.mock.calls.find(
           (c: any) => c[0].data.quarantinedAt instanceof Date,
         );
-      expect(quarantineCall).toBeUndefined();
+      expect(quarantineCall[0].where.stalenessEnforcedAt).toEqual({
+        not: null,
+        lte: now,
+      });
+    });
+
+    // NULL only happens for rows created between the deploy and the backfill.
+    // A token whose grace window is unknown must never be revoked.
+    it('never quarantines a token with no recorded grace window', async () => {
+      mockEvents.listConnectedAgentTokenIds.mockResolvedValue([]);
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.retireStalePrintAgents(new Date('2027-06-01T00:00:00Z'));
+
+      const quarantineCall =
+        mockPrisma.printAgentToken.updateMany.mock.calls.find(
+          (c: any) => c[0].data.quarantinedAt instanceof Date,
+        );
+      expect(quarantineCall[0].where.stalenessEnforcedAt.not).toBeNull();
     });
 
     // Warnings are advisory and never block, so they are safe from day one --

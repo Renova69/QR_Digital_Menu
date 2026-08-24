@@ -40,13 +40,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const PRINT_AGENT_STALE_WARN_DAYS = 90;
 const PRINT_AGENT_QUARANTINE_DAYS = 180;
 
-// Quarantine does not begin the day this ships. Tokens that predate the feature
-// carry a lastSeenAt from before anyone recorded it meaningfully, so enforcing
-// immediately would revoke working printers with no warning -- the precise
-// failure this design exists to avoid. Warnings start at once (they are
-// advisory and never block), which is what gives an owner notice; revocation
-// waits until every live agent has had a full warning window to be seen.
-const PRINT_AGENT_ENFORCEMENT_STARTS = new Date('2026-11-22T00:00:00Z');
+// Each token carries its own `stalenessEnforcedAt`, written at creation and
+// backfilled for pre-existing rows, so the grace period is a property of the
+// data rather than a calendar date compiled into this file. A hardcoded date is
+// wrong in every environment except the one it was written for -- staging, a
+// fresh self-host, or a restore all inherit a window that began before their
+// data existed.
+const PRINT_AGENT_GRACE_DAYS = 90;
 
 @Injectable()
 export class PrintStationService {
@@ -253,6 +253,13 @@ export class PrintStationService {
           printStationId: stationId,
           label,
           tokenHash: this.hashToken(token),
+          // A token is generated before anyone walks it over to the device and
+          // enters it, so its grace window starts now rather than at first
+          // connect -- otherwise a token issued and installed a week later
+          // would be judged against a window it never had.
+          stalenessEnforcedAt: new Date(
+            Date.now() + PRINT_AGENT_GRACE_DAYS * DAY_MS,
+          ),
         },
         select: {
           id: true,
@@ -331,9 +338,21 @@ export class PrintStationService {
     // lastSeenAt is deliberately reset too: without it the token is instantly
     // re-eligible for quarantine on the next sweep, before the agent has had
     // any chance to reconnect.
+    const now = new Date();
+    // One update, so a token is never briefly un-quarantined but still warned.
+    // lastSeenAt is reset because otherwise the very next sweep would re-judge
+    // it on the same silence it was just forgiven for, and the grace window is
+    // restarted so the owner has time to get the agent reconnected.
     return this.prisma.printAgentToken.update({
       where: { id: tokenId },
-      data: { quarantinedAt: null, staleWarnedAt: null, lastSeenAt: new Date() },
+      data: {
+        quarantinedAt: null,
+        staleWarnedAt: null,
+        lastSeenAt: now,
+        stalenessEnforcedAt: new Date(
+          now.getTime() + PRINT_AGENT_GRACE_DAYS * DAY_MS,
+        ),
+      },
     });
   }
 
@@ -390,16 +409,17 @@ export class PrintStationService {
     try {
       // Quarantine first: a token past the longer window should not be merely
       // warned on this pass and revoked a day later.
-      const quarantined =
-        now >= PRINT_AGENT_ENFORCEMENT_STARTS
-          ? await this.prisma.printAgentToken.updateMany({
-              where: {
-                quarantinedAt: null,
-                ...silentBefore(unseenSince(PRINT_AGENT_QUARANTINE_DAYS)),
-              },
-              data: { quarantinedAt: now },
-            })
-          : { count: 0 };
+      const quarantined = await this.prisma.printAgentToken.updateMany({
+        where: {
+          quarantinedAt: null,
+          // Per-token enforcement. NULL is the deployment-compatibility state
+          // for rows created between deploy and backfill, and is deliberately
+          // excluded: never quarantine a token whose grace window is unknown.
+          stalenessEnforcedAt: { not: null, lte: now },
+          ...silentBefore(unseenSince(PRINT_AGENT_QUARANTINE_DAYS)),
+        },
+        data: { quarantinedAt: now },
+      });
 
       const warned = await this.prisma.printAgentToken.updateMany({
         where: {

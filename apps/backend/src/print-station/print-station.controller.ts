@@ -192,4 +192,30 @@ export class PrintStationController {
     await this.service.revokeToken(resolvedId, tokenId);
     return { success: true };
   }
+
+  /**
+   * Bring a quarantined agent back.
+   *
+   * Same guard, same role resolution and same restaurant scoping as revocation
+   * -- reactivation restores a working credential, so it cannot be the weaker
+   * of the pair.
+   *
+   * A manually revoked token is deleted outright, so it is not reachable here:
+   * the lookup simply finds nothing and returns 404. Quarantine is reversible;
+   * an owner's explicit revocation is not.
+   */
+  @Post('tokens/:tokenId/reactivate')
+  async reactivateToken(
+    @Request() req: any,
+    @Param('tokenId') tokenId: string,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
+    await this.service.reactivateAgentToken(resolvedId, tokenId);
+    return { success: true };
+  }
 }

@@ -619,30 +619,12 @@ describe('AuthService', () => {
       expect(mockJwt.sign).not.toHaveBeenCalled();
     });
 
-    // A device enrolled before this shipped has no recorded trust expiry. It
-    // must not be trusted forever, but it must also not be logged out the day
-    // this deploys -- so it gets the full trust window measured from rollout.
-    it('refuses a pre-existing device once the rollout window has passed', async () => {
-      const staff = makeUser({ role: 'WAITER', pinHash: 'hash' });
-      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
-        id: 'device-token-1',
-        pinAttempts: 0,
-        pinLockedUntil: null,
-        sessionVersion: 0,
-        deviceTrustExpiresAt: null,
-      });
-      mockPrisma.user.findMany.mockResolvedValue([staff]);
-      mockCompare.mockResolvedValue(true);
-      jest.useFakeTimers().setSystemTime(new Date('2027-06-01T00:00:00Z'));
-
-      await expect(
-        service.pinLogin('rest1', '1234', 'device-token'),
-      ).rejects.toThrow(/no longer trusted|re-enroll/i);
-
-      jest.useRealTimers();
-    });
-
-    it('still trusts a pre-existing device inside the rollout window', async () => {
+    // NULL is a deployment-compatibility state, not policy. The migration
+    // writes a real expiry for every enrolled device and enrolment sets one
+    // from then on, so a row can only be NULL if it was created in the gap
+    // between deploy and backfill. Locking a device out over a race with our
+    // own rollout would be the wrong failure.
+    it('treats an unrecorded trust expiry as still trusted', async () => {
       const staff = makeUser({ role: 'WAITER', pinHash: 'hash' });
       mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
         id: 'device-token-1',
