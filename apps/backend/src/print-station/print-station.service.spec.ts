@@ -396,6 +396,7 @@ describe('PrintStationService', () => {
       mockPrisma.printAgentToken.findFirst.mockResolvedValue({
         id: 'token-1',
         restaurantId: 'rest-1',
+        quarantinedAt: new Date('2026-06-01'),
       });
       mockPrisma.printAgentToken.update.mockResolvedValue({ id: 'token-1' });
 
@@ -418,6 +419,23 @@ describe('PrintStationService', () => {
       await expect(
         service.reactivateAgentToken('rest-1', 'token-of-other'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    // Reactivation resets lastSeenAt and restarts the grace window. Applied to
+    // a token that was never quarantined, that silently forgives real inactivity
+    // -- an owner could keep a dead agent alive forever by clicking a button
+    // that appears to do nothing.
+    it('refuses a token that is not actually quarantined', async () => {
+      mockPrisma.printAgentToken.findFirst.mockResolvedValue({
+        id: 'token-1',
+        restaurantId: 'rest-1',
+        quarantinedAt: null,
+      });
+
+      await expect(
+        service.reactivateAgentToken('rest-1', 'token-1'),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.printAgentToken.update).not.toHaveBeenCalled();
     });
   });
 

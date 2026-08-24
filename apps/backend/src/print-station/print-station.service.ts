@@ -40,12 +40,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const PRINT_AGENT_STALE_WARN_DAYS = 90;
 const PRINT_AGENT_QUARANTINE_DAYS = 180;
 
-// Each token carries its own `stalenessEnforcedAt`, written at creation and
-// backfilled for pre-existing rows, so the grace period is a property of the
-// data rather than a calendar date compiled into this file. A hardcoded date is
-// wrong in every environment except the one it was written for -- staging, a
-// fresh self-host, or a restore all inherit a window that began before their
-// data existed.
+// Each token carries its own `stalenessEnforcedAt`: the earliest date it may be
+// considered for quarantine at all. Written at creation and backfilled for
+// pre-existing rows, so this is a property of the data rather than a calendar
+// date compiled into this file -- a hardcoded date is correct in exactly one
+// environment, and staging, a fresh self-host or a restore all inherit a window
+// that began before their data existed.
+//
+// It gates eligibility; it does not measure inactivity. Quarantine still
+// requires PRINT_AGENT_QUARANTINE_DAYS of unbroken silence on top of it.
 const PRINT_AGENT_GRACE_DAYS = 90;
 
 @Injectable()
@@ -253,10 +256,12 @@ export class PrintStationService {
           printStationId: stationId,
           label,
           tokenHash: this.hashToken(token),
-          // A token is generated before anyone walks it over to the device and
-          // enters it, so its grace window starts now rather than at first
-          // connect -- otherwise a token issued and installed a week later
-          // would be judged against a window it never had.
+          // An eligibility gate, not an installation-relative window: it marks
+          // the earliest date this token may be considered for quarantine at
+          // all. Delayed installation therefore consumes part of the 90 days
+          // rather than deferring them, which is harmless because quarantine
+          // additionally requires 180 days of unbroken inactivity -- a token
+          // installed late still has to go silent for six months to qualify.
           stalenessEnforcedAt: new Date(
             Date.now() + PRINT_AGENT_GRACE_DAYS * DAY_MS,
           ),
@@ -279,6 +284,7 @@ export class PrintStationService {
       where: { id: tokenId, restaurantId },
     });
     if (!record) throw new NotFoundException('Token not found');
+
     await this.prisma.printAgentToken.delete({ where: { id: tokenId } });
     // M-4: Disconnect any live agent sessions still using this token
     await this.events.disconnectAgentByTokenId(
@@ -334,6 +340,14 @@ export class PrintStationService {
       where: { id: tokenId, restaurantId },
     });
     if (!record) throw new NotFoundException('Token not found');
+
+    // Reactivation resets lastSeenAt and restarts the grace window, which on an
+    // active token silently forgives real inactivity: an owner could keep a
+    // dead agent alive indefinitely by pressing a button that looks like it
+    // does nothing. Only a token we actually quarantined has anything to undo.
+    if (!record.quarantinedAt) {
+      throw new ConflictException('TOKEN_NOT_QUARANTINED');
+    }
 
     // lastSeenAt is deliberately reset too: without it the token is instantly
     // re-eligible for quarantine on the next sweep, before the agent has had
