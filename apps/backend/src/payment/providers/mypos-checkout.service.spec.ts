@@ -50,7 +50,28 @@ describe('MyposCheckoutService', () => {
     table: mockTable,
   };
 
+  // The service requires an absolute BACKEND_URL. Locally that arrives from
+  // apps/backend/.env, which CI deliberately does not have -- so these tests
+  // passed on a developer machine and failed in CI. The spec now supplies its
+  // own value and restores whatever was there, rather than depending on the
+  // ambient environment.
+  //
+  // Deliberately not added to the CI workflow globally: that would also satisfy
+  // the tests elsewhere that assert the MISSING-configuration behaviour, hiding
+  // real regressions.
+  let previousBackendUrl: string | undefined;
+
+  afterEach(() => {
+    if (previousBackendUrl === undefined) {
+      delete process.env.BACKEND_URL;
+    } else {
+      process.env.BACKEND_URL = previousBackendUrl;
+    }
+  });
+
   beforeEach(() => {
+    previousBackendUrl = process.env.BACKEND_URL;
+    process.env.BACKEND_URL = 'https://api.example.com';
     prisma = {
       tableSession: {
         findFirst: jest.fn().mockResolvedValue(mockSession),
