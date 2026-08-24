@@ -16,7 +16,7 @@ describe('EpayCheckoutService', () => {
   let config: any;
 
   const restaurantId = 'restaurant-1';
-  const rawSecret = 'epay-secret-key-12345';
+  const rawSecret = 'test-secret';
   const encryptedSecret = encryptSecret(rawSecret, {
     restaurantId,
     purpose: 'epay-secret',

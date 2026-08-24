@@ -66,6 +66,12 @@ export class PinSecurityService {
    *
    * Called fire-and-forget from the auth path: detection must never be able to
    * fail a login, delay one, or turn a wrong PIN into a 500.
+   *
+   * @param deviceTokenId the DeviceEnrollmentToken row id, never the device
+   *   token itself. Nothing credential-bearing may be passed here or added to
+   *   the values below: they are attached to Sentry events on failure, and a
+   *   PIN, a raw device token or a token hash would then be sitting in an
+   *   external error tracker. The row id is opaque and useless on its own.
    */
   async evaluate(
     restaurantId: string,
@@ -163,6 +169,8 @@ export class PinSecurityService {
       // would mean PIN monitoring could be dead for weeks with no signal.
       Sentry.captureException(error, {
         tags: { subsystem: 'pin-security', phase: 'evaluate' },
+        // Opaque row ids only. See the note on this method's parameters: no
+        // PIN, raw device token or token hash may ever reach here.
         extra: { restaurantId, deviceTokenId },
       });
       this.logger.error(
@@ -250,6 +258,9 @@ export class PinSecurityService {
       // while the dashboard looks healthy.
       Sentry.captureException(error, {
         tags: { subsystem: 'pin-security', phase: 'notify' },
+        // A restaurant id and a signal name. `detail` is deliberately not
+        // included: it is only counts today, but it is the field most likely
+        // to grow something identifying later.
         extra: { restaurantId, kind },
       });
       this.logger.warn(

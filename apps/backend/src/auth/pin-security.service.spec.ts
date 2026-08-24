@@ -171,6 +171,27 @@ describe('PinSecurityService', () => {
     );
   });
 
+  // Sentry is an external service. A PIN, a raw device token or a token hash
+  // reaching it would move credential material outside our systems entirely --
+  // and there is no beforeSend redaction in place to catch it.
+  it('sends no credential material to Sentry', async () => {
+    mockPrisma.staffPinLoginAudit.findMany.mockRejectedValue(
+      new Error('connection pool timeout'),
+    );
+
+    await service.evaluate('rest-1', 'device-row-id');
+
+    const [, context] = (Sentry.captureException as jest.Mock).mock.calls[0];
+    // Scoped to `extra`, which is where data travels -- the subsystem tag is
+    // legitimately named "pin-security".
+    expect(JSON.stringify(context.extra)).not.toMatch(/pin|hash|secret/i);
+    // Exactly two opaque identifiers, so anything added later fails here.
+    expect(context.extra).toEqual({
+      restaurantId: 'rest-1',
+      deviceTokenId: 'device-row-id',
+    });
+  });
+
   // A push channel that has quietly stopped working must be visible, or alerts
   // stop reaching anyone while the dashboard still looks healthy.
   it('reports a failed push to Sentry', async () => {
