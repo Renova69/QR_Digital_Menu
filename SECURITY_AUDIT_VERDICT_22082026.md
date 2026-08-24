@@ -322,30 +322,30 @@ Fix: inspect `count`; on zero, re-read the row and reject if a future lock now
 exists. The existing concurrency test asserts only the guarded WHERE and does
 not simulate `count: 0`, so the test needs extending alongside.
 
-### P2-10 — PARTIAL (blocking items before enforcement)
+### P2-10 — Implementation COMPLETE, release verification PENDING
 
-Backend retirement logic shipped and is safe to deploy. Enforcement cannot begin
-until all of the following are in place — the deadline is self-enforcing, since
-nothing is quarantinable until each token's own `stalenessEnforcedAt` passes,
-which for existing installs is 90 days after the migration runs.
+**Implementation: COMPLETE** (`be0da3a6`, on top of `8b25d51e`, `20c3f399`,
+`6476d3ca`, `60c227d4`).
 
-1. **Dashboard: surface `staleWarnedAt` / `quarantinedAt`** in `PrintStationsView`,
-   with a **Reactivate** action wired to
-   `POST /print-stations/tokens/:tokenId/reactivate`. Without this an owner gets a
-   revocation with no prior warning and no in-app recovery.
-2. **Dashboard: device trust-expiry warning** in the enrolled-device list, before
-   `deviceTrustExpiresAt` lapses.
-3. **Fail boot in production when `REDIS_URL` is absent.**
-   `redis-io.adapter.ts` currently logs a warning and falls back to the in-memory
-   Socket.IO adapter. `fetchSockets()` then *succeeds* while seeing only the local
-   instance's sockets — so the retirement sweep does not abort, it proceeds on an
-   incomplete picture and can quarantine agents connected to other instances. At
-   `maxScale 3` that is up to two-thirds of live agents invisible, silently.
+**Evidence:** backend 191 suites / 2704 tests and frontend 141 files / 996 tests
+green; both apps lint clean; zero type errors; i18n parity across en/bg/ro.
 
-   This protects all cross-instance realtime behaviour — order events, table
-   status, print-job routing — not only printer retirement. Production has
-   `REDIS_URL` bound today, so this is a guard against regression rather than a
-   live defect.
+**Enforcement dependency: satisfied in code**, ahead of the persisted deadlines.
+Nothing is quarantinable until each token's own `stalenessEnforcedAt` passes,
+and no device loses trust before its own `deviceTrustExpiresAt` — both written
+by migration rather than derived from any date in application logic. This is no
+longer an active code blocker.
+
+**Release verification: PENDING.** Pushed is not shipped. After merge and
+deployment, verify by hand:
+
+- [ ] Stale token presentation and countdown
+- [ ] Quarantined-token reactivation
+- [ ] Already-reactivated 409 behaviour (refetches, shows no error)
+- [ ] Device trust states: 30-day warning, 7-day urgent, expired, and NULL
+- [ ] Redis-backed production startup (and that boot fails without `REDIS_URL`)
+
+Mark **production verified** only once those pass on the deployed environment.
 
 ### P2 — This month
 
