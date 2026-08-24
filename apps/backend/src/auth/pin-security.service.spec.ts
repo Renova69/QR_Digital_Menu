@@ -1,3 +1,6 @@
+jest.mock('@sentry/nestjs', () => ({ captureException: jest.fn() }));
+
+import * as Sentry from '@sentry/nestjs';
 import { PinSecurityService } from './pin-security.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
@@ -148,6 +151,44 @@ describe('PinSecurityService', () => {
     );
 
     await expect(service.evaluate('rest-1', 'dev-1')).resolves.toEqual([]);
+  });
+
+  // Not propagating is not the same as discarding. Nothing else reports a
+  // swallowed detection failure, so without this PIN monitoring could be dead
+  // for weeks while every login looked perfectly healthy.
+  it('reports a swallowed failure to Sentry rather than losing it', async () => {
+    mockPrisma.staffPinLoginAudit.findMany.mockRejectedValue(
+      new Error('connection pool timeout'),
+    );
+
+    await service.evaluate('rest-1', 'dev-1');
+
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        tags: { subsystem: 'pin-security', phase: 'evaluate' },
+      }),
+    );
+  });
+
+  // A push channel that has quietly stopped working must be visible, or alerts
+  // stop reaching anyone while the dashboard still looks healthy.
+  it('reports a failed push to Sentry', async () => {
+    mockPrisma.staffPinLoginAudit.findMany.mockResolvedValue([
+      { status: 'LOCKED', deviceTokenId: 'dev-1' },
+      { status: 'LOCKED', deviceTokenId: 'dev-2' },
+    ]);
+    mockPush.sendPushNotification.mockRejectedValue(new Error('no subscription'));
+
+    await service.evaluate('rest-1', 'dev-1');
+    await new Promise((r) => setImmediate(r));
+
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        tags: { subsystem: 'pin-security', phase: 'notify' },
+      }),
+    );
   });
 
   it('records the alert even when the push fails', async () => {

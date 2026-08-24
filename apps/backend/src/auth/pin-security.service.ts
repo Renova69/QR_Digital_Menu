@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 
@@ -156,8 +157,14 @@ export class PinSecurityService {
 
       return raised;
     } catch (error) {
-      // Detection is advisory. A failure here must never surface as a login
-      // error or change what the caller sees.
+      // Advisory: a failure here must never surface as a login error or change
+      // what the caller sees. But not-propagated is not the same as discarded --
+      // nothing else reports a swallowed detection failure, so silent loss here
+      // would mean PIN monitoring could be dead for weeks with no signal.
+      Sentry.captureException(error, {
+        tags: { subsystem: 'pin-security', phase: 'evaluate' },
+        extra: { restaurantId, deviceTokenId },
+      });
       this.logger.error(
         `PIN security evaluation failed: ${
           error instanceof Error ? error.message : String(error)
@@ -237,8 +244,14 @@ export class PinSecurityService {
         '/dashboard?tab=settings',
       );
     } catch (error) {
-      // The alert is already recorded and the dashboard will show it; failing
-      // to deliver a push must not lose that.
+      // The alert is already recorded and the dashboard will show it, so a
+      // delivery failure is not data loss -- but a push channel that has quietly
+      // stopped working must still be visible, or alerts stop reaching anyone
+      // while the dashboard looks healthy.
+      Sentry.captureException(error, {
+        tags: { subsystem: 'pin-security', phase: 'notify' },
+        extra: { restaurantId, kind },
+      });
       this.logger.warn(
         `Could not push PIN security alert: ${
           error instanceof Error ? error.message : String(error)
