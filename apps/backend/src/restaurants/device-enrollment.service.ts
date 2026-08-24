@@ -135,6 +135,12 @@ export class DeviceEnrollmentService {
         expiresAt: true,
         usedAt: true,
         revokedAt: true,
+        // How long this device stays trusted to accept a PIN. Surfaced so an
+        // owner sees it approaching rather than discovering it when staff
+        // cannot log in mid-shift. NULL means the row predates the backfill,
+        // not "trusted forever" -- the UI must say so rather than showing a
+        // blank or an invented date.
+        deviceTrustExpiresAt: true,
         createdBy: {
           select: { id: true, name: true, email: true },
         },

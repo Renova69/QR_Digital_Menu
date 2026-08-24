@@ -32,6 +32,25 @@ export class RedisIoAdapter extends IoAdapter {
     const redisUrl = process.env.REDIS_URL;
 
     if (!redisUrl) {
+      // An unreachable Redis already fails boot below. An ABSENT one is the
+      // more dangerous case, because nothing downstream errors: the in-memory
+      // adapter answers every call successfully while seeing only this
+      // instance's sockets. fetchSockets() then returns a partial view instead
+      // of throwing, so cross-instance behaviour degrades silently -- missed
+      // order and reservation events on the "wrong" instance, print jobs routed
+      // to an agent this process cannot see, and a print-agent retirement sweep
+      // judging staleness against a fraction of the live agents.
+      //
+      // Production runs multiple instances, so this is a misconfiguration, not
+      // a deployment shape. Fail at boot where readiness never goes green,
+      // rather than days later through symptoms that look like anything else.
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'REDIS_URL is not set. Production runs multiple instances and requires ' +
+            'the Socket.IO Redis adapter for cross-instance realtime; the in-memory ' +
+            'fallback would silently see only one instance.',
+        );
+      }
       this.logger.warn(
         'REDIS_URL not set — using in-memory Socket.IO adapter (single-instance only)',
       );

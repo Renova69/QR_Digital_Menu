@@ -47,6 +47,7 @@ type DeviceEnrollment = {
   expiresAt: string;
   usedAt: string | null;
   revokedAt: string | null;
+  deviceTrustExpiresAt: string | null;
   createdBy: { id: string; name: string | null; email: string };
   staffBindings?: Array<{
     firstSeenAt: string;
@@ -128,6 +129,8 @@ const displayEmail = (email: string) => {
   const domain = email?.split("@")[1] ?? "";
   return domain.endsWith(".local") ? "-" : email;
 };
+
+import { deviceTrustState } from "../credentialState";
 
 type DeviceEnrollmentStatus = "pending" | "used" | "expired" | "revoked";
 
@@ -1278,6 +1281,36 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               )}
                             </p>
                           </div>
+                          {status === "used" &&
+                            (() => {
+                              // Only an enrolled device has trust to lose; a
+                              // pending or revoked row has nothing to warn about.
+                              const trust = deviceTrustState(
+                                enrollment.deviceTrustExpiresAt,
+                                new Date(now),
+                              );
+                              if (trust.level === "ok") return null;
+                              return (
+                                <p
+                                  data-testid={`device-trust-${enrollment.id}`}
+                                  data-level={trust.level}
+                                  className={`mt-2 text-xs font-medium ${
+                                    trust.level === "expired" ||
+                                    trust.level === "urgent"
+                                      ? "text-destructive"
+                                      : "text-amber-700 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {trust.level === "expired"
+                                    ? t("staff.deviceTrustExpired")
+                                    : trust.level === "unknown"
+                                      ? t("staff.deviceTrustUnknown")
+                                      : t("staff.deviceTrustExpiring", {
+                                          days: trust.daysRemaining,
+                                        })}
+                                </p>
+                              );
+                            })()}
                           <p className="mt-2 truncate text-xs text-muted-foreground">
                             {t("staff.deviceSessionCreatedBy", {
                               name:

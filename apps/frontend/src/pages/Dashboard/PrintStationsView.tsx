@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Settings,
 } from "lucide-react";
+import { printAgentState, daysUntilEnforcement } from "./credentialState";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "../../components/ui/toast";
 import {
@@ -19,6 +20,7 @@ import {
   deletePrintStation,
   generateAgentToken,
   revokeAgentToken,
+  reactivateAgentToken,
 } from "../../lib/api";
 import { useRestaurantContext } from "../../context/RestaurantContext";
 import { Button } from "../../components/ui/button";
@@ -48,6 +50,9 @@ interface AgentToken {
   label: string | null;
   lastSeenAt: string | null;
   createdAt: string;
+  staleWarnedAt: string | null;
+  quarantinedAt: string | null;
+  stalenessEnforcedAt: string | null;
 }
 
 interface ReceiptTemplate {
@@ -235,6 +240,28 @@ export default function PrintStationsView() {
     mutationFn: (tokenId: string) => revokeAgentToken(restaurantId, tokenId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["print-stations"] }),
     onError: () => showToast("Failed to revoke token", "error"),
+  });
+
+  const reactivateTokenMutation = useMutation({
+    mutationFn: (tokenId: string) =>
+      reactivateAgentToken(restaurantId, tokenId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["print-stations"] });
+      showToast(t("printStations.reactivated"), "success");
+    },
+    onError: (error: unknown) => {
+      // 409 TOKEN_NOT_QUARANTINED means this view was stale -- the token is
+      // already active, which is the outcome the owner wanted. Refetch so the
+      // row corrects itself instead of reporting a failure for a healthy
+      // printer.
+      const status = (error as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 409) {
+        qc.invalidateQueries({ queryKey: ["print-stations"] });
+        return;
+      }
+      showToast(t("printStations.reactivateFailed"), "error");
+    },
   });
 
   if (isLoading)
@@ -619,15 +646,58 @@ export default function PrintStationsView() {
                           ? timeAgo(tok.lastSeenAt)
                           : t("printStations.neverConnected")}
                       </span>
+                      {printAgentState(tok) === "stale" && (
+                        <span
+                          data-testid={`token-stale-${tok.id}`}
+                          className="ml-3 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        >
+                          {(() => {
+                            const days = daysUntilEnforcement(
+                              tok.stalenessEnforcedAt,
+                            );
+                            // Advisory only: printing still works. The countdown
+                            // comes from the backend's own date so it matches
+                            // the day the sweep will actually act.
+                            return days === null
+                              ? t("printStations.staleWarning")
+                              : t("printStations.staleWarningCountdown", {
+                                  days,
+                                });
+                          })()}
+                        </span>
+                      )}
+                      {printAgentState(tok) === "quarantined" && (
+                        <span
+                          data-testid={`token-quarantined-${tok.id}`}
+                          className="ml-3 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive"
+                        >
+                          {t("printStations.quarantined")}
+                        </span>
+                      )}
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => revokeTokenMutation.mutate(tok.id)}
-                      disabled={revokeTokenMutation.isPending}
-                    >
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {printAgentState(tok) === "quarantined" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-testid={`token-reactivate-${tok.id}`}
+                          onClick={() =>
+                            reactivateTokenMutation.mutate(tok.id)
+                          }
+                          disabled={reactivateTokenMutation.isPending}
+                        >
+                          {t("printStations.reactivate")}
+                        </Button>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => revokeTokenMutation.mutate(tok.id)}
+                        disabled={revokeTokenMutation.isPending}
+                      >
+                        <Trash2 className="w-3 h-3 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -172,7 +172,21 @@ export class PrintStationService {
       where: { restaurantId },
       include: {
         agentTokens: {
-          select: { id: true, label: true, lastSeenAt: true, createdAt: true },
+          // Retirement state is surfaced so an owner can see a warning before
+          // a token is ever revoked, and recover one that already has been.
+          // Automatic quarantine is only defensible if it is visible.
+          select: {
+            id: true,
+            label: true,
+            lastSeenAt: true,
+            createdAt: true,
+            staleWarnedAt: true,
+            quarantinedAt: true,
+            // The dashboard derives every deadline it shows from this, rather
+            // than hardcoding a date that would be wrong in any environment
+            // whose rollout differed.
+            stalenessEnforcedAt: true,
+          },
         },
         _count: {
           select: {
