@@ -8,7 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
+import { CRON_DAILY, CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
 import { createHash, randomBytes } from 'crypto';
@@ -29,6 +29,16 @@ const MAX_AGENT_TOKENS_PER_STATION = 5;
 const PRINTED_JOB_RETENTION_DAYS = 30;
 const FAILED_JOB_RETENTION_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Print agents retire on INACTIVITY, never on a calendar date. The agent runs
+// unattended on a kitchen device, so an expiry that lands mid-service stops
+// tickets at the worst possible moment -- a worse outcome than the stale
+// credential it was meant to prevent. Silence, by contrast, is real evidence:
+// a device that has not connected in months is lost, replaced or scrapped.
+//
+// Warning is advisory and never blocks. Only quarantine revokes.
+const PRINT_AGENT_STALE_WARN_DAYS = 90;
+const PRINT_AGENT_QUARANTINE_DAYS = 180;
 
 @Injectable()
 export class PrintStationService {
@@ -273,6 +283,9 @@ export class PrintStationService {
     });
     if (
       !record ||
+      // Quarantined: the device behind this token has been silent past the
+      // retirement window, so it is no longer a credential.
+      record.quarantinedAt ||
       !this.featureService.restaurantHasFeature(
         record.restaurant,
         FeatureFlag.PRINTERS_THERMAL,
@@ -280,7 +293,83 @@ export class PrintStationService {
     ) {
       return null;
     }
+
+    // Connecting proves the device is alive. Clearing the warning here is what
+    // stops a printer that was merely idle over a quiet period from maturing
+    // into a quarantine once it comes back.
+    if (record.staleWarnedAt) {
+      await this.prisma.printAgentToken.update({
+        where: { id: record.id },
+        data: { staleWarnedAt: null },
+      });
+    }
+
     return record;
+  }
+
+  /**
+   * Retire print-agent tokens whose devices have gone silent.
+   *
+   * Two stages, deliberately: a warning the owner can act on, and only later a
+   * quarantine that actually revokes. Nothing here can interrupt a working
+   * printer -- a token that is connecting is, by definition, being seen.
+   *
+   * `lastSeenAt` is null until an agent first connects, so age falls back to
+   * `createdAt`. Without that a token issued and never used would never be
+   * touched, which is exactly the credential most worth retiring.
+   */
+  @Cron(CRON_DAILY.PRINT_AGENT_RETIREMENT, {
+    name: 'retireStalePrintAgents',
+    waitForCompletion: true,
+  })
+  async retireStalePrintAgents(now = new Date()): Promise<{
+    warned: number;
+    quarantined: number;
+  }> {
+    const unseenSince = (days: number) => new Date(now.getTime() - days * DAY_MS);
+
+    const silentBefore = (cutoff: Date) => ({
+      OR: [
+        { lastSeenAt: { lt: cutoff } },
+        { lastSeenAt: null, createdAt: { lt: cutoff } },
+      ],
+    });
+
+    try {
+      // Quarantine first: a token past the longer window should not be merely
+      // warned on this pass and revoked a day later.
+      const quarantined = await this.prisma.printAgentToken.updateMany({
+        where: {
+          quarantinedAt: null,
+          ...silentBefore(unseenSince(PRINT_AGENT_QUARANTINE_DAYS)),
+        },
+        data: { quarantinedAt: now },
+      });
+
+      const warned = await this.prisma.printAgentToken.updateMany({
+        where: {
+          staleWarnedAt: null,
+          quarantinedAt: null,
+          ...silentBefore(unseenSince(PRINT_AGENT_STALE_WARN_DAYS)),
+        },
+        data: { staleWarnedAt: now },
+      });
+
+      if (quarantined.count || warned.count) {
+        this.logger.log(
+          `Print agent retirement: warned ${warned.count}, quarantined ${quarantined.count}`,
+        );
+      }
+      return { warned: warned.count, quarantined: quarantined.count };
+    } catch (error) {
+      // A failed sweep must not take down the scheduler; the next run retries.
+      this.logger.error(
+        `Print agent retirement sweep failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { warned: 0, quarantined: 0 };
+    }
   }
 
   async touchLastSeen(token: string) {

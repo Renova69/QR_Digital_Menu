@@ -597,6 +597,47 @@ describe('AuthService', () => {
       ).rejects.toThrow(HttpException);
     });
 
+    // Device trust is checked at PIN login only -- never mid-session -- so a
+    // lapse can never interrupt someone already working a shift.
+    it('refuses a PIN login once device trust has expired', async () => {
+      const staff = makeUser({ role: 'WAITER', pinHash: 'hash' });
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        id: 'device-token-1',
+        pinAttempts: 0,
+        pinLockedUntil: null,
+        sessionVersion: 0,
+        deviceTrustExpiresAt: new Date(Date.now() - 1000),
+      });
+      mockPrisma.user.findMany.mockResolvedValue([staff]);
+      // The PIN itself is correct. Expired device trust must be the only
+      // reason this fails, or the test passes for the wrong reason.
+      mockCompare.mockResolvedValue(true);
+
+      await expect(
+        service.pinLogin('rest1', '1234', 'device-token'),
+      ).rejects.toThrow(/no longer trusted|re-enroll/i);
+      expect(mockJwt.sign).not.toHaveBeenCalled();
+    });
+
+    // NULL means "trusted indefinitely", which is what every device enrolled
+    // before this shipped already was. Nothing is un-trusted retroactively.
+    it('treats an unset trust expiry as still trusted', async () => {
+      const staff = makeUser({ role: 'WAITER', pinHash: 'hash' });
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        id: 'device-token-1',
+        pinAttempts: 0,
+        pinLockedUntil: null,
+        sessionVersion: 0,
+        deviceTrustExpiresAt: null,
+      });
+      mockPrisma.user.findMany.mockResolvedValue([staff]);
+      mockCompare.mockResolvedValue(true);
+
+      await expect(
+        service.pinLogin('rest1', '1234', 'device-token'),
+      ).resolves.toBeDefined();
+    });
+
     it('returns JWT and resets device attempt counter on valid PIN', async () => {
       mockCompare.mockResolvedValue(true);
       const staff = makeUser({

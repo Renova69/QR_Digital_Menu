@@ -55,6 +55,14 @@ const AUTH_PROVIDER_TIMEOUT_MS = 10_000;
 // they control, and shortening them only trains people to re-authenticate.
 const STAFF_DEVICE_SESSION_TTL = '12h';
 
+// How long a device stays trusted to accept a 4-digit PIN after enrolment.
+// Separate from the enrolment link's own short TTL, and from the session TTL
+// above -- this is the trust that lets a PIN be sufficient at all.
+//
+// Checked at PIN login only. A lapse must never interrupt a shift already in
+// progress, so it is never enforced mid-session.
+export const DEVICE_TRUST_DAYS = 180;
+
 const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
 const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
@@ -923,12 +931,30 @@ export class AuthService {
         pinAttempts: true,
         pinLockedUntil: true,
         sessionVersion: true,
+        deviceTrustExpiresAt: true,
       },
     });
 
     if (!enrolledDevice) {
       throw new UnauthorizedException(
         'This device is not enrolled for staff PIN login.',
+      );
+    }
+
+    // Device trust lapses on its own so a tablet cannot stay a credential
+    // indefinitely across staff turnover. NULL means trusted indefinitely --
+    // which is what every device enrolled before this shipped already was, so
+    // nothing is un-trusted retroactively.
+    //
+    // Enforced here rather than in the session guard on purpose: expiring a
+    // live session would drop a waiter mid-order, whereas refusing the next
+    // login costs one re-enrolment the owner can do between covers.
+    if (
+      enrolledDevice.deviceTrustExpiresAt &&
+      enrolledDevice.deviceTrustExpiresAt <= new Date()
+    ) {
+      throw new UnauthorizedException(
+        'This device is no longer trusted for PIN login. Ask an owner or manager to re-enroll it.',
       );
     }
 

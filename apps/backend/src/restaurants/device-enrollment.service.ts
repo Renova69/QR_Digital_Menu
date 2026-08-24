@@ -11,6 +11,12 @@ import { EventsGateway } from '../events/events.gateway';
 
 const ENROLLMENT_TTL_MINUTES = 10;
 
+// How long the device stays trusted to accept a 4-digit PIN once enrolled --
+// distinct from the 10-minute life of the enrolment link itself. Set at the
+// moment of enrolment so the clock starts when the device is actually bound,
+// not when the link was generated.
+const DEVICE_TRUST_DAYS = 180;
+
 @Injectable()
 export class DeviceEnrollmentService {
   constructor(
@@ -315,9 +321,15 @@ export class DeviceEnrollmentService {
         tokenHash,
         usedAt: null,
         revokedAt: null,
-        expiresAt: { gt: new Date() },
+        expiresAt: { gt: now },
       },
-      data: { usedAt: new Date() },
+      data: {
+        usedAt: now,
+        // Trust starts now, not when the link was issued.
+        deviceTrustExpiresAt: new Date(
+          now.getTime() + DEVICE_TRUST_DAYS * 24 * 60 * 60 * 1000,
+        ),
+      },
     });
 
     if (claim.count === 0) {

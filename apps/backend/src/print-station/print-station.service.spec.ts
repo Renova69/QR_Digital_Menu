@@ -18,7 +18,9 @@ const mockPrisma: any = {
     count: jest.fn(),
     findFirst: jest.fn(),
     findUnique: jest.fn(),
+    findMany: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     delete: jest.fn(),
   },
   printJob: {
@@ -247,6 +249,101 @@ describe('PrintStationService', () => {
       });
 
       await expect(service.validateAgentToken('secret')).resolves.toBeNull();
+    });
+
+    // A quarantined token belongs to a device nobody has seen in months --
+    // lost, replaced or decommissioned. It must stop being a credential.
+    it('rejects a quarantined token', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(true);
+      mockPrisma.printAgentToken.findUnique.mockResolvedValue({
+        id: 'token-1',
+        quarantinedAt: new Date('2026-01-01'),
+        restaurant: { tier: 'ENTERPRISE', forceTier: null },
+        printStation: { id: 'station-1', isActive: true },
+      });
+
+      await expect(service.validateAgentToken('secret')).resolves.toBeNull();
+    });
+
+    // Only quarantine blocks. A warning is a nudge to the owner, never an
+    // interruption to printing -- that distinction is the whole design.
+    it('still accepts a token that is merely warned as stale', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(true);
+      mockPrisma.printAgentToken.findUnique.mockResolvedValue({
+        id: 'token-1',
+        staleWarnedAt: new Date('2026-01-01'),
+        quarantinedAt: null,
+        restaurant: { tier: 'ENTERPRISE', forceTier: null },
+        printStation: { id: 'station-1', isActive: true },
+      });
+
+      await expect(
+        service.validateAgentToken('secret'),
+      ).resolves.not.toBeNull();
+    });
+
+    // Reconnecting proves the device is alive, so a warning must not persist
+    // and quietly mature into a quarantine.
+    it('clears a staleness warning when the agent reconnects', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(true);
+      mockPrisma.printAgentToken.findUnique.mockResolvedValue({
+        id: 'token-1',
+        staleWarnedAt: new Date('2026-01-01'),
+        quarantinedAt: null,
+        restaurant: { tier: 'ENTERPRISE', forceTier: null },
+        printStation: { id: 'station-1', isActive: true },
+      });
+
+      await service.validateAgentToken('secret');
+
+      expect(mockPrisma.printAgentToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'token-1' },
+          data: { staleWarnedAt: null },
+        }),
+      );
+    });
+  });
+
+  describe('retireStalePrintAgents', () => {
+    it('warns tokens unseen past the warning window', async () => {
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 2 });
+
+      await service.retireStalePrintAgents();
+
+      const warnCall = mockPrisma.printAgentToken.updateMany.mock.calls.find(
+        (c: any) => c[0].data.staleWarnedAt instanceof Date,
+      );
+      expect(warnCall).toBeDefined();
+      expect(warnCall[0].where).toMatchObject({
+        staleWarnedAt: null,
+        quarantinedAt: null,
+      });
+    });
+
+    it('quarantines tokens unseen past the quarantine window', async () => {
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.retireStalePrintAgents();
+
+      const quarantineCall =
+        mockPrisma.printAgentToken.updateMany.mock.calls.find(
+          (c: any) => c[0].data.quarantinedAt instanceof Date,
+        );
+      expect(quarantineCall).toBeDefined();
+      expect(quarantineCall[0].where.quarantinedAt).toBeNull();
+    });
+
+    // A token that has never connected has no lastSeenAt. Its age must be
+    // judged from createdAt, or a token issued and never used would sit
+    // untouched forever -- exactly the credential worth retiring.
+    it('judges a never-connected token by when it was created', async () => {
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.retireStalePrintAgents();
+
+      const call = mockPrisma.printAgentToken.updateMany.mock.calls[0][0];
+      expect(JSON.stringify(call.where)).toContain('createdAt');
     });
   });
 

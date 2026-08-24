@@ -284,11 +284,19 @@ model PrintAgentToken {
   restaurantId   String
   label          String?
   lastSeenAt     DateTime?
+  // Retirement is driven by inactivity, never by a calendar. A print agent runs
+  // unattended on a kitchen device: a token that expires on a fixed date stops
+  // tickets mid-service, which is a worse failure than the stale credential it
+  // was meant to prevent. A token that has not connected in months, on the
+  // other hand, is on a device that is lost, replaced or decommissioned.
+  staleWarnedAt  DateTime?
+  quarantinedAt  DateTime?
   createdAt      DateTime     @default(now())
   printStation   PrintStation @relation(fields: [printStationId], references: [id], onDelete: Cascade)
   restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId])
+  @@index([lastSeenAt])
   @@map("print_agent_token")
 }
 
@@ -589,21 +597,29 @@ model CashPaymentRequest {
 }
 
 model DeviceEnrollmentToken {
-  id             String               @id @default(cuid())
-  tokenHash      String               @unique
-  restaurantId   String
-  createdById    String
-  expiresAt      DateTime
-  usedAt         DateTime?
-  revokedAt      DateTime?
-  sessionVersion Int                  @default(0)
-  pinAttempts    Int                  @default(0)
-  pinLockedUntil DateTime?
-  createdAt      DateTime             @default(now())
-  restaurant     Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdBy      User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  staffBindings  StaffDeviceBinding[]
-  lastLoginUsers User[]               @relation("LastStaffDeviceLogin")
+  id                   String               @id @default(cuid())
+  tokenHash            String               @unique
+  restaurantId         String
+  createdById          String
+  expiresAt            DateTime
+  usedAt               DateTime?
+  revokedAt            DateTime?
+  sessionVersion       Int                  @default(0)
+  // Deliberately separate from `expiresAt`, which gates the one-time enrolment
+  // link. This is how long the DEVICE stays trusted to accept a 4-digit PIN
+  // afterwards. Reusing expiresAt would have un-trusted every already-enrolled
+  // tablet the moment this shipped.
+  //
+  // Checked only at PIN login, never mid-session, so trust lapsing can never
+  // interrupt someone already working.
+  deviceTrustExpiresAt DateTime?
+  pinAttempts          Int                  @default(0)
+  pinLockedUntil       DateTime?
+  createdAt            DateTime             @default(now())
+  restaurant           Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy            User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  staffBindings        StaffDeviceBinding[]
+  lastLoginUsers       User[]               @relation("LastStaffDeviceLogin")
 
   @@index([restaurantId])
   @@index([expiresAt])
