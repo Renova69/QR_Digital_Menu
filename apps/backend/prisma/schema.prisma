@@ -202,6 +202,7 @@ model Restaurant {
   menuTranslationStates       MenuTranslationState[]
   translationRuns             TranslationRun[]
   translationUsages           TranslationUsage[]
+  securityAlerts              SecurityAlert[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -651,6 +652,30 @@ model StaffDeviceBinding {
   @@index([restaurantId, userId])
   @@index([deviceTokenId])
   @@map("staff_device_binding")
+}
+
+/// Detection signals raised from staff PIN-login failures.
+///
+/// Persisted rather than fired-and-forgotten for two reasons: it is what the
+/// dashboard reads, and it is how alerts are deduplicated across instances --
+/// an in-memory guard would let each of the three Cloud Run instances alert
+/// separately for the same incident.
+model SecurityAlert {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  /// MULTI_DEVICE_LOCKOUT | PIN_SPIKE | DEVICE_SLOW_BURN | RESTAURANT_AGGREGATE
+  kind          String
+  /// Set for device-scoped signals so the dedupe window is per device rather
+  /// than per restaurant.
+  deviceTokenId String?
+  /// Counts and window that triggered it, for the dashboard to explain itself.
+  detail        Json?
+  createdAt     DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, kind, createdAt])
+  @@map("security_alert")
 }
 
 model StaffPinLoginAudit {

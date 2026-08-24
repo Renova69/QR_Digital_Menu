@@ -1787,6 +1787,27 @@ export const createDeviceEnrollment = async (restaurantId: string) => {
   return response.data as { enrollmentUrl: string; expiresAt: string };
 };
 
+export type PinSecurityAlert = {
+  id: string;
+  kind:
+    | "MULTI_DEVICE_LOCKOUT"
+    | "PIN_SPIKE"
+    | "DEVICE_SLOW_BURN"
+    | "RESTAURANT_AGGREGATE";
+  deviceTokenId: string | null;
+  detail: Record<string, number> | null;
+  createdAt: string;
+};
+
+/** Staff PIN abuse signals for the dashboard. Detection only -- the blocking
+ *  control remains per-device lockout. */
+export const listPinSecurityAlerts = async (restaurantId: string) => {
+  const response = await api.get(
+    `/restaurants/${restaurantId}/pin-security-alerts`,
+  );
+  return response.data as PinSecurityAlert[];
+};
+
 export const listDeviceEnrollments = async (restaurantId: string) => {
   const response = await api.get(
     `/restaurants/${restaurantId}/device-enrollments`,

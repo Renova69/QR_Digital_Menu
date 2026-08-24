@@ -438,7 +438,13 @@
     "inviteHintPassword": "The account is created now with a temporary password. Sending a direct email invitation can be added in v2.",
     "deviceTrustExpiring": "Re-enrolment needed in {{days}} days",
     "deviceTrustExpired": "Trust expired — re-enrol this device to allow PIN login",
-    "deviceTrustUnknown": "Re-enrolment date not recorded — re-enrol to set one"
+    "deviceTrustUnknown": "Re-enrolment date not recorded — re-enrol to set one",
+    "pinAlert": {
+      "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} devices were locked out within {{windowMinutes}} minutes",
+      "PIN_SPIKE": "{{failures}} failed staff PIN attempts within {{windowMinutes}} minutes",
+      "DEVICE_SLOW_BURN": "{{failures}} failed PIN attempts on one device over {{windowDays}} days",
+      "RESTAURANT_AGGREGATE": "{{failures}} failed staff PIN attempts in the last {{windowHours}} hours"
+    }
   },
   "branding": {
     "title": "Restaurant Branding",

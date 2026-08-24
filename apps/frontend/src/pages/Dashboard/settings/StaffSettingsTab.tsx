@@ -25,6 +25,7 @@ import {
   createDeviceEnrollment,
   createStaff,
   listDeviceEnrollments,
+  listPinSecurityAlerts,
   listStaff,
   removeStaff,
   resetStaffPin,
@@ -130,7 +131,8 @@ const displayEmail = (email: string) => {
   return domain.endsWith(".local") ? "-" : email;
 };
 
-import { deviceTrustState } from "../credentialState";
+import { deviceTrustState, pinAlertSeverity } from "../credentialState";
+import type { PinSecurityAlert } from "../../../lib/api";
 
 type DeviceEnrollmentStatus = "pending" | "used" | "expired" | "revoked";
 
@@ -223,6 +225,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   const [deviceEnrollments, setDeviceEnrollments] = useState<
     DeviceEnrollment[]
   >([]);
+  const [pinAlerts, setPinAlerts] = useState<PinSecurityAlert[]>([]);
   const [deviceEnrollmentsLoading, setDeviceEnrollmentsLoading] =
     useState(false);
   const [revokingEnrollmentId, setRevokingEnrollmentId] = useState<
@@ -393,6 +396,14 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       setDeviceEnrollments([]);
     } finally {
       setDeviceEnrollmentsLoading(false);
+    }
+
+    // Detection is advisory, so a failure here must leave the rest of the tab
+    // working rather than blanking the device list.
+    try {
+      setPinAlerts(await listPinSecurityAlerts(activeRestaurant.id));
+    } catch {
+      setPinAlerts([]);
     }
   };
 
@@ -1225,6 +1236,29 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                 <p className="text-sm font-semibold text-foreground">
                   {t("staff.deviceSessionsTitle")}
                 </p>
+                {pinAlerts.length > 0 && (
+                  <div className="mt-3 space-y-2" data-testid="pin-alerts">
+                    {pinAlerts.map((alert) => {
+                      const severity = pinAlertSeverity(alert.kind);
+                      return (
+                        <div
+                          key={alert.id}
+                          data-testid={`pin-alert-${alert.kind}`}
+                          data-severity={severity}
+                          className={`rounded-lg px-3 py-2 text-xs font-medium ${
+                            severity === "urgent"
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                          }`}
+                        >
+                          {t(`staff.pinAlert.${alert.kind}`, {
+                            ...(alert.detail ?? {}),
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="mt-3 space-y-2">
                   {deviceEnrollmentsLoading ? (
                     <p className="text-sm text-muted-foreground">

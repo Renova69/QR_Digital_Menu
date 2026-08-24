@@ -17,6 +17,7 @@ import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { buildPhonePlaceholderEmail } from './phone-placeholder';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { PinSecurityService } from './pin-security.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import {
@@ -83,6 +84,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
     private readonly events: EventsGateway,
+    private readonly pinSecurity: PinSecurityService,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -1083,6 +1085,14 @@ export class AuthService {
       status: attempts >= MAX_ATTEMPTS ? 'LOCKED' : 'INVALID_PIN',
       ...meta,
     });
+
+    // Detection runs after the audit row exists, and is deliberately not
+    // awaited: it is advisory, and must never delay a login, change what the
+    // caller sees, or turn a wrong PIN into a 500. It also never blocks --
+    // per-device lockout above remains the only blocking control, because a
+    // restaurant-wide one could be triggered on purpose to take every till
+    // offline mid-service.
+    void this.pinSecurity.evaluate(restaurantId, enrolledDevice.id);
 
     const remaining = MAX_ATTEMPTS - attempts;
     if (remaining > 0) {

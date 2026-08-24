@@ -440,7 +440,13 @@
     "inviteHintPassword": "Профилът е създаден с временна парола. Изпращане на директна покана по имейл ще бъде добавено във v2.",
     "deviceTrustExpiring": "Нужна е повторна регистрация след {{days}} дни",
     "deviceTrustExpired": "Доверието изтече — регистрирайте устройството отново за PIN вход",
-    "deviceTrustUnknown": "Датата за повторна регистрация не е записана — регистрирайте отново"
+    "deviceTrustUnknown": "Датата за повторна регистрация не е записана — регистрирайте отново",
+    "pinAlert": {
+      "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} устройства бяха заключени в рамките на {{windowMinutes}} минути",
+      "PIN_SPIKE": "{{failures}} неуспешни опита с PIN в рамките на {{windowMinutes}} минути",
+      "DEVICE_SLOW_BURN": "{{failures}} неуспешни опита с PIN на едно устройство за {{windowDays}} дни",
+      "RESTAURANT_AGGREGATE": "{{failures}} неуспешни опита с PIN през последните {{windowHours}} часа"
+    }
   },
   "branding": {
     "title": "Брандиране на ресторанта",

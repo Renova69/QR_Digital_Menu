@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PinSecurityService } from '../auth/pin-security.service';
 import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
 import { DeviceEnrollmentController } from './device-enrollment.controller';
@@ -31,7 +32,7 @@ import {
     OnboardingSlugController,
     SlugController,
   ],
-  providers: [RestaurantsService, DeviceEnrollmentService],
+  providers: [RestaurantsService, DeviceEnrollmentService, PinSecurityService],
   exports: [RestaurantsService, DeviceEnrollmentService],
 })
 export class RestaurantsModule {}

@@ -438,7 +438,13 @@
     "inviteHintPassword": "Contul este creat cu o parolă temporară. Trimiterea unei invitații prin email va fi adăugată în v2.",
     "deviceTrustExpiring": "Reînrolare necesară în {{days}} zile",
     "deviceTrustExpired": "Încredere expirată — reînrolați dispozitivul pentru autentificare PIN",
-    "deviceTrustUnknown": "Data reînrolării nu este înregistrată — reînrolați pentru a o seta"
+    "deviceTrustUnknown": "Data reînrolării nu este înregistrată — reînrolați pentru a o seta",
+    "pinAlert": {
+      "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} dispozitive au fost blocate în {{windowMinutes}} minute",
+      "PIN_SPIKE": "{{failures}} încercări PIN eșuate în {{windowMinutes}} minute",
+      "DEVICE_SLOW_BURN": "{{failures}} încercări PIN eșuate pe un dispozitiv în {{windowDays}} zile",
+      "RESTAURANT_AGGREGATE": "{{failures}} încercări PIN eșuate în ultimele {{windowHours}} ore"
+    }
   },
   "branding": {
     "title": "Branding Restaurant",

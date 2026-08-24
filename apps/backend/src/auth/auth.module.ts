@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LocalStrategy } from './local.strategy';
 import { JwtStrategy } from './jwt.strategy';
+import { PinSecurityService } from './pin-security.service';
 import { GoogleStrategy } from './google.strategy';
 import { OptionalJwtStrategy } from './optional-jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -34,6 +35,7 @@ import { SessionRevocationModule } from './session-revocation.module';
   controllers: [AuthController],
   providers: [
     AuthService,
+    PinSecurityService,
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,

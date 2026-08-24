@@ -3,6 +3,7 @@ import {
   printAgentState,
   deviceTrustState,
   daysUntilEnforcement,
+  pinAlertSeverity,
 } from "./credentialState";
 
 const token = (over: Partial<Parameters<typeof printAgentState>[0]> = {}) => ({
@@ -113,5 +114,20 @@ describe("daysUntilEnforcement", () => {
   // backend never recorded.
   it("is null when the backend recorded no enforcement date", () => {
     expect(daysUntilEnforcement(null, now)).toBeNull();
+  });
+});
+
+describe("pinAlertSeverity", () => {
+  it("treats the short-window signals as urgent", () => {
+    expect(pinAlertSeverity("MULTI_DEVICE_LOCKOUT")).toBe("urgent");
+    expect(pinAlertSeverity("PIN_SPIKE")).toBe("urgent");
+    expect(pinAlertSeverity("DEVICE_SLOW_BURN")).toBe("urgent");
+  });
+
+  // Informational by design. A trading day of failures across every device is
+  // noisier than the 15-minute signals, and showing it as urgent would train
+  // owners to ignore the ones that matter.
+  it("treats the restaurant 24h aggregate as informational", () => {
+    expect(pinAlertSeverity("RESTAURANT_AGGREGATE")).toBe("info");
   });
 });

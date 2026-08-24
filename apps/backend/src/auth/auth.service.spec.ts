@@ -117,6 +117,9 @@ describe('AuthService', () => {
       // P1-13: a password change must also tear down live sockets, not just
       // invalidate the next HTTP request.
       mockEvents as any,
+      // P2-11 detection is fire-and-forget on the auth path; a stub here keeps
+      // these tests about authentication rather than about alerting.
+      { evaluate: jest.fn().mockResolvedValue([]) } as any,
     );
   });
 

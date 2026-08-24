@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PinSecurityService } from '../auth/pin-security.service';
 import { Reflector } from '@nestjs/core';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { RestaurantsController } from './restaurants.controller';
@@ -50,6 +51,10 @@ describe('RestaurantsController', () => {
         { provide: RestaurantsService, useValue: mockRestaurantsService },
         { provide: StorageService, useValue: mockStorageService },
         { provide: DeviceEnrollmentService, useValue: mockDeviceEnrollment },
+        {
+          provide: PinSecurityService,
+          useValue: { recentAlerts: jest.fn().mockResolvedValue([]) },
+        },
         { provide: FeatureService, useValue: mockFeatureService },
         { provide: PrismaService, useValue: {} },
         { provide: Reflector, useValue: { get: jest.fn() } },

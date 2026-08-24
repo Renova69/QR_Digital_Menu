@@ -85,3 +85,21 @@ export function daysUntilEnforcement(
   const ms = at - now.getTime();
   return ms <= 0 ? 0 : Math.ceil(ms / DAY_MS);
 }
+
+export type PinAlertKind =
+  | "MULTI_DEVICE_LOCKOUT"
+  | "PIN_SPIKE"
+  | "DEVICE_SLOW_BURN"
+  | "RESTAURANT_AGGREGATE";
+
+/**
+ * How prominently a PIN abuse signal should read.
+ *
+ * The restaurant-wide 24h aggregate is deliberately informational: a full
+ * trading day of failures across every device is noisier than the 15-minute
+ * signals, and showing it as urgent would train owners to ignore the ones that
+ * actually indicate an attack.
+ */
+export function pinAlertSeverity(kind: PinAlertKind): "urgent" | "info" {
+  return kind === "RESTAURANT_AGGREGATE" ? "info" : "urgent";
+}
