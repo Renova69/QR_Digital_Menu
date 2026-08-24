@@ -45,6 +45,7 @@ const mockEvents = {
   findPrintAgentToken: jest.fn().mockResolvedValue('agent-token-1'),
   emitPrintJob: jest.fn().mockReturnValue(true),
   disconnectAgentByTokenId: jest.fn().mockResolvedValue(undefined),
+  listConnectedAgentTokenIds: jest.fn().mockResolvedValue([]),
 };
 
 const mockFeatureService = {
@@ -306,6 +307,107 @@ describe('PrintStationService', () => {
   });
 
   describe('retireStalePrintAgents', () => {
+    // A station can hold a live socket for months without ever printing -- a
+    // quiet counter, or one with no categories assigned. lastSeenAt only moved
+    // on connect and on a successful print, so such an agent would be
+    // quarantined while demonstrably connected.
+    it('refreshes currently connected agents before judging staleness', async () => {
+      mockEvents.listConnectedAgentTokenIds.mockResolvedValue(['live-1']);
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.retireStalePrintAgents();
+
+      expect(mockPrisma.printAgentToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['live-1'] } },
+          data: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
+        }),
+      );
+    });
+
+    // Tokens that predate this feature have a lastSeenAt from before anyone was
+    // recording it meaningfully. Quarantining them on the first sweep would
+    // stop printing with no warning -- the exact failure this design exists to
+    // avoid.
+    it('does not quarantine during the rollout grace period', async () => {
+      mockEvents.listConnectedAgentTokenIds.mockResolvedValue([]);
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 0 });
+
+      const duringGrace = new Date('2026-09-01T00:00:00Z');
+      await service.retireStalePrintAgents(duringGrace);
+
+      const quarantineCall =
+        mockPrisma.printAgentToken.updateMany.mock.calls.find(
+          (c: any) => c[0].data.quarantinedAt instanceof Date,
+        );
+      expect(quarantineCall).toBeUndefined();
+    });
+
+    // Warnings are advisory and never block, so they are safe from day one --
+    // and they are what gives an owner notice before enforcement begins.
+    it('still warns during the rollout grace period', async () => {
+      mockEvents.listConnectedAgentTokenIds.mockResolvedValue([]);
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.retireStalePrintAgents(new Date('2026-09-01T00:00:00Z'));
+
+      const warnCall = mockPrisma.printAgentToken.updateMany.mock.calls.find(
+        (c: any) => c[0].data.staleWarnedAt instanceof Date,
+      );
+      expect(warnCall).toBeDefined();
+    });
+
+    it('quarantines once the grace period has passed', async () => {
+      mockEvents.listConnectedAgentTokenIds.mockResolvedValue([]);
+      mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.retireStalePrintAgents(new Date('2027-06-01T00:00:00Z'));
+
+      const quarantineCall =
+        mockPrisma.printAgentToken.updateMany.mock.calls.find(
+          (c: any) => c[0].data.quarantinedAt instanceof Date,
+        );
+      expect(quarantineCall).toBeDefined();
+    });
+  });
+
+  describe('reactivateAgentToken', () => {
+    // A quarantined agent that comes back must have a way home that does not
+    // require re-flashing the device.
+    it('clears quarantine and staleness for the owning restaurant', async () => {
+      mockPrisma.printAgentToken.findFirst.mockResolvedValue({
+        id: 'token-1',
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.printAgentToken.update.mockResolvedValue({ id: 'token-1' });
+
+      await service.reactivateAgentToken('rest-1', 'token-1');
+
+      expect(mockPrisma.printAgentToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'token-1' },
+          data: expect.objectContaining({
+            quarantinedAt: null,
+            staleWarnedAt: null,
+          }),
+        }),
+      );
+    });
+
+    it('refuses a token belonging to another restaurant', async () => {
+      mockPrisma.printAgentToken.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.reactivateAgentToken('rest-1', 'token-of-other'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('retireStalePrintAgents windows', () => {
+    beforeEach(() => {
+      mockEvents.listConnectedAgentTokenIds.mockResolvedValue([]);
+    });
+
     it('warns tokens unseen past the warning window', async () => {
       mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 2 });
 
@@ -324,7 +426,8 @@ describe('PrintStationService', () => {
     it('quarantines tokens unseen past the quarantine window', async () => {
       mockPrisma.printAgentToken.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.retireStalePrintAgents();
+      // Past the rollout grace period, or quarantine is suppressed by design.
+      await service.retireStalePrintAgents(new Date('2027-06-01T00:00:00Z'));
 
       const quarantineCall =
         mockPrisma.printAgentToken.updateMany.mock.calls.find(

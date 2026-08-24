@@ -63,6 +63,13 @@ const STAFF_DEVICE_SESSION_TTL = '12h';
 // progress, so it is never enforced mid-session.
 export const DEVICE_TRUST_DAYS = 180;
 
+// Devices enrolled before this feature shipped have no recorded expiry. They
+// must not be trusted forever, but logging every one of them out on deploy day
+// would strand staff mid-shift across every restaurant at once. Treating an
+// absent value as "trusted until a full window after rollout" gives each of
+// them the same 180 days a newly enrolled device gets, starting from here.
+const DEVICE_TRUST_ROLLOUT = new Date('2026-08-24T00:00:00Z');
+
 const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
 const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
@@ -949,10 +956,12 @@ export class AuthService {
     // Enforced here rather than in the session guard on purpose: expiring a
     // live session would drop a waiter mid-order, whereas refusing the next
     // login costs one re-enrolment the owner can do between covers.
-    if (
-      enrolledDevice.deviceTrustExpiresAt &&
-      enrolledDevice.deviceTrustExpiresAt <= new Date()
-    ) {
+    const trustExpiresAt =
+      enrolledDevice.deviceTrustExpiresAt ??
+      new Date(
+        DEVICE_TRUST_ROLLOUT.getTime() + DEVICE_TRUST_DAYS * 24 * 60 * 60 * 1000,
+      );
+    if (trustExpiresAt <= new Date()) {
       throw new UnauthorizedException(
         'This device is no longer trusted for PIN login. Ask an owner or manager to re-enroll it.',
       );

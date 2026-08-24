@@ -40,6 +40,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const PRINT_AGENT_STALE_WARN_DAYS = 90;
 const PRINT_AGENT_QUARANTINE_DAYS = 180;
 
+// Quarantine does not begin the day this ships. Tokens that predate the feature
+// carry a lastSeenAt from before anyone recorded it meaningfully, so enforcing
+// immediately would revoke working printers with no warning -- the precise
+// failure this design exists to avoid. Warnings start at once (they are
+// advisory and never block), which is what gives an owner notice; revocation
+// waits until every live agent has had a full warning window to be seen.
+const PRINT_AGENT_ENFORCEMENT_STARTS = new Date('2026-11-22T00:00:00Z');
+
 @Injectable()
 export class PrintStationService {
   private readonly logger = new Logger(PrintStationService.name);
@@ -308,6 +316,28 @@ export class PrintStationService {
   }
 
   /**
+   * Bring a quarantined agent back without re-flashing the device.
+   *
+   * Quarantine is a judgement made from silence, and silence can be innocent --
+   * a seasonal closure, a station boxed up over a refit. The owner needs a way
+   * home that is cheaper than issuing and physically re-entering a new token.
+   */
+  async reactivateAgentToken(restaurantId: string, tokenId: string) {
+    const record = await this.prisma.printAgentToken.findFirst({
+      where: { id: tokenId, restaurantId },
+    });
+    if (!record) throw new NotFoundException('Token not found');
+
+    // lastSeenAt is deliberately reset too: without it the token is instantly
+    // re-eligible for quarantine on the next sweep, before the agent has had
+    // any chance to reconnect.
+    return this.prisma.printAgentToken.update({
+      where: { id: tokenId },
+      data: { quarantinedAt: null, staleWarnedAt: null, lastSeenAt: new Date() },
+    });
+  }
+
+  /**
    * Retire print-agent tokens whose devices have gone silent.
    *
    * Two stages, deliberately: a warning the owner can act on, and only later a
@@ -328,6 +358,28 @@ export class PrintStationService {
   }> {
     const unseenSince = (days: number) => new Date(now.getTime() - days * DAY_MS);
 
+    // A live socket is the strongest possible evidence the device is alive, and
+    // it outranks a lastSeenAt that has not moved because the station simply
+    // has not printed. Refresh before judging, never after.
+    try {
+      const connected = await this.events.listConnectedAgentTokenIds();
+      if (connected.length) {
+        await this.prisma.printAgentToken.updateMany({
+          where: { id: { in: connected } },
+          data: { lastSeenAt: now, staleWarnedAt: null },
+        });
+      }
+    } catch (error) {
+      // If the socket layer cannot answer, skip the sweep entirely rather than
+      // quarantine agents we simply failed to ask about.
+      this.logger.error(
+        `Could not enumerate connected print agents; skipping retirement sweep: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { warned: 0, quarantined: 0 };
+    }
+
     const silentBefore = (cutoff: Date) => ({
       OR: [
         { lastSeenAt: { lt: cutoff } },
@@ -338,13 +390,16 @@ export class PrintStationService {
     try {
       // Quarantine first: a token past the longer window should not be merely
       // warned on this pass and revoked a day later.
-      const quarantined = await this.prisma.printAgentToken.updateMany({
-        where: {
-          quarantinedAt: null,
-          ...silentBefore(unseenSince(PRINT_AGENT_QUARANTINE_DAYS)),
-        },
-        data: { quarantinedAt: now },
-      });
+      const quarantined =
+        now >= PRINT_AGENT_ENFORCEMENT_STARTS
+          ? await this.prisma.printAgentToken.updateMany({
+              where: {
+                quarantinedAt: null,
+                ...silentBefore(unseenSince(PRINT_AGENT_QUARANTINE_DAYS)),
+              },
+              data: { quarantinedAt: now },
+            })
+          : { count: 0 };
 
       const warned = await this.prisma.printAgentToken.updateMany({
         where: {

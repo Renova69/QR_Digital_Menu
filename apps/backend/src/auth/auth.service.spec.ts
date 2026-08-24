@@ -619,9 +619,30 @@ describe('AuthService', () => {
       expect(mockJwt.sign).not.toHaveBeenCalled();
     });
 
-    // NULL means "trusted indefinitely", which is what every device enrolled
-    // before this shipped already was. Nothing is un-trusted retroactively.
-    it('treats an unset trust expiry as still trusted', async () => {
+    // A device enrolled before this shipped has no recorded trust expiry. It
+    // must not be trusted forever, but it must also not be logged out the day
+    // this deploys -- so it gets the full trust window measured from rollout.
+    it('refuses a pre-existing device once the rollout window has passed', async () => {
+      const staff = makeUser({ role: 'WAITER', pinHash: 'hash' });
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        id: 'device-token-1',
+        pinAttempts: 0,
+        pinLockedUntil: null,
+        sessionVersion: 0,
+        deviceTrustExpiresAt: null,
+      });
+      mockPrisma.user.findMany.mockResolvedValue([staff]);
+      mockCompare.mockResolvedValue(true);
+      jest.useFakeTimers().setSystemTime(new Date('2027-06-01T00:00:00Z'));
+
+      await expect(
+        service.pinLogin('rest1', '1234', 'device-token'),
+      ).rejects.toThrow(/no longer trusted|re-enroll/i);
+
+      jest.useRealTimers();
+    });
+
+    it('still trusts a pre-existing device inside the rollout window', async () => {
       const staff = makeUser({ role: 'WAITER', pinHash: 'hash' });
       mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
         id: 'device-token-1',

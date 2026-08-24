@@ -802,6 +802,24 @@ export class EventsGateway
    * M-4: Disconnect any agent sockets in a station room that were authenticated
    * with the given tokenId. Called after token revocation.
    */
+  /**
+   * Token ids of every print agent currently holding a socket.
+   *
+   * `lastSeenAt` only moves on connect and on a successful print, so an agent
+   * that stays connected for months without printing -- a quiet counter, or a
+   * station with no categories assigned -- would drift into staleness while
+   * demonstrably alive. The retirement sweep uses this to refresh them first.
+   */
+  async listConnectedAgentTokenIds(): Promise<string[]> {
+    const sockets = await this.server.fetchSockets();
+    const ids = new Set<string>();
+    for (const sock of sockets) {
+      const tokenId = sock.data.agentTokenId as string | undefined;
+      if (tokenId) ids.add(tokenId);
+    }
+    return [...ids];
+  }
+
   async disconnectAgentByTokenId(
     restaurantId: string,
     stationId: string,
