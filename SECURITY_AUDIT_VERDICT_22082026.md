@@ -306,6 +306,22 @@ Note: DNS for `craftedminds.shop` already runs on Cloudflare nameservers (`neil.
 | PD-3 | Attach a custom domain to the R2 bucket, replacing the `pub-*.r2.dev` public development URL in `R2_PUBLIC_URL`.                                                                          | S      | Cloudflare documents `r2.dev` as rate-limited and development-only; a custom domain is required for CDN caching, cache rules, WAF and bot management on images. Free, uses the existing zone, no code change beyond the env var.                            |
 | PD-4 | Vercel Firewall custom rules on the frontend hostname; keep the Cloudflare record grey-cloud (DNS-only) to avoid double-CDN and to stop Vercel's own firewall seeing only Cloudflare IPs. | S      |                                                                                                                                                                                                                                                             |
 
+### Concurrency hardening — PIN lockout reset (tracked, non-blocking)
+
+`pinLogin` ignores the result of the guarded reset (`auth.service.ts` ~996) and
+sets `lockCleared = true` unconditionally. If `updateMany` returns
+`{ count: 0 }` — because another request has already established a *new* lock —
+the losing request still proceeds through bcrypt.
+
+It cannot erase the new lock (the WHERE matches nothing), so this does **not**
+recreate the indefinite brute-force defect fixed in 1345ee73. The residual
+effect is bounded: one extra already-started attempt may be evaluated, or the
+lock extended.
+
+Fix: inspect `count`; on zero, re-read the row and reject if a future lock now
+exists. The existing concurrency test asserts only the guarded WHERE and does
+not simulate `count: 0`, so the test needs extending alongside.
+
 ### P2-10 — PARTIAL (blocking items before enforcement)
 
 Backend retirement logic shipped and is safe to deploy. Enforcement cannot begin
