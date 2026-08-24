@@ -964,21 +964,43 @@ export class AuthService {
       );
     }
 
-    if (
-      enrolledDevice.pinLockedUntil &&
-      enrolledDevice.pinLockedUntil > new Date()
-    ) {
-      const minutes = Math.ceil(
-        (enrolledDevice.pinLockedUntil.getTime() - Date.now()) / 60000,
-      );
-      throw new HttpException(
-        {
-          message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
-          attemptsRemaining: 0,
-          lockedUntil: enrolledDevice.pinLockedUntil.toISOString(),
+    // Tracks whether a spent lock was retired on this request, so the relock
+    // guard below judges the window that starts now rather than the stale value
+    // this request read.
+    let lockCleared = false;
+    if (enrolledDevice.pinLockedUntil) {
+      if (enrolledDevice.pinLockedUntil > new Date()) {
+        const minutes = Math.ceil(
+          (enrolledDevice.pinLockedUntil.getTime() - Date.now()) / 60000,
+        );
+        throw new HttpException(
+          {
+            message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+            attemptsRemaining: 0,
+            lockedUntil: enrolledDevice.pinLockedUntil.toISOString(),
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      // The lock has expired, so retire it here rather than leaving a stale
+      // non-null value behind. The relock guard below tests `!lockedUntil`, so
+      // a spent lock that is never cleared permanently disables relocking:
+      // pinAttempts climbs past MAX_ATTEMPTS while every wrong PIN is merely
+      // rejected, and brute force continues at the route throttle forever.
+      // pinAttempts resets only on a successful login, which an attacker never
+      // reaches.
+      //
+      // Guarded on the value we read, so two concurrent requests cannot both
+      // clear it and lose a real attempt between them.
+      await this.prisma.deviceEnrollmentToken.updateMany({
+        where: {
+          id: enrolledDevice.id,
+          pinLockedUntil: enrolledDevice.pinLockedUntil,
         },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+        data: { pinAttempts: 0, pinLockedUntil: null },
+      });
+      lockCleared = true;
     }
 
     const candidates = await this.prisma.user.findMany({
@@ -1041,7 +1063,12 @@ export class AuthService {
     });
     const attempts = updatedDevice.pinAttempts;
 
-    let lockedUntil = enrolledDevice.pinLockedUntil;
+    // After a reset the stored value is null, so the window that matters is the
+    // fresh one. Reading enrolledDevice here would see the spent lock and
+    // suppress relocking forever -- the defect this guard is being fixed for.
+    let lockedUntil: Date | null = lockCleared
+      ? null
+      : enrolledDevice.pinLockedUntil;
     if (attempts >= MAX_ATTEMPTS && !lockedUntil) {
       lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
       await this.prisma.deviceEnrollmentToken.update({

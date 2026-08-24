@@ -306,6 +306,31 @@ Note: DNS for `craftedminds.shop` already runs on Cloudflare nameservers (`neil.
 | PD-3 | Attach a custom domain to the R2 bucket, replacing the `pub-*.r2.dev` public development URL in `R2_PUBLIC_URL`.                                                                          | S      | Cloudflare documents `r2.dev` as rate-limited and development-only; a custom domain is required for CDN caching, cache rules, WAF and bot management on images. Free, uses the existing zone, no code change beyond the env var.                            |
 | PD-4 | Vercel Firewall custom rules on the frontend hostname; keep the Cloudflare record grey-cloud (DNS-only) to avoid double-CDN and to stop Vercel's own firewall seeing only Cloudflare IPs. | S      |                                                                                                                                                                                                                                                             |
 
+### P2-10 — PARTIAL (blocking items before enforcement)
+
+Backend retirement logic shipped and is safe to deploy. Enforcement cannot begin
+until all of the following are in place — the deadline is self-enforcing, since
+nothing is quarantinable until each token's own `stalenessEnforcedAt` passes,
+which for existing installs is 90 days after the migration runs.
+
+1. **Dashboard: surface `staleWarnedAt` / `quarantinedAt`** in `PrintStationsView`,
+   with a **Reactivate** action wired to
+   `POST /print-stations/tokens/:tokenId/reactivate`. Without this an owner gets a
+   revocation with no prior warning and no in-app recovery.
+2. **Dashboard: device trust-expiry warning** in the enrolled-device list, before
+   `deviceTrustExpiresAt` lapses.
+3. **Fail boot in production when `REDIS_URL` is absent.**
+   `redis-io.adapter.ts` currently logs a warning and falls back to the in-memory
+   Socket.IO adapter. `fetchSockets()` then *succeeds* while seeing only the local
+   instance's sockets — so the retirement sweep does not abort, it proceeds on an
+   incomplete picture and can quarantine agents connected to other instances. At
+   `maxScale 3` that is up to two-thirds of live agents invisible, silently.
+
+   This protects all cross-instance realtime behaviour — order events, table
+   status, print-job routing — not only printer retirement. Production has
+   `REDIS_URL` bound today, so this is a guard against regression rather than a
+   live defect.
+
 ### P2 — This month
 
 | ID    | Task                                                                                                                                                                                             | Effort |

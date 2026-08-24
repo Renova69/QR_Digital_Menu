@@ -85,6 +85,7 @@ describe('AuthService', () => {
           sessionVersion: 0,
         }),
         update: jest.fn().mockResolvedValue({ pinAttempts: 1 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       staffDeviceBinding: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -639,6 +640,149 @@ describe('AuthService', () => {
       await expect(
         service.pinLogin('rest1', '1234', 'device-token'),
       ).resolves.toBeDefined();
+    });
+
+    // Once pinLockedUntil was set it was never cleared, and the relock guard
+    // read `!lockedUntil`. So after the first lockout expired the device could
+    // never lock again: pinAttempts climbed past MAX_ATTEMPTS while every wrong
+    // PIN was merely rejected, leaving brute force running at the route
+    // throttle indefinitely. pinAttempts resets only on a SUCCESSFUL login,
+    // which an attacker never reaches.
+    const expiredLockDevice = () => ({
+      id: 'device-token-1',
+      // Past, but non-null -- the exact state that disabled relocking.
+      pinLockedUntil: new Date(Date.now() - 60_000),
+      pinAttempts: 5,
+      sessionVersion: 0,
+      deviceTrustExpiresAt: null,
+    });
+
+    it('expired lock plus a wrong PIN is attempt one, four remaining', async () => {
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue(
+        expiredLockDevice(),
+      );
+      mockPrisma.user.findMany.mockResolvedValue([
+        makeUser({ role: 'WAITER', pinHash: 'hash' }),
+      ]);
+      mockCompare.mockResolvedValue(false);
+      mockPrisma.deviceEnrollmentToken.update.mockResolvedValue({
+        pinAttempts: 1,
+      });
+
+      await expect(
+        service.pinLogin('rest1', '9999', 'device-token'),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ attemptsRemaining: 4 }),
+      });
+
+      const reset =
+        mockPrisma.deviceEnrollmentToken.updateMany.mock.calls[0][0];
+      expect(reset.data).toEqual({ pinAttempts: 0, pinLockedUntil: null });
+      expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'INVALID_PIN' }),
+        }),
+      );
+    });
+
+    it('relocks on the fifth failure of the fresh window', async () => {
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        ...expiredLockDevice(),
+        pinLockedUntil: null,
+        pinAttempts: 4,
+      });
+      mockPrisma.user.findMany.mockResolvedValue([
+        makeUser({ role: 'WAITER', pinHash: 'hash' }),
+      ]);
+      mockCompare.mockResolvedValue(false);
+      mockPrisma.deviceEnrollmentToken.update.mockResolvedValue({
+        pinAttempts: 5,
+      });
+
+      await expect(
+        service.pinLogin('rest1', '9999', 'device-token'),
+      ).rejects.toThrow();
+
+      const relock = mockPrisma.deviceEnrollmentToken.update.mock.calls.find(
+        (c: any) => c[0].data.pinLockedUntil instanceof Date,
+      );
+      expect(relock).toBeDefined();
+      expect(relock[0].data.pinLockedUntil.getTime()).toBeGreaterThan(
+        Date.now(),
+      );
+      expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'LOCKED' }),
+        }),
+      );
+    });
+
+    // An active lock must short-circuit before any work: no hash comparison to
+    // time, and no counter mutation an attacker could drive.
+    it('does no bcrypt comparison or counter mutation while locked', async () => {
+      // This spec's mocks are not cleared between cases, and the assertion here
+      // is about what this call does -- not what the file has done so far.
+      mockCompare.mockClear();
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        ...expiredLockDevice(),
+        pinLockedUntil: new Date(Date.now() + 60_000),
+      });
+
+      await expect(
+        service.pinLogin('rest1', '9999', 'device-token'),
+      ).rejects.toThrow();
+
+      expect(mockCompare).not.toHaveBeenCalled();
+      expect(mockPrisma.deviceEnrollmentToken.update).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.deviceEnrollmentToken.updateMany,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('accepts a correct PIN once the lock has expired, with clean counters', async () => {
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue(
+        expiredLockDevice(),
+      );
+      mockPrisma.user.findMany.mockResolvedValue([
+        makeUser({ role: 'WAITER', pinHash: 'hash' }),
+      ]);
+      mockCompare.mockResolvedValue(true);
+
+      await expect(
+        service.pinLogin('rest1', '1234', 'device-token'),
+      ).resolves.toBeDefined();
+
+      expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { pinAttempts: 0, pinLockedUntil: null },
+        }),
+      );
+    });
+
+    // The reset is guarded on the exact value this request read, so a request
+    // that arrives after another has already established a NEW lock cannot
+    // clear it -- the WHERE simply matches nothing.
+    it('cannot clear a lock another request has since renewed', async () => {
+      const observed = expiredLockDevice();
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue(observed);
+      mockPrisma.user.findMany.mockResolvedValue([
+        makeUser({ role: 'WAITER', pinHash: 'hash' }),
+      ]);
+      mockCompare.mockResolvedValue(false);
+      mockPrisma.deviceEnrollmentToken.update.mockResolvedValue({
+        pinAttempts: 1,
+      });
+
+      await expect(
+        service.pinLogin('rest1', '9999', 'device-token'),
+      ).rejects.toThrow();
+
+      const reset =
+        mockPrisma.deviceEnrollmentToken.updateMany.mock.calls[0][0];
+      expect(reset.where).toEqual({
+        id: 'device-token-1',
+        pinLockedUntil: observed.pinLockedUntil,
+      });
     });
 
     it('returns JWT and resets device attempt counter on valid PIN', async () => {
