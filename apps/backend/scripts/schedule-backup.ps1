@@ -38,7 +38,7 @@ try {
     -Action $action `
     -Trigger $trigger `
     -Settings $settings `
-    -Description "QR Digital Menu — Daily Neon PostgreSQL backup" `
+    -Description "QR Digital Menu — Daily Supabase PostgreSQL backup" `
     -RunLevel Limited `
     -Force
   Write-Host "✅ Scheduled task '$taskName' created — runs daily at 8:00 AM."

@@ -1,17 +1,14 @@
 #!/usr/bin/env node
 /**
- * db-restore.js — Restore Neon PostgreSQL database from local pg_dump backup.
+ * db-restore.js — Restore a PostgreSQL backup into a new empty local database.
  *
- * Uses PostgreSQL 18's pg_restore with --no-owner (required for Neon —
- * neon_superuser can't run ALTER OWNER) and --clean --if-exists.
- *
- * ⚠️  DESTRUCTIVE — drops and recreates all tables, then restores data.
- * A safety backup is automatically created before restoring.
+ * This helper permanently refuses remote/default databases and refuses any
+ * local target that already contains public tables. It never drops objects.
+ * Production recovery is a separate, explicitly approved break-glass event.
  *
  * Usage:
  *   node scripts/db-restore.js ./backups/qr-menu-db-2026-07-09_16-00-00.bak
  *   node scripts/db-restore.js --list                      # list backups
- *   FORCE_RESTORE=true node scripts/db-restore.js ...      # skip confirm
  *   npm run db:restore -- ./backups/file.bak
  *   npm run db:backups
  */
@@ -20,27 +17,41 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const dotenv = require('dotenv');
-
-const envPath = path.resolve(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-}
 
 const PG_BIN =
   process.env.PG_BIN_DIR || 'C:\\Program Files\\PostgreSQL\\18\\bin';
 const PG_RESTORE = path.join(PG_BIN, 'pg_restore.exe');
 
-function getDirectUrl(raw = process.env.DATABASE_URL || '') {
+function getLocalRestoreTarget(raw = process.env.DATABASE_URL || '') {
   if (!raw) throw new Error('DATABASE_URL not set in .env or environment');
   const url = new URL(raw);
-  url.hostname = url.hostname.replace('-pooler', '');
+  if (
+    !['postgres:', 'postgresql:'].includes(url.protocol) ||
+    !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  ) {
+    throw new Error(
+      'Remote database restore is permanently blocked by this helper.',
+    );
+  }
+  const database = decodeURIComponent(url.pathname.replace(/^\//, ''));
+  if (
+    !database ||
+    ['postgres', 'template0', 'template1'].includes(database) ||
+    !/(restore|drill|scratch|disposable|test)/i.test(database)
+  ) {
+    throw new Error(
+      'Restore target must be a named local disposable/restore/drill/test database.',
+    );
+  }
   url.searchParams.delete('pgbouncer');
   url.searchParams.delete('connection_limit');
   url.searchParams.delete('connect_timeout');
   url.searchParams.delete('pool_timeout');
-  url.searchParams.set('sslmode', 'require');
-  return url.toString();
+  // Remote targets were rejected above. Standard disposable PostgreSQL
+  // containers do not enable TLS, so requiring it here would make the safe
+  // local restore-drill path unusable.
+  url.searchParams.set('sslmode', 'disable');
+  return { database, url: url.toString() };
 }
 
 function listBackups() {
@@ -69,20 +80,38 @@ function listBackups() {
 }
 
 async function confirm(msg) {
-  if (process.env.FORCE_RESTORE === 'true') return true;
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
   return new Promise((resolve) => {
-    rl.question(`${msg} [y/N] `, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-    });
+    rl.question(
+      `${msg}\nType RESTORE LOCAL DISPOSABLE to continue: `,
+      (answer) => {
+        rl.close();
+        resolve(answer === 'RESTORE LOCAL DISPOSABLE');
+      },
+    );
   });
 }
 
+function omitRedundantPublicSchema(restoreList) {
+  return restoreList
+    .split(/(?<=\n)/u)
+    .map((line) =>
+      /\bSCHEMA - public\b/u.test(line) && !line.startsWith(';')
+        ? `;${line}`
+        : line,
+    )
+    .join('');
+}
+
 async function main() {
+  const envPath = path.resolve(__dirname, '..', '.env');
+  if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+  }
+
   if (process.argv.includes('--list') || process.argv.includes('-l')) {
     listBackups();
     process.exit(0);
@@ -108,7 +137,8 @@ async function main() {
     process.exit(1);
   }
 
-  const connUrl = getDirectUrl();
+  const target = getLocalRestoreTarget();
+  const connUrl = target.url;
 
   console.log(`📄 Backup: ${path.basename(backupFile)}`);
   console.log(
@@ -118,25 +148,11 @@ async function main() {
   console.log('');
 
   const ok = await confirm(
-    '⚠️  This will DROP and recreate ALL tables. Data will be replaced. Continue?',
+    `This restores only into empty local database ${target.database}.`,
   );
   if (!ok) {
     console.log('Aborted.');
     process.exit(0);
-  }
-
-  // Safety backup
-  console.log('📦 Creating safety backup of current state...');
-  const backupScript = path.resolve(__dirname, 'db-backup.js');
-  try {
-    execFileSync(
-      'node',
-      [backupScript, '--output', `${backupFile}.pre-restore.bak`],
-      { stdio: 'inherit', timeout: 300000 },
-    );
-  } catch (e) {
-    console.error('❌ Pre-restore backup failed. Aborting.');
-    process.exit(1);
   }
 
   // Keep the password out of the process argument list; only the secret moves
@@ -145,6 +161,37 @@ async function main() {
   const pgPassword = decodeURIComponent(parsedRestore.password);
   parsedRestore.password = '';
   const sanitizedUrl = parsedRestore.toString();
+
+  const { Client } = require('pg');
+  const client = new Client({ connectionString: connUrl });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `SELECT count(*)::integer AS count
+       FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
+    );
+    if (result.rows[0]?.count !== 0) {
+      throw new Error(
+        `Restore aborted: local database ${target.database} is not empty. Create a new disposable database.`,
+      );
+    }
+  } finally {
+    await client.end();
+  }
+
+  const restoreList = execFileSync(PG_RESTORE, ['--list', backupFile], {
+    encoding: 'utf8',
+    timeout: 60000,
+  });
+  const listFile = path.join(
+    path.dirname(backupFile),
+    `.${path.basename(backupFile)}.${process.pid}.restore-list`,
+  );
+  fs.writeFileSync(listFile, omitRedundantPublicSchema(restoreList), {
+    encoding: 'utf8',
+    mode: 0o600,
+  });
 
   // Restore
   console.log('🔄 Restoring...');
@@ -155,9 +202,8 @@ async function main() {
         '-v',
         '--no-owner',
         '--no-privileges',
-        '--clean',
-        '--if-exists',
         '--no-tablespaces',
+        `--use-list=${listFile}`,
         '-d',
         sanitizedUrl,
         '--',
@@ -171,22 +217,14 @@ async function main() {
     );
     console.log('✅ Restore complete.');
   } catch (err) {
-    // pg_restore exit codes: 0=success, 1=non-fatal warnings (OK),
-    // 2=fatal error, 3=fatal+warnings. Exit 1 is safe.
-    if (err.status === 1) {
-      console.log('✅ Restore complete (non-fatal warnings only).');
-    } else {
-      console.error(
-        '❌ Restore failed (exit %d):',
-        err.status,
-        (err.message || '').replace(/postgres:\/\/[^@]+@/g, 'postgres://***@'),
-      );
-      console.error(
-        '   Pre-restore backup saved at:',
-        `${backupFile}.pre-restore.bak`,
-      );
-      process.exit(1);
-    }
+    console.error(
+      '❌ Restore failed (exit %d):',
+      err.status,
+      (err.message || '').replace(/postgres:\/\/[^@]+@/g, 'postgres://***@'),
+    );
+    process.exitCode = 1;
+  } finally {
+    fs.rmSync(listFile, { force: true });
   }
 }
 
@@ -194,4 +232,4 @@ if (require.main === module) {
   void main();
 }
 
-module.exports = { getDirectUrl };
+module.exports = { getLocalRestoreTarget, omitRedundantPublicSchema };

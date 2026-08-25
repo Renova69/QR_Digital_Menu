@@ -1,7 +1,7 @@
 # QR Menu App
 
 > **Status:** 🚀 Migrated to Monorepo (Turborepo) - April 21, 2026
-> **Stack:** React + NestJS + PostgreSQL (Neon)  
+> **Stack:** React + NestJS + PostgreSQL (Supabase)
 > **Workflow:** Turborepo-powered native development
 
 A full-stack digital menu platform for restaurants. Owners create and manage menus, generate QR codes for each table, and customers scan to browse, order, and call for assistance — all from their phone, no app download required.
@@ -22,7 +22,7 @@ The QR Menu app allows restaurant owners to create, manage, and publish digital 
 
 - Web-based, responsive for desktop & mobile
 - Backend runs self-hosted or cloud-native (managed DB)
-- PostgreSQL database (Neon Serverless)
+- PostgreSQL database (Supabase)
 
 ---
 
@@ -33,7 +33,7 @@ The QR Menu app allows restaurant owners to create, manage, and publish digital 
 | **Monorepo Tooling** | **Turborepo** (Fast task orchestration)                                     |
 | **Frontend**         | React 18, Vite, TypeScript, Tailwind CSS, Radix UI, TanStack Query, dnd-kit |
 | **Backend**          | NestJS 11, TypeScript, Prisma 6 ORM                                         |
-| **Database**         | **Neon** (Serverless PostgreSQL)                                            |
+| **Database**         | **Supabase** (PostgreSQL via Supavisor poolers)                             |
 | **Authentication**   | JWT + Google OAuth (via Passport.js)                                        |
 | **API Docs**         | Swagger/OpenAPI (available at `/api-docs`)                                  |
 | **Deployment**       | Docker Compose (optional for production simulation)                         |
@@ -59,9 +59,9 @@ npm install
 # 2. Setup environment variables
 # Copy .env.example to apps/backend/.env and apps/frontend/.env
 
-# 3. Synchronize Database (Neon)
+# 3. Synchronize a disposable local database
 cd apps/backend
-npx prisma db push
+npm run migrate:deploy
 
 # 4. Start everything (Frontend + Backend)
 cd ../..

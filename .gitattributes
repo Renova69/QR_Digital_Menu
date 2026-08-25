@@ -1,1 +1,3 @@
 apps/backend/prisma/migrations/**/migration.sql text eol=lf
+*.sh text eol=lf
+*.py text eol=lf

@@ -6,7 +6,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` directory (the README mentions one but it doesn't exist):
 
-- **`apps/backend`** — NestJS 11 + Prisma 6 + Neon (hosted Postgres, pooled). API on `:3000` under `/api`, Swagger at `/api-docs`.
+- **`apps/backend`** — NestJS 11 + Prisma 6 + Supabase (hosted Postgres, pooled). API on `:3000` under `/api`, Swagger at `/api-docs`.
 - **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
 - **Currency** — `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` at BNB fixed rate 1 EUR = 1.95583 BGN. Used in CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions.
 
@@ -40,7 +40,7 @@ npm run test:e2e       # e2e (run `npm run test:prepare` first to copy .env.test
 npm run test:cov       # coverage
 npm run seed           # build + prisma db seed (runs prisma/seed.ts)
 npm run migrate:dev    # prisma migrate dev
-npx prisma db push     # preferred when migration history is drifted (additive schema only)
+npm run migrate:deploy # reviewed forward-only migrations; production-safe path
 ```
 
 ### Frontend (`apps/frontend`)
@@ -55,7 +55,7 @@ npm start        # serve dist/ on :3002 (kept off :3001 so a built PWA's service
 ## Environment & DB
 
 - Per-app `.env` files: `apps/backend/.env`, `apps/frontend/.env` — copy from `.env.example`.
-- DB is **hosted Neon Postgres** — no local Postgres in dev. The root `docker:up` / `docker:down` scripts exist but are not part of daily flow.
+- Production DB is **hosted Supabase Postgres**. Never run `migrate reset`, `migrate dev`, `db push`, or `db execute` against a remote database; Prisma config blocks these commands. Use a newly created disposable local database for development migration work and `migrate:deploy` for reviewed production migrations.
 - API base URL: **`/api/v1`** (same-origin in dev, cross-origin in production). In development, Vite dev server proxies `/api` and `/socket.io` to backend target derived from `VITE_API_URL` env. In production (Vercel → Cloud Run), frontend uses `VITE_API_URL` directly — cross-origin with `sameSite: 'none'` cookies + CORS.
 - `VITE_API_URL` in `apps/frontend/.env` is used by `vite.config.js` for proxy target in dev, and by `api.ts` for cross-origin API calls in production.
 - **Production:** `COOKIE_SAMESITE` env-driven, defaults to `'none'` in production (required for cross-origin cookie send from Vercel → Cloud Run). Set `COOKIE_SAMESITE=lax` for same-origin deploys.
@@ -172,8 +172,9 @@ Key files for the options flow:
 - **Dev:** `api.ts` uses `/api/v1` (same-origin, Vite proxy). **Production:** `api.ts` uses `VITE_API_URL` (cross-origin, `sameSite: 'none'` + `secure: true` cookies). Both paths valid — proxy not available on static hosts like Vercel.
 - **NEVER read token from localStorage** in AuthContext or anywhere else. Token lives in httpOnly cookie only. Use `/auth/me` to get current user.
 - **CSRF middleware ordering in main.ts**: Helmet CSP → cookieParser → CSRF validation → app.useGlobalPipes. CSRF must run after cookieParser but before guards.
-- **Seed safety**: `seed.ts` has 3-layer guard — production check, remote DB check, user count > 5 (refuses unless `FORCE_SEED_WIPE=true`). `seed-help-content.ts` and `seed-demo-restaurants.ts` use idempotent upsert patterns — never delete existing data. `seed-help-only.ts` is single-purpose, zero destructive ops. Never bypass these guards without explicit user approval.
-- **Prisma PgBouncer**: Neon uses PgBouncer in transaction mode. PrismaService constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion. Connection URL includes `pgbouncer=true`.
+- **Seed safety**: data-replacing/demo/glossary seed commands hard-refuse production and remote databases with no environment override. `seed.ts` also refuses any existing user and contains no clearing phase. Use only a newly created named local database. `seed-help-content.ts` is idempotent and `seed-help-only.ts` is single-purpose with zero destructive operations.
+- **Database-loss safety**: production has independent event/table triggers that block public schema/table/column drops and table truncation. `deploy.ps1` verifies them before migrations. The local restore helper permanently rejects remote/non-empty targets and has no clean/reset path. Never bypass these controls; production recovery requires separate explicit authorization and a reviewed one-off procedure.
+- **Prisma/Supavisor pooling**: production `DATABASE_URL` uses Supabase transaction mode on port 6543 with `pgbouncer=true`; `DIRECT_URL` uses session mode on port 5432 for migrations. PrismaService constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion.
 - **Security — Account disable**: `User.isActive` (default true), `disabledAt`, `disabledReason`. JWT strategy rejects disabled users including SUPER_ADMIN with `UnauthorizedException('ACCOUNT_DISABLED')`. Login rejects disabled accounts before token issuance.
 - **Security — Dangerous action confirmation**: 5 super-admin actions require `@Matches(/^CONFIRM$/) confirmation: string` in DTOs: tier override, suspend/reactivate, reset password, payments toggle, delete/restore. Frontend `ConfirmationField` with "Type CONFIRM to continue" input. Server-enforced via class-validator pipeline.
 - **Security — Super-admin rate limiting**: All dangerous mutations throttled independently: tier 5/60s, status 5/60s, password reset 3/60s, payments 5/60s, delete 3/60s, restore 3/60s. Help-content admin writes: 10/60s. Platform-settings update: 5/60s.

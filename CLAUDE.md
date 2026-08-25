@@ -40,7 +40,7 @@ npm run test:e2e       # e2e (run `npm run test:prepare` first to copy .env.test
 npm run test:cov       # coverage
 npm run seed           # build + prisma db seed (runs prisma/seed.ts)
 npm run migrate:dev    # prisma migrate dev
-npx prisma db push     # preferred when migration history is drifted (additive schema only)
+npm run migrate:deploy # reviewed forward-only migrations; production-safe path
 ```
 
 ### Frontend (`apps/frontend`)
@@ -172,7 +172,8 @@ Key files for the options flow:
 - **Dev:** `api.ts` uses `/api/v1` (same-origin, Vite proxy). **Production:** `api.ts` uses `VITE_API_URL` (cross-origin, `sameSite: 'none'` + `secure: true` cookies). Both paths valid — proxy not available on static hosts like Vercel.
 - **NEVER read token from localStorage** in AuthContext or anywhere else. Token lives in httpOnly cookie only. Use `/auth/me` to get current user.
 - **CSRF middleware ordering in main.ts**: Helmet CSP → cookieParser → CSRF validation → app.useGlobalPipes. CSRF must run after cookieParser but before guards.
-- **Seed safety**: `seed.ts` has 3-layer guard — production check, remote DB check, user count > 5 (refuses unless `FORCE_SEED_WIPE=true`). `seed-help-content.ts` and `seed-demo-restaurants.ts` use idempotent upsert patterns — never delete existing data. `seed-help-only.ts` is single-purpose, zero destructive ops. Never bypass these guards without explicit user approval.
+- **Seed safety**: data-replacing/demo/glossary seed commands hard-refuse production and remote databases with no environment override. `seed.ts` also refuses any existing user and contains no clearing phase. Use only a newly created named local database. `seed-help-content.ts` is idempotent and `seed-help-only.ts` is single-purpose with zero destructive operations.
+- **Database-loss safety**: production has independent event/table triggers that block public schema/table/column drops and table truncation. `deploy.ps1` verifies them before migrations. The local restore helper permanently rejects remote/non-empty targets and has no clean/reset path. Never bypass these controls; production recovery requires separate explicit authorization and a reviewed one-off procedure.
 - **Prisma + Supavisor**: Supabase fronts Postgres with Supavisor. `DATABASE_URL` is the **transaction** pooler (`:6543`, `?pgbouncer=true&connection_limit=10`) and `DIRECT_URL` is the **session** pooler (`:5432`), used only by the Prisma CLI because migrations need session semantics transaction pooling cannot give. Never use the `db.<ref>.supabase.co` host — it is IPv6-only on the free tier and Cloud Run egress is IPv4. PrismaService constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion.
 - **Security — Account disable**: `User.isActive` (default true), `disabledAt`, `disabledReason`. JWT strategy rejects disabled users including SUPER_ADMIN with `UnauthorizedException('ACCOUNT_DISABLED')`. Login rejects disabled accounts before token issuance.
 - **Security — Dangerous action confirmation**: 5 super-admin actions require `@Matches(/^CONFIRM$/) confirmation: string` in DTOs: tier override, suspend/reactivate, reset password, payments toggle, delete/restore. Frontend `ConfirmationField` with "Type CONFIRM to continue" input. Server-enforced via class-validator pipeline.

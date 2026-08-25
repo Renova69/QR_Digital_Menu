@@ -28,6 +28,7 @@ $ErrorActionPreference = "Stop"
 
 $PROJECT       = "qr-menu-app-469216"
 $SERVICE       = "qr-menu-backend"
+$BACKUP_JOB    = "db-backup"
 $REGION        = "europe-west1"
 $GCLOUD        = "C:\google-cloud-sdk\bin\gcloud.cmd"
 $SRC           = "apps/backend"
@@ -35,6 +36,10 @@ $GITHUB_REPOSITORY = "Renova69/QR_Digital_Menu"
 $REQUIRED_BRANCH   = "main"
 $REQUIRED_CHECK    = "verify"
 $GITHUB_API_VERSION = "2026-03-10"
+$DB_PROJECT_REF = "scmjaqhiyvzsyyvdygwu"
+$DB_HOST = "aws-0-eu-central-1.pooler.supabase.com"
+$DB_PORT = 5432
+$DB_NAME = "postgres"
 # Serving shape. These were never passed, so every deploy silently inherited
 # whatever was already on the service -- Cloud Run's defaults of 80 concurrent
 # requests and a 300s request timeout, with maxScale pinned at 3. That is up to
@@ -204,8 +209,8 @@ Invoke-Native -Description "Build" -Command {
 # migration process per deploy instead of one per instance, so there is nothing
 # to serialise and Prisma's advisory lock has no contention to arbitrate.
 #
-# This uses DIRECT_URL from apps/backend/.env -- the unpooled Neon endpoint --
-# because migrations need a real session. Ordering is deliberate: after the
+# This uses DIRECT_URL from apps/backend/.env -- Supabase's session-mode pooler
+# -- because migrations need a real session. Ordering is deliberate: after the
 # build, so a broken build cannot leave a migrated database behind, and before
 # the deploy, so the schema is always at or ahead of the code. Every migration
 # must remain compatible with the revision currently serving production.
@@ -218,7 +223,7 @@ Invoke-Native -Description "Build" -Command {
 # $env:DIRECT_URL when present and the .env value otherwise -- resolve it the
 # same way here. Without this, a developer .env still pointing at Docker makes
 # the migration "succeed" against localhost while the revision deployed below
-# boots against Neon, so the columns the new code expects are simply absent in
+# boots against Supabase, so the columns the new code expects are simply absent in
 # production and every affected endpoint 500s.
 $effectiveDirectUrl = $env:DIRECT_URL
 if (-not $effectiveDirectUrl) {
@@ -242,11 +247,50 @@ if ($effectiveDirectUrl -match 'localhost|127\.0\.0\.1|\[::1\]') {
     Write-Error @"
 DIRECT_URL resolves to a LOCAL database: $redacted
 Migrations would be applied there, while the revision deployed below serves
-production. Point this run at the unpooled Neon endpoint (no '-pooler' in the
-host) and re-run:
-  `$env:DIRECT_URL = "postgresql://USER:PASSWORD@ep-xxxx.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=30"
+production. Point this run at the Supabase session-mode pooler and re-run.
 "@
     exit 1
+}
+
+try {
+    $directUri = [System.Uri]$effectiveDirectUrl
+    $directUser = [System.Uri]::UnescapeDataString(($directUri.UserInfo -split ':', 2)[0])
+    $directDatabase = $directUri.AbsolutePath.TrimStart('/')
+} catch {
+    Write-Error "DIRECT_URL is not a valid PostgreSQL URL -- refusing to migrate."
+    exit 1
+}
+if (
+    $directUri.Scheme -notin @("postgres", "postgresql") -or
+    $directUri.Host -ne $DB_HOST -or
+    $directUri.Port -ne $DB_PORT -or
+    -not $directUser.EndsWith(".$DB_PROJECT_REF") -or
+    $directDatabase -ne $DB_NAME
+) {
+    Write-Error @"
+DIRECT_URL does not match the protected production Supabase target.
+Expected project reference: $DB_PROJECT_REF
+Expected host/port: ${DB_HOST}:$DB_PORT
+Expected database: $DB_NAME
+Refusing to migrate a different or ambiguously identified database.
+"@
+    exit 1
+}
+
+Write-Host "==> Rejecting destructive migration SQL..."
+Invoke-Native -Description "Migration SQL safety gate" -Command {
+    & node scripts/check-migration-safety.js apps/backend/prisma/migrations
+}
+
+# Recovery is a release precondition. The job uses a read-only database role
+# and refuses wrong/empty targets. If it cannot create a fresh verified
+# artifact, deployment stops before migrations.
+Write-Host "==> Creating verified pre-migration database backup..."
+Invoke-Native -Description "Pre-migration database backup" -Command {
+    & $GCLOUD run jobs execute $BACKUP_JOB `
+        --project=$PROJECT `
+        --region=$REGION `
+        --wait
 }
 
 # The slug verifier is an application query, so PrismaClient normally reads
@@ -271,13 +315,21 @@ try {
         & npx ts-node scripts/verify-preproduction-readonly.ts --allow-pending-migrations
     }
 
+    # This guard is managed independently of Prisma so an accidental reset or
+    # destructive raw migration is rejected by PostgreSQL itself. A missing,
+    # disabled, or altered trigger is a deployment blocker.
+    Write-Host "==> Verifying production database DDL-loss guard..."
+    Invoke-Native -Description "Production DDL-loss guard verification" -Command {
+        & npm run db:guard:verify
+    }
+
     Write-Host "==> Verifying tenant slug invariants before migration..."
     Invoke-Native -Description "Slug invariant verification" -Command {
         & npm run slug:verify
     }
 
     Invoke-Native -Description "Database migration" -Command {
-        & npx prisma migrate deploy
+        & npm run migrate:deploy
     }
 
     Write-Host "==> Verifying migrated database..."

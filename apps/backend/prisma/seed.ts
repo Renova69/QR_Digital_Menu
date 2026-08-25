@@ -7,67 +7,24 @@ import {
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { seedHelpContent } from './seed-help-content';
+import { assertLocalSeedTarget } from '../scripts/seed-target-safety';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
 async function main() {
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      '❌ Seed aborted: NODE_ENV=production. Never seed against a production database.',
-    );
-    process.exit(1);
-  }
-  const dbUrl = process.env.DATABASE_URL ?? '';
-  if (
-    !dbUrl.includes('localhost') &&
-    !dbUrl.includes('127.0.0.1') &&
-    dbUrl !== ''
-  ) {
-    console.error('❌ Seed aborted: DATABASE_URL points to a remote database.');
-    console.error(
-      '   Seeds wipe ALL data. Connect to a local/dev database only.',
-    );
-    console.error(
-      '   To override (e.g. intentional dev cloud DB), set ALLOW_REMOTE_SEED=true',
-    );
-    if (process.env.ALLOW_REMOTE_SEED !== 'true') {
-      process.exit(1);
-    }
-    console.warn('⚠️  ALLOW_REMOTE_SEED=true — proceeding with remote seed.');
-  }
+  assertLocalSeedTarget(process.env.DATABASE_URL, process.env.NODE_ENV);
 
-  // Safety: refuse to wipe a populated database
+  // This comprehensive fixture is for a new local database only. It never
+  // clears rows first, so a mistaken second run fails without deleting data.
   const userCount = await prisma.user.count();
-  if (userCount > 5) {
-    console.error(
-      `❌ Seed aborted: ${userCount} users exist. Refusing to wipe a populated database.`,
-    );
-    console.error('   Seeds are for fresh/dev databases only.');
-    console.error('   To force (DESTRUCTIVE), set FORCE_SEED_WIPE=true');
-    if (process.env.FORCE_SEED_WIPE !== 'true') {
-      process.exit(1);
-    }
-    console.warn(
-      '⚠️  FORCE_SEED_WIPE=true — proceeding despite populated database.',
+  if (userCount > 0) {
+    throw new Error(
+      `Seed aborted: ${userCount} users already exist. Create a new empty local database instead.`,
     );
   }
 
   console.log('🌱 Starting comprehensive database seeding...');
-
-  // Delete existing data in correct order
-  await prisma.feedback.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.menuOption.deleteMany();
-  await prisma.menuItem.deleteMany();
-  await prisma.menuCategory.deleteMany();
-  await prisma.assistanceRequest.deleteMany();
-  await prisma.restaurant.deleteMany();
-  await prisma.adminAuditLog.deleteMany();
-  await prisma.user.deleteMany();
-
-  console.log('🧹 Cleared existing data');
 
   // Create demo user
   const hashedPassword = await bcrypt.hash('codespaces2026', SALT_ROUNDS);
