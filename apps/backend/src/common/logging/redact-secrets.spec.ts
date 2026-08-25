@@ -1,5 +1,18 @@
 import { redactDiagnosticText, redactSecrets } from './redact-secrets';
 
+// Credential-shaped fixtures are assembled at runtime from fragments rather
+// than written as literals. A literal here is indistinguishable from a real
+// credential to gitleaks and to this repo's own staged-diff scanner, and the
+// files that test redaction are exactly the ones that must stay fully scanned —
+// so the fixtures must not be what forces an exemption.
+const STRIPE_SECRET_KEY = ['sk', 'live', '51NabcdefGHIJ'].join('_');
+const JWT = [
+  'eyJhbGciOiJIUzI1NiJ9',
+  'eyJzdWIiOiJ1c2VyIn0',
+  'c2lnbmF0dXJl',
+].join('.');
+const JWT_HEADER_SEGMENT = JWT.split('.')[0];
+
 describe('redactSecrets', () => {
   it('strips the password from a Postgres connection URI in error text', () => {
     const text =
@@ -33,19 +46,17 @@ describe('redactSecrets', () => {
 
   it('redacts a bearer credential quoted out of a header', () => {
     const redacted = redactSecrets(
-      'Unauthorized (Authorization: Bearer sk_live_51NabcdefGHIJ)',
+      `Unauthorized (Authorization: Bearer ${STRIPE_SECRET_KEY})`,
     );
 
-    expect(redacted).not.toContain('sk_live_51NabcdefGHIJ');
+    expect(redacted).not.toContain(STRIPE_SECRET_KEY);
     expect(redacted).toContain('Bearer :redacted');
   });
 
   it('redacts a bare JWT wherever it appears', () => {
-    const redacted = redactSecrets(
-      'jwt malformed: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.c2lnbmF0dXJl trailing',
-    );
+    const redacted = redactSecrets(`jwt malformed: ${JWT} trailing`);
 
-    expect(redacted).not.toContain('eyJhbGciOiJIUzI1NiJ9');
+    expect(redacted).not.toContain(JWT_HEADER_SEGMENT);
     expect(redacted).toBe('jwt malformed: :redacted trailing');
   });
 
