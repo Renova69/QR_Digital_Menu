@@ -6,7 +6,8 @@
 //   1. an email notification channel
 //   2. an uptime check against /api/v1/health/ready (503 when the DB is down)
 //   3. an alert policy that fires when that check fails
-//   4. an alert policy that fires when the nightly backup job fails
+//   4. an alert policy that fires when a scheduled backup job fails
+//   5. an alert policy that fires when no successful backup runs for 15 hours
 //
 // Driven against the Monitoring REST API rather than `gcloud monitoring`, which
 // lives in the alpha component and is not installed here. Auth is borrowed from
@@ -30,6 +31,7 @@ const CHANNEL_NAME = "QR Menu alerts (email)";
 const UPTIME_NAME = "qr-menu-backend readiness";
 const UPTIME_POLICY = "Backend readiness failing";
 const BACKUP_POLICY = "Nightly database backup failed";
+const BACKUP_MISSING_POLICY = "Database backup missing";
 
 function token() {
   return execFileSync("gcloud", ["auth", "print-access-token"], {
@@ -192,8 +194,9 @@ function backupPolicy() {
     displayName: BACKUP_POLICY,
     documentation: {
       content:
-        "The nightly Neon->GCS backup job failed. Supabase's free tier has no " +
-        "managed backups, so this job is the only automated copy that exists. " +
+        "The nightly Supabase->GCS backup job failed or rejected an unsafe " +
+        "source/archive. Supabase's free tier has no managed backups, so this " +
+        "job is the only automated copy that exists. " +
         "Check: gcloud run jobs executions list --job=db-backup " +
         "--region=europe-west1",
       mimeType: "text/markdown",
@@ -221,6 +224,43 @@ function backupPolicy() {
   };
 }
 
+function backupMissingPolicy() {
+  return {
+    displayName: BACKUP_MISSING_POLICY,
+    documentation: {
+      content:
+        "No successful db-backup execution has been recorded for 15 hours. " +
+        "Check both Cloud Scheduler and Cloud Run executions: gcloud run jobs " +
+        "executions list --job=db-backup --region=europe-west1",
+      mimeType: "text/markdown",
+    },
+    combiner: "OR",
+    conditions: [
+      {
+        displayName: "no successful backup execution for 15 hours",
+        conditionAbsent: {
+          filter:
+            'metric.type="run.googleapis.com/job/completed_execution_count" ' +
+            'AND resource.type="cloud_run_job" ' +
+            `AND resource.labels.job_name="${BACKUP_JOB}" ` +
+            'AND metric.labels.result="succeeded"',
+          // Backups run every 12 hours. A 15-hour window tolerates Monitoring
+          // ingestion delay but detects one missed execution before the next
+          // scheduled recovery point.
+          duration: "54000s",
+          aggregations: [
+            {
+              alignmentPeriod: "3600s",
+              perSeriesAligner: "ALIGN_SUM",
+            },
+          ],
+          trigger: { count: 1 },
+        },
+      },
+    ],
+  };
+}
+
 async function main() {
   if (!EMAIL || !/^[^@\s]+@[^@\s]+$/.test(EMAIL)) {
     console.error(
@@ -242,6 +282,7 @@ async function main() {
     channel,
   );
   await ensurePolicy(BACKUP_POLICY, backupPolicy, channel);
+  await ensurePolicy(BACKUP_MISSING_POLICY, backupMissingPolicy, channel);
 
   console.log("\nDone.");
   console.log(
@@ -250,9 +291,13 @@ async function main() {
   return 0;
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((error) => {
-    console.error(`FAILED: ${error.message}`);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((error) => {
+      console.error(`FAILED: ${error.message}`);
+      process.exit(1);
+    });
+}
+
+module.exports = { backupMissingPolicy, backupPolicy };

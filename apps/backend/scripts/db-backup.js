@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * db-backup.js — Backup Neon PostgreSQL database to local file using pg_dump.
+ * db-backup.js — Backup PostgreSQL to a local custom-format archive.
  *
  * Uses PostgreSQL 18's pg_dump with custom format (-Fc) — compressed,
  * supports parallel restore, includes all constraints/indexes/sequences.
  *
- * Automatically converts pooled Neon URL to direct connection (required
- * by pg_dump — PgBouncer transaction mode blocks SET commands).
+ * Uses DIRECT_URL because pg_dump needs the Supabase session-mode pooler;
+ * transaction mode cannot preserve the session settings pg_dump uses.
  *
  * Usage:
  *   node scripts/db-backup.js                        # auto-named backup
@@ -38,13 +38,15 @@ const PG_RESTORE = path.join(PG_BIN, 'pg_restore.exe');
 // backups because nothing ever inspected the artifact.
 const MIN_PLAUSIBLE_BYTES = 50 * 1024;
 
-function getDirectUrl(raw = process.env.DATABASE_URL || '') {
-  if (!raw) throw new Error('DATABASE_URL not set in .env or environment');
+function getDirectUrl(raw = process.env.DIRECT_URL || '') {
+  if (!raw) throw new Error('DIRECT_URL not set in .env or environment');
 
   const url = new URL(raw);
-  // Pooler: ep-xxx-pooler.c-3.eu-central-1.aws.neon.tech
-  // Direct: ep-xxx.c-3.eu-central-1.aws.neon.tech
-  url.hostname = url.hostname.replace('-pooler', '');
+  if (url.hostname.endsWith('.pooler.supabase.com') && url.port !== '5432') {
+    throw new Error(
+      'DIRECT_URL must use the Supabase session-mode pooler on port 5432.',
+    );
+  }
   url.searchParams.delete('pgbouncer');
   url.searchParams.delete('connection_limit');
   url.searchParams.delete('connect_timeout');
@@ -148,7 +150,7 @@ function main() {
 
   // Keep the password out of the process argument list (visible to any local
   // process / Task Scheduler history). Only the secret moves to PGPASSWORD; all
-  // supported connection params stay in the -d URL so Neon SSL and channel
+  // supported connection params stay in the -d URL so SSL and channel
   // binding options are preserved.
   const parsed = new URL(connUrl);
   const pgPassword = decodeURIComponent(parsed.password);

@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Provision the nightly Neon -> GCS backup: bucket, service accounts, Cloud Run
+# Provision the nightly Supabase -> GCS backup: bucket, service accounts, Cloud Run
 # job, and Cloud Scheduler trigger. Idempotent -- safe to re-run after a change.
 #
 # Usage: .\ops\db-backup\setup.ps1
@@ -17,9 +17,15 @@ $SCHED_SA  = "db-backup-scheduler"
 $SCHED_SA_EMAIL = "$SCHED_SA@$PROJECT.iam.gserviceaccount.com"
 $REPO      = "db-backup"
 $IMAGE     = "$REGION-docker.pkg.dev/$PROJECT/$REPO/db-backup:latest"
-# 02:15 UTC: outside Neon's Sunday maintenance window (03:00-04:00 UTC) and
-# before European breakfast traffic.
-$SCHEDULE  = "15 2 * * *"
+$BACKUP_CONNECTION_RESOURCE = "BACKUP_DIRECT_URL"
+$DB_PROJECT_REF = "scmjaqhiyvzsyyvdygwu"
+$DB_HOST = "aws-0-eu-central-1.pooler.supabase.com"
+$DB_NAME = "postgres"
+$DB_ROLE = "qr_menu_backup"
+# 02:15 and 14:15 UTC: two verified recovery points per day. The 12-hour gap
+# also permits a 15-hour missing-success alert; Cloud Monitoring rejects
+# absence windows longer than 23h30, which cannot safely monitor a daily cron.
+$SCHEDULE  = "15 2,14 * * *"
 
 Set-Location (Join-Path $PSScriptRoot "..\..")
 
@@ -82,9 +88,17 @@ if (Test-Exists @("storage", "buckets", "describe", "gs://$BUCKET", "--project=$
     ) | Out-Null
 }
 
-# Versioning makes an overwrite or delete recoverable. Combined with the job's
-# write-only permission below, nothing that reaches the job can destroy history.
-Invoke-Native $GCLOUD @("storage", "buckets", "update", "gs://$BUCKET", "--versioning", "--project=$PROJECT") | Out-Null
+# Reassert protections even for an existing bucket. Versioning makes an
+# overwrite recoverable, soft delete makes an operator deletion recoverable,
+# and uniform/PAP prevent an object-level ACL from exposing a full database.
+Invoke-Native $GCLOUD @(
+    "storage", "buckets", "update", "gs://$BUCKET",
+    "--versioning",
+    "--uniform-bucket-level-access",
+    "--public-access-prevention",
+    "--soft-delete-duration=7d",
+    "--project=$PROJECT"
+) | Out-Null
 
 $lifecycle = @'
 {
@@ -144,13 +158,23 @@ foreach ($role in @("roles/storage.objectCreator", "roles/storage.objectViewer")
         "--project=$PROJECT"
     ) | Out-Null
 }
-# Scoped to the one secret it needs, not project-wide secretAccessor.
+# Scoped to the read-only backup credential, not the privileged migration
+# secret and not project-wide secretAccessor.
 Invoke-Native $GCLOUD @(
-    "secrets", "add-iam-policy-binding", "DIRECT_URL",
+    "secrets", "add-iam-policy-binding", $BACKUP_CONNECTION_RESOURCE,
     "--member=serviceAccount:$SA_EMAIL",
     "--role=roles/secretmanager.secretAccessor",
     "--project=$PROJECT"
 ) | Out-Null
+# Remove the legacy privileged migration-secret grant. Merely changing the
+# job's env binding is insufficient: a compromised job identity could call
+# Secret Manager directly while this IAM permission remained.
+Invoke-Native $GCLOUD @(
+    "secrets", "remove-iam-policy-binding", "DIRECT_URL",
+    "--member=serviceAccount:$SA_EMAIL",
+    "--role=roles/secretmanager.secretAccessor",
+    "--project=$PROJECT"
+) -AllowFailure | Out-Null
 
 Write-Host "`n=== 5/7  Build the image ===" -ForegroundColor Cyan
 if (-not (Test-Exists @("artifacts", "repositories", "describe", $REPO, "--location=$REGION", "--project=$PROJECT"))) {
@@ -175,8 +199,12 @@ Invoke-Native $GCLOUD @(
     "--region=$REGION",
     "--project=$PROJECT",
     "--service-account=$SA_EMAIL",
-    "--set-secrets=DIRECT_URL=DIRECT_URL:latest",
-    "--set-env-vars=BACKUP_BUCKET=$BUCKET",
+    "--set-secrets=DIRECT_URL=${BACKUP_CONNECTION_RESOURCE}:latest",
+    # Floors are deliberately below the verified 2026-08-25 production
+    # snapshot, but high enough that an empty or materially wiped database can
+    # never be accepted as a healthy backup. A legitimate bulk deletion must
+    # update these values consciously before backups resume.
+    "--set-env-vars=BACKUP_BUCKET=$BUCKET,BACKUP_EXPECTED_PROJECT_REF=$DB_PROJECT_REF,BACKUP_EXPECTED_DATABASE=$DB_NAME,BACKUP_EXPECTED_ROLE=$DB_ROLE,BACKUP_EXPECTED_HOST=$DB_HOST,BACKUP_EXPECTED_PORT=5432,BACKUP_MIN_USERS=20,BACKUP_MIN_RESTAURANTS=12,BACKUP_MIN_ORDERS=2000,BACKUP_MIN_MENU_ITEMS=800,BACKUP_MIN_TABLES=50,BACKUP_MIN_PAYMENTS=60,BACKUP_MIN_MENU_VIEWS=1200,BACKUP_MIN_MIGRATIONS=60,BACKUP_MIN_PUBLIC_TABLES=50,BACKUP_MIN_SOURCE_RETENTION_PERCENT=80",
     # One attempt, no retry: a second dump of a database that just refused the
     # first is unlikely to help and doubles the load. A failure should surface,
     # not quietly succeed on attempt three.

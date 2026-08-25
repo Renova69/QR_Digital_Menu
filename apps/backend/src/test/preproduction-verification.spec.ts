@@ -19,6 +19,12 @@ describe('pre-production migration verification', () => {
     const directDatabaseAssignment = deployScript.indexOf(
       '$env:DATABASE_URL = $effectiveDirectUrl',
     );
+    const migrationSafetyGate = deployScript.indexOf(
+      'node scripts/check-migration-safety.js',
+    );
+    const preMigrationBackup = deployScript.indexOf(
+      '$GCLOUD run jobs execute $BACKUP_JOB',
+    );
     const directUrlAssignment = deployScript.indexOf(
       '$env:DIRECT_URL = $effectiveDirectUrl',
     );
@@ -27,15 +33,23 @@ describe('pre-production migration verification', () => {
       'Push-Location',
       directUrlAssignment,
     );
+    const databaseGuard = deployScript.indexOf('npm run db:guard:verify');
     const slugGate = deployScript.indexOf('npm run slug:verify');
-    const migration = deployScript.indexOf('npx prisma migrate deploy');
+    const migration = deployScript.indexOf('npm run migrate:deploy');
     const guardedFinally = deployScript.indexOf('} finally {', migration);
 
-    expect(directDatabaseAssignment).toBeGreaterThan(-1);
+    expect(deployScript).toContain(
+      '$DB_HOST = "aws-0-eu-central-1.pooler.supabase.com"',
+    );
+    expect(deployScript).toContain('$DB_PORT = 5432');
+    expect(migrationSafetyGate).toBeGreaterThan(-1);
+    expect(preMigrationBackup).toBeGreaterThan(migrationSafetyGate);
+    expect(directDatabaseAssignment).toBeGreaterThan(preMigrationBackup);
     expect(directUrlAssignment).toBeGreaterThan(directDatabaseAssignment);
     expect(guardedTry).toBeGreaterThan(directUrlAssignment);
     expect(pushLocation).toBeGreaterThan(guardedTry);
-    expect(slugGate).toBeGreaterThan(pushLocation);
+    expect(databaseGuard).toBeGreaterThan(pushLocation);
+    expect(slugGate).toBeGreaterThan(databaseGuard);
     expect(migration).toBeGreaterThan(slugGate);
     expect(guardedFinally).toBeGreaterThan(migration);
     expect(deployScript).toContain('$env:DATABASE_URL = $previousDatabaseUrl');

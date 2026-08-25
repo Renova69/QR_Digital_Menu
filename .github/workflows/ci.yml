@@ -15,8 +15,8 @@ concurrency:
 
 env:
   DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test
-  # schema.prisma declares `directUrl = env("DIRECT_URL")` for the unpooled
-  # Neon endpoint migrations need. Without it `prisma migrate deploy` fails
+  # schema.prisma declares `directUrl = env("DIRECT_URL")` for the session-mode
+  # endpoint migrations need. Without it `prisma migrate deploy` fails
   # validation (P1012) before it opens a connection. The CI Postgres service
   # has no pooler in front of it, so both point at the same database.
   DIRECT_URL: postgresql://ci:ci@localhost:5432/ci_test
@@ -72,31 +72,42 @@ jobs:
           # get the whole gate switched off.
           ./gitleaks dir . --config .gitleaks.toml --redact --no-banner --verbose
 
-      - name: Repo secret-pattern scanner tests
-        run: node --test scripts/scan-staged-secrets.test.js
-
       - uses: actions/setup-node@v6
         with:
           node-version: "24.18.0"
           cache: "npm"
 
+      - name: Repo secret-pattern scanner tests
+        run: node --test scripts/scan-staged-secrets.test.js
+
+      - name: Reject destructive migration SQL
+        run: node scripts/check-migration-safety.js apps/backend/prisma/migrations
+
       - name: Validate deployment script syntax
         shell: pwsh
         run: |
-          $tokens = $null
-          $parseErrors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path './deploy.ps1'),
-            [ref]$tokens,
-            [ref]$parseErrors
-          ) | Out-Null
-          if ($parseErrors.Count -gt 0) {
-            $parseErrors | ForEach-Object { Write-Error $_.Message }
-            throw "deploy.ps1 contains PowerShell parse errors"
+          $scripts = @('./deploy.ps1', './ops/db-backup/setup.ps1')
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$tokens,
+              [ref]$parseErrors
+            ) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              throw "$script contains PowerShell parse errors"
+            }
           }
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Database safety guard tests
+        run: |
+          npm run test:database-safety
+          python3 -m unittest ops/db-backup/backup_safety_test.py
 
       - name: Generate Prisma Client
         working-directory: apps/backend
@@ -104,7 +115,7 @@ jobs:
 
       - name: Run Database Migrations
         working-directory: apps/backend
-        run: npx prisma migrate deploy
+        run: npm run migrate:deploy
 
       - name: Verify migrated database matches Prisma schema
         working-directory: apps/backend

@@ -8,6 +8,7 @@
 import 'dotenv/config';
 import { PrismaClient, SubscriptionTier } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { assertLocalSeedTarget } from '../scripts/seed-target-safety';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
@@ -51,29 +52,10 @@ const DEMOS: {
 
 async function main() {
   // ── Safety guards ─────────────────────────────────────────────────────────
-  // Non-destructive: this seeder only does idempotent upserts of demo accounts
-  // and restaurants — it NEVER wipes data. So there is no userCount/
-  // FORCE_SEED_WIPE gate (running it against a populated DB is fine). Guards
-  // below just prevent accidentally writing to the wrong database.
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      '❌ Seed aborted: NODE_ENV=production. Never seed against a production database.',
-    );
-    process.exit(1);
-  }
-  const dbUrl = process.env.DATABASE_URL ?? '';
-  if (
-    !dbUrl.includes('localhost') &&
-    !dbUrl.includes('127.0.0.1') &&
-    dbUrl !== ''
-  ) {
-    console.error('❌ Seed aborted: DATABASE_URL points to a remote database.');
-    console.error(
-      '   Connect to a local/dev database, or set ALLOW_REMOTE_SEED=true to override.',
-    );
-    if (process.env.ALLOW_REMOTE_SEED !== 'true') process.exit(1);
-    console.warn('⚠️  ALLOW_REMOTE_SEED=true — proceeding with remote seed.');
-  }
+  // Non-destructive/idempotent, but still a seed: remote execution has no
+  // environment-variable bypass. Production fixtures belong in reviewed,
+  // purpose-built operations rather than a general seed command.
+  assertLocalSeedTarget(process.env.DATABASE_URL, process.env.NODE_ENV);
   // ─────────────────────────────────────────────────────────────────────────
 
   const password = await bcrypt.hash('demo1234', SALT_ROUNDS);

@@ -58,16 +58,20 @@ The application now uses app-specific environment files.
 
 ---
 
-## Step 3: Synchronize the Database
+## Step 3: Synchronize a Disposable Development Database
 
-Instead of local Docker Postgres, we use a cloud-native database. You must sync your schema once:
+Never point migration-development commands at production. Create a disposable
+local PostgreSQL database, set both URLs to it, then apply the committed chain:
 
 ```bash
 cd apps/backend
-npx prisma db push
+npm run migrate:deploy
 ```
 
-> **Note:** Schema is managed locally via `prisma db push`. The production container does NOT run `prisma db push` on startup (removed May 23, 2026 to prevent accidental schema drift in Cloud Run). Always push schema changes from your local environment before deploying.
+> **Production:** use root `deploy.ps1`. It verifies the exact Supabase target,
+> rejects destructive SQL, creates a verified pre-migration backup, and then
+> runs `prisma migrate deploy`. Direct remote `migrate reset`, `migrate dev`,
+> `db push`, and `db execute` are blocked by `prisma.config.ts`.
 
 ### What you get on the Supabase free tier
 
@@ -89,14 +93,14 @@ Two things to keep in mind:
 
 - **The project pauses after 7 days of _inactivity_.** The crons keep it awake
   in normal operation, but it will pause if the backend is ever left stopped.
-- **There are no managed backups on the free tier.** The nightly job below is
+- **There are no managed backups on the free tier.** The twice-daily job below is
   the only automated copy that exists.
 
 ### Backups
 
-A Cloud Run Job (`ops/db-backup`) runs nightly at **02:15 UTC** via Cloud
-Scheduler. It takes a `pg_dump -Fc --schema=public` through the session pooler,
-verifies the artifact is a readable archive before uploading, and writes it to
+A Cloud Run Job (`ops/db-backup`) runs at **02:15 and 14:15 UTC** via Cloud
+Scheduler. It uses a dedicated read-only database role, checks protected source
+and archive row counts, writes a SHA-256 manifest, and stores both files under
 `gs://qr-menu-db-backups-469216/YYYY/MM/`.
 
 The job's service account holds `objectCreator` + `objectViewer` and
@@ -110,17 +114,17 @@ gcloud run jobs execute db-backup --region=europe-west1 --project=qr-menu-app-46
 # List what exists
 gcloud storage ls -r gs://qr-menu-db-backups-469216
 
-# Restore drill -- verify a backup actually restores, into a throwaway container
-docker run -d --name pg-drill -e POSTGRES_PASSWORD=drill -e POSTGRES_DB=drill postgres:17-alpine
-docker cp <backup>.bak pg-drill:/tmp/b.bak
-# PGPASSWORD comes from the container's own env -- never inline a password in a
-# connection string, in docs or anywhere else.
-docker exec -e PGPASSWORD=$POSTGRES_PASSWORD pg-drill   pg_restore --no-owner --no-privileges --no-comments   -U postgres -d drill /tmp/b.bak
-docker rm -f pg-drill
+# Restore drill: point DATABASE_URL at a newly created empty local database
+# named with restore/drill/test, then use the guarded helper.
+cd apps/backend
+npm run db:restore -- <downloaded-backup>.bak
 ```
 
-`schema "public" already exists` is the one expected error -- every Postgres has
-that schema.
+The helper permanently rejects remote/default/non-empty targets, requires an
+exact typed confirmation, omits only the redundant public-schema declaration,
+and never cleans or drops existing objects. Production recovery is a separately
+authorized break-glass operation. After any real restore, reinstall and verify
+the guards in `ops/db-safety` before a migration or deployment.
 
 > **After any restore, run `ANALYZE;`.** `pg_restore` copies data and indexes but
 > not planner statistics, so Postgres plans queries as if every table were empty
@@ -156,17 +160,13 @@ This seeds:
 
 ### Seed Safety Guards
 
-The seed script has built-in protections to prevent accidental data loss:
+The comprehensive seed is allowed only on a new named local database:
 
 1. **Production check** — refuses to run if `NODE_ENV === 'production'`
-2. **Remote DB check** — warns if connecting to a remote database
-3. **User count check** — refuses to run if database already has >5 users
-
-To force seed on a populated database (WARNING: this WILL wipe existing data):
-
-```bash
-FORCE_SEED_WIPE=true npm run seed
-```
+2. **Remote DB check** — refuses every remote database; no override exists
+3. **Existing-data check** — refuses when even one user exists
+4. **No clearing phase** — the seed contains no bulk deletes; create a new
+   disposable local database for a fresh run
 
 To seed only help content without touching users/restaurants/menu data:
 
@@ -369,6 +369,6 @@ After the first successful CI run, enable branch protection in GitHub → Settin
 - **"Port Conflict"**: If localhost:3000 or 3001 is taken, check for hanging node processes in your task manager.
 - **"HMR not working"**: Ensure you are running `npm run dev` from the root folder.
 - **"CI tests fail with tdd-guard-jest path error"**: The project has a `tdd-guard-jest` reporter with a hardcoded Windows path in `jest.config.js`. CI overrides it with `--reporters=default --ci`, which is correct. If you see this locally, use `npm test` (which uses the jest config), not `npx jest --reporters=default`.
-- **"Seed refuses to run — database has existing users"**: This is the safety guard working correctly. Use `FORCE_SEED_WIPE=true npm run seed` only if you intend to wipe all data. For adding help content to an existing database, use `npm run seed:help` instead.
+- **"Seed refuses to run — database has existing users"**: This is the safety guard working correctly. Create a new empty local database; there is no wipe override. For adding help content, use `npm run seed:help` instead.
 - **"Help Center shows no content"**: Run `npm run seed:help` from `apps/backend` to populate the HelpContent table with initial FAQ data. This is safe on any database — it only inserts, never deletes.
 - **"Prisma connection pool errors"**: Supabase fronts Postgres with Supavisor in transaction mode, so `DATABASE_URL` must carry `?pgbouncer=true&connection_limit=10`. Without `pgbouncer=true` Prisma's prepared statements break against a transaction pooler. `PrismaService` logs pool warnings to Cloud Run logs for diagnosis. If migrations specifically fail, check `DIRECT_URL` points at the **session** pooler on `:5432`.
