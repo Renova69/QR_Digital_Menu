@@ -1,3 +1,4 @@
+import { AuthErrorCode } from '../common/errors/auth-error-codes';
 import {
   ConflictException,
   ForbiddenException,
@@ -146,6 +147,100 @@ describe('AuthService', () => {
       await expect(
         service.validateUser('user@example.com', 'wrong'),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    // The frontend localises this failure off the code, not the wording. When
+    // the code was missing, a wrong password fell through to the generic 401
+    // copy and Bulgarian users were told "You are not signed in" while typing
+    // their password.
+    it('carries INVALID_CREDENTIALS on a wrong password', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ password: 'hashed' }),
+      );
+      mockCompare.mockResolvedValue(false);
+
+      const error = await service
+        .validateUser('user@example.com', 'wrong')
+        .catch((err) => err as UnauthorizedException);
+
+      expect(error.getResponse()).toMatchObject({
+        code: AuthErrorCode.INVALID_CREDENTIALS,
+        message: 'Invalid email or password.',
+      });
+    });
+
+    it('carries the same code for an unknown email (no enumeration #M3)', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+
+      const error = await service
+        .validateUser('nobody@example.com', 'pass')
+        .catch((err) => err as UnauthorizedException);
+
+      expect(error.getResponse()).toEqual({
+        code: AuthErrorCode.INVALID_CREDENTIALS,
+        message: 'Invalid email or password.',
+      });
+    });
+
+    it('carries ACCOUNT_DISABLED for a disabled account', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ password: 'hashed', isActive: false }),
+      );
+
+      const error = await service
+        .validateUser('user@example.com', 'pass')
+        .catch((err) => err as UnauthorizedException);
+
+      expect(error.getResponse()).toMatchObject({
+        code: AuthErrorCode.ACCOUNT_DISABLED,
+      });
+    });
+
+    // The frontend localises this failure off the code, not the wording. When
+    // the code was missing, a wrong password fell through to the generic 401
+    // copy and Bulgarian users were told "You are not signed in" while typing
+    // their password.
+    it('carries INVALID_CREDENTIALS on a wrong password', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ password: 'hashed' }),
+      );
+      mockCompare.mockResolvedValue(false);
+
+      const error = await service
+        .validateUser('user@example.com', 'wrong')
+        .catch((err) => err as UnauthorizedException);
+
+      expect(error.getResponse()).toMatchObject({
+        code: AuthErrorCode.INVALID_CREDENTIALS,
+        message: 'Invalid email or password.',
+      });
+    });
+
+    it('carries the same code for an unknown email (no enumeration #M3)', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+
+      const error = await service
+        .validateUser('nobody@example.com', 'pass')
+        .catch((err) => err as UnauthorizedException);
+
+      expect(error.getResponse()).toEqual({
+        code: AuthErrorCode.INVALID_CREDENTIALS,
+        message: 'Invalid email or password.',
+      });
+    });
+
+    it('carries ACCOUNT_DISABLED for a disabled account', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ password: 'hashed', isActive: false }),
+      );
+
+      const error = await service
+        .validateUser('user@example.com', 'pass')
+        .catch((err) => err as UnauthorizedException);
+
+      expect(error.getResponse()).toMatchObject({
+        code: AuthErrorCode.ACCOUNT_DISABLED,
+      });
     });
 
     // P1-2: throttling cannot defend credential stuffing on its own here. An

@@ -478,7 +478,11 @@
     "verifying": "Επαλήθευση...",
     "tryAgainInMinutes_one": "Προσπαθήστε ξανά σε {{count}} λεπτό.",
     "tryAgainInMinutes_other": "Δοκιμάστε ξανά σε {{count}} λεπτά.",
-    "closeSessionConfirm": "Να κλείσετε τη συνεδρία για το τραπέζι {{table}}; Ο ανοιχτός λογαριασμός ύψους €{{amount}} θα ακυρωθεί χωρίς να καταγραφεί καμία πληρωμή."
+    "closeSessionConfirm": "Να κλείσετε τη συνεδρία για το τραπέζι {{table}}; Ο ανοιχτός λογαριασμός ύψους €{{amount}} θα ακυρωθεί χωρίς να καταγραφεί καμία πληρωμή.",
+    "staffPinLoginPaused": "Η σύνδεση προσωπικού με PIN έχει παύσει",
+    "sharedDeviceModePaused": "Η Λειτουργία Κοινόχρηστης Συσκευής είναι απενεργοποιημένη. Η συσκευή θα επιστρέψει στη σύνδεση με PIN μόλις την ενεργοποιήσει ξανά ένας διευθυντής.",
+    "checking": "Γίνεται έλεγχος...",
+    "checkAgain": "Έλεγχος ξανά"
   },
   "common": {
     "cancel": "Ακύρωση",
@@ -3813,6 +3817,34 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "Μη έγκυρο email ή κωδικός πρόσβασης"
+    "invalidCredentials": "Μη έγκυρο email ή κωδικός πρόσβασης",
+    "accountDisabled": "Αυτός ο λογαριασμός έχει απενεργοποιηθεί. Επικοινωνήστε με την υποστήριξη αν αυτό είναι απροσδόκητο.",
+    "accountTemporarilyLocked": "Πάρα πολλές αποτυχημένες προσπάθειες σύνδεσης. Δοκιμάστε ξανά σύντομα.",
+    "accountTemporarilyLockedWithMinutes_one": "Πάρα πολλές αποτυχημένες προσπάθειες σύνδεσης. Δοκιμάστε ξανά σε {{count}} λεπτό.",
+    "accountTemporarilyLockedWithMinutes_other": "Πάρα πολλές αποτυχημένες προσπάθειες σύνδεσης. Δοκιμάστε ξανά σε {{count}} λεπτά.",
+    "invalidOrExpiredCode": "Ο κωδικός δεν είναι έγκυρος ή έχει λήξει. Ζητήστε νέο.",
+    "codeAttemptsExceeded": "Πάρα πολλοί λανθασμένοι κωδικοί. Περιμένετε λίγα λεπτά και ζητήστε νέο.",
+    "emailAlreadyExists": "Υπάρχει ήδη λογαριασμός με αυτό το email.",
+    "googleEmailNotVerified": "Το email του λογαριασμού σας Google δεν έχει επαληθευτεί. Επαληθεύστε το στη Google και δοκιμάστε ξανά.",
+    "smsNotConfigured": "Η επαλήθευση μέσω SMS δεν είναι διαθέσιμη αυτή τη στιγμή.",
+    "identityInUse": "Αυτή η σύνδεση συνδέεται ήδη με άλλον λογαριασμό.",
+    "invalidPin": "Μη έγκυρο PIN.",
+    "invalidPinWithAttempts_one": "Μη έγκυρο PIN. Απομένει {{count}} προσπάθεια.",
+    "invalidPinWithAttempts_other": "Μη έγκυρο PIN. Απομένουν {{count}} προσπάθειες.",
+    "pinDeviceLocked": "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά αργότερα.",
+    "pinDeviceLockedWithMinutes_one": "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε {{count}} λεπτό.",
+    "pinDeviceLockedWithMinutes_other": "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε {{count}} λεπτά.",
+    "deviceLockStateChanged": "Η κατάσταση της συσκευής μόλις άλλαξε. Δοκιμάστε ξανά.",
+    "deviceNotEnrolled": "Αυτή η συσκευή δεν έχει ρυθμιστεί για σύνδεση προσωπικού με PIN.",
+    "deviceTrustExpired": "Αυτή η συσκευή δεν είναι πλέον έμπιστη για σύνδεση με PIN. Ζητήστε από έναν διευθυντή να τη ρυθμίσει ξανά.",
+    "deviceRevoked": "Η πρόσβαση για αυτή τη συσκευή ανακλήθηκε.",
+    "sharedDeviceModeDisabled": "Η Λειτουργία Κοινόχρηστης Συσκευής είναι απενεργοποιημένη. Ζητήστε από έναν διευθυντή να την ενεργοποιήσει.",
+    "restaurantSuspended": "Αυτό το εστιατόριο έχει ανασταλεί.",
+    "staffDeviceLimitReached": "Αυτό το εστιατόριο έφτασε το όριο συσκευών προσωπικού.",
+    "posNotInPlan": "Το POS δεν περιλαμβάνεται σε αυτό το πρόγραμμα.",
+    "enrollmentLinkInvalid": "Αυτός ο σύνδεσμος συσκευής δεν είναι έγκυρος.",
+    "enrollmentLinkRevoked": "Αυτός ο σύνδεσμος συσκευής ανακλήθηκε από διευθυντή.",
+    "enrollmentLinkUsed": "Αυτός ο σύνδεσμος συσκευής έχει ήδη χρησιμοποιηθεί.",
+    "enrollmentLinkExpired": "Αυτός ο σύνδεσμος συσκευής έχει λήξει."
   }
 }

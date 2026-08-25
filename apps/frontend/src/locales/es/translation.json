@@ -478,7 +478,11 @@
     "verifying": "Comprobando...",
     "tryAgainInMinutes_one": "Inténtalo de nuevo dentro de {{count}} minutos.",
     "tryAgainInMinutes_other": "Inténtalo de nuevo dentro de {{count}} minutos.",
-    "closeSessionConfirm": "¿Quieres cerrar la cuenta de la mesa {{table}}? La factura pendiente de €{{amount}} se anulará sin que quede registrado ningún pago."
+    "closeSessionConfirm": "¿Quieres cerrar la cuenta de la mesa {{table}}? La factura pendiente de €{{amount}} se anulará sin que quede registrado ningún pago.",
+    "staffPinLoginPaused": "Inicio de sesión con PIN del personal en pausa",
+    "sharedDeviceModePaused": "El Modo de Dispositivo Compartido está desactivado. Este dispositivo volverá al inicio de sesión con PIN cuando un gerente lo active de nuevo.",
+    "checking": "Comprobando...",
+    "checkAgain": "Comprobar de nuevo"
   },
   "common": {
     "cancel": "Cancelar",
@@ -3802,6 +3806,34 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "Correo electrónico o contraseña no válidos"
+    "invalidCredentials": "Correo electrónico o contraseña no válidos",
+    "accountDisabled": "Esta cuenta ha sido desactivada. Contacta con soporte si no lo esperabas.",
+    "accountTemporarilyLocked": "Demasiados intentos de inicio de sesión fallidos. Inténtalo de nuevo en breve.",
+    "accountTemporarilyLockedWithMinutes_one": "Demasiados intentos de inicio de sesión fallidos. Inténtalo de nuevo en {{count}} minuto.",
+    "accountTemporarilyLockedWithMinutes_other": "Demasiados intentos de inicio de sesión fallidos. Inténtalo de nuevo en {{count}} minutos.",
+    "invalidOrExpiredCode": "Ese código no es válido o ha caducado. Solicita uno nuevo.",
+    "codeAttemptsExceeded": "Demasiados códigos incorrectos. Espera unos minutos y solicita uno nuevo.",
+    "emailAlreadyExists": "Ya existe una cuenta con este correo electrónico.",
+    "googleEmailNotVerified": "El correo de tu cuenta de Google no está verificado. Verifícalo en Google e inténtalo de nuevo.",
+    "smsNotConfigured": "La verificación por SMS no está disponible en este momento.",
+    "identityInUse": "Este acceso ya está vinculado a otra cuenta.",
+    "invalidPin": "PIN no válido.",
+    "invalidPinWithAttempts_one": "PIN no válido. Queda {{count}} intento.",
+    "invalidPinWithAttempts_other": "PIN no válido. Quedan {{count}} intentos.",
+    "pinDeviceLocked": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+    "pinDeviceLockedWithMinutes_one": "Demasiados intentos. Inténtalo de nuevo en {{count}} minuto.",
+    "pinDeviceLockedWithMinutes_other": "Demasiados intentos. Inténtalo de nuevo en {{count}} minutos.",
+    "deviceLockStateChanged": "El estado del dispositivo acaba de cambiar. Inténtalo de nuevo.",
+    "deviceNotEnrolled": "Este dispositivo no está configurado para el inicio de sesión con PIN del personal.",
+    "deviceTrustExpired": "Este dispositivo ya no es de confianza para el inicio de sesión con PIN. Pide a un gerente que lo configure de nuevo.",
+    "deviceRevoked": "Se ha retirado el acceso de este dispositivo.",
+    "sharedDeviceModeDisabled": "El Modo de Dispositivo Compartido está desactivado. Pide a un gerente que lo active.",
+    "restaurantSuspended": "Este restaurante está suspendido.",
+    "staffDeviceLimitReached": "Este restaurante ha alcanzado su límite de dispositivos para el personal.",
+    "posNotInPlan": "El TPV no está incluido en este plan.",
+    "enrollmentLinkInvalid": "Este enlace de dispositivo no es válido.",
+    "enrollmentLinkRevoked": "Un gerente ha retirado este enlace de dispositivo.",
+    "enrollmentLinkUsed": "Este enlace de dispositivo ya se ha utilizado.",
+    "enrollmentLinkExpired": "Este enlace de dispositivo ha caducado."
   }
 }

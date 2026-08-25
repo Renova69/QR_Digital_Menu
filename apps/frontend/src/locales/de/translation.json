@@ -478,7 +478,11 @@
     "verifying": "Wird überprüft...",
     "tryAgainInMinutes_one": "Versuchen Sie es in {{count}} Minuten erneut.",
     "tryAgainInMinutes_other": "Versuchen Sie es in {{count}} Minuten erneut.",
-    "closeSessionConfirm": "Sollen Sie die Rechnung für den Tisch {{table}} schließen? Die offene Rechnung in Höhe von €{{amount}} wird verworfen, ohne dass eine Zahlung verbucht wird."
+    "closeSessionConfirm": "Sollen Sie die Rechnung für den Tisch {{table}} schließen? Die offene Rechnung in Höhe von €{{amount}} wird verworfen, ohne dass eine Zahlung verbucht wird.",
+    "staffPinLoginPaused": "PIN-Anmeldung für Personal pausiert",
+    "sharedDeviceModePaused": "Der Modus für gemeinsam genutzte Geräte ist aus. Das Gerät kehrt zur PIN-Anmeldung zurück, sobald ein Manager ihn wieder aktiviert.",
+    "checking": "Wird geprüft...",
+    "checkAgain": "Erneut prüfen"
   },
   "common": {
     "cancel": "Abbrechen",
@@ -3802,6 +3806,34 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "Ungültige E-Mail oder Passwort"
+    "invalidCredentials": "Ungültige E-Mail oder Passwort",
+    "accountDisabled": "Dieses Konto wurde deaktiviert. Bitte wende dich an den Support, falls das unerwartet ist.",
+    "accountTemporarilyLocked": "Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuche es in Kürze erneut.",
+    "accountTemporarilyLockedWithMinutes_one": "Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuche es in {{count}} Minute erneut.",
+    "accountTemporarilyLockedWithMinutes_other": "Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuche es in {{count}} Minuten erneut.",
+    "invalidOrExpiredCode": "Dieser Code ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
+    "codeAttemptsExceeded": "Zu viele falsche Codes. Warte einige Minuten und fordere einen neuen an.",
+    "emailAlreadyExists": "Es existiert bereits ein Konto mit dieser E-Mail.",
+    "googleEmailNotVerified": "Die E-Mail deines Google-Kontos ist nicht bestätigt. Bestätige sie bei Google und versuche es erneut.",
+    "smsNotConfigured": "SMS-Verifizierung ist derzeit nicht verfügbar.",
+    "identityInUse": "Dieser Login ist bereits mit einem anderen Konto verknüpft.",
+    "invalidPin": "Ungültige PIN.",
+    "invalidPinWithAttempts_one": "Ungültige PIN. Noch {{count}} Versuch übrig.",
+    "invalidPinWithAttempts_other": "Ungültige PIN. Noch {{count}} Versuche übrig.",
+    "pinDeviceLocked": "Zu viele Versuche. Bitte versuche es später erneut.",
+    "pinDeviceLockedWithMinutes_one": "Zu viele Versuche. Versuche es in {{count}} Minute erneut.",
+    "pinDeviceLockedWithMinutes_other": "Zu viele Versuche. Versuche es in {{count}} Minuten erneut.",
+    "deviceLockStateChanged": "Der Gerätestatus hat sich gerade geändert. Bitte versuche es erneut.",
+    "deviceNotEnrolled": "Dieses Gerät ist nicht für die PIN-Anmeldung des Personals eingerichtet.",
+    "deviceTrustExpired": "Diesem Gerät wird für die PIN-Anmeldung nicht mehr vertraut. Bitte einen Manager, es erneut einzurichten.",
+    "deviceRevoked": "Der Zugriff für dieses Gerät wurde entzogen.",
+    "sharedDeviceModeDisabled": "Der Modus für gemeinsam genutzte Geräte ist aus. Bitte einen Manager, ihn zu aktivieren.",
+    "restaurantSuspended": "Dieses Restaurant ist gesperrt.",
+    "staffDeviceLimitReached": "Dieses Restaurant hat sein Limit an Personalgeräten erreicht.",
+    "posNotInPlan": "Das Kassensystem ist in diesem Tarif nicht enthalten.",
+    "enrollmentLinkInvalid": "Dieser Gerätelink ist ungültig.",
+    "enrollmentLinkRevoked": "Dieser Gerätelink wurde von einem Manager zurückgezogen.",
+    "enrollmentLinkUsed": "Dieser Gerätelink wurde bereits verwendet.",
+    "enrollmentLinkExpired": "Dieser Gerätelink ist abgelaufen."
   }
 }
