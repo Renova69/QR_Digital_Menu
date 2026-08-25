@@ -69,6 +69,17 @@ describe('redactSensitivePath (M-PAY-1)', () => {
     expect(redactSensitivePath(`/r/${SECRET}`)).toBe('/r/:token');
   });
 
+  it('stops at whitespace so free-form text is not swallowed into :token', () => {
+    // These helpers also run over error messages, not just request paths. An
+    // unbounded segment would consume the rest of the sentence — and with it
+    // any later secret the credential patterns would otherwise have caught.
+    expect(
+      redactSensitivePath(
+        `/manage/${SECRET} rejected by postgresql://user:pw@db.example:5432/db`,
+      ),
+    ).toBe('/manage/:token rejected by postgresql://user:pw@db.example:5432/db');
+  });
+
   it('handles non-string / empty input safely', () => {
     expect(redactSensitivePath(undefined)).toBe('');
     expect(redactSensitivePath(null)).toBe('');
