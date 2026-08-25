@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api, { getDeviceEnrollmentStatus } from "../lib/api";
+import { getApiErrorCode, getApiErrorDetails } from "../lib/apiError";
 import { useTranslation } from "react-i18next";
 
 const PIN_LENGTH = 4;
-const MAX_ATTEMPTS = 5;
 
 const ROLE_REDIRECT: Record<string, string> = {
   WAITER: "/staff/pos",
@@ -28,35 +28,26 @@ function readSharedDeviceConfig(): SharedDeviceConfig | null {
   }
 }
 
-function getApiMessage(error: any) {
-  const message = error?.response?.data?.message;
-  if (Array.isArray(message)) return message.join(" ");
-  if (typeof message === "string") return message;
-  if (typeof error?.message === "string") return error.message;
-  return "";
+function isSharedDeviceDisabledError(error: any) {
+  return getApiErrorCode(error) === "SHARED_DEVICE_MODE_DISABLED";
 }
 
-function isSharedDeviceDisabledError(error: any) {
-  const status = error?.response?.status;
-  const code = error?.response?.data?.code;
-  const message = getApiMessage(error).toLowerCase();
-  return (
-    status === 403 &&
-    (code === "SHARED_DEVICE_MODE_DISABLED" ||
-      message.includes("shared device mode"))
-  );
-}
+/**
+ * The device's bond with the restaurant is gone — revoked, never enrolled, or
+ * no longer trusted — so the stored config is stale and must be cleared.
+ */
+const DEVICE_BOND_INVALID_CODES = new Set([
+  "DEVICE_REVOKED",
+  "DEVICE_NOT_ENROLLED",
+  "DEVICE_TRUST_EXPIRED",
+  // getDeviceEnrollmentStatus, which this page polls, reports a withdrawn
+  // enrolment as a 410 on the link rather than on the device.
+  "ENROLLMENT_LINK_REVOKED",
+]);
 
 function isDeviceBondInvalidError(error: any) {
-  const status = error?.response?.status;
-  const code = error?.response?.data?.code;
-  const message = getApiMessage(error).toLowerCase();
-  return (
-    code === "DEVICE_REVOKED" ||
-    message.includes("device is not enrolled") ||
-    message.includes("device enrollment link has been revoked") ||
-    (status === 401 && message.includes("device"))
-  );
+  const code = getApiErrorCode(error);
+  return !!code && DEVICE_BOND_INVALID_CODES.has(code);
 }
 
 export default function DeviceLoginPage() {
@@ -67,7 +58,6 @@ export default function DeviceLoginPage() {
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [attemptsLeft, setAttemptsLeft] = useState(MAX_ATTEMPTS);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(true);
@@ -84,6 +74,16 @@ export default function DeviceLoginPage() {
     setDeviceConfig(null);
     setRestaurantName("");
   }, []);
+
+  // The API answers in one language; the tablet may be set to another. Resolve
+  // every backend rejection through i18n rather than printing its raw message.
+  const localizeApiError = useCallback(
+    (error: unknown) => {
+      const { key, params } = getApiErrorDetails(error);
+      return t(key, params);
+    },
+    [t],
+  );
 
   const refreshDeviceStatus = useCallback(async () => {
     if (!deviceConfig?.deviceToken) {
@@ -124,12 +124,12 @@ export default function DeviceLoginPage() {
       }
       if (isDeviceBondInvalidError(err)) {
         clearDeviceConfig();
-        setError(getApiMessage(err));
+        setError(localizeApiError(err));
       }
     } finally {
       setIsCheckingDeviceStatus(false);
     }
-  }, [clearDeviceConfig, deviceConfig, t]);
+  }, [clearDeviceConfig, deviceConfig, localizeApiError, t]);
 
   useEffect(() => {
     if (clearedExistingSession.current) return;
@@ -189,7 +189,6 @@ export default function DeviceLoginPage() {
       const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
       if (remaining <= 0) {
         setLockedUntil(null);
-        setAttemptsLeft(MAX_ATTEMPTS);
         setError("");
       }
     }, 1000);
@@ -217,7 +216,7 @@ export default function DeviceLoginPage() {
         navigate(target, { replace: true });
       } catch (err: any) {
         const responseData = err.response?.data;
-        const msg = getApiMessage(err) || t("auto.invalidPin", "Invalid PIN");
+        const msg = localizeApiError(err);
         if (isSharedDeviceDisabledError(err)) {
           setSharedDeviceModeDisabled(true);
           setError(msg);
@@ -233,27 +232,15 @@ export default function DeviceLoginPage() {
 
         setError(msg);
 
-        if (typeof responseData?.attemptsRemaining === "number") {
-          setAttemptsLeft(responseData.attemptsRemaining);
-        } else {
-          const match = msg.match(/(\d+)\s+attempts?\s+remaining/i);
-          if (match) {
-            setAttemptsLeft(parseInt(match[1], 10));
-          } else {
-            setAttemptsLeft((prev) => Math.max(0, prev - 1));
-          }
-        }
-
+        // The attempt count is not tracked here. It is enforced per device in
+        // the database (deviceEnrollmentToken.pinAttempts), and the number of
+        // attempts left already reaches the user inside `msg` — a local copy
+        // would only be a second, weaker guess at a value the server owns, and
+        // one that resets to full on every reload.
         if (responseData?.lockedUntil) {
           const lockoutTime = new Date(responseData.lockedUntil).getTime();
           if (!Number.isNaN(lockoutTime)) {
             setLockedUntil(lockoutTime);
-          }
-        } else {
-          const lockoutMatch = msg.match(/try again in (\d+)\s+minutes/i);
-          if (lockoutMatch) {
-            const minutes = parseInt(lockoutMatch[1], 10);
-            setLockedUntil(Date.now() + minutes * 60 * 1000);
           }
         }
 
@@ -265,10 +252,10 @@ export default function DeviceLoginPage() {
     [
       clearDeviceConfig,
       deviceConfig,
+      localizeApiError,
       loginWithToken,
       navigate,
       sharedDeviceModeDisabled,
-      t,
     ],
   );
 

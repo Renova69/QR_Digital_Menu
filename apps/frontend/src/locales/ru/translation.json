@@ -95,7 +95,11 @@
     "variationCustomerChoosesOne": "Вариант (клиент выбирает один)",
     "x": "x)",
     "yourCartIsEmpty": "Ваша корзина пуста.",
-    "ddMmYy": "дд/мм/гг"
+    "ddMmYy": "дд/мм/гг",
+    "staffPinLoginPaused": "Вход персонала по PIN-коду приостановлен",
+    "sharedDeviceModePaused": "Режим общего устройства выключен. Устройство вернётся к входу по PIN-коду, когда менеджер снова включит его.",
+    "checking": "Проверка...",
+    "checkAgain": "Проверить снова"
   },
   "common": {
     "add": "Добавить",
@@ -875,6 +879,20 @@
       "noOrders": "Для этого визита нет записанных заказов."
     }
   },
+  "deviceEnrollment": {
+    "verifying": "Проверка ссылки устройства...",
+    "missingToken": "В ссылке регистрации устройства отсутствует токен.",
+    "linkedOpening": "Устройство привязано. Открывается вход персонала по PIN-коду...",
+    "alreadyLinkedOpening": "Это устройство уже привязано. Открывается вход персонала по PIN-коду...",
+    "usedOnAnotherDevice": "Эта QR-ссылка уже использована, а устройство не привязано. Попросите менеджера создать новый QR-код для устройства персонала и один раз отсканируйте его на этом устройстве.",
+    "sharedDeviceModeOffTitle": "Режим общего устройства выключен",
+    "linkFailedTitle": "Не удалось привязать устройство",
+    "linkedTitle": "Устройство привязано",
+    "linkingTitle": "Привязка устройства",
+    "enableSharedDeviceMode": "Попросите менеджера включить режим общего устройства в настройках персонала, а затем создать новый QR-код для этого устройства.",
+    "requestFreshQr": "Попросите менеджера создать новый QR-код устройства персонала в Настройках.",
+    "managerLogin": "Вход для менеджера"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",
@@ -888,6 +906,40 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "Неверный адрес электронной почты или пароль"
+    "invalidCredentials": "Неверный адрес электронной почты или пароль",
+    "accountDisabled": "Эта учётная запись отключена. Свяжитесь со службой поддержки, если это неожиданно.",
+    "accountTemporarilyLocked": "Слишком много неудачных попыток входа. Повторите попытку чуть позже.",
+    "accountTemporarilyLockedWithMinutes_one": "Слишком много неудачных попыток входа. Повторите через {{count}} минуту.",
+    "accountTemporarilyLockedWithMinutes_few": "Слишком много неудачных попыток входа. Повторите через {{count}} минуты.",
+    "accountTemporarilyLockedWithMinutes_many": "Слишком много неудачных попыток входа. Повторите через {{count}} минут.",
+    "accountTemporarilyLockedWithMinutes_other": "Слишком много неудачных попыток входа. Повторите через {{count}} минут.",
+    "invalidOrExpiredCode": "Код недействителен или истёк. Запросите новый код.",
+    "codeAttemptsExceeded": "Слишком много неверных кодов. Подождите несколько минут и запросите новый.",
+    "emailAlreadyExists": "Учётная запись с этим адресом электронной почты уже существует.",
+    "googleEmailNotVerified": "Адрес электронной почты вашей учётной записи Google не подтверждён. Подтвердите его в Google и повторите попытку.",
+    "smsNotConfigured": "Проверка по SMS сейчас недоступна.",
+    "identityInUse": "Этот вход уже привязан к другой учётной записи.",
+    "invalidPin": "Неверный PIN-код.",
+    "invalidPinWithAttempts_one": "Неверный PIN-код. Осталась {{count}} попытка.",
+    "invalidPinWithAttempts_few": "Неверный PIN-код. Осталось {{count}} попытки.",
+    "invalidPinWithAttempts_many": "Неверный PIN-код. Осталось {{count}} попыток.",
+    "invalidPinWithAttempts_other": "Неверный PIN-код. Осталось попыток: {{count}}.",
+    "pinDeviceLocked": "Слишком много попыток. Повторите позже.",
+    "pinDeviceLockedWithMinutes_one": "Слишком много попыток. Повторите через {{count}} минуту.",
+    "pinDeviceLockedWithMinutes_few": "Слишком много попыток. Повторите через {{count}} минуты.",
+    "pinDeviceLockedWithMinutes_many": "Слишком много попыток. Повторите через {{count}} минут.",
+    "pinDeviceLockedWithMinutes_other": "Слишком много попыток. Повторите через {{count}} минут.",
+    "deviceLockStateChanged": "Состояние устройства только что изменилось. Повторите попытку.",
+    "deviceNotEnrolled": "Это устройство не настроено для входа персонала по PIN-коду.",
+    "deviceTrustExpired": "Это устройство больше не является доверенным для входа по PIN-коду. Попросите менеджера настроить его заново.",
+    "deviceRevoked": "Доступ для этого устройства отозван.",
+    "sharedDeviceModeDisabled": "Режим общего устройства выключен. Попросите менеджера включить его.",
+    "restaurantSuspended": "Работа этого ресторана приостановлена.",
+    "staffDeviceLimitReached": "Этот ресторан достиг лимита устройств для персонала.",
+    "posNotInPlan": "POS не входит в этот тарифный план.",
+    "enrollmentLinkInvalid": "Эта ссылка для устройства недействительна.",
+    "enrollmentLinkRevoked": "Менеджер отозвал эту ссылку для устройства.",
+    "enrollmentLinkUsed": "Эта ссылка для устройства уже использована.",
+    "enrollmentLinkExpired": "Срок действия этой ссылки для устройства истёк."
   }
 }

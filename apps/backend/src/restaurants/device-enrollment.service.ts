@@ -1,3 +1,4 @@
+import { AuthErrorCode } from '../common/errors/auth-error-codes';
 import {
   ForbiddenException,
   GoneException,
@@ -81,7 +82,7 @@ export class DeviceEnrollmentService {
 
     if (restaurant.sharedDeviceModeEnabled === false) {
       throw new ForbiddenException({
-        code: 'SHARED_DEVICE_MODE_DISABLED',
+        code: AuthErrorCode.SHARED_DEVICE_MODE_DISABLED,
         message:
           'Shared Device Mode is off. Enable it before generating staff device QR links.',
       });
@@ -272,12 +273,16 @@ export class DeviceEnrollmentService {
     });
 
     if (!tokenRecord || !tokenRecord.usedAt) {
-      throw new UnauthorizedException(
-        'This device is not enrolled for staff PIN login.',
-      );
+      throw new UnauthorizedException({
+        code: AuthErrorCode.DEVICE_NOT_ENROLLED,
+        message: 'This device is not enrolled for staff PIN login.',
+      });
     }
     if (tokenRecord.revokedAt) {
-      throw new GoneException('Device enrollment link has been revoked');
+      throw new GoneException({
+        code: AuthErrorCode.ENROLLMENT_LINK_REVOKED,
+        message: 'Device enrollment link has been revoked',
+      });
     }
 
     return {
@@ -303,20 +308,32 @@ export class DeviceEnrollmentService {
     });
 
     if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid device enrollment link');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.ENROLLMENT_LINK_INVALID,
+        message: 'Invalid device enrollment link',
+      });
     }
     if (tokenRecord.revokedAt) {
-      throw new GoneException('Device enrollment link has been revoked');
+      throw new GoneException({
+        code: AuthErrorCode.ENROLLMENT_LINK_REVOKED,
+        message: 'Device enrollment link has been revoked',
+      });
     }
     if (tokenRecord.usedAt) {
-      throw new GoneException('Device enrollment link has already been used');
+      throw new GoneException({
+        code: AuthErrorCode.ENROLLMENT_LINK_USED,
+        message: 'Device enrollment link has already been used',
+      });
     }
     if (tokenRecord.expiresAt <= now) {
-      throw new GoneException('Device enrollment link has expired');
+      throw new GoneException({
+        code: AuthErrorCode.ENROLLMENT_LINK_EXPIRED,
+        message: 'Device enrollment link has expired',
+      });
     }
     if (tokenRecord.restaurant.sharedDeviceModeEnabled === false) {
       throw new ForbiddenException({
-        code: 'SHARED_DEVICE_MODE_DISABLED',
+        code: AuthErrorCode.SHARED_DEVICE_MODE_DISABLED,
         message:
           'Shared Device Mode is off. Ask a manager to enable it before enrolling this device.',
       });
@@ -348,15 +365,27 @@ export class DeviceEnrollmentService {
         select: { usedAt: true, expiresAt: true, revokedAt: true },
       });
       if (!existing) {
-        throw new UnauthorizedException('Invalid device enrollment link');
+        throw new UnauthorizedException({
+          code: AuthErrorCode.ENROLLMENT_LINK_INVALID,
+          message: 'Invalid device enrollment link',
+        });
       }
       if (existing.revokedAt) {
-        throw new GoneException('Device enrollment link has been revoked');
+        throw new GoneException({
+          code: AuthErrorCode.ENROLLMENT_LINK_REVOKED,
+          message: 'Device enrollment link has been revoked',
+        });
       }
       if (existing.usedAt) {
-        throw new GoneException('Device enrollment link has already been used');
+        throw new GoneException({
+          code: AuthErrorCode.ENROLLMENT_LINK_USED,
+          message: 'Device enrollment link has already been used',
+        });
       }
-      throw new GoneException('Device enrollment link has expired');
+      throw new GoneException({
+        code: AuthErrorCode.ENROLLMENT_LINK_EXPIRED,
+        message: 'Device enrollment link has expired',
+      });
     }
 
     return {

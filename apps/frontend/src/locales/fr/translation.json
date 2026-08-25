@@ -478,7 +478,11 @@
     "verifying": "Vérification en cours...",
     "tryAgainInMinutes_one": "Réessayez dans {{count}} minute.",
     "tryAgainInMinutes_other": "Veuillez réessayer dans {{count}} minutes.",
-    "closeSessionConfirm": "Voulez-vous clôturer la commande de la table {{table}} ? La facture en cours d'un montant de {{amount}} € sera annulée sans qu'aucun paiement ne soit enregistré."
+    "closeSessionConfirm": "Voulez-vous clôturer la commande de la table {{table}} ? La facture en cours d'un montant de {{amount}} € sera annulée sans qu'aucun paiement ne soit enregistré.",
+    "staffPinLoginPaused": "Connexion par code PIN du personnel suspendue",
+    "sharedDeviceModePaused": "Le mode Appareil partagé est désactivé. Cet appareil reviendra à la connexion par code PIN dès qu'un responsable le réactivera.",
+    "checking": "Vérification...",
+    "checkAgain": "Vérifier à nouveau"
   },
   "common": {
     "cancel": "Annuler",
@@ -3789,6 +3793,20 @@
     "addAllergen": "+ Ajouter un allergène",
     "addDietaryTag": "+ Ajouter une étiquette diététique"
   },
+  "deviceEnrollment": {
+    "verifying": "Vérification du lien de l’appareil...",
+    "missingToken": "Le jeton manque dans ce lien d’inscription de l’appareil.",
+    "linkedOpening": "Appareil associé. Ouverture de la connexion du personnel par code PIN...",
+    "alreadyLinkedOpening": "Cet appareil est déjà associé. Ouverture de la connexion du personnel par code PIN...",
+    "usedOnAnotherDevice": "Ce lien QR a déjà été utilisé et cet appareil n’est pas associé. Demandez à un responsable de générer un nouveau QR d’appareil du personnel, puis scannez-le une seule fois sur cet appareil.",
+    "sharedDeviceModeOffTitle": "Mode appareil partagé désactivé",
+    "linkFailedTitle": "Échec de l’association de l’appareil",
+    "linkedTitle": "Appareil associé",
+    "linkingTitle": "Association de l’appareil",
+    "enableSharedDeviceMode": "Demandez à un responsable d’activer le mode appareil partagé dans les paramètres du personnel, puis de générer un nouveau QR pour cet appareil.",
+    "requestFreshQr": "Demandez à un responsable de générer un nouveau QR d’appareil du personnel depuis les Paramètres.",
+    "managerLogin": "Connexion responsable"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",
@@ -3802,6 +3820,34 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "E-mail ou mot de passe invalide"
+    "invalidCredentials": "E-mail ou mot de passe invalide",
+    "accountDisabled": "Ce compte a été désactivé. Contactez le support si cela est inattendu.",
+    "accountTemporarilyLocked": "Trop de tentatives de connexion échouées. Veuillez réessayer sous peu.",
+    "accountTemporarilyLockedWithMinutes_one": "Trop de tentatives de connexion échouées. Réessayez dans {{count}} minute.",
+    "accountTemporarilyLockedWithMinutes_other": "Trop de tentatives de connexion échouées. Réessayez dans {{count}} minutes.",
+    "invalidOrExpiredCode": "Ce code est invalide ou a expiré. Veuillez en demander un nouveau.",
+    "codeAttemptsExceeded": "Trop de codes incorrects. Patientez quelques minutes et demandez un nouveau code.",
+    "emailAlreadyExists": "Un compte existe déjà avec cette adresse e-mail.",
+    "googleEmailNotVerified": "L'e-mail de votre compte Google n'est pas vérifié. Vérifiez-le auprès de Google et réessayez.",
+    "smsNotConfigured": "La vérification par SMS n'est pas disponible pour le moment.",
+    "identityInUse": "Cette connexion est déjà liée à un autre compte.",
+    "invalidPin": "Code PIN invalide.",
+    "invalidPinWithAttempts_one": "Code PIN invalide. Il reste {{count}} tentative.",
+    "invalidPinWithAttempts_other": "Code PIN invalide. Il reste {{count}} tentatives.",
+    "pinDeviceLocked": "Trop de tentatives. Veuillez réessayer plus tard.",
+    "pinDeviceLockedWithMinutes_one": "Trop de tentatives. Réessayez dans {{count}} minute.",
+    "pinDeviceLockedWithMinutes_other": "Trop de tentatives. Réessayez dans {{count}} minutes.",
+    "deviceLockStateChanged": "L'état de l'appareil vient de changer. Veuillez réessayer.",
+    "deviceNotEnrolled": "Cet appareil n'est pas configuré pour la connexion par code PIN du personnel.",
+    "deviceTrustExpired": "Cet appareil n'est plus approuvé pour la connexion par code PIN. Demandez à un responsable de le reconfigurer.",
+    "deviceRevoked": "L'accès de cet appareil a été retiré.",
+    "sharedDeviceModeDisabled": "Le mode Appareil partagé est désactivé. Demandez à un responsable de l'activer.",
+    "restaurantSuspended": "Ce restaurant est suspendu.",
+    "staffDeviceLimitReached": "Ce restaurant a atteint sa limite d'appareils pour le personnel.",
+    "posNotInPlan": "La caisse n'est pas incluse dans cette formule.",
+    "enrollmentLinkInvalid": "Ce lien d'appareil n'est pas valide.",
+    "enrollmentLinkRevoked": "Ce lien d'appareil a été retiré par un responsable.",
+    "enrollmentLinkUsed": "Ce lien d'appareil a déjà été utilisé.",
+    "enrollmentLinkExpired": "Ce lien d'appareil a expiré."
   }
 }

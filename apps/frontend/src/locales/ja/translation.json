@@ -95,7 +95,11 @@
     "variationCustomerChoosesOne": "バリエーション（お客様は1つお選びください）",
     "x": "10",
     "yourCartIsEmpty": "カートには商品が入っていません。",
-    "ddMmYy": "年/月/日"
+    "ddMmYy": "年/月/日",
+    "staffPinLoginPaused": "スタッフPINログインは一時停止中です",
+    "sharedDeviceModePaused": "共有デバイスモードがオフです。マネージャーが再度有効にすると、このデバイスはPINログインに戻ります。",
+    "checking": "確認中...",
+    "checkAgain": "再確認"
   },
   "common": {
     "add": "追加",
@@ -860,6 +864,20 @@
       "noOrders": "この来店に記録された注文はありません。"
     }
   },
+  "deviceEnrollment": {
+    "verifying": "デバイスリンクを確認しています...",
+    "missingToken": "このデバイス登録リンクにはトークンがありません。",
+    "linkedOpening": "デバイスをリンクしました。スタッフ用PINログインを開いています...",
+    "alreadyLinkedOpening": "このデバイスはすでにリンクされています。スタッフ用PINログインを開いています...",
+    "usedOnAnotherDevice": "このQRリンクはすでに使用されており、このデバイスはリンクされていません。管理者に新しいスタッフデバイス用QRを発行してもらい、このデバイスで一度だけスキャンしてください。",
+    "sharedDeviceModeOffTitle": "共有デバイスモードはオフです",
+    "linkFailedTitle": "デバイスのリンクに失敗しました",
+    "linkedTitle": "デバイスをリンクしました",
+    "linkingTitle": "デバイスをリンクしています",
+    "enableSharedDeviceMode": "管理者にスタッフ設定で共有デバイスモードを有効にしてもらい、このデバイス用の新しいスタッフデバイスQRを発行してもらってください。",
+    "requestFreshQr": "管理者に設定から新しいスタッフデバイス用QRを発行してもらってください。",
+    "managerLogin": "管理者ログイン"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",
@@ -873,6 +891,34 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "無効なメールアドレスまたはパスワード"
+    "invalidCredentials": "無効なメールアドレスまたはパスワード",
+    "accountDisabled": "このアカウントは無効化されています。心当たりがない場合はサポートにご連絡ください。",
+    "accountTemporarilyLocked": "サインインの失敗が続いたため、しばらくしてからもう一度お試しください。",
+    "accountTemporarilyLockedWithMinutes_one": "サインインの失敗が続きました。{{count}}分後にもう一度お試しください。",
+    "accountTemporarilyLockedWithMinutes_other": "サインインの失敗が続きました。{{count}}分後にもう一度お試しください。",
+    "invalidOrExpiredCode": "コードが無効か期限切れです。新しいコードをリクエストしてください。",
+    "codeAttemptsExceeded": "誤ったコードの入力が続きました。数分待ってから新しいコードをリクエストしてください。",
+    "emailAlreadyExists": "このメールアドレスのアカウントはすでに存在します。",
+    "googleEmailNotVerified": "Googleアカウントのメールアドレスが確認されていません。Googleで確認してからもう一度お試しください。",
+    "smsNotConfigured": "現在SMS認証はご利用いただけません。",
+    "identityInUse": "このログインはすでに別のアカウントに連携されています。",
+    "invalidPin": "PINが正しくありません。",
+    "invalidPinWithAttempts_one": "PINが正しくありません。残り{{count}}回です。",
+    "invalidPinWithAttempts_other": "PINが正しくありません。残り{{count}}回です。",
+    "pinDeviceLocked": "試行回数が上限に達しました。後でもう一度お試しください。",
+    "pinDeviceLockedWithMinutes_one": "試行回数が上限に達しました。{{count}}分後にもう一度お試しください。",
+    "pinDeviceLockedWithMinutes_other": "試行回数が上限に達しました。{{count}}分後にもう一度お試しください。",
+    "deviceLockStateChanged": "デバイスの状態が変更されました。もう一度お試しください。",
+    "deviceNotEnrolled": "このデバイスはスタッフPINログイン用に設定されていません。",
+    "deviceTrustExpired": "このデバイスはPINログインで信頼されなくなりました。マネージャーに再設定を依頼してください。",
+    "deviceRevoked": "このデバイスのアクセス権は取り消されました。",
+    "sharedDeviceModeDisabled": "共有デバイスモードがオフです。マネージャーに有効化を依頼してください。",
+    "restaurantSuspended": "このレストランは停止されています。",
+    "staffDeviceLimitReached": "このレストランはスタッフデバイスの上限に達しました。",
+    "posNotInPlan": "このプランにPOSは含まれていません。",
+    "enrollmentLinkInvalid": "このデバイスリンクは無効です。",
+    "enrollmentLinkRevoked": "このデバイスリンクはマネージャーによって取り消されました。",
+    "enrollmentLinkUsed": "このデバイスリンクはすでに使用されています。",
+    "enrollmentLinkExpired": "このデバイスリンクは有効期限が切れています。"
   }
 }

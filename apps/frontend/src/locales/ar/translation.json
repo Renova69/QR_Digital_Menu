@@ -95,7 +95,11 @@
     "variationCustomerChoosesOne": "الخيار (يختار العميل خيارًا واحدًا)",
     "x": "x)",
     "yourCartIsEmpty": "سلة التسوق فارغة.",
-    "ddMmYy": "ي ي/ش ش/س س"
+    "ddMmYy": "ي ي/ش ش/س س",
+    "staffPinLoginPaused": "تم إيقاف تسجيل دخول الموظفين برمز PIN مؤقتًا",
+    "sharedDeviceModePaused": "وضع الجهاز المشترك متوقف. سيعود هذا الجهاز إلى تسجيل الدخول برمز PIN عندما يفعّله المدير مرة أخرى.",
+    "checking": "جارٍ التحقق...",
+    "checkAgain": "تحقق مرة أخرى"
   },
   "common": {
     "add": "إضافة",
@@ -860,6 +864,20 @@
       "noOrders": "لا توجد طلبات مسجّلة لهذه الزيارة."
     }
   },
+  "deviceEnrollment": {
+    "verifying": "جارٍ التحقق من رابط الجهاز...",
+    "missingToken": "رمز التحقق مفقود من رابط تسجيل هذا الجهاز.",
+    "linkedOpening": "تم ربط الجهاز. جارٍ فتح تسجيل دخول الموظفين برمز PIN...",
+    "alreadyLinkedOpening": "هذا الجهاز مرتبط بالفعل. جارٍ فتح تسجيل دخول الموظفين برمز PIN...",
+    "usedOnAnotherDevice": "تم استخدام رابط QR هذا من قبل، وهذا الجهاز غير مرتبط. اطلب من المدير إنشاء رمز QR جديد لجهاز الموظفين، ثم امسحه مرة واحدة على هذا الجهاز.",
+    "sharedDeviceModeOffTitle": "وضع الجهاز المشترك متوقف",
+    "linkFailedTitle": "فشل ربط الجهاز",
+    "linkedTitle": "تم ربط الجهاز",
+    "linkingTitle": "جارٍ ربط الجهاز",
+    "enableSharedDeviceMode": "اطلب من المدير تفعيل وضع الجهاز المشترك في إعدادات الموظفين، ثم إنشاء رمز QR جديد لهذا الجهاز.",
+    "requestFreshQr": "اطلب من المدير إنشاء رمز QR جديد لجهاز الموظفين من الإعدادات.",
+    "managerLogin": "تسجيل دخول المدير"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",
@@ -873,6 +891,43 @@
     "serviceUnavailable": "Service is temporarily unavailable. Please try again.",
     "gatewayTimeout": "The request timed out. Please try again.",
     "unexpected": "An unexpected error occurred. Please try again.",
-    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صالحة"
+    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صالحة",
+    "accountDisabled": "تم تعطيل هذا الحساب. يرجى التواصل مع الدعم إذا كان هذا غير متوقع.",
+    "accountTemporarilyLocked": "محاولات تسجيل دخول فاشلة كثيرة. يرجى المحاولة مرة أخرى بعد قليل.",
+    "accountTemporarilyLockedWithMinutes_one": "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد {{count}} دقيقة.",
+    "accountTemporarilyLockedWithMinutes_two": "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد دقيقتين.",
+    "accountTemporarilyLockedWithMinutes_few": "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد {{count}} دقائق.",
+    "accountTemporarilyLockedWithMinutes_many": "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد {{count}} دقيقة.",
+    "accountTemporarilyLockedWithMinutes_other": "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد {{count}} دقيقة.",
+    "invalidOrExpiredCode": "هذا الرمز غير صالح أو انتهت صلاحيته. يرجى طلب رمز جديد.",
+    "codeAttemptsExceeded": "رموز خاطئة كثيرة. انتظر بضع دقائق ثم اطلب رمزًا جديدًا.",
+    "emailAlreadyExists": "يوجد حساب بهذا البريد الإلكتروني بالفعل.",
+    "googleEmailNotVerified": "لم يتم التحقق من البريد الإلكتروني لحساب Google الخاص بك. تحقق منه لدى Google ثم حاول مرة أخرى.",
+    "smsNotConfigured": "التحقق عبر الرسائل القصيرة غير متاح حاليًا.",
+    "identityInUse": "تسجيل الدخول هذا مرتبط بحساب آخر بالفعل.",
+    "invalidPin": "رمز PIN غير صحيح.",
+    "invalidPinWithAttempts_one": "رمز PIN غير صحيح. بقيت {{count}} محاولة.",
+    "invalidPinWithAttempts_two": "رمز PIN غير صحيح. بقيت محاولتان.",
+    "invalidPinWithAttempts_few": "رمز PIN غير صحيح. بقيت {{count}} محاولات.",
+    "invalidPinWithAttempts_many": "رمز PIN غير صحيح. بقيت {{count}} محاولة.",
+    "invalidPinWithAttempts_other": "رمز PIN غير صحيح. بقيت {{count}} محاولات.",
+    "pinDeviceLocked": "محاولات كثيرة جدًا. يرجى المحاولة لاحقًا.",
+    "pinDeviceLockedWithMinutes_one": "محاولات كثيرة جدًا. حاول مرة أخرى بعد {{count}} دقيقة.",
+    "pinDeviceLockedWithMinutes_two": "محاولات كثيرة جدًا. حاول مرة أخرى بعد دقيقتين.",
+    "pinDeviceLockedWithMinutes_few": "محاولات كثيرة جدًا. حاول مرة أخرى بعد {{count}} دقائق.",
+    "pinDeviceLockedWithMinutes_many": "محاولات كثيرة جدًا. حاول مرة أخرى بعد {{count}} دقيقة.",
+    "pinDeviceLockedWithMinutes_other": "محاولات كثيرة جدًا. حاول مرة أخرى بعد {{count}} دقيقة.",
+    "deviceLockStateChanged": "تغيّرت حالة الجهاز للتو. يرجى المحاولة مرة أخرى.",
+    "deviceNotEnrolled": "هذا الجهاز غير مُهيأ لتسجيل دخول الموظفين برمز PIN.",
+    "deviceTrustExpired": "لم يعد هذا الجهاز موثوقًا لتسجيل الدخول برمز PIN. اطلب من المدير إعداده مرة أخرى.",
+    "deviceRevoked": "تم سحب صلاحية الوصول لهذا الجهاز.",
+    "sharedDeviceModeDisabled": "وضع الجهاز المشترك متوقف. اطلب من المدير تفعيله.",
+    "restaurantSuspended": "تم تعليق هذا المطعم.",
+    "staffDeviceLimitReached": "بلغ هذا المطعم الحد الأقصى لأجهزة الموظفين.",
+    "posNotInPlan": "نقطة البيع غير مشمولة في هذه الخطة.",
+    "enrollmentLinkInvalid": "رابط الجهاز هذا غير صالح.",
+    "enrollmentLinkRevoked": "تم سحب رابط الجهاز هذا من قِبل المدير.",
+    "enrollmentLinkUsed": "تم استخدام رابط الجهاز هذا بالفعل.",
+    "enrollmentLinkExpired": "انتهت صلاحية رابط الجهاز هذا."
   }
 }

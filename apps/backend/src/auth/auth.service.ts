@@ -25,6 +25,7 @@ import {
   smsGatewayConfigured,
   sendViaSmsGateway,
 } from '../common/sms/sms-gateway';
+import { AuthErrorCode } from '../common/errors/auth-error-codes';
 
 const STAFF_DEVICE_LIMIT = 3;
 
@@ -102,12 +103,18 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     // Generic message for both unknown-email and wrong-password so the
     // endpoint cannot be used to enumerate which emails are registered (#M3).
-    const INVALID = 'Invalid email or password.';
+    const INVALID = {
+      code: AuthErrorCode.INVALID_CREDENTIALS,
+      message: 'Invalid email or password.',
+    };
     if (!user) {
       throw new UnauthorizedException(INVALID);
     }
     if (user.isActive === false || user.disabledAt) {
-      throw new UnauthorizedException('This account has been disabled.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.ACCOUNT_DISABLED,
+        message: 'This account has been disabled.',
+      });
     }
     if (isPinRole(user.role)) {
       throw new UnauthorizedException(INVALID);
@@ -136,7 +143,7 @@ export class AuthService {
           Math.ceil((lockedUntil.getTime() - Date.now()) / 1000),
         );
         throw new UnauthorizedException({
-          code: 'ACCOUNT_TEMPORARILY_LOCKED',
+          code: AuthErrorCode.ACCOUNT_TEMPORARILY_LOCKED,
           message:
             'Too many failed sign-in attempts. Please try again shortly.',
           retryInSeconds,
@@ -223,7 +230,10 @@ export class AuthService {
       });
       if (byGoogleId) {
         if (byGoogleId.isActive === false || byGoogleId.disabledAt) {
-          throw new UnauthorizedException('This account has been disabled.');
+          throw new UnauthorizedException({
+            code: AuthErrorCode.ACCOUNT_DISABLED,
+            message: 'This account has been disabled.',
+          });
         }
         return byGoogleId;
       }
@@ -236,16 +246,21 @@ export class AuthService {
     // identity — otherwise a Google account holding a false claim to a
     // victim's address could take over that account.
     if (emailVerified !== true) {
-      throw new UnauthorizedException(
-        'Your Google account email is not verified. Please verify it with Google and try again.',
-      );
+      throw new UnauthorizedException({
+        code: AuthErrorCode.GOOGLE_EMAIL_NOT_VERIFIED,
+        message:
+          'Your Google account email is not verified. Please verify it with Google and try again.',
+      });
     }
 
     // 2. Find by email — link the googleId to this existing account
     const byEmail = await this.usersService.findByEmail(email);
     if (byEmail) {
       if (byEmail.isActive === false || byEmail.disabledAt) {
-        throw new UnauthorizedException('This account has been disabled.');
+        throw new UnauthorizedException({
+          code: AuthErrorCode.ACCOUNT_DISABLED,
+          message: 'This account has been disabled.',
+        });
       }
       // Issue 40b: When a Google identity is linked to an existing
       // email+password account, invalidate the stored password so the old
@@ -300,7 +315,10 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(normalizedEmail);
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException({
+        code: AuthErrorCode.EMAIL_ALREADY_EXISTS,
+        message: 'User with this email already exists',
+      });
     }
 
     const issued = await this.issueEmailVerificationCode(
@@ -322,7 +340,10 @@ export class AuthService {
 
     const existingUser = await this.usersService.findByEmail(normalizedEmail);
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException({
+        code: AuthErrorCode.EMAIL_ALREADY_EXISTS,
+        message: 'User with this email already exists',
+      });
     }
 
     await this.consumeEmailVerificationCode(normalizedEmail, code);
@@ -340,7 +361,10 @@ export class AuthService {
       if (err?.code === 'P2002') {
         // Concurrent registration with the same email won the race between
         // our findByEmail check above and this insert.
-        throw new ConflictException('User with this email already exists');
+        throw new ConflictException({
+          code: AuthErrorCode.EMAIL_ALREADY_EXISTS,
+          message: 'User with this email already exists',
+        });
       }
       throw err;
     }
@@ -462,6 +486,7 @@ export class AuthService {
     const minutes = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
     throw new HttpException(
       {
+        code: AuthErrorCode.PIN_DEVICE_LOCKED,
         message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
         attemptsRemaining: 0,
         lockedUntil: lockedUntil.toISOString(),
@@ -567,7 +592,7 @@ export class AuthService {
 
     if (result.deniedDeviceLimit) {
       throw new ForbiddenException({
-        code: 'STAFF_DEVICE_LIMIT_REACHED',
+        code: AuthErrorCode.STAFF_DEVICE_LIMIT_REACHED,
         message: `This staff member is already linked to ${STAFF_DEVICE_LIMIT} devices. Ask a manager to revoke an old device before logging in here.`,
       });
     }
@@ -691,7 +716,10 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
     if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid or expired code.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.INVALID_OR_EXPIRED_CODE,
+        message: 'Invalid or expired code.',
+      });
     }
 
     if (
@@ -699,7 +727,10 @@ export class AuthService {
       new Date((tokenRecord as any).lockedUntil) > new Date()
     ) {
       throw new HttpException(
-        'Too many attempts. Please try again later.',
+        {
+          code: AuthErrorCode.CODE_ATTEMPTS_EXCEEDED,
+          message: 'Too many attempts. Please try again later.',
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -720,7 +751,10 @@ export class AuthService {
             : {}),
         },
       });
-      throw new UnauthorizedException('Invalid or expired code.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.INVALID_OR_EXPIRED_CODE,
+        message: 'Invalid or expired code.',
+      });
     }
 
     await this.prisma.verificationToken.update({
@@ -835,13 +869,19 @@ export class AuthService {
     }
     if (!this.twilioConfigured) {
       throw new HttpException(
-        'SMS verification not configured.',
+        {
+          code: AuthErrorCode.SMS_NOT_CONFIGURED,
+          message: 'SMS verification not configured.',
+        },
         HttpStatus.NOT_IMPLEMENTED,
       );
     }
     const approved = await this.verifyTwilioOtp(phone, code);
     if (!approved) {
-      throw new UnauthorizedException('Invalid or expired code.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.INVALID_OR_EXPIRED_CODE,
+        message: 'Invalid or expired code.',
+      });
     }
   }
 
@@ -913,18 +953,21 @@ export class AuthService {
     if (
       !this.featureService.restaurantHasFeature(restaurant, FeatureFlag.POS)
     ) {
-      throw new ForbiddenException('POS is not available on this plan.');
+      throw new ForbiddenException({
+        code: AuthErrorCode.POS_NOT_IN_PLAN,
+        message: 'POS is not available on this plan.',
+      });
     }
     // M2.2 — Suspended restaurants cannot use the POS.
     if (restaurant.isActive === false) {
       throw new ForbiddenException({
-        code: 'RESTAURANT_SUSPENDED',
+        code: AuthErrorCode.RESTAURANT_SUSPENDED,
         message: 'This restaurant has been suspended',
       });
     }
     if (restaurant.sharedDeviceModeEnabled === false) {
       throw new ForbiddenException({
-        code: 'SHARED_DEVICE_MODE_DISABLED',
+        code: AuthErrorCode.SHARED_DEVICE_MODE_DISABLED,
         message:
           'Shared Device Mode is off. Ask a manager to enable it before staff PIN login.',
       });
@@ -950,9 +993,10 @@ export class AuthService {
     });
 
     if (!enrolledDevice) {
-      throw new UnauthorizedException(
-        'This device is not enrolled for staff PIN login.',
-      );
+      throw new UnauthorizedException({
+        code: AuthErrorCode.DEVICE_NOT_ENROLLED,
+        message: 'This device is not enrolled for staff PIN login.',
+      });
     }
 
     // Device trust lapses on its own so a tablet cannot stay a credential
@@ -972,9 +1016,11 @@ export class AuthService {
       enrolledDevice.deviceTrustExpiresAt &&
       enrolledDevice.deviceTrustExpiresAt <= new Date()
     ) {
-      throw new UnauthorizedException(
-        'This device is no longer trusted for PIN login. Ask an owner or manager to re-enroll it.',
-      );
+      throw new UnauthorizedException({
+        code: AuthErrorCode.DEVICE_TRUST_EXPIRED,
+        message:
+          'This device is no longer trusted for PIN login. Ask an owner or manager to re-enroll it.',
+      });
     }
 
     // Tracks whether a spent lock was retired on this request, so the relock
@@ -1013,9 +1059,10 @@ export class AuthService {
           select: { pinLockedUntil: true },
         });
         if (!current) {
-          throw new UnauthorizedException(
-            'This device is not enrolled for staff PIN login.',
-          );
+          throw new UnauthorizedException({
+            code: AuthErrorCode.DEVICE_NOT_ENROLLED,
+            message: 'This device is not enrolled for staff PIN login.',
+          });
         }
         if (current.pinLockedUntil && current.pinLockedUntil > new Date()) {
           this.throwActivePinDeviceLock(current.pinLockedUntil);
@@ -1034,6 +1081,7 @@ export class AuthService {
           if (retried.count === 0) {
             throw new HttpException(
               {
+                code: AuthErrorCode.DEVICE_LOCK_STATE_CHANGED,
                 message: 'Device lock state changed. Try again.',
                 attemptsRemaining: 0,
               },
@@ -1057,7 +1105,11 @@ export class AuthService {
 
     if (candidates.length === 0) {
       // Generic message — do not reveal whether a restaurant has staff (#M3).
-      throw new UnauthorizedException('Invalid PIN.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.INVALID_PIN,
+        message: 'Invalid PIN.',
+        attemptsRemaining: null,
+      });
     }
 
     // Try matching PIN against any staff user
@@ -1137,12 +1189,14 @@ export class AuthService {
     const remaining = MAX_ATTEMPTS - attempts;
     if (remaining > 0) {
       throw new UnauthorizedException({
+        code: AuthErrorCode.INVALID_PIN,
         message: `Invalid PIN. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`,
         attemptsRemaining: remaining,
       });
     }
     throw new HttpException(
       {
+        code: AuthErrorCode.PIN_DEVICE_LOCKED,
         message: `Too many attempts. Try again in ${LOCKOUT_MINUTES} minutes.`,
         attemptsRemaining: 0,
         lockedUntil: lockedUntil?.toISOString(),
@@ -1184,17 +1238,26 @@ export class AuthService {
 
     if (!user) throw new NotFoundException('User not found');
     if (user.isActive === false || user.disabledAt) {
-      throw new UnauthorizedException('This account has been disabled.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.ACCOUNT_DISABLED,
+        message: 'This account has been disabled.',
+      });
     }
     if (
       !user.password ||
       !(await bcrypt.compare(currentPassword, user.password))
     ) {
-      throw new UnauthorizedException('Current password is incorrect.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.CURRENT_PASSWORD_INCORRECT,
+        message: 'Current password is incorrect.',
+      });
     }
     if (await bcrypt.compare(newPassword, user.password)) {
       throw new HttpException(
-        'New password must be different from the current password.',
+        {
+          code: AuthErrorCode.PASSWORD_SAME_AS_CURRENT,
+          message: 'New password must be different from the current password.',
+        },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -1247,9 +1310,15 @@ export class AuthService {
           ...(cleanName ? { name: cleanName } : {}),
         });
       } else if (isPinRole(user.role)) {
-        throw new UnauthorizedException('Invalid or expired code.');
+        throw new UnauthorizedException({
+          code: AuthErrorCode.INVALID_OR_EXPIRED_CODE,
+          message: 'Invalid or expired code.',
+        });
       } else if (user.isActive === false || user.disabledAt) {
-        throw new UnauthorizedException('This account has been disabled.');
+        throw new UnauthorizedException({
+          code: AuthErrorCode.ACCOUNT_DISABLED,
+          message: 'This account has been disabled.',
+        });
       } else if (cleanName && !user.name) {
         user = await this.prisma.user.update({
           where: { id: user.id },
@@ -1280,9 +1349,15 @@ export class AuthService {
           ...(cleanName ? { name: cleanName } : {}),
         });
       } else if (isPinRole(user.role)) {
-        throw new UnauthorizedException('Invalid or expired code.');
+        throw new UnauthorizedException({
+          code: AuthErrorCode.INVALID_OR_EXPIRED_CODE,
+          message: 'Invalid or expired code.',
+        });
       } else if (user.isActive === false || user.disabledAt) {
-        throw new UnauthorizedException('This account has been disabled.');
+        throw new UnauthorizedException({
+          code: AuthErrorCode.ACCOUNT_DISABLED,
+          message: 'This account has been disabled.',
+        });
       } else {
         const updates: any = {};
         if (cleanName && !user.name) updates.name = cleanName;
@@ -1346,7 +1421,10 @@ export class AuthService {
       throw new UnauthorizedException('Account not found.');
     }
     if (user.isActive === false || user.disabledAt) {
-      throw new UnauthorizedException('This account has been disabled.');
+      throw new UnauthorizedException({
+        code: AuthErrorCode.ACCOUNT_DISABLED,
+        message: 'This account has been disabled.',
+      });
     }
     if (user.role !== 'CUSTOMER') {
       throw new ForbiddenException(

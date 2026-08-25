@@ -23,7 +23,28 @@ const localStorageMock = (() => {
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string) => fallback || _key,
+    t: (key: string, options?: unknown) =>
+      ({
+        "deviceEnrollment.verifying": "Localized verifying message",
+        "deviceEnrollment.missingToken": "Localized missing-token message",
+        "deviceEnrollment.linkedOpening": "Localized linked-opening message",
+        "deviceEnrollment.alreadyLinkedOpening":
+          "Localized already-linked message",
+        "deviceEnrollment.linkFailedTitle": "Localized link-failed title",
+        "deviceEnrollment.sharedDeviceModeOffTitle":
+          "Localized shared-device-off title",
+        "deviceEnrollment.linkedTitle": "Device Linked",
+        "deviceEnrollment.linkingTitle": "Localized linking title",
+        "deviceEnrollment.usedOnAnotherDevice":
+          "Localized already-used guidance",
+        "deviceEnrollment.enableSharedDeviceMode":
+          "Localized enable-shared-device guidance",
+        "deviceEnrollment.requestFreshQr": "Localized fresh-QR guidance",
+        "deviceEnrollment.managerLogin": "Localized manager login",
+        "apiErrors.enrollmentLinkExpired": "Localized expired-link message",
+        "apiErrors.sharedDeviceModeDisabled":
+          "Localized shared-device-disabled message",
+      })[key] || (typeof options === "string" ? options : key),
   }),
 }));
 
@@ -78,31 +99,62 @@ describe("DeviceEnrollPage", () => {
     mockedVerifyDeviceEnrollment.mockRejectedValue({
       response: {
         status: 410,
-        data: { message: "Device enrollment link has already been used" },
+        data: {
+          code: "ENROLLMENT_LINK_USED",
+          message: "Тази връзка вече е използвана",
+        },
       },
     });
 
     renderEnrollPage("/device-enroll?token=used-token");
 
-    expect(await screen.findByText("Device Link Failed")).toBeTruthy();
-    expect(screen.getByText(/This QR link has already been used/)).toBeTruthy();
+    expect(await screen.findByText("Localized link-failed title")).toBeTruthy();
+    expect(screen.getByText("Localized already-used guidance")).toBeTruthy();
   });
 
-  it("shows Shared Device Mode Off when the backend blocks enrollment", async () => {
+  it("localizes Shared Device Mode errors instead of rendering backend prose", async () => {
     mockedVerifyDeviceEnrollment.mockRejectedValue({
       response: {
         status: 403,
         data: {
           code: "SHARED_DEVICE_MODE_DISABLED",
-          message:
-            "Shared Device Mode is off. Ask a manager to enable it before enrolling this device.",
+          message: "El modo de dispositivo compartido está desactivado.",
         },
       },
     });
 
     renderEnrollPage("/device-enroll?token=mode-off-token");
 
-    expect(await screen.findByText("Shared Device Mode Off")).toBeTruthy();
-    expect(screen.getByText(/Ask a manager to enable it/)).toBeTruthy();
+    expect(
+      await screen.findByText("Localized shared-device-disabled message"),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText("El modo de dispositivo compartido está desactivado."),
+    ).toBeNull();
+  });
+
+  it("localizes a legacy backend enrollment error", async () => {
+    mockedVerifyDeviceEnrollment.mockRejectedValue({
+      response: {
+        status: 410,
+        data: { message: "Device enrollment link has expired" },
+      },
+    });
+
+    renderEnrollPage("/device-enroll?token=expired-token");
+
+    expect(
+      await screen.findByText("Localized expired-link message"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Device enrollment link has expired")).toBeNull();
+  });
+
+  it("localizes page-owned copy when the token is missing", async () => {
+    renderEnrollPage("/device-enroll");
+
+    expect(await screen.findByText("Localized link-failed title")).toBeTruthy();
+    expect(screen.getByText("Localized missing-token message")).toBeTruthy();
+    expect(screen.getByText("Localized fresh-QR guidance")).toBeTruthy();
+    expect(screen.getByText("Localized manager login")).toBeTruthy();
   });
 });
