@@ -355,7 +355,12 @@ try {
 # --- 3. Deploy with no traffic -- the new revision exists but serves nobody
 Write-Host "==> Deploying new revision (no traffic yet)..."
 # --update-secrets, never --set-secrets: the latter replaces the service's
-# entire secret list, silently dropping every binding not named here.
+# entire secret list, silently dropping every binding not named here. The same
+# rule holds for --update-env-vars vs --set-env-vars.
+#
+# SENTRY_RELEASE is stamped here rather than baked into the image, so the
+# release a Sentry event carries is the commit this revision was deployed from,
+# and a regression can be attributed to the release that introduced it.
 # Attaching DIRECT_URL through the deploy (rather than a bare
 # `gcloud run services update`) keeps it inside the canary flow below, so a
 # bad secret fails the smoke check instead of going straight to live traffic.
@@ -371,6 +376,7 @@ Invoke-Native -Description "Deploy" -Command {
         --max-instances=$MAX_INSTANCES `
         --timeout=$REQUEST_TIMEOUT `
         --update-secrets=DIRECT_URL=DIRECT_URL:latest `
+        --update-env-vars=SENTRY_RELEASE=$gitFullSha `
         --tag=$revisionTag
 }
 
