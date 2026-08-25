@@ -5,6 +5,7 @@ import {
   formatBgn,
   formatDualCurrency,
   formatInlineDual,
+  formatStackedDual,
 } from "../currency";
 
 describe("currency", () => {
@@ -26,6 +27,12 @@ describe("currency", () => {
     it("rounds to 2 decimals", () => {
       expect(formatEuro(12.999)).toBe("13.00 €");
     });
+
+    it("handles non-finite values safely", () => {
+      expect(formatEuro(NaN)).toBe("— €");
+      expect(formatEuro(Infinity)).toBe("— €");
+      expect(formatEuro(-Infinity)).toBe("— €");
+    });
   });
 
   describe("formatBgn", () => {
@@ -35,6 +42,12 @@ describe("currency", () => {
 
     it("handles zero", () => {
       expect(formatBgn(0)).toBe("0.00 лв");
+    });
+
+    it("handles non-finite values safely", () => {
+      expect(formatBgn(NaN)).toBe("— лв");
+      expect(formatBgn(Infinity)).toBe("— лв");
+      expect(formatBgn(-Infinity)).toBe("— лв");
     });
   });
 
@@ -55,6 +68,26 @@ describe("currency", () => {
   describe("formatInlineDual", () => {
     it("formats single-line dual display", () => {
       expect(formatInlineDual(10)).toBe("10.00 € / 19.56 лв");
+    });
+  });
+
+  describe("formatStackedDual", () => {
+    it("formats EUR value with EUR on top and converted BGN underneath", () => {
+      const result = formatStackedDual(10, "EUR");
+      expect(result.eur).toBe("10.00 €");
+      expect(result.bgn).toBe("19.56 лв");
+    });
+
+    it("normalizes BGN value to EUR before formatting", () => {
+      const result = formatStackedDual(19.5583, "BGN");
+      expect(result.eur).toBe("10.00 €");
+      expect(result.bgn).toBe("19.56 лв");
+    });
+
+    it("handles non-finite values gracefully", () => {
+      const result = formatStackedDual(NaN, "EUR");
+      expect(result.eur).toBe("— €");
+      expect(result.bgn).toBe("— лв");
     });
   });
 });

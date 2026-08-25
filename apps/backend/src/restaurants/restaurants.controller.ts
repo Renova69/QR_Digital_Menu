@@ -1,19 +1,20 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Request,
-  ValidationPipe,
-  UseInterceptors,
-  UploadedFile,
   BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
+  HttpException,
   Logger,
+  Param,
+  Patch,
+  Post,
+  Request,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -24,6 +25,7 @@ import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StorageService } from '../storage/storage.service';
 import { DeviceEnrollmentService } from './device-enrollment.service';
+import { PinSecurityService } from '../auth/pin-security.service';
 import { CreateDeviceEnrollmentDto } from './dto/create-device-enrollment.dto';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
@@ -38,6 +40,7 @@ export class RestaurantsController {
     private readonly restaurantsService: RestaurantsService,
     private readonly storageService: StorageService,
     private readonly deviceEnrollment: DeviceEnrollmentService,
+    private readonly pinSecurity: PinSecurityService,
   ) {}
 
   @Post()
@@ -112,6 +115,9 @@ export class RestaurantsController {
           file.buffer,
           file.originalname,
           file.mimetype,
+          // The route's own restaurant id, already checked by
+          // findOneForManagement above.
+          id,
         );
 
       // Persist the reference immediately rather than waiting for the
@@ -138,7 +144,16 @@ export class RestaurantsController {
 
       return { logoUrl: url, logoThumbnailUrl: thumbnailUrl };
     } catch (error: any) {
-      throw new BadRequestException(error.message || 'Failed to upload logo');
+      // Preserve a real 403/404 from the ownership check rather than
+      // flattening it to 400, and never echo an internal storage or database
+      // message back to the caller.
+      if (error instanceof HttpException) throw error;
+      this.logger.error(
+        `Logo upload failed for restaurant ${id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadRequestException('Failed to upload logo');
     }
   }
 
@@ -171,6 +186,26 @@ export class RestaurantsController {
     @Request() req: any,
   ) {
     return this.deviceEnrollment.listEnrollments(id, req.user.id);
+  }
+
+  /**
+   * Staff PIN abuse signals for this restaurant's dashboard.
+   *
+   * Same guard and scoping as the enrolment list it sits beside: these describe
+   * who has been failing PINs on which device, which is not something one
+   * restaurant may read about another.
+   */
+  @RequireFeature(FeatureFlag.POS)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @Get(':restaurantId/pin-security-alerts')
+  async listPinSecurityAlerts(
+    @Param('restaurantId') id: string,
+    @Request() req: any,
+  ) {
+    // Reuses the manager check the enrolment list performs, rather than
+    // trusting the route parameter.
+    await this.deviceEnrollment.listEnrollments(id, req.user.id);
+    return this.pinSecurity.recentAlerts(id);
   }
 
   /** Revoke a specific enrolled device token so it can no longer be used for

@@ -46,4 +46,8 @@ export const CRON_DAILY = {
   // Midnight also runs the hourly family. This sweep can touch many loyalty
   // accounts, so start it after the hourly expiry slots have completed.
   LOYALTY_EXPIRY_REMINDERS: '50 10 0 * * *',
+  // Retirement sweep for print-agent tokens. Its own minute so it never
+  // contends with the loyalty sweep for the connection pool, and early enough
+  // that an owner sees a staleness warning before the working day.
+  PRINT_AGENT_RETIREMENT: '30 25 0 * * *',
 } as const;

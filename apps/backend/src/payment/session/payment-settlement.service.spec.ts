@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { FeatureFlag } from '../../subscription/feature-flag.enum';
 import {
   CashPaymentRequestScope,
   CashPaymentRequestStatus,
@@ -232,5 +238,127 @@ describe('PaymentSettlementService', () => {
       session.abandonPendingCheckoutPaymentsForLockedSession,
     ).not.toHaveBeenCalled();
     expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+
+  describe('createCashPaymentRequest', () => {
+    it('rejects cash request when session is not found or not OPEN', async () => {
+      const prisma = {
+        tableSession: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const service = new PaymentSettlementService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+
+      await expect(
+        service.createCashPaymentRequest('invalid-token', 'rest-1'),
+      ).rejects.toThrow(new NotFoundException('Session not found'));
+    });
+
+    it('rejects cash request when feature ORDERS_CALL_WAITER is locked on restaurant plan', async () => {
+      const prisma = {
+        tableSession: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'session-1',
+            restaurant: { tier: 'FREE', forceTier: null },
+          }),
+        },
+      };
+      const featureService = {
+        restaurantHasFeature: jest.fn().mockReturnValue(false),
+      };
+      const service = new PaymentSettlementService(
+        prisma as never,
+        {} as never,
+        featureService as never,
+        {} as never,
+        {} as never,
+      );
+
+      await expect(
+        service.createCashPaymentRequest('token-1', 'rest-1'),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'FEATURE_LOCKED',
+        }),
+      });
+      expect(featureService.restaurantHasFeature).toHaveBeenCalledWith(
+        expect.anything(),
+        FeatureFlag.ORDERS_CALL_WAITER,
+      );
+    });
+  });
+
+  describe('listCashPaymentRequests', () => {
+    it('rejects unknown status filter string', async () => {
+      const core = {
+        verifyRestaurantStaffAccess: jest.fn().mockResolvedValue(undefined),
+      };
+      const service = new PaymentSettlementService(
+        {} as never,
+        {} as never,
+        {} as never,
+        core as never,
+        {} as never,
+      );
+
+      await expect(
+        service.listCashPaymentRequests('rest-1', 'user-1', 'INVALID_STATUS'),
+      ).rejects.toThrow(
+        new BadRequestException('Unknown cash payment request status'),
+      );
+    });
+  });
+
+  describe('cancelCashPaymentRequest', () => {
+    it('throws NotFoundException when request does not exist', async () => {
+      const prisma = {
+        cashPaymentRequest: { findUnique: jest.fn().mockResolvedValue(null) },
+      };
+      const service = new PaymentSettlementService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+
+      await expect(
+        service.cancelCashPaymentRequest('req-999', 'manager-1'),
+      ).rejects.toThrow(
+        new NotFoundException('Cash payment request not found'),
+      );
+    });
+
+    it('throws ConflictException when request is already handled', async () => {
+      const prisma = {
+        cashPaymentRequest: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'req-1',
+            restaurantId: 'rest-1',
+            status: CashPaymentRequestStatus.PAID,
+          }),
+        },
+      };
+      const core = {
+        verifyCashPaymentOperatorAccess: jest.fn().mockResolvedValue(undefined),
+      };
+      const service = new PaymentSettlementService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        core as never,
+        {} as never,
+      );
+
+      await expect(
+        service.cancelCashPaymentRequest('req-1', 'manager-1'),
+      ).rejects.toThrow(
+        new ConflictException('Cash payment request is already handled'),
+      );
+    });
   });
 });

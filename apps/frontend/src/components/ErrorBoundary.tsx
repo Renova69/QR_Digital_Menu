@@ -66,7 +66,12 @@ class ErrorBoundary extends Component<Props, State> {
                 "An unexpected error occurred in this panel.",
               )}
             </p>
-            {this.state.error && (
+            {/* Development only. A React error message routinely carries API
+                response bodies, ids and internal paths, and this panel renders
+                on a customer's screen in production -- where the message helps
+                nobody who can act on it. The full error still reaches Sentry
+                and the console via componentDidCatch. */}
+            {import.meta.env.DEV && this.state.error && (
               <p className="mt-2 text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg font-mono">
                 {this.state.error.message}
               </p>

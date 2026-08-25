@@ -8,7 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
+import { CRON_DAILY, CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
 import { createHash, randomBytes } from 'crypto';
@@ -29,6 +29,27 @@ const MAX_AGENT_TOKENS_PER_STATION = 5;
 const PRINTED_JOB_RETENTION_DAYS = 30;
 const FAILED_JOB_RETENTION_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Print agents retire on INACTIVITY, never on a calendar date. The agent runs
+// unattended on a kitchen device, so an expiry that lands mid-service stops
+// tickets at the worst possible moment -- a worse outcome than the stale
+// credential it was meant to prevent. Silence, by contrast, is real evidence:
+// a device that has not connected in months is lost, replaced or scrapped.
+//
+// Warning is advisory and never blocks. Only quarantine revokes.
+const PRINT_AGENT_STALE_WARN_DAYS = 90;
+const PRINT_AGENT_QUARANTINE_DAYS = 180;
+
+// Each token carries its own `stalenessEnforcedAt`: the earliest date it may be
+// considered for quarantine at all. Written at creation and backfilled for
+// pre-existing rows, so this is a property of the data rather than a calendar
+// date compiled into this file -- a hardcoded date is correct in exactly one
+// environment, and staging, a fresh self-host or a restore all inherit a window
+// that began before their data existed.
+//
+// It gates eligibility; it does not measure inactivity. Quarantine still
+// requires PRINT_AGENT_QUARANTINE_DAYS of unbroken silence on top of it.
+const PRINT_AGENT_GRACE_DAYS = 90;
 
 @Injectable()
 export class PrintStationService {
@@ -147,11 +168,22 @@ export class PrintStationService {
   // ─── Station CRUD ─────────────────────────────────────────────────────────
 
   async list(restaurantId: string) {
-    return this.prisma.printStation.findMany({
+    const stations = await this.prisma.printStation.findMany({
       where: { restaurantId },
       include: {
         agentTokens: {
-          select: { id: true, label: true, lastSeenAt: true, createdAt: true },
+          // Retirement state is surfaced so an owner can see a warning before
+          // a token is ever revoked, and recover one that already has been.
+          // Automatic quarantine is only defensible if it is visible.
+          select: {
+            id: true,
+            label: true,
+            lastSeenAt: true,
+            createdAt: true,
+            staleWarnedAt: true,
+            quarantinedAt: true,
+            stalenessEnforcedAt: true,
+          },
         },
         _count: {
           select: {
@@ -161,6 +193,32 @@ export class PrintStationService {
       },
       orderBy: { name: 'asc' },
     });
+
+    return stations.map((station) => ({
+      ...station,
+      agentTokens: station.agentTokens.map((token) => {
+        const silentSince = token.lastSeenAt ?? token.createdAt;
+        const inactiveAt = new Date(
+          silentSince.getTime() +
+            PRINT_AGENT_QUARANTINE_DAYS * 24 * 60 * 60 * 1000,
+        );
+        return {
+          ...token,
+          // This is the real sweep boundary: both the per-token rollout gate
+          // and 180 days of silence must have elapsed. Returning the combined
+          // timestamp keeps policy on the backend and stops the dashboard from
+          // showing "0 days" while a printer still has months of grace.
+          quarantineEligibleAt: token.stalenessEnforcedAt
+            ? new Date(
+                Math.max(
+                  token.stalenessEnforcedAt.getTime(),
+                  inactiveAt.getTime(),
+                ),
+              )
+            : null,
+        };
+      }),
+    }));
   }
 
   async create(restaurantId: string, dto: CreatePrintStationDto) {
@@ -235,6 +293,15 @@ export class PrintStationService {
           printStationId: stationId,
           label,
           tokenHash: this.hashToken(token),
+          // An eligibility gate, not an installation-relative window: it marks
+          // the earliest date this token may be considered for quarantine at
+          // all. Delayed installation therefore consumes part of the 90 days
+          // rather than deferring them, which is harmless because quarantine
+          // additionally requires 180 days of unbroken inactivity -- a token
+          // installed late still has to go silent for six months to qualify.
+          stalenessEnforcedAt: new Date(
+            Date.now() + PRINT_AGENT_GRACE_DAYS * DAY_MS,
+          ),
         },
         select: {
           id: true,
@@ -254,6 +321,7 @@ export class PrintStationService {
       where: { id: tokenId, restaurantId },
     });
     if (!record) throw new NotFoundException('Token not found');
+
     await this.prisma.printAgentToken.delete({ where: { id: tokenId } });
     // M-4: Disconnect any live agent sessions still using this token
     await this.events.disconnectAgentByTokenId(
@@ -273,6 +341,9 @@ export class PrintStationService {
     });
     if (
       !record ||
+      // Quarantined: the device behind this token has been silent past the
+      // retirement window, so it is no longer a credential.
+      record.quarantinedAt ||
       !this.featureService.restaurantHasFeature(
         record.restaurant,
         FeatureFlag.PRINTERS_THERMAL,
@@ -280,7 +351,152 @@ export class PrintStationService {
     ) {
       return null;
     }
+
+    // Connecting proves the device is alive. Clearing the warning here is what
+    // stops a printer that was merely idle over a quiet period from maturing
+    // into a quarantine once it comes back.
+    if (record.staleWarnedAt) {
+      await this.prisma.printAgentToken.update({
+        where: { id: record.id },
+        data: { staleWarnedAt: null },
+      });
+    }
+
     return record;
+  }
+
+  /**
+   * Bring a quarantined agent back without re-flashing the device.
+   *
+   * Quarantine is a judgement made from silence, and silence can be innocent --
+   * a seasonal closure, a station boxed up over a refit. The owner needs a way
+   * home that is cheaper than issuing and physically re-entering a new token.
+   */
+  async reactivateAgentToken(restaurantId: string, tokenId: string) {
+    const record = await this.prisma.printAgentToken.findFirst({
+      where: { id: tokenId, restaurantId },
+    });
+    if (!record) throw new NotFoundException('Token not found');
+
+    // Reactivation resets lastSeenAt and restarts the grace window, which on an
+    // active token silently forgives real inactivity: an owner could keep a
+    // dead agent alive indefinitely by pressing a button that looks like it
+    // does nothing. Only a token we actually quarantined has anything to undo.
+    if (!record.quarantinedAt) {
+      throw new ConflictException('TOKEN_NOT_QUARANTINED');
+    }
+
+    // lastSeenAt is deliberately reset too: without it the token is instantly
+    // re-eligible for quarantine on the next sweep, before the agent has had
+    // any chance to reconnect.
+    const now = new Date();
+    // One update, so a token is never briefly un-quarantined but still warned.
+    // lastSeenAt is reset because otherwise the very next sweep would re-judge
+    // it on the same silence it was just forgiven for, and the grace window is
+    // restarted so the owner has time to get the agent reconnected.
+    return this.prisma.printAgentToken.update({
+      where: { id: tokenId },
+      data: {
+        quarantinedAt: null,
+        staleWarnedAt: null,
+        lastSeenAt: now,
+        stalenessEnforcedAt: new Date(
+          now.getTime() + PRINT_AGENT_GRACE_DAYS * DAY_MS,
+        ),
+      },
+    });
+  }
+
+  /**
+   * Retire print-agent tokens whose devices have gone silent.
+   *
+   * Two stages, deliberately: a warning the owner can act on, and only later a
+   * quarantine that actually revokes. Nothing here can interrupt a working
+   * printer -- a token that is connecting is, by definition, being seen.
+   *
+   * `lastSeenAt` is null until an agent first connects, so age falls back to
+   * `createdAt`. Without that a token issued and never used would never be
+   * touched, which is exactly the credential most worth retiring.
+   */
+  @Cron(CRON_DAILY.PRINT_AGENT_RETIREMENT, {
+    name: 'retireStalePrintAgents',
+    waitForCompletion: true,
+  })
+  async retireStalePrintAgents(now = new Date()): Promise<{
+    warned: number;
+    quarantined: number;
+  }> {
+    const unseenSince = (days: number) =>
+      new Date(now.getTime() - days * DAY_MS);
+
+    // A live socket is the strongest possible evidence the device is alive, and
+    // it outranks a lastSeenAt that has not moved because the station simply
+    // has not printed. Refresh before judging, never after.
+    try {
+      const connected = await this.events.listConnectedAgentTokenIds();
+      if (connected.length) {
+        await this.prisma.printAgentToken.updateMany({
+          where: { id: { in: connected } },
+          data: { lastSeenAt: now, staleWarnedAt: null },
+        });
+      }
+    } catch (error) {
+      // If the socket layer cannot answer, skip the sweep entirely rather than
+      // quarantine agents we simply failed to ask about.
+      this.logger.error(
+        `Could not enumerate connected print agents; skipping retirement sweep: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { warned: 0, quarantined: 0 };
+    }
+
+    const silentBefore = (cutoff: Date) => ({
+      OR: [
+        { lastSeenAt: { lt: cutoff } },
+        { lastSeenAt: null, createdAt: { lt: cutoff } },
+      ],
+    });
+
+    try {
+      // Quarantine first: a token past the longer window should not be merely
+      // warned on this pass and revoked a day later.
+      const quarantined = await this.prisma.printAgentToken.updateMany({
+        where: {
+          quarantinedAt: null,
+          // Per-token enforcement. NULL is the deployment-compatibility state
+          // for rows created between deploy and backfill, and is deliberately
+          // excluded: never quarantine a token whose grace window is unknown.
+          stalenessEnforcedAt: { not: null, lte: now },
+          ...silentBefore(unseenSince(PRINT_AGENT_QUARANTINE_DAYS)),
+        },
+        data: { quarantinedAt: now },
+      });
+
+      const warned = await this.prisma.printAgentToken.updateMany({
+        where: {
+          staleWarnedAt: null,
+          quarantinedAt: null,
+          ...silentBefore(unseenSince(PRINT_AGENT_STALE_WARN_DAYS)),
+        },
+        data: { staleWarnedAt: now },
+      });
+
+      if (quarantined.count || warned.count) {
+        this.logger.log(
+          `Print agent retirement: warned ${warned.count}, quarantined ${quarantined.count}`,
+        );
+      }
+      return { warned: warned.count, quarantined: quarantined.count };
+    } catch (error) {
+      // A failed sweep must not take down the scheduler; the next run retries.
+      this.logger.error(
+        `Print agent retirement sweep failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { warned: 0, quarantined: 0 };
+    }
   }
 
   async touchLastSeen(token: string) {

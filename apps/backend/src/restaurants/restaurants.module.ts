@@ -14,6 +14,7 @@ import {
   OnboardingSlugController,
   SlugController,
 } from './slug/slug.controller';
+import { PinSecurityModule } from '../auth/pin-security.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import {
     UsersModule,
     MenuModule,
     SlugModule,
+    PinSecurityModule,
   ],
   controllers: [
     RestaurantsController,

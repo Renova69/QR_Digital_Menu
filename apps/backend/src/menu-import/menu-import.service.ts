@@ -404,7 +404,7 @@ export class MenuImportService {
     const cleanupImages = async () => {
       await Promise.all(
         pendingImageDeletes.map(({ url, exclude }) =>
-          this.deleteImageIfUnreferenced(url, exclude),
+          this.deleteImageIfUnreferenced(url, restaurantId, exclude),
         ),
       );
     };
@@ -420,26 +420,36 @@ export class MenuImportService {
 
   private async isImageReferencedElsewhere(
     url: string,
+    restaurantId: string,
     exclude: ImageRefExclusions = {},
   ): Promise<boolean> {
     const { excludeItemIds = [], excludeCategoryIds = [] } = exclude;
-    const [itemRefs, categoryRefs] = await Promise.all([
+    const tenantScoped = this.storageService.isTenantNamespacedObject(url);
+    const [itemRefs, categoryRefs, restaurantRefs] = await Promise.all([
       this.prisma.menuItem.count({
         where: {
           OR: [{ imageUrl: url }, { thumbnailUrl: url }],
+          ...(tenantScoped ? { category: { restaurantId } } : {}),
           ...(excludeItemIds.length ? { id: { notIn: excludeItemIds } } : {}),
         },
       }),
       this.prisma.menuCategory.count({
         where: {
           OR: [{ imageUrl: url }, { thumbnailUrl: url }],
+          ...(tenantScoped ? { restaurantId } : {}),
           ...(excludeCategoryIds.length
             ? { id: { notIn: excludeCategoryIds } }
             : {}),
         },
       }),
+      this.prisma.restaurant.count({
+        where: {
+          OR: [{ logoUrl: url }, { logoThumbnailUrl: url }],
+          ...(tenantScoped ? { id: restaurantId } : {}),
+        },
+      }),
     ]);
-    return itemRefs + categoryRefs > 0;
+    return itemRefs + categoryRefs + restaurantRefs > 0;
   }
 
   /** Runs under a per-URL lock (shared process-wide, see key-mutex.ts) so a
@@ -447,15 +457,16 @@ export class MenuImportService {
    *  import can't race this reference-check against a stale count. */
   private async deleteImageIfUnreferenced(
     url: string,
+    restaurantId: string,
     exclude: ImageRefExclusions = {},
   ): Promise<void> {
     await withKeyLock(url, async () => {
       try {
-        if (await this.isImageReferencedElsewhere(url, exclude)) {
+        if (await this.isImageReferencedElsewhere(url, restaurantId, exclude)) {
           this.logger.log(`Kept shared image (still referenced): ${url}`);
           return;
         }
-        await this.storageService.deleteExact(url);
+        await this.storageService.deleteExact(url, restaurantId);
       } catch (error) {
         this.logger.warn(`Skipped image cleanup for ${url}: ${error}`);
       }

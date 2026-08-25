@@ -17,6 +17,7 @@ import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { buildPhonePlaceholderEmail } from './phone-placeholder';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { PinSecurityService } from './pin-security.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import {
@@ -41,6 +42,28 @@ const AUTH_PROVIDER_TIMEOUT_MS = 10_000;
 // enough that a handful of typos is ordinary, whereas a 4-digit PIN has a
 // 10,000-candidate keyspace and needs a tighter leash. The doubling below is
 // what makes a sustained attack pointless.
+// A device-bound PIN session runs on a tablet that stays in the restaurant
+// overnight, is shared between staff, and is unlocked by four digits. The
+// module default of one day means a token minted at opening is still valid at
+// opening the next morning -- so the tablet is a working credential all night,
+// which is exactly when nobody is watching it.
+//
+// 12h, not 8h: a trading day is roughly 11:00-23:00, and an 8h session would
+// expire in the middle of dinner service. 12h covers the day and dies at close,
+// which is the window that actually matters.
+//
+// Deliberately not applied to dashboard logins: those are a person on a machine
+// they control, and shortening them only trains people to re-authenticate.
+const STAFF_DEVICE_SESSION_TTL = '12h';
+
+// How long a device stays trusted to accept a 4-digit PIN after enrolment.
+// Separate from the enrolment link's own short TTL, and from the session TTL
+// above -- this is the trust that lets a PIN be sufficient at all.
+//
+// Checked at PIN login only. A lapse must never interrupt a shift already in
+// progress, so it is never enforced mid-session.
+export const DEVICE_TRUST_DAYS = 180;
+
 const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
 const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
@@ -60,6 +83,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
     private readonly events: EventsGateway,
+    private readonly pinSecurity: PinSecurityService,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -432,6 +456,18 @@ export class AuthService {
 
   private hashDeviceToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private throwActivePinDeviceLock(lockedUntil: Date): never {
+    const minutes = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
+    throw new HttpException(
+      {
+        message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+        attemptsRemaining: 0,
+        lockedUntil: lockedUntil.toISOString(),
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 
   private async recordPinLoginAudit(data: {
@@ -909,6 +945,7 @@ export class AuthService {
         pinAttempts: true,
         pinLockedUntil: true,
         sessionVersion: true,
+        deviceTrustExpiresAt: true,
       },
     });
 
@@ -918,21 +955,94 @@ export class AuthService {
       );
     }
 
+    // Device trust lapses on its own so a tablet cannot stay a credential
+    // indefinitely across staff turnover. NULL means trusted indefinitely --
+    // which is what every device enrolled before this shipped already was, so
+    // nothing is un-trusted retroactively.
+    //
+    // Enforced here rather than in the session guard on purpose: expiring a
+    // live session would drop a waiter mid-order, whereas refusing the next
+    // login costs one re-enrolment the owner can do between covers.
+    // NULL is a deployment-compatibility state, not policy: the migration writes
+    // a real expiry for every enrolled device, and enrolment sets one from that
+    // point on. A row can only be NULL if it was created between the deploy and
+    // the backfill, so it is treated as still trusted rather than locking out a
+    // device over a race with our own rollout.
     if (
-      enrolledDevice.pinLockedUntil &&
-      enrolledDevice.pinLockedUntil > new Date()
+      enrolledDevice.deviceTrustExpiresAt &&
+      enrolledDevice.deviceTrustExpiresAt <= new Date()
     ) {
-      const minutes = Math.ceil(
-        (enrolledDevice.pinLockedUntil.getTime() - Date.now()) / 60000,
+      throw new UnauthorizedException(
+        'This device is no longer trusted for PIN login. Ask an owner or manager to re-enroll it.',
       );
-      throw new HttpException(
-        {
-          message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
-          attemptsRemaining: 0,
-          lockedUntil: enrolledDevice.pinLockedUntil.toISOString(),
+    }
+
+    // Tracks whether a spent lock was retired on this request, so the relock
+    // guard below judges the window that starts now rather than the stale value
+    // this request read.
+    let lockCleared = false;
+    if (enrolledDevice.pinLockedUntil) {
+      if (enrolledDevice.pinLockedUntil > new Date()) {
+        this.throwActivePinDeviceLock(enrolledDevice.pinLockedUntil);
+      }
+
+      // The lock has expired, so retire it here rather than leaving a stale
+      // non-null value behind. The relock guard below tests `!lockedUntil`, so
+      // a spent lock that is never cleared permanently disables relocking:
+      // pinAttempts climbs past MAX_ATTEMPTS while every wrong PIN is merely
+      // rejected, and brute force continues at the route throttle forever.
+      // pinAttempts resets only on a successful login, which an attacker never
+      // reaches.
+      //
+      // Guarded on the value we read, so two concurrent requests cannot both
+      // clear it and lose a real attempt between them.
+      const cleared = await this.prisma.deviceEnrollmentToken.updateMany({
+        where: {
+          id: enrolledDevice.id,
+          pinLockedUntil: enrolledDevice.pinLockedUntil,
         },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+        data: { pinAttempts: 0, pinLockedUntil: null },
+      });
+
+      if (cleared.count === 0) {
+        // Another request changed the row after our read. Re-read before doing
+        // bcrypt work: blindly setting lockCleared here would let this request
+        // continue through a lock another request has just renewed.
+        const current = await this.prisma.deviceEnrollmentToken.findUnique({
+          where: { id: enrolledDevice.id },
+          select: { pinLockedUntil: true },
+        });
+        if (!current) {
+          throw new UnauthorizedException(
+            'This device is not enrolled for staff PIN login.',
+          );
+        }
+        if (current.pinLockedUntil && current.pinLockedUntil > new Date()) {
+          this.throwActivePinDeviceLock(current.pinLockedUntil);
+        }
+        if (current.pinLockedUntil) {
+          // A second expired value is unusual but can be handled safely with the
+          // same compare-and-clear. If it races again, reject this request rather
+          // than guessing which lock state is authoritative.
+          const retried = await this.prisma.deviceEnrollmentToken.updateMany({
+            where: {
+              id: enrolledDevice.id,
+              pinLockedUntil: current.pinLockedUntil,
+            },
+            data: { pinAttempts: 0, pinLockedUntil: null },
+          });
+          if (retried.count === 0) {
+            throw new HttpException(
+              {
+                message: 'Device lock state changed. Try again.',
+                attemptsRemaining: 0,
+              },
+              HttpStatus.TOO_MANY_REQUESTS,
+            );
+          }
+        }
+      }
+      lockCleared = true;
     }
 
     const candidates = await this.prisma.user.findMany({
@@ -975,7 +1085,9 @@ export class AuthService {
         deviceSessionVersion: enrolledDevice.sessionVersion ?? 0,
       };
       return {
-        token: this.jwtService.sign(payload),
+        token: this.jwtService.sign(payload, {
+          expiresIn: STAFF_DEVICE_SESSION_TTL,
+        }),
         user: {
           id: user.id,
           email: user.email,
@@ -993,7 +1105,12 @@ export class AuthService {
     });
     const attempts = updatedDevice.pinAttempts;
 
-    let lockedUntil = enrolledDevice.pinLockedUntil;
+    // After a reset the stored value is null, so the window that matters is the
+    // fresh one. Reading enrolledDevice here would see the spent lock and
+    // suppress relocking forever -- the defect this guard is being fixed for.
+    let lockedUntil: Date | null = lockCleared
+      ? null
+      : enrolledDevice.pinLockedUntil;
     if (attempts >= MAX_ATTEMPTS && !lockedUntil) {
       lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
       await this.prisma.deviceEnrollmentToken.update({
@@ -1008,6 +1125,14 @@ export class AuthService {
       status: attempts >= MAX_ATTEMPTS ? 'LOCKED' : 'INVALID_PIN',
       ...meta,
     });
+
+    // Detection runs after the audit row exists, and is deliberately not
+    // awaited: it is advisory, and must never delay a login, change what the
+    // caller sees, or turn a wrong PIN into a 500. It also never blocks --
+    // per-device lockout above remains the only blocking control, because a
+    // restaurant-wide one could be triggered on purpose to take every till
+    // offline mid-service.
+    void this.pinSecurity.evaluate(restaurantId, enrolledDevice.id);
 
     const remaining = MAX_ATTEMPTS - attempts;
     if (remaining > 0) {

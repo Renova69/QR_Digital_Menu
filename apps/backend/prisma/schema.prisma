@@ -202,6 +202,7 @@ model Restaurant {
   menuTranslationStates       MenuTranslationState[]
   translationRuns             TranslationRun[]
   translationUsages           TranslationUsage[]
+  securityAlerts              SecurityAlert[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -277,18 +278,36 @@ model PrintStation {
 }
 
 model PrintAgentToken {
-  id             String       @id @default(cuid())
-  token          String?      @unique
-  tokenHash      String       @unique
-  printStationId String
-  restaurantId   String
-  label          String?
-  lastSeenAt     DateTime?
-  createdAt      DateTime     @default(now())
-  printStation   PrintStation @relation(fields: [printStationId], references: [id], onDelete: Cascade)
-  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                  String       @id @default(cuid())
+  token               String?      @unique
+  tokenHash           String       @unique
+  printStationId      String
+  restaurantId        String
+  label               String?
+  lastSeenAt          DateTime?
+  // Retirement is driven by inactivity, never by a calendar. A print agent runs
+  // unattended on a kitchen device: a token that expires on a fixed date stops
+  // tickets mid-service, which is a worse failure than the stale credential it
+  // was meant to prevent. A token that has not connected in months, on the
+  // other hand, is on a device that is lost, replaced or decommissioned.
+  staleWarnedAt       DateTime?
+  quarantinedAt       DateTime?
+  // When this token first becomes eligible for quarantine. Persisted per token
+  // rather than derived from a date in application code, so every environment
+  // gets a grace period measured from its own rollout, and a token issued today
+  // is not judged against a window that started before it existed.
+  //
+  // NULL is a deployment-compatibility state only -- rows created between the
+  // deploy and the backfill -- and is treated as "not yet enforceable". It is
+  // never the long-term policy.
+  stalenessEnforcedAt DateTime?
+  createdAt           DateTime     @default(now())
+  printStation        PrintStation @relation(fields: [printStationId], references: [id], onDelete: Cascade)
+  restaurant          Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId])
+  @@index([lastSeenAt])
+  @@index([stalenessEnforcedAt])
   @@map("print_agent_token")
 }
 
@@ -589,21 +608,29 @@ model CashPaymentRequest {
 }
 
 model DeviceEnrollmentToken {
-  id             String               @id @default(cuid())
-  tokenHash      String               @unique
-  restaurantId   String
-  createdById    String
-  expiresAt      DateTime
-  usedAt         DateTime?
-  revokedAt      DateTime?
-  sessionVersion Int                  @default(0)
-  pinAttempts    Int                  @default(0)
-  pinLockedUntil DateTime?
-  createdAt      DateTime             @default(now())
-  restaurant     Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdBy      User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  staffBindings  StaffDeviceBinding[]
-  lastLoginUsers User[]               @relation("LastStaffDeviceLogin")
+  id                   String               @id @default(cuid())
+  tokenHash            String               @unique
+  restaurantId         String
+  createdById          String
+  expiresAt            DateTime
+  usedAt               DateTime?
+  revokedAt            DateTime?
+  sessionVersion       Int                  @default(0)
+  // Deliberately separate from `expiresAt`, which gates the one-time enrolment
+  // link. This is how long the DEVICE stays trusted to accept a 4-digit PIN
+  // afterwards. Reusing expiresAt would have un-trusted every already-enrolled
+  // tablet the moment this shipped.
+  //
+  // Checked only at PIN login, never mid-session, so trust lapsing can never
+  // interrupt someone already working.
+  deviceTrustExpiresAt DateTime?
+  pinAttempts          Int                  @default(0)
+  pinLockedUntil       DateTime?
+  createdAt            DateTime             @default(now())
+  restaurant           Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy            User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  staffBindings        StaffDeviceBinding[]
+  lastLoginUsers       User[]               @relation("LastStaffDeviceLogin")
 
   @@index([restaurantId])
   @@index([expiresAt])
@@ -625,6 +652,30 @@ model StaffDeviceBinding {
   @@index([restaurantId, userId])
   @@index([deviceTokenId])
   @@map("staff_device_binding")
+}
+
+/// Detection signals raised from staff PIN-login failures.
+///
+/// Persisted rather than fired-and-forgotten for two reasons: it is what the
+/// dashboard reads, and it is how alerts are deduplicated across instances --
+/// an in-memory guard would let each of the three Cloud Run instances alert
+/// separately for the same incident.
+model SecurityAlert {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  /// MULTI_DEVICE_LOCKOUT | PIN_SPIKE | DEVICE_SLOW_BURN | RESTAURANT_AGGREGATE
+  kind          String
+  /// Set for device-scoped signals so the dedupe window is per device rather
+  /// than per restaurant.
+  deviceTokenId String?
+  /// Counts and window that triggered it, for the dashboard to explain itself.
+  detail        Json?
+  createdAt     DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, kind, createdAt])
+  @@map("security_alert")
 }
 
 model StaffPinLoginAudit {

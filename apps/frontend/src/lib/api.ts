@@ -1787,6 +1787,27 @@ export const createDeviceEnrollment = async (restaurantId: string) => {
   return response.data as { enrollmentUrl: string; expiresAt: string };
 };
 
+export type PinSecurityAlert = {
+  id: string;
+  kind:
+    | "MULTI_DEVICE_LOCKOUT"
+    | "PIN_SPIKE"
+    | "DEVICE_SLOW_BURN"
+    | "RESTAURANT_AGGREGATE";
+  deviceTokenId: string | null;
+  detail: Record<string, number> | null;
+  createdAt: string;
+};
+
+/** Staff PIN abuse signals for the dashboard. Detection only -- the blocking
+ *  control remains per-device lockout. */
+export const listPinSecurityAlerts = async (restaurantId: string) => {
+  const response = await api.get(
+    `/restaurants/${restaurantId}/pin-security-alerts`,
+  );
+  return response.data as PinSecurityAlert[];
+};
+
 export const listDeviceEnrollments = async (restaurantId: string) => {
   const response = await api.get(
     `/restaurants/${restaurantId}/device-enrollments`,
@@ -1797,6 +1818,9 @@ export const listDeviceEnrollments = async (restaurantId: string) => {
     expiresAt: string;
     usedAt: string | null;
     revokedAt: string | null;
+    pinLockedUntil: string | null;
+    // NULL means the row predates the trust backfill -- unknown, not "forever".
+    deviceTrustExpiresAt: string | null;
     createdBy: { id: string; name: string | null; email: string };
     staffBindings: Array<{
       firstSeenAt: string;
@@ -2183,6 +2207,21 @@ export const generateAgentToken = (
       {
         params: { restaurantId },
       },
+    )
+    .then((r) => r.data);
+
+// Bring a quarantined print agent back. Returns 409 TOKEN_NOT_QUARANTINED if the
+// token is already active -- which happens naturally when a stale view is acted
+// on, so callers should refetch rather than surface a failure.
+export const reactivateAgentToken = (
+  restaurantId: string | undefined,
+  tokenId: string,
+) =>
+  api
+    .post(
+      `/print-stations/tokens/${tokenId}/reactivate`,
+      {},
+      { params: { restaurantId } },
     )
     .then((r) => r.data);
 

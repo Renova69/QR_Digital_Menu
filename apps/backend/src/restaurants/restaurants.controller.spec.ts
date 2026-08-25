@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PinSecurityService } from '../auth/pin-security.service';
 import { Reflector } from '@nestjs/core';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { RestaurantsController } from './restaurants.controller';
 import { RestaurantsService } from './restaurants.service';
 import { StorageService } from '../storage/storage.service';
@@ -50,6 +51,10 @@ describe('RestaurantsController', () => {
         { provide: RestaurantsService, useValue: mockRestaurantsService },
         { provide: StorageService, useValue: mockStorageService },
         { provide: DeviceEnrollmentService, useValue: mockDeviceEnrollment },
+        {
+          provide: PinSecurityService,
+          useValue: { recentAlerts: jest.fn().mockResolvedValue([]) },
+        },
         { provide: FeatureService, useValue: mockFeatureService },
         { provide: PrismaService, useValue: {} },
         { provide: Reflector, useValue: { get: jest.fn() } },
@@ -146,6 +151,45 @@ describe('RestaurantsController', () => {
   });
 
   describe('uploadLogo', () => {
+    // The ownership check sits inside the same try as the upload, so a
+    // catch-all rethrow turned a 403 into a 400 and echoed internal storage or
+    // database detail back to the tenant.
+    it('preserves an authorization failure status', async () => {
+      mockStorageService.uploadWithThumbnail.mockRejectedValue(
+        new ForbiddenException('Forbidden access'),
+      );
+
+      await expect(
+        controller.uploadLogo(
+          'rest-1',
+          {
+            buffer: Buffer.from('x'),
+            originalname: 'a.png',
+            mimetype: 'image/png',
+          } as any,
+          { user: { id: 'user-1' } },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('does not echo an internal error', async () => {
+      mockStorageService.uploadWithThumbnail.mockRejectedValue(
+        new Error('connect ECONNREFUSED 10.0.0.5:443 bucket=qr-menu-uploads'),
+      );
+
+      await expect(
+        controller.uploadLogo(
+          'rest-1',
+          {
+            buffer: Buffer.from('x'),
+            originalname: 'a.png',
+            mimetype: 'image/png',
+          } as any,
+          { user: { id: 'user-1' } },
+        ),
+      ).rejects.toThrow(new BadRequestException('Failed to upload logo'));
+    });
+
     it('should throw BadRequestException when no file provided', async () => {
       await expect(
         controller.uploadLogo('rest-1', undefined as any, {
@@ -180,6 +224,9 @@ describe('RestaurantsController', () => {
         file.buffer,
         file.originalname,
         file.mimetype,
+        // Tenant prefix comes from the route's restaurant id, whose ownership
+        // findOneForManagement just verified -- never from the client.
+        'rest-1',
       );
       expect(result).toEqual({
         logoUrl: 'https://r2.example.com/logo.webp',

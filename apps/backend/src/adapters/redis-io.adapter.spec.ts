@@ -35,9 +35,25 @@ describe('RedisIoAdapter.connectToRedis', () => {
 
   it('warns and returns without connecting when REDIS_URL is not set', async () => {
     delete process.env.REDIS_URL;
+    process.env.NODE_ENV = 'development';
     const adapter = new RedisIoAdapter(app);
 
     await expect(adapter.connectToRedis()).resolves.toBeUndefined();
+  });
+
+  // An unreachable Redis already failed boot; an ABSENT one only warned, which
+  // is the more dangerous of the two because nothing downstream errors. The
+  // in-memory adapter answers every call successfully while seeing only this
+  // instance's sockets, so cross-instance behaviour degrades silently:
+  // fetchSockets() returns a partial view rather than throwing, and the
+  // print-agent retirement sweep would judge staleness on a fraction of the
+  // live agents.
+  it('fails boot in production when REDIS_URL is absent — no silent single-instance degrade', async () => {
+    delete process.env.REDIS_URL;
+    process.env.NODE_ENV = 'production';
+    const adapter = new RedisIoAdapter(app);
+
+    await expect(adapter.connectToRedis()).rejects.toThrow(/REDIS_URL/);
   });
 
   it('redacts credentials from the connected-log line', async () => {

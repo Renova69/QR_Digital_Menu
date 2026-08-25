@@ -14,6 +14,10 @@ playwright-report/
 test-results/
 apps/frontend/debug.log
 apps/frontend/e2e-vite.*.log
+# Local Jest/Vitest/coverage captures are disposable CI evidence, not source.
+apps/backend/jest-*.log
+apps/frontend/coverage-*.log
+apps/frontend/vitest-*.log
 
 # Production
 build/

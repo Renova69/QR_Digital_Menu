@@ -4,6 +4,8 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { randomBytes } from 'crypto';
@@ -94,6 +96,7 @@ export class StorageService {
     fileBuffer: Buffer,
     originalName: string,
     contentType: string,
+    restaurantId: string,
   ): Promise<string> {
     if (!StorageService.ALLOWED_TYPES.includes(contentType)) {
       throw new Error(
@@ -101,7 +104,7 @@ export class StorageService {
       );
     }
 
-    const result = await this.uploadOptimised(fileBuffer);
+    const result = await this.uploadOptimised(fileBuffer, restaurantId);
     return result.url;
   }
 
@@ -113,6 +116,7 @@ export class StorageService {
     fileBuffer: Buffer,
     originalName: string,
     contentType: string,
+    restaurantId: string,
   ): Promise<ProcessedUpload> {
     if (!StorageService.ALLOWED_TYPES.includes(contentType)) {
       throw new Error(
@@ -120,16 +124,20 @@ export class StorageService {
       );
     }
 
-    return this.uploadOptimised(fileBuffer);
+    return this.uploadOptimised(fileBuffer, restaurantId);
   }
 
   /**
    * Core image processing + upload pipeline.
    */
-  private async uploadOptimised(fileBuffer: Buffer): Promise<ProcessedUpload> {
+  private async uploadOptimised(
+    fileBuffer: Buffer,
+    restaurantId: string,
+  ): Promise<ProcessedUpload> {
     const id = randomBytes(16).toString('hex');
-    const mainKey = `${id}.webp`;
-    const thumbKey = `${id}_thumb.webp`;
+    const prefix = StorageService.tenantPrefix(restaurantId);
+    const mainKey = `${prefix}${id}.webp`;
+    const thumbKey = `${prefix}${id}_thumb.webp`;
 
     // Get metadata to log savings
     const originalSize = fileBuffer.length;
@@ -209,9 +217,31 @@ export class StorageService {
   /**
    * Delete a file from R2 by its key or full URL.
    */
+  /**
+   * Objects are written under `tenants/{restaurantId}/`.
+   *
+   * This is isolation and operations, NOT confidentiality: per-tenant lifecycle
+   * rules, bulk purge on offboarding, comprehensible storage costs, and a blast
+   * radius on a bad delete. The bucket is publicly readable, so the prefix
+   * conceals nothing from anyone already holding a URL -- do not mistake it for
+   * an access control.
+   */
+  private static tenantPrefix(restaurantId: string): string {
+    return `tenants/${encodeURIComponent(restaurantId)}/`;
+  }
+
+  /**
+   * Resolve a stored URL (or raw key) to the object key it refers to.
+   *
+   * Returns the FULL key, not the final path segment. Reducing
+   * `tenants/rest-2/abc.webp` to `abc.webp` would silently address a different
+   * object -- and with namespacing that is the difference between deleting a
+   * tenant's image and deleting whatever legacy object happens to share the
+   * name.
+   */
   private extractManagedKey(keyOrUrl: string): string | null {
     if (!/^https?:\/\//i.test(keyOrUrl)) {
-      return keyOrUrl;
+      return this.rejectTraversal(keyOrUrl);
     }
 
     try {
@@ -226,16 +256,60 @@ export class StorageService {
         return null;
       }
 
-      return decodeURIComponent(fileUrl.pathname.split('/').pop() || '');
+      // Strip the bucket's own base path, keeping everything below it.
+      const key = decodeURIComponent(
+        fileUrl.pathname.slice(storagePath.length).replace(/^\//, ''),
+      );
+      return this.rejectTraversal(key);
     } catch {
       return null;
     }
   }
 
-  async deleteExact(keyOrUrl: string): Promise<void> {
+  /**
+   * Keeping the full path means `..` must be refused explicitly -- previously
+   * taking the basename made traversal impossible by accident rather than by
+   * design.
+   */
+  private rejectTraversal(key: string): string | null {
+    if (!key || key.startsWith('/') || key.split('/').includes('..')) {
+      return null;
+    }
+    return key;
+  }
+
+  /**
+   * Whether `key` may be operated on by `restaurantId`.
+   *
+   * A key with no tenant prefix predates namespacing. Those objects are
+   * deliberately left in place -- no destructive migration -- so refusing them
+   * here would make every existing menu image permanently undeletable.
+   */
+  private isOwnedBy(key: string, restaurantId: string): boolean {
+    // TypeScript catches missing ids in application callers; this runtime guard
+    // keeps the boundary closed for JavaScript, stale builds, or future dynamic
+    // invocation as well. Legacy keys are compatible only with an authenticated,
+    // server-derived tenant id -- never with no tenant context at all.
+    if (!restaurantId?.trim()) return false;
+    if (!key.startsWith('tenants/')) return true;
+    return key.startsWith(StorageService.tenantPrefix(restaurantId));
+  }
+
+  /** Whether a managed URL/key belongs to the post-P2-6 tenant namespace. */
+  isTenantNamespacedObject(keyOrUrl: string): boolean {
+    return this.extractManagedKey(keyOrUrl)?.startsWith('tenants/') ?? false;
+  }
+
+  async deleteExact(keyOrUrl: string, restaurantId: string): Promise<void> {
     const key = this.extractManagedKey(keyOrUrl);
     if (!key) {
       this.logger.warn(`Skipping unmanaged image URL: ${keyOrUrl}`);
+      return;
+    }
+    if (!this.isOwnedBy(key, restaurantId)) {
+      this.logger.warn(
+        `Refusing cross-tenant delete of ${key} requested by ${restaurantId}`,
+      );
       return;
     }
 
@@ -252,10 +326,16 @@ export class StorageService {
     }
   }
 
-  async delete(keyOrUrl: string): Promise<void> {
+  async delete(keyOrUrl: string, restaurantId: string): Promise<void> {
     const key = this.extractManagedKey(keyOrUrl);
     if (!key) {
       this.logger.warn(`Skipping unmanaged image URL: ${keyOrUrl}`);
+      return;
+    }
+    if (!this.isOwnedBy(key, restaurantId)) {
+      this.logger.warn(
+        `Refusing cross-tenant delete of ${key} requested by ${restaurantId}`,
+      );
       return;
     }
 
@@ -264,12 +344,73 @@ export class StorageService {
       // already know the exact DB column URL should use deleteExact() to avoid
       // deleting an unchanged thumbnail still referenced by another row.
       await Promise.all([
-        this.deleteExact(key),
-        this.deleteExact(key.replace(/\.[^/.]+$/, '') + '_thumb.webp'),
+        this.deleteExact(key, restaurantId),
+        this.deleteExact(
+          key.replace(/\.[^/.]+$/, '') + '_thumb.webp',
+          restaurantId,
+        ),
       ]);
       this.logger.log(`Deleted: ${key} (+ thumbnail)`);
     } catch (error) {
       this.logger.warn(`Failed to delete ${key}: ${error}`);
     }
+  }
+
+  /**
+   * Permanently remove every post-namespacing object owned by one tenant.
+   *
+   * This is intentionally a service capability, not part of soft-delete:
+   * restaurants can currently be restored, so calling this from that path would
+   * turn a reversible account action into irreversible data loss. A future hard
+   * erasure/offboarding workflow may call it explicitly after its own checks.
+   * Legacy un-namespaced objects cannot be attributed safely and are excluded.
+   */
+  async purgeTenant(restaurantId: string): Promise<number> {
+    if (!restaurantId.trim()) {
+      throw new Error('restaurantId is required for tenant storage purge');
+    }
+
+    const prefix = StorageService.tenantPrefix(restaurantId);
+    let continuationToken: string | undefined;
+    let deleted = 0;
+
+    do {
+      const page = await this.s3.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      const objects = (page.Contents ?? [])
+        .map(({ Key }) => Key)
+        .filter((key): key is string => Boolean(key))
+        .map((Key) => ({ Key }));
+
+      if (objects.length > 0) {
+        const result = await this.s3.send(
+          new DeleteObjectsCommand({
+            Bucket: this.bucket,
+            Delete: { Objects: objects, Quiet: true },
+          }),
+        );
+        if (result.Errors?.length) {
+          throw new Error(
+            `R2 tenant purge failed for ${result.Errors.length} object(s)`,
+          );
+        }
+        deleted += objects.length;
+      }
+
+      continuationToken = page.IsTruncated
+        ? page.NextContinuationToken
+        : undefined;
+      if (page.IsTruncated && !continuationToken) {
+        throw new Error('R2 tenant purge page was truncated without a cursor');
+      }
+    } while (continuationToken);
+
+    this.logger.log(`Purged ${deleted} object(s) for tenant ${restaurantId}`);
+    return deleted;
   }
 }

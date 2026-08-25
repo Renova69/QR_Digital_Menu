@@ -242,26 +242,40 @@ export class MenuCrudService {
    *  columns, excluding the row(s) currently being removed. */
   private async isImageReferencedElsewhere(
     url: string,
+    restaurantId: string,
     exclude: ImageRefExclusions = {},
   ): Promise<boolean> {
     const { excludeItemIds = [], excludeCategoryIds = [] } = exclude;
-    const [itemRefs, categoryRefs] = await Promise.all([
+    // New namespaced objects have exactly one owning tenant. Scope their
+    // reference count to that owner so a foreign row copying a public URL cannot
+    // keep another tenant's object alive. Legacy keys predate ownership metadata
+    // and may genuinely be shared, so they retain the global safety check.
+    const tenantScoped = this.storageService.isTenantNamespacedObject(url);
+    const [itemRefs, categoryRefs, restaurantRefs] = await Promise.all([
       this.prisma.menuItem.count({
         where: {
           OR: [{ imageUrl: url }, { thumbnailUrl: url }],
+          ...(tenantScoped ? { category: { restaurantId } } : {}),
           ...(excludeItemIds.length ? { id: { notIn: excludeItemIds } } : {}),
         },
       }),
       this.prisma.menuCategory.count({
         where: {
           OR: [{ imageUrl: url }, { thumbnailUrl: url }],
+          ...(tenantScoped ? { restaurantId } : {}),
           ...(excludeCategoryIds.length
             ? { id: { notIn: excludeCategoryIds } }
             : {}),
         },
       }),
+      this.prisma.restaurant.count({
+        where: {
+          OR: [{ logoUrl: url }, { logoThumbnailUrl: url }],
+          ...(tenantScoped ? { id: restaurantId } : {}),
+        },
+      }),
     ]);
-    return itemRefs + categoryRefs > 0;
+    return itemRefs + categoryRefs + restaurantRefs > 0;
   }
 
   /** Delete a single stored image, but only when no OTHER menu row still points
@@ -272,28 +286,30 @@ export class MenuCrudService {
    *  stale "still referenced" count and disagree about who should delete it. */
   private async deleteImageIfUnreferenced(
     url: string | null | undefined,
+    restaurantId: string,
     exclude: ImageRefExclusions = {},
   ): Promise<void> {
     if (!url) return;
     await withKeyLock(url, async () => {
-      if (await this.isImageReferencedElsewhere(url, exclude)) {
+      if (await this.isImageReferencedElsewhere(url, restaurantId, exclude)) {
         this.logger.log(`Kept shared image (still referenced): ${url}`);
         return;
       }
-      await this.storageService.deleteExact(url);
+      await this.storageService.deleteExact(url, restaurantId);
     });
   }
 
   private async deleteStoredImagePair(
-    imageUrl?: string | null,
-    thumbnailUrl?: string | null,
+    imageUrl: string | null | undefined,
+    thumbnailUrl: string | null | undefined,
+    restaurantId: string,
     exclude: ImageRefExclusions = {},
   ) {
     // Delete each URL independently. Using `imageUrl ?? thumbnailUrl` previously
     // caused `_thumb_thumb.webp` if only thumbnailUrl was non-null (L1.3).
     await Promise.all([
-      this.deleteImageIfUnreferenced(imageUrl, exclude),
-      this.deleteImageIfUnreferenced(thumbnailUrl, exclude),
+      this.deleteImageIfUnreferenced(imageUrl, restaurantId, exclude),
+      this.deleteImageIfUnreferenced(thumbnailUrl, restaurantId, exclude),
     ]);
   }
 
@@ -1075,6 +1091,10 @@ export class MenuCrudService {
     }
 
     await this.checkRestaurantOwnership(category.restaurantId, userId);
+    // Returned so callers can namespace storage by tenant without taking the
+    // id from the request -- it is derived from the resource they just proved
+    // they own.
+    return category.restaurantId;
   }
 
   async verifyItemOwnership(itemId: string, userId: string) {
@@ -1088,6 +1108,8 @@ export class MenuCrudService {
     }
 
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
+    // See verifyCategoryOwnership: server-derived tenant for storage keys.
+    return item.category.restaurantId;
   }
 
   // Thin public wrapper so sibling services (e.g. bulk menu edit) can reuse
@@ -1247,18 +1269,22 @@ export class MenuCrudService {
       updateCategoryDto.imageUrl !== category.imageUrl &&
       category.imageUrl
     ) {
-      await this.deleteImageIfUnreferenced(category.imageUrl, {
-        excludeCategoryIds: [categoryId],
-      });
+      await this.deleteImageIfUnreferenced(
+        category.imageUrl,
+        category.restaurantId,
+        { excludeCategoryIds: [categoryId] },
+      );
     }
     if (
       updateCategoryDto.thumbnailUrl !== undefined &&
       updateCategoryDto.thumbnailUrl !== category.thumbnailUrl &&
       category.thumbnailUrl
     ) {
-      await this.deleteImageIfUnreferenced(category.thumbnailUrl, {
-        excludeCategoryIds: [categoryId],
-      });
+      await this.deleteImageIfUnreferenced(
+        category.thumbnailUrl,
+        category.restaurantId,
+        { excludeCategoryIds: [categoryId] },
+      );
     }
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
@@ -1338,14 +1364,20 @@ export class MenuCrudService {
     const deleted = await this.prisma.menuCategory.delete({
       where: { id: categoryId },
     });
-    await this.deleteStoredImagePair(category.imageUrl, category.thumbnailUrl, {
-      excludeCategoryIds: [categoryId],
-    });
+    await this.deleteStoredImagePair(
+      category.imageUrl,
+      category.thumbnailUrl,
+      category.restaurantId,
+      { excludeCategoryIds: [categoryId] },
+    );
     await Promise.all(
       category.items.map((item) =>
-        this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl, {
-          excludeItemIds: [item.id],
-        }),
+        this.deleteStoredImagePair(
+          item.imageUrl,
+          item.thumbnailUrl,
+          category.restaurantId,
+          { excludeItemIds: [item.id] },
+        ),
       ),
     );
     return deleted;
@@ -1374,6 +1406,7 @@ export class MenuCrudService {
       await this.deleteStoredImagePair(
         category.imageUrl,
         category.thumbnailUrl,
+        category.restaurantId,
         { excludeCategoryIds: [categoryId] },
       );
     }
@@ -1503,18 +1536,22 @@ export class MenuCrudService {
       updateItemDto.imageUrl !== item.imageUrl &&
       item.imageUrl
     ) {
-      await this.deleteImageIfUnreferenced(item.imageUrl, {
-        excludeItemIds: [itemId],
-      });
+      await this.deleteImageIfUnreferenced(
+        item.imageUrl,
+        item.category.restaurantId,
+        { excludeItemIds: [itemId] },
+      );
     }
     if (
       updateItemDto.thumbnailUrl !== undefined &&
       updateItemDto.thumbnailUrl !== item.thumbnailUrl &&
       item.thumbnailUrl
     ) {
-      await this.deleteImageIfUnreferenced(item.thumbnailUrl, {
-        excludeItemIds: [itemId],
-      });
+      await this.deleteImageIfUnreferenced(
+        item.thumbnailUrl,
+        item.category.restaurantId,
+        { excludeItemIds: [itemId] },
+      );
     }
 
     // Synchronously purge stale cached translations for fields that changed or
@@ -1643,9 +1680,12 @@ export class MenuCrudService {
       data: { imageUrl, thumbnailUrl },
     });
     if (item.imageUrl !== imageUrl) {
-      await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl, {
-        excludeItemIds: [itemId],
-      });
+      await this.deleteStoredImagePair(
+        item.imageUrl,
+        item.thumbnailUrl,
+        item.category.restaurantId,
+        { excludeItemIds: [itemId] },
+      );
     }
     return updated;
   }
@@ -1733,9 +1773,12 @@ export class MenuCrudService {
     const deleted = await this.prisma.menuItem.delete({
       where: { id: itemId },
     });
-    await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl, {
-      excludeItemIds: [itemId],
-    });
+    await this.deleteStoredImagePair(
+      item.imageUrl,
+      item.thumbnailUrl,
+      item.category.restaurantId,
+      { excludeItemIds: [itemId] },
+    );
     return deleted;
   }
 

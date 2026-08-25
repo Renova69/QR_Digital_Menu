@@ -92,6 +92,12 @@ const RULES = [
     id: "private-key-block",
     pattern: /-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/g,
     description: "Private key block",
+    // The match is only the header, so the general placeholder check cannot see
+    // the stub body. Exempt only the explicit escaped fixture shape: applying
+    // every placeholder word to the whole line would let a real key through
+    // merely because its variable name contained "example" or "fake".
+    placeholderPattern:
+      /\\nMIIE\.{3}\\n-----END (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/,
   },
   {
     id: "assigned-secret-literal",
@@ -154,7 +160,9 @@ function scanAddedLines(addedLines) {
       let match;
       while ((match = rule.pattern.exec(text)) !== null) {
         const value = rule.valueGroup ? match[rule.valueGroup] : match[0];
-        if (isPlaceholder(value)) continue;
+        if (rule.placeholderPattern?.test(text)) continue;
+        const subject = value;
+        if (isPlaceholder(subject)) continue;
         findings.push({
           file,
           line,

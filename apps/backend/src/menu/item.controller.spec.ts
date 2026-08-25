@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ItemController, ItemDetailController } from './item.controller';
 import { MenuCrudService } from './menu-crud.service';
 import { StorageService } from '../storage/storage.service';
@@ -139,6 +139,46 @@ describe('ItemDetailController', () => {
       'Classic London dry gin',
       'user-1',
     );
+  });
+
+  // Same defect as CategoryDetailController: the ownership check runs inside
+  // the upload try block, so a catch-all rethrow flattened 403 to 400 and
+  // echoed internal storage/database detail to the caller.
+  it('uploadImage preserves an authorization failure status', async () => {
+    mockCrud.verifyItemOwnership.mockRejectedValue(
+      new ForbiddenException('Forbidden access'),
+    );
+
+    await expect(
+      controller.uploadImage(
+        'item-1',
+        {
+          buffer: Buffer.from('x'),
+          originalname: 'a.png',
+          mimetype: 'image/png',
+        } as any,
+        { user: { id: 'user-1' } },
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('uploadImage does not echo an internal error', async () => {
+    mockCrud.verifyItemOwnership.mockResolvedValue(undefined);
+    mockStorage.uploadWithThumbnail.mockRejectedValue(
+      new Error('connect ECONNREFUSED 10.0.0.5:443 bucket=qr-menu-uploads'),
+    );
+
+    await expect(
+      controller.uploadImage(
+        'item-1',
+        {
+          buffer: Buffer.from('x'),
+          originalname: 'a.png',
+          mimetype: 'image/png',
+        } as any,
+        { user: { id: 'user-1' } },
+      ),
+    ).rejects.toThrow(new BadRequestException('Failed to upload image'));
   });
 
   it('uploadImage throws when no file', async () => {

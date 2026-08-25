@@ -1,18 +1,20 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpException,
+  Logger,
+  Param,
+  Patch,
   Post,
   Put,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
   Request,
-  ValidationPipe,
-  UseInterceptors,
   UploadedFile,
-  BadRequestException,
+  UseGuards,
+  UseInterceptors,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
@@ -62,6 +64,7 @@ export class CategoryController {
 @UseGuards(JwtAuthGuard)
 @Controller('categories')
 export class CategoryDetailController {
+  private readonly logger = new Logger(CategoryDetailController.name);
   constructor(
     private readonly crud: MenuCrudService,
     private readonly storageService: StorageService,
@@ -107,12 +110,16 @@ export class CategoryDetailController {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
     let uploaded: { url: string; thumbnailUrl: string } | null = null;
+    let restaurantId: string | null = null;
     try {
-      await this.crud.verifyCategoryOwnership(id, req.user.id);
+      // Tenant comes from the resource whose ownership was just verified --
+      // never from the request, which the client controls.
+      restaurantId = await this.crud.verifyCategoryOwnership(id, req.user.id);
       uploaded = await this.storageService.uploadWithThumbnail(
         file.buffer,
         file.originalname,
         file.mimetype,
+        restaurantId,
       );
       return await this.crud.updateCategoryImage(
         id,
@@ -121,13 +128,26 @@ export class CategoryDetailController {
         req.user.id,
       );
     } catch (error: any) {
-      if (uploaded) {
+      if (uploaded && restaurantId) {
         await Promise.allSettled([
-          this.storageService.delete(uploaded.url),
-          this.storageService.delete(uploaded.thumbnailUrl),
+          this.storageService.delete(uploaded.url, restaurantId),
+          this.storageService.delete(uploaded.thumbnailUrl, restaurantId),
         ]);
       }
-      throw new BadRequestException(error.message || 'Failed to upload image');
+      // The ownership check runs inside this same try, so a blanket rethrow
+      // turned every 403 into a 400 -- telling the caller their request was
+      // malformed when they simply were not allowed to touch this resource.
+      // Anything Nest already classified keeps its own status.
+      if (error instanceof HttpException) throw error;
+      // Everything else here is internal: the R2 client, sharp, Prisma. Their
+      // messages carry bucket names, endpoints, constraint names and query
+      // fragments. Log it in full, return none of it.
+      this.logger.error(
+        `Image upload failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadRequestException('Failed to upload image');
     }
   }
 }

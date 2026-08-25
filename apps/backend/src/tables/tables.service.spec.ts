@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -56,10 +57,20 @@ describe('TablesService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       order: { findMany: jest.fn().mockResolvedValue([]) },
-      tableZone: { findFirst: jest.fn().mockResolvedValue({ id: 'zone-1' }) },
+      tableZone: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'zone-1' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'zone-1', restaurantId: 'rest-1' }),
+      },
       // Non-owner table ops now look up the user to allow assigned MANAGERs
       // (#19). Default null → not a manager → ForbiddenException as before.
       user: { findUnique: jest.fn().mockResolvedValue(null) },
+      $transaction: jest
+        .fn()
+        .mockImplementation((input: any) =>
+          Array.isArray(input) ? Promise.all(input) : input(prisma),
+        ),
     };
 
     events = {
@@ -888,6 +899,137 @@ describe('TablesService', () => {
           error: 'db offline',
         },
       );
+    });
+  });
+
+  describe('bulkCreate (regression & bounds)', () => {
+    it('rejects count out of range or non-integer', async () => {
+      await expect(service.bulkCreate('rest-1', 0, 'owner-1')).rejects.toThrow(
+        new BadRequestException('count must be between 1 and 200'),
+      );
+      await expect(
+        service.bulkCreate('rest-1', 201, 'owner-1'),
+      ).rejects.toThrow(
+        new BadRequestException('count must be between 1 and 200'),
+      );
+      await expect(
+        service.bulkCreate('rest-1', 5.5 as any, 'owner-1'),
+      ).rejects.toThrow(
+        new BadRequestException('count must be between 1 and 200'),
+      );
+    });
+
+    it('rejects bulk creation when restaurant is not found or suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValueOnce(null);
+      await expect(service.bulkCreate('rest-1', 5, 'owner-1')).rejects.toThrow(
+        NotFoundException,
+      );
+
+      prisma.restaurant.findUnique.mockResolvedValueOnce({
+        ...mockRestaurant,
+        isActive: false,
+      });
+      await expect(service.bulkCreate('rest-1', 5, 'owner-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('creates sequential tables avoiding collisions with existing numbers and emits events', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(mockRestaurant);
+      prisma.tableZone.findFirst.mockResolvedValue({ id: 'zone-default' });
+      prisma.restaurantTable.findMany.mockResolvedValue([
+        { name: 'Table 3' },
+        { name: 'Table 8' },
+        { name: 'Table ABC' },
+      ]);
+      const createdTables = [
+        { id: 'tbl-9', name: 'Table 9', restaurantId: 'rest-1' },
+        { id: 'tbl-10', name: 'Table 10', restaurantId: 'rest-1' },
+      ];
+      prisma.restaurantTable.create
+        .mockResolvedValueOnce(createdTables[0])
+        .mockResolvedValueOnce(createdTables[1]);
+
+      const result = await service.bulkCreate('rest-1', 2, 'owner-1');
+
+      expect(result).toHaveLength(2);
+      expect(prisma.restaurantTable.create).toHaveBeenCalledTimes(2);
+      expect(prisma.restaurantTable.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: 'Table 9',
+            zoneId: 'zone-default',
+            type: 'TABLE',
+          }),
+        }),
+      );
+      expect(prisma.restaurantTable.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: 'Table 10',
+            zoneId: 'zone-default',
+            type: 'TABLE',
+          }),
+        }),
+      );
+      expect(events.emitToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'table:created',
+        { tableIds: ['tbl-9', 'tbl-10'] },
+      );
+      expect(events.emitZoneChanged).toHaveBeenCalledWith('rest-1');
+    });
+  });
+
+  describe('update (zone assignment & name collisions)', () => {
+    it('rejects assigning a zone to a non-TABLE service point', async () => {
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        type: 'BAR',
+        restaurant: mockRestaurant,
+      });
+
+      await expect(
+        service.update('table-1', { zoneId: 'zone-1' }, 'owner-1'),
+      ).rejects.toThrow(
+        new BadRequestException('Only tables can be assigned to zones'),
+      );
+    });
+
+    it('rejects assigning a zone belonging to a different restaurant', async () => {
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        type: 'TABLE',
+        restaurant: mockRestaurant,
+      });
+      prisma.tableZone.findUnique.mockResolvedValue({
+        id: 'zone-other',
+        restaurantId: 'rest-other',
+      });
+
+      await expect(
+        service.update('table-1', { zoneId: 'zone-other' }, 'owner-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects renaming to a name already used by another active table in the same restaurant', async () => {
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        name: 'T1',
+        type: 'TABLE',
+        restaurant: mockRestaurant,
+      });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-2',
+        name: 'T2',
+        restaurantId: 'rest-1',
+      });
+
+      await expect(
+        service.update('table-1', { name: 'T2' }, 'owner-1'),
+      ).rejects.toThrow(new ConflictException('Table "T2" already exists'));
     });
   });
 });

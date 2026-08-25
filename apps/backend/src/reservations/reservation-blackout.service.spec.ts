@@ -1,8 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   listReservationBlackouts,
   addReservationBlackout,
   removeReservationBlackout,
+  ReservationBlackoutService,
 } from './reservation-blackout.service';
 
 describe('listReservationBlackouts', () => {
@@ -115,5 +116,72 @@ describe('removeReservationBlackout', () => {
     await expect(
       removeReservationBlackout({} as any, 'r1', 'bad-date'),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('ReservationBlackoutService', () => {
+  let service: ReservationBlackoutService;
+  let prisma: any;
+  let access: any;
+
+  beforeEach(() => {
+    prisma = {
+      reservationBlackout: {
+        findMany: jest.fn().mockResolvedValue([{ date: '2026-12-25' }]),
+        upsert: jest
+          .fn()
+          .mockResolvedValue({ date: '2026-12-25', reason: 'Holiday' }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    access = {
+      resolveActor: jest.fn().mockResolvedValue('MANAGER'),
+      assertRole: jest
+        .fn()
+        .mockImplementation((role: string, allowed: string[]) => {
+          if (!allowed.includes(role)) {
+            throw new ForbiddenException('Forbidden');
+          }
+        }),
+    };
+    service = new ReservationBlackoutService(prisma, access);
+  });
+
+  it('lists blackouts for manager role', async () => {
+    const result = await service.listBlackouts('r1', 'user-1');
+    expect(access.resolveActor).toHaveBeenCalledWith('r1', 'user-1');
+    expect(access.assertRole).toHaveBeenCalledWith('MANAGER', ['MANAGER']);
+    expect(result).toHaveLength(1);
+  });
+
+  it('adds blackout date for manager role', async () => {
+    const result = await service.addBlackout(
+      'r1',
+      'user-1',
+      '2026-12-25',
+      'Holiday',
+    );
+    expect(access.resolveActor).toHaveBeenCalledWith('r1', 'user-1');
+    expect(result.date).toBe('2026-12-25');
+  });
+
+  it('removes blackout date for manager role', async () => {
+    const result = await service.removeBlackout('r1', 'user-1', '2026-12-25');
+    expect(access.resolveActor).toHaveBeenCalledWith('r1', 'user-1');
+    expect(result).toEqual({ success: true });
+  });
+
+  it('rejects non-manager actor when listing, adding or removing blackouts', async () => {
+    access.resolveActor.mockResolvedValue('WAITER');
+
+    await expect(service.listBlackouts('r1', 'waiter-1')).rejects.toThrow(
+      ForbiddenException,
+    );
+    await expect(
+      service.addBlackout('r1', 'waiter-1', '2026-12-25'),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.removeBlackout('r1', 'waiter-1', '2026-12-25'),
+    ).rejects.toThrow(ForbiddenException);
   });
 });

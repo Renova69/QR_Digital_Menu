@@ -435,7 +435,17 @@
     },
     "inviteNewStaffDesc": "Creează un cont de personal. Rolurile ospătar și bucătărie primesc un PIN; managerul și personalul primesc o parolă temporară.",
     "inviteHintPin": "Contul este creat cu un PIN de o singură folosință. Trimiterea unei invitații prin email va fi adăugată în v2.",
-    "inviteHintPassword": "Contul este creat cu o parolă temporară. Trimiterea unei invitații prin email va fi adăugată în v2."
+    "inviteHintPassword": "Contul este creat cu o parolă temporară. Trimiterea unei invitații prin email va fi adăugată în v2.",
+    "deviceTrustExpiring": "Reînrolare necesară în {{days}} zile",
+    "deviceTrustExpired": "Încredere expirată — reînrolați dispozitivul pentru autentificare PIN",
+    "deviceTrustUnknown": "Data reînrolării nu este înregistrată — reînrolați pentru a o seta",
+    "devicePinLockedUntil": "Autentificarea cu PIN este blocată până la {{time}}",
+    "pinAlert": {
+      "MULTI_DEVICE_LOCKOUT": "{{devicesLocked}} dispozitive au fost blocate în {{windowMinutes}} minute",
+      "PIN_SPIKE": "{{failures}} încercări PIN eșuate în {{windowMinutes}} minute",
+      "DEVICE_SLOW_BURN": "{{failures}} încercări PIN eșuate pe un dispozitiv în {{windowDays}} zile",
+      "RESTAURANT_AGGREGATE": "{{failures}} încercări PIN eșuate în ultimele {{windowHours}} ore"
+    }
   },
   "branding": {
     "title": "Branding Restaurant",
@@ -4117,7 +4127,13 @@
     "headerTextLabel": "Text antet",
     "headerTextHint": "implicit numele stației",
     "footerTextLabel": "Text subsol",
-    "footerTextHint": "tipărit înainte de tăiere"
+    "footerTextHint": "tipărit înainte de tăiere",
+    "staleWarning": "Nevăzut recent",
+    "staleWarningCountdown": "Nevăzut recent — se retrage în {{days}} zile",
+    "quarantined": "Retras — nu tipărește",
+    "reactivate": "Reactivează",
+    "reactivated": "Imprimantă reactivată",
+    "reactivateFailed": "Imprimanta nu a putut fi reactivată"
   },
   "reservations": {
     "tabList": "Rezervări",
