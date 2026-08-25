@@ -28,7 +28,12 @@ export default tseslint.config(
     rules: {
       'prettier/prettier': ['warn', { endOfLine: 'auto' }],
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-floating-promises': 'warn',
+      // Error, not warn: an unobserved promise is now a process-level fatal
+      // event (see common/fatal-error.ts), so a new one is a crash waiting for
+      // traffic rather than a style nit. Promoted only after every existing
+      // occurrence was resolved individually — as a warning it had accumulated
+      // twelve, all of them assertions that silently never ran.
+      '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unnecessary-type-assertion': 'warn',
       '@typescript-eslint/unbound-method': 'warn',
       '@typescript-eslint/no-unsafe-function-type': 'warn',

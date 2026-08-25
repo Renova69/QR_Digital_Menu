@@ -22,7 +22,7 @@ describe('NotificationDeliveryController', () => {
     controller = new NotificationDeliveryController(deliveries as any);
   });
 
-  it('lists deliveries for an owner with a valid status filter', () => {
+  it('lists deliveries for an owner with a valid status filter', async () => {
     deliveries.listForRestaurant.mockResolvedValue([{ id: 'd1' }]);
 
     const result = controller.list('r1', ownerReq, validStatus);
@@ -32,13 +32,13 @@ describe('NotificationDeliveryController', () => {
       'u1',
       validStatus,
     );
-    expect(result).resolves.toEqual([{ id: 'd1' }]);
+    await expect(result).resolves.toEqual([{ id: 'd1' }]);
   });
 
-  it('drops an invalid status filter to undefined', () => {
+  it('drops an invalid status filter to undefined', async () => {
     deliveries.listForRestaurant.mockResolvedValue([]);
 
-    controller.list('r1', ownerReq, 'BOGUS_STATUS');
+    await controller.list('r1', ownerReq, 'BOGUS_STATUS');
 
     expect(deliveries.listForRestaurant).toHaveBeenCalledWith(
       'r1',
@@ -47,10 +47,10 @@ describe('NotificationDeliveryController', () => {
     );
   });
 
-  it('allows a manager to list deliveries', () => {
+  it('allows a manager to list deliveries', async () => {
     deliveries.listForRestaurant.mockResolvedValue([]);
 
-    controller.list('r1', managerReq);
+    await controller.list('r1', managerReq);
 
     expect(deliveries.listForRestaurant).toHaveBeenCalledWith(
       'r1',
@@ -68,13 +68,13 @@ describe('NotificationDeliveryController', () => {
     expect(() => controller.list('r1', {} as any)).toThrow(ForbiddenException);
   });
 
-  it('retries a failed delivery for an owner', () => {
+  it('retries a failed delivery for an owner', async () => {
     deliveries.retryFailed.mockResolvedValue({ id: 'd1' });
 
     const result = controller.retry('r1', 'd1', ownerReq);
 
     expect(deliveries.retryFailed).toHaveBeenCalledWith('r1', 'd1', 'u1');
-    expect(result).resolves.toEqual({ id: 'd1' });
+    await expect(result).resolves.toEqual({ id: 'd1' });
   });
 
   it('forbids non-manager roles from retrying', () => {

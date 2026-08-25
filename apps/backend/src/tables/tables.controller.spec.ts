@@ -10,8 +10,8 @@ describe('TablesController subtype contracts', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('forces the ordinary tables endpoint to create TABLE records', () => {
-    controller.create(
+  it('forces the ordinary tables endpoint to create TABLE records', async () => {
+    await controller.create(
       'restaurant-1',
       { name: 'Table 4', type: 'ROOM' },
       request,
