@@ -4225,6 +4225,20 @@
     "addAllergen": "+ Add allergen",
     "addDietaryTag": "+ Add dietary tag"
   },
+  "deviceEnrollment": {
+    "verifying": "Verifying device link...",
+    "missingToken": "This device enrollment link is missing its token.",
+    "linkedOpening": "Device linked. Opening staff PIN login...",
+    "alreadyLinkedOpening": "This device is already linked. Opening staff PIN login...",
+    "usedOnAnotherDevice": "This QR link has already been used, and this device is not linked. Ask a manager to generate a fresh Staff Device QR, then scan it once on this device.",
+    "sharedDeviceModeOffTitle": "Shared Device Mode Off",
+    "linkFailedTitle": "Device Link Failed",
+    "linkedTitle": "Device Linked",
+    "linkingTitle": "Linking Device",
+    "enableSharedDeviceMode": "Ask a manager to enable Shared Device Mode in Staff settings, then generate a fresh Staff Device QR for this device.",
+    "requestFreshQr": "Ask a manager to generate a fresh staff device QR from Settings.",
+    "managerLogin": "Manager Login"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

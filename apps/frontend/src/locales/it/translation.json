@@ -3793,6 +3793,20 @@
     "addAllergen": "+ Aggiungi allergene",
     "addDietaryTag": "+ Aggiungi etichetta dietetica"
   },
+  "deviceEnrollment": {
+    "verifying": "Verifica del collegamento del dispositivo...",
+    "missingToken": "Nel link di registrazione del dispositivo manca il token.",
+    "linkedOpening": "Dispositivo collegato. Apertura dell’accesso del personale con PIN...",
+    "alreadyLinkedOpening": "Questo dispositivo è già collegato. Apertura dell’accesso del personale con PIN...",
+    "usedOnAnotherDevice": "Questo link QR è già stato utilizzato e il dispositivo non è collegato. Chiedi a un responsabile di generare un nuovo QR per il dispositivo del personale, quindi scansionalo una sola volta su questo dispositivo.",
+    "sharedDeviceModeOffTitle": "Modalità dispositivo condiviso disattivata",
+    "linkFailedTitle": "Collegamento del dispositivo non riuscito",
+    "linkedTitle": "Dispositivo collegato",
+    "linkingTitle": "Collegamento del dispositivo",
+    "enableSharedDeviceMode": "Chiedi a un responsabile di attivare la modalità dispositivo condiviso nelle impostazioni del personale, quindi di generare un nuovo QR per questo dispositivo.",
+    "requestFreshQr": "Chiedi a un responsabile di generare un nuovo QR per il dispositivo del personale dalle Impostazioni.",
+    "managerLogin": "Accesso responsabile"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

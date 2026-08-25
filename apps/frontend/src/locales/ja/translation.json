@@ -864,6 +864,20 @@
       "noOrders": "この来店に記録された注文はありません。"
     }
   },
+  "deviceEnrollment": {
+    "verifying": "デバイスリンクを確認しています...",
+    "missingToken": "このデバイス登録リンクにはトークンがありません。",
+    "linkedOpening": "デバイスをリンクしました。スタッフ用PINログインを開いています...",
+    "alreadyLinkedOpening": "このデバイスはすでにリンクされています。スタッフ用PINログインを開いています...",
+    "usedOnAnotherDevice": "このQRリンクはすでに使用されており、このデバイスはリンクされていません。管理者に新しいスタッフデバイス用QRを発行してもらい、このデバイスで一度だけスキャンしてください。",
+    "sharedDeviceModeOffTitle": "共有デバイスモードはオフです",
+    "linkFailedTitle": "デバイスのリンクに失敗しました",
+    "linkedTitle": "デバイスをリンクしました",
+    "linkingTitle": "デバイスをリンクしています",
+    "enableSharedDeviceMode": "管理者にスタッフ設定で共有デバイスモードを有効にしてもらい、このデバイス用の新しいスタッフデバイスQRを発行してもらってください。",
+    "requestFreshQr": "管理者に設定から新しいスタッフデバイス用QRを発行してもらってください。",
+    "managerLogin": "管理者ログイン"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

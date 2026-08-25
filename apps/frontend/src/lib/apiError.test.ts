@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
+import i18next from "i18next";
 import {
   getApiError,
   getApiErrorCode,
@@ -6,6 +7,9 @@ import {
   getApiErrorKey,
 } from "./apiError";
 import enTranslation from "../locales/en/translation.json";
+import arTranslation from "../locales/ar/translation.json";
+import roTranslation from "../locales/ro/translation.json";
+import ruTranslation from "../locales/ru/translation.json";
 
 /** Builds an axios-shaped rejection. */
 function apiError(
@@ -152,6 +156,17 @@ describe("getApiError", () => {
       "apiErrors.unexpected",
     );
   });
+
+  it("keeps count-bearing errors renderable for key-only callers", () => {
+    expect(
+      getApiError(
+        apiError(401, {
+          code: "ACCOUNT_TEMPORARILY_LOCKED",
+          retryInSeconds: 90,
+        }),
+      ),
+    ).toBe("apiErrors.accountTemporarilyLocked");
+  });
 });
 
 // The frontend ships on push (Vercel) while the backend ships separately, so
@@ -277,6 +292,86 @@ describe("getApiErrorDetails counts", () => {
       code: "ACCOUNT_TEMPORARILY_LOCKED",
     });
   });
+});
+
+describe("count-bearing translations", () => {
+  it.each([
+    ["ro", roTranslation, [[2, "PIN invalid. Au mai rămas 2 încercări."]]],
+    [
+      "ru",
+      ruTranslation,
+      [
+        [2, "Неверный PIN-код. Осталось 2 попытки."],
+        [5, "Неверный PIN-код. Осталось 5 попыток."],
+      ],
+    ],
+    [
+      "ar",
+      arTranslation,
+      [
+        [2, "رمز PIN غير صحيح. بقيت محاولتان."],
+        [3, "رمز PIN غير صحيح. بقيت 3 محاولات."],
+        [11, "رمز PIN غير صحيح. بقيت 11 محاولة."],
+      ],
+    ],
+  ] as const)(
+    "renders the active %s locale for each relevant plural category",
+    async (locale, resource, examples) => {
+      const instance = i18next.createInstance();
+      await instance.init({
+        lng: locale,
+        fallbackLng: false,
+        resources: { [locale]: { translation: resource } },
+      });
+
+      for (const [count, expected] of examples) {
+        expect(instance.t("apiErrors.invalidPinWithAttempts", { count })).toBe(
+          expected,
+        );
+      }
+    },
+  );
+
+  it.each([
+    [
+      "ro",
+      roTranslation,
+      2,
+      "Prea multe încercări. Încearcă din nou peste 2 minute.",
+      "Prea multe încercări eșuate de autentificare. Încearcă din nou peste 2 minute.",
+    ],
+    [
+      "ru",
+      ruTranslation,
+      5,
+      "Слишком много попыток. Повторите через 5 минут.",
+      "Слишком много неудачных попыток входа. Повторите через 5 минут.",
+    ],
+    [
+      "ar",
+      arTranslation,
+      2,
+      "محاولات كثيرة جدًا. حاول مرة أخرى بعد دقيقتين.",
+      "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد دقيقتين.",
+    ],
+  ] as const)(
+    "renders both lockout messages in the active %s locale",
+    async (locale, resource, count, pinExpected, accountExpected) => {
+      const instance = i18next.createInstance();
+      await instance.init({
+        lng: locale,
+        fallbackLng: false,
+        resources: { [locale]: { translation: resource } },
+      });
+
+      expect(
+        instance.t("apiErrors.pinDeviceLockedWithMinutes", { count }),
+      ).toBe(pinExpected);
+      expect(
+        instance.t("apiErrors.accountTemporarilyLockedWithMinutes", { count }),
+      ).toBe(accountExpected);
+    },
+  );
 });
 
 describe("translation coverage", () => {

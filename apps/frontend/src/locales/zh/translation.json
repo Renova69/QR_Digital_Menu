@@ -3793,6 +3793,20 @@
     "addAllergen": "+ 添加过敏原",
     "addDietaryTag": "+ 添加饮食标签"
   },
+  "deviceEnrollment": {
+    "verifying": "正在验证设备链接...",
+    "missingToken": "此设备注册链接缺少令牌。",
+    "linkedOpening": "设备已关联。正在打开员工 PIN 登录...",
+    "alreadyLinkedOpening": "此设备已关联。正在打开员工 PIN 登录...",
+    "usedOnAnotherDevice": "此二维码链接已被使用，但此设备尚未关联。请让管理员生成新的员工设备二维码，然后仅在此设备上扫描一次。",
+    "sharedDeviceModeOffTitle": "共享设备模式已关闭",
+    "linkFailedTitle": "设备关联失败",
+    "linkedTitle": "设备已关联",
+    "linkingTitle": "正在关联设备",
+    "enableSharedDeviceMode": "请让管理员在员工设置中启用共享设备模式，然后为此设备生成新的员工设备二维码。",
+    "requestFreshQr": "请让管理员从设置中生成新的员工设备二维码。",
+    "managerLogin": "管理员登录"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

@@ -3793,6 +3793,20 @@
     "addAllergen": "+ Allergen hinzufügen",
     "addDietaryTag": "+ Ernährungshinweis hinzufügen"
   },
+  "deviceEnrollment": {
+    "verifying": "Geräteverknüpfung wird überprüft...",
+    "missingToken": "Im Link zur Geräteregistrierung fehlt das Token.",
+    "linkedOpening": "Gerät verknüpft. Die Mitarbeiter-PIN-Anmeldung wird geöffnet...",
+    "alreadyLinkedOpening": "Dieses Gerät ist bereits verknüpft. Die Mitarbeiter-PIN-Anmeldung wird geöffnet...",
+    "usedOnAnotherDevice": "Dieser QR-Link wurde bereits verwendet und dieses Gerät ist nicht verknüpft. Bitten Sie eine Führungskraft, einen neuen Mitarbeitergeräte-QR-Code zu erstellen, und scannen Sie ihn einmal auf diesem Gerät.",
+    "sharedDeviceModeOffTitle": "Modus für gemeinsam genutzte Geräte ist aus",
+    "linkFailedTitle": "Geräteverknüpfung fehlgeschlagen",
+    "linkedTitle": "Gerät verknüpft",
+    "linkingTitle": "Gerät wird verknüpft",
+    "enableSharedDeviceMode": "Bitten Sie eine Führungskraft, den Modus für gemeinsam genutzte Geräte in den Mitarbeitereinstellungen zu aktivieren und anschließend einen neuen Mitarbeitergeräte-QR-Code für dieses Gerät zu erstellen.",
+    "requestFreshQr": "Bitten Sie eine Führungskraft, in den Einstellungen einen neuen Mitarbeitergeräte-QR-Code zu erstellen.",
+    "managerLogin": "Manager-Anmeldung"
+  },
   "apiErrors": {
     "badRequest": "Invalid request.",
     "unauthorized": "You are not signed in. Please log in and try again.",

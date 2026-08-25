@@ -295,5 +295,11 @@ export function getApiErrorDetails(err: unknown): ApiErrorDetails {
  * Falls back to "apiErrors.unexpected" for non-HTTP errors (e.g. network failures).
  */
 export function getApiError(err: unknown): string {
-  return getApiErrorDetails(err).key;
+  const details = getApiErrorDetails(err);
+  // This compatibility helper returns only a key, so it cannot safely select
+  // a count-bearing variant: its 40+ callers invoke `t(key)` without the
+  // interpolation params. Detailed callers must use getApiErrorDetails.
+  return details.code
+    ? (CODE_TO_KEY[details.code] ?? details.key)
+    : details.key;
 }
