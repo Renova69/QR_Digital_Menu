@@ -9,6 +9,8 @@ import {
 import { Prisma } from '@prisma/client';
 import { createId } from '@paralleldrive/cuid2';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../../common/cron-monitor';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generateSlugBase, withSuffix } from './slug-generator';
 import {
@@ -261,7 +263,18 @@ export class RestaurantSlugService {
    * uncommitted. The clock is restaurant.createdAt, as specified; editing an
    * uncommitted slug must not restart the restaurant's 24-hour grace period.
    */
-  @Cron(CronExpression.EVERY_5_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES, {
+    name: 'restaurantSlugAutoCommit',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'restaurant-slug-auto-commit',
+    cronMonitor(CronExpression.EVERY_5_MINUTES, {
+      maxRuntimeMinutes: 5,
+      checkinMarginMinutes: 5,
+      failureIssueThreshold: 2,
+    }),
+  )
   async commitExpiredUncommittedSlugs(): Promise<number> {
     const committedAt = new Date();
     const cutoff = new Date(committedAt.getTime() - DAY_MS);

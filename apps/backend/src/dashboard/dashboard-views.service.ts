@@ -1,7 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import * as Sentry from '@sentry/nestjs';
+import { captureException, SentryCron } from '@sentry/nestjs';
 import { createHash } from 'crypto';
+import { cronMonitor } from '../common/cron-monitor';
 import { PrismaService } from '../prisma/prisma.service';
 
 type ViewDef = { name: string; create: string; index: string };
@@ -118,7 +119,7 @@ export class DashboardViewsService implements OnModuleInit {
       // Degrading to raw queries keeps the dashboard working, so this is a
       // warning rather than a boot failure — but it must still reach Sentry.
       // See refreshViews for why: nothing else reports a swallowed cron error.
-      Sentry.captureException(err, {
+      captureException(err, {
         tags: { subsystem: 'dashboard-views', phase: 'create' },
       });
       this.logger.warn(
@@ -128,7 +129,18 @@ export class DashboardViewsService implements OnModuleInit {
     }
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'dashboardMaterializedViewRefresh',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'dashboard-materialized-view-refresh',
+    cronMonitor(CronExpression.EVERY_HOUR, {
+      maxRuntimeMinutes: 15,
+      checkinMarginMinutes: 15,
+      failureIssueThreshold: 2,
+    }),
+  )
   async refreshViews(): Promise<void> {
     // In-process guard avoids duplicate refreshes inside one pod; the advisory
     // transaction lock below coordinates all pods sharing the same Postgres DB.
@@ -159,7 +171,7 @@ export class DashboardViewsService implements OnModuleInit {
       // — so a refresh that fails every hour would leave the dashboard serving
       // silently stale numbers with no error anywhere. Wrong analytics that
       // look right are worse than analytics that are visibly broken.
-      Sentry.captureException(err, {
+      captureException(err, {
         tags: { subsystem: 'dashboard-views', phase: 'refresh' },
       });
       this.logger.warn('View refresh failed', err);

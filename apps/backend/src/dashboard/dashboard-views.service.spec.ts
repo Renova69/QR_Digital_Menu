@@ -1,7 +1,10 @@
 import * as Sentry from '@sentry/nestjs';
 import { DashboardViewsService } from './dashboard-views.service';
 
-jest.mock('@sentry/nestjs', () => ({ captureException: jest.fn() }));
+jest.mock('@sentry/nestjs', () => ({
+  captureException: jest.fn(),
+  SentryCron: () => () => undefined,
+}));
 
 describe('DashboardViewsService', () => {
   let service: DashboardViewsService;

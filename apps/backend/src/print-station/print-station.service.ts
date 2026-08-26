@@ -8,7 +8,9 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
 import { CRON_DAILY, CRON_EVERY_MINUTE } from '../common/cron-schedules';
+import { cronMonitor } from '../common/cron-monitor';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
 import { createHash, randomBytes } from 'crypto';
@@ -422,6 +424,14 @@ export class PrintStationService {
     name: 'retireStalePrintAgents',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'print-agent-retirement',
+    cronMonitor(CRON_DAILY.PRINT_AGENT_RETIREMENT, {
+      maxRuntimeMinutes: 30,
+      checkinMarginMinutes: 60,
+      failureIssueThreshold: 1,
+    }),
+  )
   async retireStalePrintAgents(now = new Date()): Promise<{
     warned: number;
     quarantined: number;
@@ -636,6 +646,14 @@ export class PrintStationService {
     name: 'reconcileMissingOrderPrintJobs',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'print-reconcile-missing-order-jobs',
+    cronMonitor(CRON_EVERY_MINUTE.PRINT_RECONCILE_MISSING_JOBS, {
+      maxRuntimeMinutes: 5,
+      checkinMarginMinutes: 5,
+      failureIssueThreshold: 2,
+    }),
+  )
   async reconcileMissingOrderPrintJobs(now = new Date()): Promise<number> {
     const recentCutoff = new Date(now.getTime() - MAX_UNDELIVERED_JOB_AGE_MS);
     const orders = await this.prisma.order.findMany({
@@ -716,6 +734,14 @@ export class PrintStationService {
     name: 'retryStuckPrintJobs',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'print-retry-stuck-jobs',
+    cronMonitor(CRON_EVERY_MINUTE.PRINT_RETRY_STUCK_JOBS, {
+      maxRuntimeMinutes: 5,
+      checkinMarginMinutes: 5,
+      failureIssueThreshold: 2,
+    }),
+  )
   async retryStuckPrintJobs(): Promise<void> {
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
     const wallClockThreshold = new Date(
@@ -892,6 +918,14 @@ export class PrintStationService {
     name: 'printJobRetentionCleanup',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'print-job-retention-cleanup',
+    cronMonitor('0 35 3 * * *', {
+      maxRuntimeMinutes: 60,
+      checkinMarginMinutes: 60,
+      failureIssueThreshold: 1,
+    }),
+  )
   async cleanupOldPrintJobs(): Promise<void> {
     const printedCutoff = new Date(
       Date.now() - PRINTED_JOB_RETENTION_DAYS * DAY_MS,

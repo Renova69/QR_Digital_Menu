@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../common/cron-monitor';
 import {
   CRON_EVERY_10_MINUTES,
   CRON_EVERY_MINUTE,
@@ -103,6 +105,16 @@ export class MenuTranslationWorkerService {
     name: 'menuTranslationWorker',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'menu-translation-worker',
+    cronMonitor(CRON_EVERY_MINUTE.MENU_TRANSLATION_WORKER, {
+      // One bounded drain may process 200 batches (20,000 units). Keep the
+      // missed-check-in window as wide as that legitimate long-running pass.
+      maxRuntimeMinutes: 60,
+      checkinMarginMinutes: 60,
+      failureIssueThreshold: 2,
+    }),
+  )
   async tick(): Promise<void> {
     if (!this.isAvailable()) return;
     await this.drain();
@@ -769,6 +781,14 @@ export class MenuTranslationWorkerService {
     name: 'menuTranslationStuckReset',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'menu-translation-stuck-reset',
+    cronMonitor(CRON_EVERY_10_MINUTES.MENU_TRANSLATION_STUCK_RESET, {
+      maxRuntimeMinutes: 8,
+      checkinMarginMinutes: 3,
+      failureIssueThreshold: 2,
+    }),
+  )
   async resetStuckPending(): Promise<void> {
     if (!this.isEnabled()) return;
     const cutoff = new Date(
@@ -806,6 +826,14 @@ export class MenuTranslationWorkerService {
     name: 'menuTranslationStateReap',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'menu-translation-state-reap',
+    cronMonitor('0 40 3 * * 0', {
+      maxRuntimeMinutes: 60,
+      checkinMarginMinutes: 120,
+      failureIssueThreshold: 1,
+    }),
+  )
   async reapOrphans(): Promise<void> {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
     let total = 0;
