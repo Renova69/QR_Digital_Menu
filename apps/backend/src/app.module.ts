@@ -1,11 +1,10 @@
-import { Logger, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { IdentityThrottlerGuard } from './common/identity-throttler.guard';
-import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -38,25 +37,8 @@ import { PrintStationModule } from './print-station/print-station.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { PushModule } from './push/push.module';
 import { NotificationsModule } from './notifications/notifications.module';
-
-const throttlerLogger = new Logger('ThrottlerModule');
-
-// Rate-limit counters are per-instance (in-memory) by default — with more
-// than one backend instance behind Cloud Run, an attacker distributed
-// across instances gets one effective budget per instance instead of the
-// declared aggregate limit. When REDIS_URL is present (it already backs
-// the Socket.IO adapter — see adapters/redis-io.adapter.ts), share
-// throttle counters through it instead so the limit is enforced globally.
-const throttlerStorage = process.env.REDIS_URL
-  ? new ThrottlerStorageRedisService(process.env.REDIS_URL)
-  : undefined;
-if (throttlerStorage) {
-  throttlerLogger.log('Using Redis-backed distributed throttle storage');
-} else {
-  throttlerLogger.warn(
-    'REDIS_URL not set — rate limiting is per-instance in-memory only',
-  );
-}
+import { createThrottlerStorage } from './common/throttling/resilient-throttler-storage';
+import { DependencyHttpPoolLifecycle } from './common/http/dependency-http';
 
 @Module({
   imports: [
@@ -66,14 +48,31 @@ if (throttlerStorage) {
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot({
-      storage: throttlerStorage,
-      throttlers: [
-        {
-          ttl: 60000,
-          limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10) || 100,
-        },
-      ],
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        // Rate-limit counters are shared through the same Redis deployment as
+        // Socket.IO. If a command fails, the resilient storage preserves the
+        // declared policy per instance until distributed storage recovers.
+        // Tests must never connect to a REDIS_URL inherited from a developer
+        // .env file; their request counters are intentionally process-local.
+        storage: createThrottlerStorage(
+          configService.get<string>('NODE_ENV') === 'test'
+            ? undefined
+            : configService.get<string>('REDIS_URL'),
+        ),
+        throttlers: [
+          {
+            ttl: 60_000,
+            limit:
+              parseInt(
+                configService.get<string>('THROTTLE_LIMIT', '100'),
+                10,
+              ) || 100,
+          },
+        ],
+      }),
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
@@ -109,6 +108,7 @@ if (throttlerStorage) {
   controllers: [AppController],
   providers: [
     AppService,
+    DependencyHttpPoolLifecycle,
     {
       provide: APP_GUARD,
       useClass: IdentityThrottlerGuard,

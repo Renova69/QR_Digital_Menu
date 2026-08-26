@@ -26,6 +26,7 @@ import {
   sendViaSmsGateway,
 } from '../common/sms/sms-gateway';
 import { AuthErrorCode } from '../common/errors/auth-error-codes';
+import { fetchWithDependencyPool } from '../common/http/dependency-http';
 
 const STAFF_DEVICE_LIMIT = 3;
 
@@ -410,15 +411,19 @@ export class AuthService {
         `[Twilio] sending OTP → Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`,
       );
     }
-    const res = await fetch(this.twilioVerifyUrl('/Verifications'), {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${this.twilioBasicAuth()}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const res = await fetchWithDependencyPool(
+      'twilio',
+      this.twilioVerifyUrl('/Verifications'),
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${this.twilioBasicAuth()}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: phone, Channel: channel }).toString(),
+        signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
       },
-      body: new URLSearchParams({ To: phone, Channel: channel }).toString(),
-      signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
-    });
+    );
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       this.logger.error('[Twilio] error response:', JSON.stringify(body));
@@ -439,15 +444,19 @@ export class AuthService {
   }
 
   private async verifyTwilioOtp(phone: string, code: string): Promise<boolean> {
-    const res = await fetch(this.twilioVerifyUrl('/VerificationCheck'), {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${this.twilioBasicAuth()}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const res = await fetchWithDependencyPool(
+      'twilio',
+      this.twilioVerifyUrl('/VerificationCheck'),
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${this.twilioBasicAuth()}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: phone, Code: code }).toString(),
+        signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
       },
-      body: new URLSearchParams({ To: phone, Code: code }).toString(),
-      signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
-    });
+    );
     const data: any = await res.json().catch(() => ({}));
     return data.status === 'approved';
   }
@@ -642,21 +651,25 @@ export class AuthService {
             HttpStatus.SERVICE_UNAVAILABLE,
           );
         }
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
+        const res = await fetchWithDependencyPool(
+          'resend',
+          'https://api.resend.com/emails',
+          {
+            method: 'POST',
+            signal: AbortSignal.timeout(AUTH_PROVIDER_TIMEOUT_MS),
+            headers: {
+              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+              to: [normalizedEmail],
+              subject,
+              text: `Your verification code: ${code}\n\nExpires in 10 minutes.`,
+              html: `<p style="font-family:sans-serif;font-size:16px;">Your verification code:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:8px;">${code}</p><p style="font-family:sans-serif;color:#666;">Expires in 10 minutes. If you did not request this, ignore this email.</p>`,
+            }),
           },
-          body: JSON.stringify({
-            from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-            to: [normalizedEmail],
-            subject,
-            text: `Your verification code: ${code}\n\nExpires in 10 minutes.`,
-            html: `<p style="font-family:sans-serif;font-size:16px;">Your verification code:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:8px;">${code}</p><p style="font-family:sans-serif;color:#666;">Expires in 10 minutes. If you did not request this, ignore this email.</p>`,
-          }),
-        });
+        );
         if (!res.ok) {
           const detail = await res.text().catch(() => '');
           this.logger.error(

@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { IPaymentProvider } from './payment-provider.interface';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 export type StripeWebhookEvent = ReturnType<
   InstanceType<typeof Stripe>['webhooks']['constructEvent']
@@ -24,6 +25,7 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
         // worst case bounded at ~30s.
         timeout: 15_000,
         maxNetworkRetries: 1,
+        httpAgent: getDependencyNodeAgents('stripe').httpsAgent,
       },
     );
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
