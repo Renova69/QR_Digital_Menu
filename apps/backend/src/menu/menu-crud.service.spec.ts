@@ -847,6 +847,32 @@ describe('MenuCrudService', () => {
       expect((result[0] as { id: string }).id).toBe('item-2');
     });
 
+    it('never reuses AUTO trending results cached for another restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockImplementation(({ where }) =>
+        Promise.resolve({
+          trendingMode: 'AUTO',
+          id: where.id,
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+        }),
+      );
+      mockPrisma.orderItem.groupBy.mockResolvedValue([
+        { menuItemId: 'item-1', _sum: { quantity: 10 } },
+      ]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      await service.getTrendingItems('rest-a');
+      await service.getTrendingItems('rest-b');
+      await service.getTrendingItems('rest-a');
+
+      expect(mockPrisma.orderItem.groupBy).toHaveBeenCalledTimes(2);
+      expect(
+        mockPrisma.orderItem.groupBy.mock.calls.map(
+          ([query]) => query.where.order.restaurantId,
+        ),
+      ).toEqual(['rest-a', 'rest-b']);
+    });
+
     describe('Contextual Upselling Scoring', () => {
       beforeEach(() => {
         jest.useFakeTimers();
