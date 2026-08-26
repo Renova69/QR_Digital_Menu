@@ -41,6 +41,21 @@ function getMessage(responseBody: unknown): string {
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
+    // This filter is registered through useGlobalFilters, which is HTTP-only —
+    // there is no @UseFilters or APP_FILTER binding putting it in the WebSocket
+    // or RPC chain. The guard is therefore belt-and-braces against a future
+    // binding, not a fix for a live path.
+    //
+    // Rethrowing, rather than returning, is the point: everything below assumes
+    // an Express request/response pair. On a WebSocket host `getResponse()` is
+    // not one, so the HTTP path would either throw somewhere less obvious or
+    // silently drop the error. Handing it back leaves it to whatever the
+    // transport's own handling is, which is what a filter that does not
+    // understand a context should do.
+    if (host.getType() !== 'http') {
+      throw exception;
+    }
+
     const ctx = host.switchToHttp();
     const req = ctx.getRequest();
     const res = ctx.getResponse();

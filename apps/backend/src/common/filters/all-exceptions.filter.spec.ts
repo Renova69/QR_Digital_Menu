@@ -15,6 +15,7 @@ function buildHost() {
   const status = jest.fn().mockReturnThis();
   const json = jest.fn();
   const host = {
+    getType: () => 'http',
     switchToHttp: () => ({
       getRequest: () => ({
         method: 'GET',
@@ -48,6 +49,7 @@ describe('AllExceptionsFilter', () => {
     const status = jest.fn().mockReturnThis();
     const json = jest.fn();
     const host = {
+      getType: () => 'http',
       switchToHttp: () => ({
         getRequest: () => ({
           method: 'POST',
@@ -94,5 +96,41 @@ describe('AllExceptionsFilter', () => {
     new AllExceptionsFilter().catch(serverError, host);
 
     expect(mockedCaptureException).toHaveBeenCalledWith(serverError);
+  });
+
+  // Everything below the guard assumes an Express request/response pair. On a
+  // non-HTTP host the exception must come back out rather than be answered
+  // with an HTTP response that has nowhere to go.
+  it.each(['ws', 'rpc', 'graphql'])(
+    'rethrows on a %s host instead of handling it as HTTP',
+    (contextType) => {
+      const switchToHttp = jest.fn();
+      const host = {
+        getType: () => contextType,
+        switchToHttp,
+      } as unknown as ArgumentsHost;
+      const failure = new Error('socket handler blew up');
+
+      expect(() => new AllExceptionsFilter().catch(failure, host)).toThrow(
+        failure,
+      );
+      // The HTTP context is never even opened, so nothing can half-run.
+      expect(switchToHttp).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rethrows a non-HTTP exception without swallowing or reporting it', () => {
+    const host = {
+      getType: () => 'ws',
+      switchToHttp: jest.fn(),
+    } as unknown as ArgumentsHost;
+
+    expect(() =>
+      new AllExceptionsFilter().catch('string failure', host),
+    ).toThrow('string failure');
+    // Reporting belongs to whatever handles the transport natively; capturing
+    // here as well would double-count every WebSocket error.
+    expect(mockedCaptureException).not.toHaveBeenCalled();
+    expect(mockedWriteAppLog).not.toHaveBeenCalled();
   });
 });

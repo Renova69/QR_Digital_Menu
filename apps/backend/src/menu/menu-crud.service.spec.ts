@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
+import * as Sentry from '@sentry/nestjs';
 import { MenuCrudService } from './menu-crud.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuTranslationReadService } from './menu-translation-read.service';
@@ -14,6 +15,8 @@ import { FeatureService } from '../subscription/feature.service';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
+
+jest.mock('@sentry/nestjs', () => ({ captureException: jest.fn() }));
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn(), count: jest.fn() },
@@ -168,6 +171,7 @@ describe('MenuCrudService', () => {
     mockTranslationEnqueue.enqueueCategory.mockResolvedValue(undefined);
     mockTranslationEnqueue.enqueueItem.mockResolvedValue(undefined);
     mockTranslationEnqueue.enqueueOption.mockResolvedValue(undefined);
+    mockTranslationWorker.kick.mockImplementation(() => undefined);
     mockStorage.delete.mockResolvedValue(undefined);
     mockStorage.deleteExact.mockResolvedValue(undefined);
     mockStorage.isTenantNamespacedObject.mockReturnValue(false);
@@ -1433,6 +1437,65 @@ describe('MenuCrudService', () => {
         'bg',
       );
       expect(mockTranslationWorker.kick).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports an enqueue failure without failing category creation', async () => {
+      const failure = new Error('translation queue unavailable');
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+      const created = makeCategory({ order: 0 });
+      mockPrisma.menuCategory.create.mockResolvedValue(created);
+      mockTranslationEnqueue.enqueueCategory.mockRejectedValueOnce(failure);
+
+      await expect(
+        service.createCategory('rest-1', { name: 'Starters' }, 'user-1'),
+      ).resolves.toBe(created);
+      await flushMicrotasks();
+
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
+      expect(Sentry.captureException).toHaveBeenCalledWith(failure, {
+        tags: {
+          subsystem: 'menu-translation-prewarm',
+          entityType: 'category',
+        },
+        extra: {
+          restaurantId: 'rest-1',
+          entityId: 'cat-1',
+        },
+      });
+    });
+
+    it('reports a synchronous worker kick failure without failing category creation', async () => {
+      const failure = new Error('worker kick failed');
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+      const created = makeCategory({ order: 0 });
+      mockPrisma.menuCategory.create.mockResolvedValue(created);
+      mockTranslationWorker.kick.mockImplementationOnce(() => {
+        throw failure;
+      });
+
+      await expect(
+        service.createCategory('rest-1', { name: 'Starters' }, 'user-1'),
+      ).resolves.toBe(created);
+      await flushMicrotasks();
+
+      expect(Sentry.captureException).toHaveBeenCalledWith(failure, {
+        tags: {
+          subsystem: 'menu-translation-prewarm',
+          entityType: 'category',
+        },
+        extra: {
+          restaurantId: 'rest-1',
+          entityId: 'cat-1',
+        },
+      });
     });
 
     it('does not enqueue translation work when the tier lacks multi-language (FREE)', async () => {

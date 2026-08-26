@@ -254,8 +254,8 @@ describe('AuthController', () => {
       );
     });
 
-    it('scopes the mutation to the session user, not a body-supplied id', () => {
-      controller.addIdentity(
+    it('scopes the mutation to the session user, not a body-supplied id', async () => {
+      await controller.addIdentity(
         { user: { id: 'cust1' } },
         { email: 'real@example.com' },
       );
@@ -265,7 +265,7 @@ describe('AuthController', () => {
         undefined,
       );
 
-      controller.verifyIdentity(
+      await controller.verifyIdentity(
         { user: { id: 'cust1' } },
         { code: '123456', email: 'real@example.com' },
       );
