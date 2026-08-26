@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import {
   FATAL_FLUSH_TIMEOUT_MS,
   handleFatalError,
@@ -37,6 +39,29 @@ describe('handleFatalError', () => {
     expect(deps.captureException).toHaveBeenCalledWith(failure);
     expect(deps.flush).toHaveBeenCalledWith(FATAL_FLUSH_TIMEOUT_MS);
     expect(deps.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('redacts credentials from both fatal log arguments', async () => {
+    const deps = buildDeps();
+    const password = ['fatal', 'db', 'password'].join('-');
+    const connectionUri = `postgresql://app:${password}@db.example:5432/menu`;
+    const failure = new Error(`Database connection failed: ${connectionUri}`);
+    failure.stack = `Error: Database connection failed: ${connectionUri}`;
+
+    await handleFatalError(failure, 'bootstrap', deps);
+
+    expect(deps.logger.error).toHaveBeenCalledTimes(1);
+    const [message, stack] = deps.logger.error.mock.calls[0] as [
+      string,
+      string,
+    ];
+    expect(message).not.toContain(password);
+    expect(stack).not.toContain(password);
+    expect(message).toContain('postgresql://:redacted@db.example');
+    expect(stack).toContain('postgresql://:redacted@db.example');
+    // Sentry owns its own structural beforeSend scrubber; preserving the
+    // original Error here keeps grouping and stack attribution intact.
+    expect(deps.captureException).toHaveBeenCalledWith(failure);
   });
 
   it('reports and exits exactly once when two fatal signals arrive', async () => {
@@ -88,6 +113,30 @@ describe('handleFatalError', () => {
       jest.useRealTimers();
     }
   });
+
+  it('keeps a boot-failure process alive until the watchdog exits with code 1', async () => {
+    const modulePath = join(__dirname, 'fatal-error.ts');
+    const childScript = `
+        const { handleFatalError } = require(${JSON.stringify(modulePath)});
+        void handleFatalError(new Error('boot failed'), 'bootstrap', {
+          captureException: () => undefined,
+          flush: () => new Promise(() => {}),
+          logger: { error: () => undefined },
+        });
+      `;
+    const child = spawn(
+      process.execPath,
+      ['-r', 'ts-node/register/transpile-only', '-e', childScript],
+      { cwd: process.cwd(), stdio: 'ignore' },
+    );
+
+    const exitCode = await new Promise<number | null>((resolve, reject) => {
+      child.once('error', reject);
+      child.once('exit', (code) => resolve(code));
+    });
+
+    expect(exitCode).toBe(1);
+  }, 10_000);
 
   it('exits even when the logger throws', async () => {
     const deps = buildDeps({

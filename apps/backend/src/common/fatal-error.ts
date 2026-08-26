@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
+import { redactDiagnosticText } from './logging/redact-secrets';
 
 /**
  * A fatal error is one the process cannot continue past: a failed boot, or a
@@ -77,8 +78,9 @@ async function flushWithin(
       flush(timeoutMs),
       new Promise<void>((resolve) => {
         watchdog = setTimeout(resolve, timeoutMs + FLUSH_WATCHDOG_GRACE_MS);
-        // Never hold the event loop open on account of the watchdog itself.
-        watchdog.unref?.();
+        // Keep this timer referenced deliberately. During an early bootstrap
+        // failure there may be no other active handles, so unref() would let
+        // Node exit naturally with code 0 before the mandatory exit(1).
       }),
     ]);
   } finally {
@@ -115,7 +117,11 @@ export async function handleFatalError(
   const error = toFatalError(reason, origin);
 
   try {
-    logger.error(`Fatal error (${origin}): ${error.message}`, error.stack);
+    const safeMessage = redactDiagnosticText(error.message);
+    const safeStack = error.stack
+      ? redactDiagnosticText(error.stack)
+      : undefined;
+    logger.error(`Fatal error (${origin}): ${safeMessage}`, safeStack);
   } catch {
     // A logger that throws must not be the reason the process survives.
   }

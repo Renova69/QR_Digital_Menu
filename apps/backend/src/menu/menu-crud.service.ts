@@ -5,6 +5,7 @@
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuTranslationReadService } from './menu-translation-read.service';
 import { MenuTranslationEnqueueService } from './menu-translation-enqueue.service';
@@ -37,6 +38,7 @@ import {
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { withEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
 import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../restaurants/restaurant-languages';
+import { redactDiagnosticText } from '../common/logging/redact-secrets';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -95,6 +97,12 @@ type ImageRefExclusions = {
   excludeCategoryIds?: string[];
 };
 
+type TranslationPrewarmContext = {
+  restaurantId: string;
+  entityType: 'category' | 'item' | 'option';
+  entityId: string;
+};
+
 @Injectable()
 export class MenuCrudService {
   private readonly logger = new Logger(MenuCrudService.name);
@@ -118,6 +126,54 @@ export class MenuCrudService {
     string,
     Promise<Partial<MenuItem>[]>
   >();
+
+  /**
+   * Translation pre-warming is intentionally detached from menu writes, but
+   * detached must not mean unobserved. This terminal catch covers both an
+   * enqueue rejection and a synchronous worker kick failure without turning a
+   * successful menu mutation into a client-visible error.
+   */
+  private observeTranslationPrewarm(
+    enqueue: Promise<void>,
+    context: TranslationPrewarmContext,
+  ): void {
+    void enqueue
+      .then(() => this.translationWorker.kick())
+      .catch((reason: unknown) => {
+        const error =
+          reason instanceof Error
+            ? reason
+            : new Error('Translation pre-warm rejected with a non-Error value');
+
+        try {
+          Sentry.captureException(error, {
+            tags: {
+              subsystem: 'menu-translation-prewarm',
+              entityType: context.entityType,
+            },
+            extra: {
+              restaurantId: context.restaurantId,
+              entityId: context.entityId,
+            },
+          });
+        } catch {
+          // Reporting is best effort; the terminal catch must never reject.
+        }
+
+        try {
+          const safeMessage = redactDiagnosticText(error.message);
+          const safeStack = error.stack
+            ? redactDiagnosticText(error.stack)
+            : undefined;
+          this.logger.error(
+            `Translation pre-warm failed for ${context.entityType} ${context.entityId}: ${safeMessage}`,
+            safeStack,
+          );
+        } catch {
+          // Logging is also best effort for this non-critical background work.
+        }
+      });
+  }
 
   /**
    * Public-menu languages consist of the menu source language first,
@@ -1177,14 +1233,19 @@ export class MenuCrudService {
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
-      void this.translationEnqueue
-        .enqueueCategory(
+      this.observeTranslationPrewarm(
+        this.translationEnqueue.enqueueCategory(
           restaurantId,
           category,
           restaurant.targetLanguages,
           restaurant.menuSourceLanguage ?? 'bg',
-        )
-        .then(() => this.translationWorker.kick());
+        ),
+        {
+          restaurantId,
+          entityType: 'category',
+          entityId: category.id,
+        },
+      );
     }
 
     return category;
@@ -1297,14 +1358,19 @@ export class MenuCrudService {
       updateCategoryDto.name !== category.name &&
       restaurant.targetLanguages.length > 0
     ) {
-      void this.translationEnqueue
-        .enqueueCategory(
+      this.observeTranslationPrewarm(
+        this.translationEnqueue.enqueueCategory(
           category.restaurantId,
           updated,
           restaurant.targetLanguages,
           restaurant.menuSourceLanguage ?? 'bg',
-        )
-        .then(() => this.translationWorker.kick());
+        ),
+        {
+          restaurantId: category.restaurantId,
+          entityType: 'category',
+          entityId: updated.id,
+        },
+      );
     }
 
     return updated;
@@ -1447,14 +1513,19 @@ export class MenuCrudService {
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
-      void this.translationEnqueue
-        .enqueueItem(
+      this.observeTranslationPrewarm(
+        this.translationEnqueue.enqueueItem(
           category.restaurantId,
           item,
           restaurant.targetLanguages,
           restaurant.menuSourceLanguage ?? 'bg',
-        )
-        .then(() => this.translationWorker.kick());
+        ),
+        {
+          restaurantId: category.restaurantId,
+          entityType: 'item',
+          entityId: item.id,
+        },
+      );
     }
 
     return item;
@@ -1643,14 +1714,19 @@ export class MenuCrudService {
       (nameChanged || descriptionChanged) &&
       restaurant.targetLanguages.length > 0
     ) {
-      void this.translationEnqueue
-        .enqueueItem(
+      this.observeTranslationPrewarm(
+        this.translationEnqueue.enqueueItem(
           restaurant.id,
           updated,
           restaurant.targetLanguages,
           restaurant.menuSourceLanguage ?? 'bg',
-        )
-        .then(() => this.translationWorker.kick());
+        ),
+        {
+          restaurantId: restaurant.id,
+          entityType: 'item',
+          entityId: updated.id,
+        },
+      );
     }
 
     return updated;
@@ -1815,14 +1891,19 @@ export class MenuCrudService {
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
-      void this.translationEnqueue
-        .enqueueOption(
+      this.observeTranslationPrewarm(
+        this.translationEnqueue.enqueueOption(
           item.category.restaurantId,
           { id: option.id, name: option.name, choices: choices as any },
           restaurant.targetLanguages,
           restaurant.menuSourceLanguage ?? 'bg',
-        )
-        .then(() => this.translationWorker.kick());
+        ),
+        {
+          restaurantId: item.category.restaurantId,
+          entityType: 'option',
+          entityId: option.id,
+        },
+      );
     }
 
     return option;
@@ -1851,7 +1932,9 @@ export class MenuCrudService {
       userId,
     );
 
-    let choices: any[] | undefined;
+    let choices:
+      | Array<{ name: string; priceModifier: number; weight?: string }>
+      | undefined;
     if (updateMenuOptionDto.choices) {
       choices = this.parseMenuOptionChoices(updateMenuOptionDto.choices);
     }
@@ -1875,14 +1958,19 @@ export class MenuCrudService {
     // no-op when nothing changed — so it's safe to call unconditionally
     // here rather than re-deriving a same/different comparison.
     if (hasMultiLanguage && restaurant.targetLanguages.length > 0) {
-      void this.translationEnqueue
-        .enqueueOption(
+      this.observeTranslationPrewarm(
+        this.translationEnqueue.enqueueOption(
           option.menuItem.category.restaurantId,
           { id: optionId, name: updated.name, choices: updated.choices as any },
           restaurant.targetLanguages,
           restaurant.menuSourceLanguage ?? 'bg',
-        )
-        .then(() => this.translationWorker.kick());
+        ),
+        {
+          restaurantId: option.menuItem.category.restaurantId,
+          entityType: 'option',
+          entityId: optionId,
+        },
+      );
     }
 
     return updated;
