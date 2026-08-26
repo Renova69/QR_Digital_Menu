@@ -7,9 +7,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../common/cron-monitor';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 import { CRON_EVERY_HOUR } from '../common/cron-schedules';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 type PriceMap = Record<string, Record<'monthly' | 'yearly', string>>;
 
@@ -101,6 +104,7 @@ export class SubscriptionService {
       // P1-4: bound the same way as StripeProvider — see the note there.
       timeout: 15_000,
       maxNetworkRetries: 1,
+      httpAgent: getDependencyNodeAgents('stripe').httpsAgent,
     });
 
     // Built here (not at module load) so env vars injected after import are
@@ -563,6 +567,14 @@ export class SubscriptionService {
     name: 'subscriptionGraceExpiry',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'subscription-grace-expiry',
+    cronMonitor(CRON_EVERY_HOUR.SUBSCRIPTION_GRACE_EXPIRY, {
+      maxRuntimeMinutes: 10,
+      checkinMarginMinutes: 15,
+      failureIssueThreshold: 2,
+    }),
+  )
   async enforceGraceExpiry(): Promise<void> {
     try {
       await this.applyGraceExpiry();
@@ -637,6 +649,14 @@ export class SubscriptionService {
     name: 'subscriptionForceTierExpiry',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'subscription-force-tier-expiry',
+    cronMonitor(CRON_EVERY_HOUR.SUBSCRIPTION_FORCE_TIER_EXPIRY, {
+      maxRuntimeMinutes: 10,
+      checkinMarginMinutes: 15,
+      failureIssueThreshold: 2,
+    }),
+  )
   async enforceForceTierExpiry(): Promise<void> {
     try {
       await this.applyForceTierExpiry();

@@ -9,6 +9,7 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { writeAppLog } from '../logging/app-logger';
 import { redactSensitivePath } from '../logging/redact-path';
+import { applySentryRequestContext } from '../logging/sentry-request-context';
 
 /**
  * Global HTTP logging interceptor.
@@ -31,6 +32,10 @@ export class LoggingInterceptor implements NestInterceptor {
     if (context.getType() !== 'http') return next.handle();
 
     const req = context.switchToHttp().getRequest();
+    // Guards have completed before an interceptor runs, so authenticated
+    // requests have req.user here. This also tags swallowed/reportable errors
+    // captured inside the handler, not only errors reaching the global filter.
+    applySentryRequestContext(req);
     const { method, originalUrl, url } = req;
     // M-PAY-1: strip the session bearer token from the logged path.
     const path = redactSensitivePath(originalUrl || url);

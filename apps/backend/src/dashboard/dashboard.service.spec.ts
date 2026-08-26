@@ -250,6 +250,19 @@ describe('DashboardService', () => {
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledTimes(1);
     });
 
+    it('never reuses analytics cached for another restaurant', async () => {
+      await service.getAnalytics('rest-a', 7);
+      await service.getAnalytics('rest-b', 7);
+      await service.getAnalytics('rest-a', 7);
+
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledTimes(2);
+      expect(
+        mockPrisma.restaurant.findUnique.mock.calls.map(
+          ([query]) => query.where.id,
+        ),
+      ).toEqual(['rest-a', 'rest-b']);
+    });
+
     it('uses different cache key for different period', async () => {
       await service.getAnalytics('rest-1', 7);
       await service.getAnalytics('rest-1', 30);

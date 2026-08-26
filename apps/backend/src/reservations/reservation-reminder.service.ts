@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../common/cron-monitor';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
@@ -26,7 +28,18 @@ export class ReservationReminderService {
     private readonly deliveries: NotificationDeliveryService,
   ) {}
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  @Cron(CronExpression.EVERY_30_MINUTES, {
+    name: 'reservationReminderSweep',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'reservation-reminder-sweep',
+    cronMonitor(CronExpression.EVERY_30_MINUTES, {
+      maxRuntimeMinutes: 20,
+      checkinMarginMinutes: 10,
+      failureIssueThreshold: 2,
+    }),
+  )
   async runReminderSweep(): Promise<void> {
     await this.sweep();
   }

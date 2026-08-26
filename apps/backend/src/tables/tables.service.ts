@@ -7,7 +7,9 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
 import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
+import { cronMonitor } from '../common/cron-monitor';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -43,6 +45,14 @@ export class TablesService {
     name: 'tablesAutoClosePaidSessions',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'tables-auto-close-paid-sessions',
+    cronMonitor(CRON_EVERY_MINUTE.TABLES_AUTO_CLOSE_PAID, {
+      maxRuntimeMinutes: 5,
+      checkinMarginMinutes: 5,
+      failureIssueThreshold: 2,
+    }),
+  )
   async autoClosePaidSessions() {
     try {
       const cutoff = new Date(Date.now() - PAID_SESSION_AUTO_CLOSE_MS);

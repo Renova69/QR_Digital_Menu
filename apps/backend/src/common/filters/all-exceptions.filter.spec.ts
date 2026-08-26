@@ -9,9 +9,11 @@ jest.mock('../logging/app-logger', () => ({
 
 jest.mock('@sentry/nestjs', () => ({
   captureException: jest.fn(),
+  setTag: jest.fn(),
+  setUser: jest.fn(),
 }));
 
-function buildHost() {
+function buildHost(request: Record<string, unknown> = {}) {
   const status = jest.fn().mockReturnThis();
   const json = jest.fn();
   const host = {
@@ -21,6 +23,7 @@ function buildHost() {
         method: 'GET',
         originalUrl: '/api/v1/example',
         requestId: 'request-1',
+        ...request,
       }),
       getResponse: () => ({
         headersSent: false,
@@ -95,6 +98,27 @@ describe('AllExceptionsFilter', () => {
 
     new AllExceptionsFilter().catch(serverError, host);
 
+    expect(mockedCaptureException).toHaveBeenCalledWith(serverError);
+  });
+
+  it('attaches request context before reporting a 5xx raised before interceptors run', () => {
+    const { host } = buildHost({
+      requestId: 'request-before-interceptor',
+      user: {
+        id: 'user-opaque-id',
+        email: 'owner@example.test',
+        tokenHash: 'must-not-travel',
+      },
+    });
+    const serverError = new Error('guard dependency unavailable');
+
+    new AllExceptionsFilter().catch(serverError, host);
+
+    expect(Sentry.setTag).toHaveBeenCalledWith(
+      'requestId',
+      'request-before-interceptor',
+    );
+    expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'user-opaque-id' });
     expect(mockedCaptureException).toHaveBeenCalledWith(serverError);
   });
 

@@ -1,8 +1,10 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { NotificationChannel, Prisma } from '@prisma/client';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CRON_DAILY } from '../common/cron-schedules';
+import { cronMonitor } from '../common/cron-monitor';
 import {
   addDays,
   addEarnedPointBatch,
@@ -646,6 +648,14 @@ export class LoyaltyService {
     name: 'loyaltyExpiryReminders',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'loyalty-expiry-reminders',
+    cronMonitor(CRON_DAILY.LOYALTY_EXPIRY_REMINDERS, {
+      maxRuntimeMinutes: 120,
+      checkinMarginMinutes: 60,
+      failureIssueThreshold: 1,
+    }),
+  )
   async runDailyExpiryReminders() {
     this.logger.log('Running daily loyalty expiry reminder job');
 

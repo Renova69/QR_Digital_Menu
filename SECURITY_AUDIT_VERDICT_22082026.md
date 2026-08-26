@@ -346,13 +346,13 @@ Mark **production verified** only once those pass on the deployed environment.
 | P2-4  | Resend delivery webhook → record delivered/bounced/complained; add DMARC `rua=` and move toward `p=quarantine`                                                                                   | M      |
 | P2-5  | Uptime monitoring + alerting; make `/health` a real readiness probe so a wedged instance recycles                                                                                                | M      |
 | P2-6  | **COMPLETE in PR #43:** tenant R2 namespace, owner-scoped deletion, and explicit hard-purge capability                                                                                           | M      |
-| P2-7  | Tests: pin `restaurantId` into both cache keys; pin `queryClient.clear()` on logout; browser-level account-switch test                                                                           | S–M    |
+| P2-7  | **IMPLEMENTATION COMPLETE:** tenant cache keys, logout cache clear, and browser account-switch regressions                                                                                       | S–M    |
 | P2-8  | Staging environment — a Neon branch plus a second Cloud Run service; run every migration there first                                                                                             | M      |
 | P2-9  | Write rollback scripts alongside new migrations; document the expand-contract sequence already in use                                                                                            | S      |
 | P2-10 | **COMPLETE in PR #43:** inactivity quarantine/reactivation, 180-day device trust, and 12-hour PIN JWT; supersedes calendar expiry                                                                | M      |
 | P2-11 | **COMPLETE in PR #43:** PIN dashboard signals and alerts with cross-instance database dedupe                                                                                                     | S      |
 | P2-12 | Replace the three `error.message` echoes with static messages; gate `ErrorBoundary`'s raw message behind `import.meta.env.DEV`                                                                   | S      |
-| P2-13 | Bounded per-dependency HTTP agents; throttler-Redis `commandTimeout` + fail-open guard **before** `REDIS_URL` is ever set                                                                        | M      |
+| P2-13 | **IMPLEMENTATION COMPLETE:** provider-isolated bounded HTTP pools; Redis throttling has a 500 ms command deadline plus observable per-instance local enforcement fallback; review/deploy pending | M      |
 | P2-14 | Correct the four stale claims in CLAUDE.md: `deeplApiKey` (column does not exist), the `['subscription-status']` key, lazy per-request translation, and production `VITE_API_URL`                | S      |
 
 ### P3 — Strategic
