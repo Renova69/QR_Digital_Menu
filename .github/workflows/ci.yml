@@ -101,6 +101,14 @@ jobs:
             }
           }
 
+      # Cloud Build submits apps/backend as its Docker context, so the nested
+      # lockfile is a separate deployment contract from the root workspace
+      # lockfile. Validate that exact npm ci boundary before installing the
+      # workspace tree because npm ci clears this nested node_modules directory.
+      - name: Validate backend Docker lockfile
+        working-directory: apps/backend
+        run: npm ci --package-lock-only --ignore-scripts --workspaces=false --no-audit --no-fund
+
       - name: Install dependencies
         run: npm ci
 
