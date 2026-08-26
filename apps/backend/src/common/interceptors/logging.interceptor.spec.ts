@@ -2,8 +2,13 @@ import { of, throwError } from 'rxjs';
 import { LoggingInterceptor } from './logging.interceptor';
 import { writeAppLog } from '../logging/app-logger';
 import { redactSensitivePath } from '../logging/redact-path';
+import * as Sentry from '@sentry/nestjs';
 
 jest.mock('../logging/app-logger', () => ({ writeAppLog: jest.fn() }));
+jest.mock('@sentry/nestjs', () => ({
+  setTag: jest.fn(),
+  setUser: jest.fn(),
+}));
 
 const mockedWriteAppLog = writeAppLog as jest.Mock;
 
@@ -53,6 +58,48 @@ describe('LoggingInterceptor', () => {
         done();
       },
     });
+  });
+
+  it('adds only opaque authenticated identity and the server request ID to Sentry', () => {
+    const interceptor = new LoggingInterceptor();
+    const context = makeHttpContext(
+      {
+        method: 'GET',
+        originalUrl: '/api/v1/orders',
+        headers: {},
+        requestId: 'request-123',
+        user: {
+          id: 'user-opaque-id',
+          email: 'owner@example.test',
+          role: 'OWNER',
+          restaurantId: 'restaurant-1',
+          tokenHash: 'must-not-travel',
+        },
+      },
+      { statusCode: 200 },
+    );
+
+    interceptor.intercept(context, { handle: () => of('ok') });
+
+    expect(Sentry.setTag).toHaveBeenCalledWith('requestId', 'request-123');
+    expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'user-opaque-id' });
+  });
+
+  it('clears Sentry user context for an unauthenticated request', () => {
+    const interceptor = new LoggingInterceptor();
+    const context = makeHttpContext(
+      {
+        method: 'GET',
+        originalUrl: '/api/v1/menu/public/restaurant-1',
+        headers: {},
+        requestId: 'request-public',
+      },
+      { statusCode: 200 },
+    );
+
+    interceptor.intercept(context, { handle: () => of('ok') });
+
+    expect(Sentry.setUser).toHaveBeenCalledWith(null);
   });
 
   it('logs at error level when the handler throws a 500', (done) => {
