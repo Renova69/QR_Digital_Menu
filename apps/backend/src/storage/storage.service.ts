@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { randomBytes } from 'crypto';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 const sharp = require('sharp');
 
@@ -69,6 +70,7 @@ export class StorageService {
       requestHandler: new NodeHttpHandler({
         connectionTimeout: 3_000,
         requestTimeout: 20_000,
+        httpsAgent: getDependencyNodeAgents('r2').httpsAgent,
       }),
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {

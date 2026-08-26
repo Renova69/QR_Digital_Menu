@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import axios from 'axios';
 import { DateTime } from 'luxon';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 export type BoricaMode = 'DEMO' | 'LIVE';
 
@@ -53,7 +54,10 @@ export interface BoricaCallbackResult {
 }
 
 export type BoricaCertificateStatus =
-  'VALID' | 'EXPIRING' | 'EXPIRED' | 'INVALID';
+  | 'VALID'
+  | 'EXPIRING'
+  | 'EXPIRED'
+  | 'INVALID';
 
 export interface BoricaCertificateValidity {
   status: BoricaCertificateStatus;
@@ -236,6 +240,7 @@ export class BoricaProvider {
         postBody,
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          httpsAgent: getDependencyNodeAgents('borica').httpsAgent,
           timeout: 8000,
           responseType: 'json',
         },

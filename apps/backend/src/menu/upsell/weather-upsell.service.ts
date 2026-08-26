@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { UpsellContext, weatherConditionsToContexts } from './upsell-context';
+import { fetchWithDependencyPool } from '../../common/http/dependency-http';
 
 type RestaurantLocation = {
   city?: string | null;
@@ -256,7 +257,7 @@ export class WeatherUpsellService {
       this.requestTimeoutMs(),
     );
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithDependencyPool('weather', url, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
       });

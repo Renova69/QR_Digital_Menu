@@ -8,6 +8,7 @@ import {
   smsGatewayConfigured,
   sendViaSmsGateway,
 } from '../common/sms/sms-gateway';
+import { fetchWithDependencyPool } from '../common/http/dependency-http';
 import {
   getReservationNotificationCopy,
   getReservationDetailLabels,
@@ -402,21 +403,25 @@ export class ReservationNotificationsService {
       NOTIFICATION_HTTP_TIMEOUT_MS,
     );
     try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
+      const res = await fetchWithDependencyPool(
+        'resend',
+        'https://api.resend.com/emails',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+            to: [to],
+            subject,
+            text,
+            html,
+          }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-          to: [to],
-          subject,
-          text,
-          html,
-        }),
-        signal: controller.signal,
-      });
+      );
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
         this.logger.error(
@@ -508,7 +513,8 @@ export class ReservationNotificationsService {
       NOTIFICATION_HTTP_TIMEOUT_MS,
     );
     try {
-      const res = await fetch(
+      const res = await fetchWithDependencyPool(
+        'twilio',
         `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
         {
           method: 'POST',

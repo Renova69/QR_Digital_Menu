@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 /**
  * Materializes verified GlossaryTerm rows into DeepL's native glossary API
@@ -28,7 +29,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DeepLGlossaryService {
   private readonly logger = new Logger(DeepLGlossaryService.name);
 
-  private readonly http: AxiosInstance = axios.create({ timeout: 15_000 });
+  private readonly http: AxiosInstance = axios.create({
+    httpsAgent: getDependencyNodeAgents('deepl').httpsAgent,
+    timeout: 15_000,
+  });
 
   // Cached for the process lifetime — this rarely changes and a stale
   // negative just means one pair falls back to no-glossary translation

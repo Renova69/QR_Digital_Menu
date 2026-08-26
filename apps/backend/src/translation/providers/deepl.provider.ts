@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
-import * as https from 'https';
 import {
   ITranslationProvider,
   TranslateOptions,
 } from '../translation-provider.interface';
 import { TranslationUsageService } from '../translation-usage.service';
+import { getDependencyNodeAgents } from '../../common/http/dependency-http';
 
 @Injectable()
 export class DeepLProvider implements ITranslationProvider {
@@ -17,7 +17,7 @@ export class DeepLProvider implements ITranslationProvider {
 
   // Shared instance with keep-alive agent — prevents TLS socket listener accumulation
   private readonly http: AxiosInstance = axios.create({
-    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 4 }),
+    httpsAgent: getDependencyNodeAgents('deepl').httpsAgent,
     timeout: 8_000,
   });
 
