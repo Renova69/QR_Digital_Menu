@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../common/cron-monitor';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
@@ -61,7 +63,18 @@ export class RetentionService {
     private readonly platformSettings: PlatformSettingsService,
   ) {}
 
-  @Cron('0 3 * * *')
+  @Cron('0 3 * * *', {
+    name: 'dailyDataRetention',
+    waitForCompletion: true,
+  })
+  @SentryCron(
+    'daily-data-retention',
+    cronMonitor('0 3 * * *', {
+      maxRuntimeMinutes: 120,
+      checkinMarginMinutes: 60,
+      failureIssueThreshold: 1,
+    }),
+  )
   async runDailyRetention(): Promise<RetentionRunSummary> {
     const startedAt = new Date();
     const summary: RetentionRunSummary = {

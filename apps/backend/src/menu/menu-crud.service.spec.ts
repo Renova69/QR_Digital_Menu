@@ -16,7 +16,10 @@ import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
 
-jest.mock('@sentry/nestjs', () => ({ captureException: jest.fn() }));
+jest.mock('@sentry/nestjs', () => ({
+  captureException: jest.fn(),
+  SentryCron: () => () => undefined,
+}));
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn(), count: jest.fn() },

@@ -6,6 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { SentryCron } from '@sentry/nestjs';
+import { cronMonitor } from '../../common/cron-monitor';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeProvider } from '../stripe.provider';
 import { EventsGateway } from '../../events/events.gateway';
@@ -41,6 +43,14 @@ export class PaymentSessionService {
     name: 'paymentSessionRetentionCleanup',
     waitForCompletion: true,
   })
+  @SentryCron(
+    'payment-session-retention-cleanup',
+    cronMonitor('0 20 3 * * *', {
+      maxRuntimeMinutes: 120,
+      checkinMarginMinutes: 60,
+      failureIssueThreshold: 1,
+    }),
+  )
   async cleanupAbandonedPaymentsAndStaleSessions(): Promise<void> {
     const abandonedCutoff = new Date(
       Date.now() - ABANDONED_PAYMENT_RETENTION_DAYS * DAY_MS,
