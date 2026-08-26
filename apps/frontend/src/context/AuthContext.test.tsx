@@ -4,10 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { AuthProvider, useAuth } from "./AuthContext";
 import React, { type ReactNode } from "react";
 
+const { queryClientClear } = vi.hoisted(() => ({
+  queryClientClear: vi.fn(),
+}));
+
 // AuthProvider calls useQueryClient(); mock it so the test doesn't need a real
 // QueryClientProvider (which trips the monorepo's dual-React resolution in jsdom).
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ clear: vi.fn() }),
+  useQueryClient: () => ({ clear: queryClientClear }),
 }));
 
 const renderWithProviders = (ui: ReactNode) =>
@@ -80,6 +84,18 @@ function TestConsumerWithRegister() {
         }
       >
         Verify
+      </button>
+    </div>
+  );
+}
+
+function TestConsumerWithLogout() {
+  const auth = useAuth();
+  return (
+    <div>
+      <span data-testid="is-auth">{String(auth.isAuthenticated)}</span>
+      <button data-testid="logout-btn" onClick={() => auth.logout()}>
+        Logout
       </button>
     </div>
   );
@@ -160,6 +176,21 @@ describe("AuthContext", () => {
       expect(screen.getByTestId("is-auth").textContent).toBe("true");
     });
     expect(screen.getByTestId("user-email").textContent).toBe("test@test.com");
+  });
+
+  it("clears all query data when the user logs out", async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockUser });
+
+    renderWithProviders(<TestConsumerWithLogout />);
+    await waitFor(() => {
+      expect(screen.getByTestId("is-auth").textContent).toBe("true");
+    });
+
+    await userEvent.click(screen.getByTestId("logout-btn"));
+
+    expect(api.post).toHaveBeenCalledWith("/auth/logout");
+    expect(queryClientClear).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("is-auth").textContent).toBe("false");
   });
 
   it("does not authenticate after register until the verification code succeeds", async () => {

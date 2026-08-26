@@ -7,6 +7,7 @@ import {
 import * as webpush from 'web-push';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscribePushDto } from './dto/subscribe-push.dto';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 /**
  * Exact hosts / host suffixes of the browser push services we accept. The
@@ -154,7 +155,10 @@ export class PushService implements OnModuleInit {
       };
 
       return webpush
-        .sendNotification(pushSubscription, payload)
+        .sendNotification(pushSubscription, payload, {
+          agent: getDependencyNodeAgents('web-push').httpsAgent,
+          timeout: 10_000,
+        })
         .catch(async (error) => {
           // If the subscription is expired or invalid, remove it from our DB
           if (error.statusCode === 410 || error.statusCode === 404) {
