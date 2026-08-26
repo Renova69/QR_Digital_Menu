@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile } from 'passport-google-oauth20';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -28,6 +29,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       // account linking.
       scope: ['openid', 'profile', 'email'],
     });
+
+    // passport-google-oauth20 delegates token/profile requests to `oauth`,
+    // whose default is Node's unbounded global agent. Keep Google isolated
+    // from the other providers just like the explicit fetch/SDK clients.
+    this._oauth2.setAgent(getDependencyNodeAgents('google-oauth').httpsAgent);
   }
 
   async validate(

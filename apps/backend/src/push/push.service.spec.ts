@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { PushService } from './push.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscribePushDto } from './dto/subscribe-push.dto';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 const mockSendNotification = jest.fn();
 const mockSetVapidDetails = jest.fn();
@@ -203,6 +204,16 @@ describe('PushService', () => {
       );
 
       expect(mockSendNotification).toHaveBeenCalledTimes(2);
+      expect(mockSendNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: 'https://fcm.googleapis.com/fcm/send/a',
+        }),
+        expect.any(String),
+        {
+          agent: getDependencyNodeAgents('web-push').httpsAgent,
+          timeout: 10_000,
+        },
+      );
     });
 
     it('should remove expired subscription on 410', async () => {

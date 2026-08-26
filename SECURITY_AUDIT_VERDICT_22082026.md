@@ -352,7 +352,7 @@ Mark **production verified** only once those pass on the deployed environment.
 | P2-10 | **COMPLETE in PR #43:** inactivity quarantine/reactivation, 180-day device trust, and 12-hour PIN JWT; supersedes calendar expiry                                                                | M      |
 | P2-11 | **COMPLETE in PR #43:** PIN dashboard signals and alerts with cross-instance database dedupe                                                                                                     | S      |
 | P2-12 | Replace the three `error.message` echoes with static messages; gate `ErrorBoundary`'s raw message behind `import.meta.env.DEV`                                                                   | S      |
-| P2-13 | Bounded per-dependency HTTP agents; throttler-Redis `commandTimeout` + fail-open guard **before** `REDIS_URL` is ever set                                                                        | M      |
+| P2-13 | **IMPLEMENTATION COMPLETE:** provider-isolated bounded HTTP pools; Redis throttling has a 500 ms command deadline plus observable per-instance local enforcement fallback; review/deploy pending | M      |
 | P2-14 | Correct the four stale claims in CLAUDE.md: `deeplApiKey` (column does not exist), the `['subscription-status']` key, lazy per-request translation, and production `VITE_API_URL`                | S      |
 
 ### P3 — Strategic

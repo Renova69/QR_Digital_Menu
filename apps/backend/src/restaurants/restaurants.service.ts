@@ -24,6 +24,7 @@ import { RestaurantSlugService } from './slug/restaurant-slug.service';
 import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 // Logo fetch (getLogoBase64) hardening: bound the request so a slow/malicious
 // origin can't hang a request or exhaust memory with an oversized response.
@@ -1121,6 +1122,7 @@ export class RestaurantsService {
     return new Promise((resolve) => {
       const isHttps = parsedUrl.protocol === 'https:';
       const client = isHttps ? https : http;
+      const agents = getDependencyNodeAgents('public-image');
       const port = parsedUrl.port
         ? parseInt(parsedUrl.port, 10)
         : isHttps
@@ -1142,6 +1144,7 @@ export class RestaurantsService {
           port,
           path: `${parsedUrl.pathname}${parsedUrl.search}`,
           method: 'GET',
+          agent: isHttps ? agents.httpsAgent : agents.httpAgent,
           headers: { Host: hostname },
           ...(isHttps ? { servername: hostname } : {}),
           timeout: LOGO_FETCH_TIMEOUT_MS,
