@@ -45,7 +45,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1035.0",
-    "@smithy/node-http-handler": "^4.7.5",
     "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -62,6 +61,7 @@
     "@paralleldrive/cuid2": "^2.3.1",
     "@prisma/client": "^6.15.0",
     "@sentry/nestjs": "^10.69.0",
+    "@smithy/node-http-handler": "^4.7.5",
     "@socket.io/redis-adapter": "^8.3.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/luxon": "^3.7.1",
@@ -85,6 +85,7 @@
     "socket.io": "^4.8.3",
     "stripe": "22.2.0",
     "swagger-ui-express": "^5.0.1",
+    "undici": "^7.29.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

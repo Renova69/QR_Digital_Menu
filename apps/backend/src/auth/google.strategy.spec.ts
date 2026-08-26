@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { GoogleStrategy } from './google.strategy';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 const originalEnv = { ...process.env };
 
@@ -23,6 +24,9 @@ describe('GoogleStrategy', () => {
     const strategy = new GoogleStrategy();
 
     expect(strategy).toBeDefined();
+    expect(strategy['_oauth2']['_agent']).toBe(
+      getDependencyNodeAgents('google-oauth').httpsAgent,
+    );
     expect(warnSpy).toHaveBeenCalledWith(
       'Google OAuth environment variables not set. Skipping Google Strategy.',
       'GoogleStrategy',

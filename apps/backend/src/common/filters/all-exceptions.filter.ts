@@ -8,6 +8,7 @@ import {
 import * as Sentry from '@sentry/nestjs';
 import { writeAppLog } from '../logging/app-logger';
 import { redactSensitivePath } from '../logging/redact-path';
+import { applySentryRequestContext } from '../logging/sentry-request-context';
 
 function getExceptionResponse(exception: unknown, statusCode: number) {
   if (exception instanceof HttpException) {
@@ -75,6 +76,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // custom global exception filter is registered, so this is the only
     // capture point.
     if (level === 'error') {
+      // A guard can fail before global interceptors run. Reapply the same
+      // privacy-minimal context here so those early 5xx events remain
+      // attributable without leaking email addresses or credentials.
+      applySentryRequestContext(req);
       Sentry.captureException(exception);
     }
 

@@ -21,6 +21,8 @@
  * Twilio env vars are intentionally left in place (unused while
  * SMS_PROVIDER=smsgateway) so you can flip back without reconfiguring.
  */
+import { fetchWithDependencyPool } from '../http/dependency-http';
+
 const DEFAULT_SMS_GATEWAY_URL = 'https://api.sms-gate.app/3rdparty/v1/message';
 const DEFAULT_SMS_TTL_SECONDS = 60 * 60;
 const DEFAULT_SMS_TIMEOUT_MS = 10_000;
@@ -92,7 +94,7 @@ export async function sendViaSmsGateway(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithDependencyPool('sms-gateway', url, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${auth}`,

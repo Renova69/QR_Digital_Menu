@@ -187,6 +187,143 @@ async function mockPublicApi(page: Page): Promise<void> {
   });
 }
 
+interface AccountFixture {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: "OWNER";
+    onboardingComplete: true;
+  };
+  restaurant: {
+    id: string;
+    name: string;
+    ownerId: string;
+    tier: "FREE" | "PROFESSIONAL";
+    paymentsEnabled: false;
+    dashboardLanguage: "en";
+  };
+  features: string[];
+}
+
+async function mockAccountSwitchApi(page: Page): Promise<string[]> {
+  const professional: AccountFixture = {
+    user: {
+      id: "owner-professional",
+      email: "professional@example.com",
+      name: "Professional Owner",
+      role: "OWNER",
+      onboardingComplete: true,
+    },
+    restaurant: {
+      id: "restaurant-professional",
+      name: "Professional Bistro",
+      ownerId: "owner-professional",
+      tier: "PROFESSIONAL",
+      paymentsEnabled: false,
+      dashboardLanguage: "en",
+    },
+    features: ["orders:receive", "analytics:basic", "analytics:full"],
+  };
+  const free: AccountFixture = {
+    user: {
+      id: "owner-free",
+      email: "free@example.com",
+      name: "Free Owner",
+      role: "OWNER",
+      onboardingComplete: true,
+    },
+    restaurant: {
+      id: "restaurant-free",
+      name: "Free Bistro",
+      ownerId: "owner-free",
+      tier: "FREE",
+      paymentsEnabled: false,
+      dashboardLanguage: "en",
+    },
+    features: [],
+  };
+  const accounts = [professional, free];
+  const subscriptionRestaurantIds: string[] = [];
+  let currentAccount: AccountFixture | null = professional;
+
+  await page.context().route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+
+    if (path === "/api/v1/auth/me") {
+      if (currentAccount) {
+        await fulfillJson(route, currentAccount.user);
+      } else {
+        await fulfillJson(route, { message: "Unauthorized" }, 401);
+      }
+      return;
+    }
+
+    if (path === "/api/v1/auth/logout" && request.method() === "POST") {
+      currentAccount = null;
+      await fulfillJson(route, { success: true });
+      return;
+    }
+
+    if (path === "/api/v1/auth/login" && request.method() === "POST") {
+      const email = (request.postDataJSON() as { email?: string }).email;
+      currentAccount =
+        accounts.find((account) => account.user.email === email) ?? null;
+      if (!currentAccount) {
+        await fulfillJson(route, { message: "Invalid credentials" }, 401);
+        return;
+      }
+      await fulfillJson(route, { user: currentAccount.user });
+      return;
+    }
+
+    if (path === "/api/v1/restaurants") {
+      await fulfillJson(
+        route,
+        currentAccount ? [currentAccount.restaurant] : [],
+      );
+      return;
+    }
+
+    if (path === "/api/v1/subscription/status") {
+      const restaurantId = url.searchParams.get("restaurantId");
+      if (restaurantId) subscriptionRestaurantIds.push(restaurantId);
+      const account = accounts.find(
+        (candidate) => candidate.restaurant.id === restaurantId,
+      );
+      await fulfillJson(route, {
+        tier: account?.restaurant.tier ?? "FREE",
+        features: account?.features ?? [],
+        staffLimit: 1,
+        allowedStaffRoles: [],
+        hasSubscription: account?.restaurant.tier !== "FREE",
+        subscription: null,
+      });
+      return;
+    }
+
+    if (path.includes("/menu-views/dashboard/scan-stats/")) {
+      await fulfillJson(route, {
+        totalViews: 0,
+        uniqueVisitors: 0,
+        perTable: [],
+      });
+      return;
+    }
+
+    if (path === "/api/v1/platform-settings/public") {
+      await fulfillJson(route, { announcementBannerEnabled: false });
+      return;
+    }
+
+    await fulfillJson(route, {});
+  });
+
+  return subscriptionRestaurantIds;
+}
+
 test.beforeEach(async ({ page }) => {
   await mockPublicApi(page);
 });
@@ -298,4 +435,28 @@ test("new owner is prompted to verify registration", async ({ page }) => {
     page.getByRole("heading", { name: "Verify your email" }),
   ).toBeVisible();
   await expect(page.getByLabel("Verification code")).toBeVisible();
+});
+
+test("switching owners never shows the previous restaurant plan", async ({
+  page,
+}) => {
+  await page.context().unroute("**/api/v1/**");
+  const subscriptionRestaurantIds = await mockAccountSwitchApi(page);
+
+  await page.goto("/dashboard?lng=en");
+  await expect(page.getByText("PROFESSIONAL", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Logout").click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.getByLabel("Email").fill("free@example.com");
+  await page.getByLabel("Password").fill("account-switch-password");
+  await page.getByRole("button", { name: "Login", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByText("FREE", { exact: true })).toBeVisible();
+  await expect(page.getByText("PROFESSIONAL", { exact: true })).toHaveCount(0);
+  expect(subscriptionRestaurantIds).toEqual(
+    expect.arrayContaining(["restaurant-professional", "restaurant-free"]),
+  );
 });

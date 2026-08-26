@@ -5,6 +5,7 @@ import {
   smsGatewayConfigured,
   smsProvider,
 } from '../common/sms/sms-gateway';
+import { fetchWithDependencyPool } from '../common/http/dependency-http';
 
 export const NOTIFICATION_PROVIDER = Symbol('NOTIFICATION_PROVIDER');
 
@@ -78,22 +79,26 @@ export class ProductionNotificationProvider implements NotificationProvider {
       PROVIDER_HTTP_TIMEOUT_MS,
     );
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': deliveryId,
+      const response = await fetchWithDependencyPool(
+        'resend',
+        'https://api.resend.com/emails',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': deliveryId,
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+            to: [payload.to],
+            subject: payload.subject,
+            text: payload.text,
+            html: payload.html,
+          }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-          to: [payload.to],
-          subject: payload.subject,
-          text: payload.text,
-          html: payload.html,
-        }),
-        signal: controller.signal,
-      });
+      );
       if (!response.ok) {
         return {
           accepted: false,
@@ -188,7 +193,8 @@ export class ProductionNotificationProvider implements NotificationProvider {
       PROVIDER_HTTP_TIMEOUT_MS,
     );
     try {
-      const response = await fetch(
+      const response = await fetchWithDependencyPool(
+        'twilio',
         `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
         {
           method: 'POST',

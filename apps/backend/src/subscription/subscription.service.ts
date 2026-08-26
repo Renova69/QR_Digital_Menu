@@ -12,6 +12,7 @@ import { cronMonitor } from '../common/cron-monitor';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 import { CRON_EVERY_HOUR } from '../common/cron-schedules';
+import { getDependencyNodeAgents } from '../common/http/dependency-http';
 
 type PriceMap = Record<string, Record<'monthly' | 'yearly', string>>;
 
@@ -103,6 +104,7 @@ export class SubscriptionService {
       // P1-4: bound the same way as StripeProvider — see the note there.
       timeout: 15_000,
       maxNetworkRetries: 1,
+      httpAgent: getDependencyNodeAgents('stripe').httpsAgent,
     });
 
     // Built here (not at module load) so env vars injected after import are
