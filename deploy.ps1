@@ -320,8 +320,8 @@ if ($useStagingProof) {
 # image passed isolated staging (or the explicit development build completed),
 # and before the deploy, so the schema is always at or ahead of the code. Every
 # migration must remain compatible with the revision currently serving
-# production. Contract migrations require their readiness revision to be fully
-# deployed first.
+# production.
+# Contract migrations require their readiness revision to be fully deployed first.
 #
 # A failure aborts before any new revision exists, leaving $previousRevision
 # serving untouched.
