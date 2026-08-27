@@ -28,6 +28,7 @@ $ErrorActionPreference = "Stop"
 
 $PROJECT       = "qr-menu-app-469216"
 $SERVICE       = "qr-menu-backend"
+$STAGING_SERVICE = "qr-menu-backend-staging"
 $BACKUP_JOB    = "db-backup"
 $REGION        = "europe-west1"
 $GCLOUD        = "C:\google-cloud-sdk\bin\gcloud.cmd"
@@ -181,9 +182,93 @@ if (-not $successfulCheck) {
 Write-Host "==> Mandatory CI verified: $($successfulCheck.details_url)"
 
 $gitSha = $gitFullSha.Substring(0, 12)
+
+# --- 0b. Prove this commit already survived isolated staging ---------------
+# Staging owns a separate Supabase project, Redis deployment, frontend origin,
+# and Stripe test credentials. Production refuses before build, backup,
+# migration, revision creation, or traffic changes unless the one serving
+# staging revision proves the exact commit, migration set, and image digest.
+# Production then deploys that same digest; rebuilding here would create a
+# second, untested artifact even when the source commit is unchanged.
+Write-Host "==> Verifying isolated staging proof..."
+$migrationDigest = (Invoke-Native -Description "Computing migration digest" -Command {
+    & node ops/staging/staging-policy.js digest apps/backend/prisma/migrations
+} | Out-String).Trim()
+$stagingImageTag = "gcr.io/$PROJECT/$STAGING_SERVICE`:sha-$gitSha"
+$expectedImageDigest = (Invoke-Native -Description "Resolving staged image digest" -Command {
+    & $GCLOUD container images describe $stagingImageTag `
+        --project=$PROJECT `
+        --format="value(image_summary.digest)"
+} | Out-String).Trim()
+
+$stagingServiceJson = Invoke-Native -Description "Reading isolated staging service" -Command {
+    & $GCLOUD run services describe $STAGING_SERVICE `
+        --project=$PROJECT `
+        --region=$REGION `
+        --format=json
+}
+$stagingServiceDocument = ($stagingServiceJson | Out-String | ConvertFrom-Json)
+$positiveStagingTraffic = @($stagingServiceDocument.status.traffic) |
+    Where-Object { $_.percent -gt 0 }
+if (
+    @($positiveStagingTraffic).Count -ne 1 -or
+    $positiveStagingTraffic[0].percent -ne 100 -or
+    -not $positiveStagingTraffic[0].revisionName
+) {
+    Write-Error "Isolated staging must have exactly one revision serving 100% traffic."
+    exit 1
+}
+$stagingServingRevision = $positiveStagingTraffic[0].revisionName
+$stagingRevisionJson = Invoke-Native -Description "Reading serving staging revision" -Command {
+    & $GCLOUD run revisions describe $stagingServingRevision `
+        --project=$PROJECT `
+        --region=$REGION `
+        --format=json
+}
+$stagingRevision = ($stagingRevisionJson | Out-String | ConvertFrom-Json)
+$stagingRevisionEnvironment = @($stagingRevision.spec.containers[0].env)
+function Read-StagingProofValue {
+    param([Parameter(Mandatory)][string]$Name)
+
+    $entry = $stagingRevisionEnvironment |
+        Where-Object { $_.name -eq $Name } |
+        Select-Object -First 1
+    if (-not $entry -or $null -eq $entry.value) {
+        Write-Error "Serving staging revision does not expose proof value $Name."
+        exit 1
+    }
+    return [string]$entry.value
+}
+$stagingReady = @($stagingRevision.status.conditions) |
+    Where-Object { $_.type -eq "Ready" -and $_.status -eq "True" } |
+    Select-Object -First 1
+$stagingProof = @{
+    serviceName = [string]$stagingServiceDocument.metadata.name
+    revisionName = [string]$stagingRevision.metadata.name
+    trafficRevisionName = [string]$stagingServingRevision
+    trafficPercent = [int]$positiveStagingTraffic[0].percent
+    image = [string]$stagingRevision.spec.containers[0].image
+    deployedImageDigest = Read-StagingProofValue "STAGING_IMAGE_DIGEST"
+    validatedSha = Read-StagingProofValue "STAGING_VALIDATED_SHA"
+    migrationDigest = Read-StagingProofValue "STAGING_MIGRATION_DIGEST"
+    ready = [bool]$stagingReady
+}
+$env:STAGING_PROOF_JSON = $stagingProof | ConvertTo-Json -Compress
+try {
+    Invoke-Native -Description "Isolated staging proof" -Command {
+        & node ops/staging/staging-policy.js proof `
+            $gitFullSha `
+            $migrationDigest `
+            $expectedImageDigest
+    }
+} finally {
+    Remove-Item Env:STAGING_PROOF_JSON -ErrorAction SilentlyContinue
+}
+Write-Host "==> Isolated staging proof verified for $gitFullSha."
+
 # Cloud Run traffic tags must start with a letter; git SHAs are hex and can
 # start with a digit, so both tags below are prefixed.
-$IMAGE       = "gcr.io/$PROJECT/$SERVICE`:sha-$gitSha"
+$IMAGE       = "gcr.io/$PROJECT/$STAGING_SERVICE@$expectedImageDigest"
 $revisionTag = "rev-$gitSha"
 
 # --- 1. Identify what's currently serving, before anything changes --------
@@ -197,11 +282,8 @@ $currentTraffic = ($currentTrafficJson | Out-String | ConvertFrom-Json).status.t
 $previousRevision = ($currentTraffic | Where-Object { $_.percent -gt 0 } | Select-Object -First 1).revisionName
 Write-Host "==> Currently serving: $previousRevision"
 
-# --- 2. Build -- tagged by commit, never :latest ----------------------------
-Write-Host "==> Building image $IMAGE ..."
-Invoke-Native -Description "Build" -Command {
-    & $GCLOUD builds submit --project=$PROJECT --tag=$IMAGE $SRC
-}
+# --- 2. Select the artifact already exercised by staging --------------------
+Write-Host "==> Using staging-verified immutable image $IMAGE ..."
 
 # --- 2b. Migrate once, here, rather than once per container -----------------
 # The image no longer runs `prisma migrate deploy` at start-up (see the CMD
@@ -211,9 +293,9 @@ Invoke-Native -Description "Build" -Command {
 #
 # This uses DIRECT_URL from apps/backend/.env -- Supabase's session-mode pooler
 # -- because migrations need a real session. Ordering is deliberate: after the
-# build, so a broken build cannot leave a migrated database behind, and before
-# the deploy, so the schema is always at or ahead of the code. Every migration
-# must remain compatible with the revision currently serving production.
+# exact image passed isolated staging, and before the deploy, so the schema is
+# always at or ahead of the code. Every migration must remain compatible with
+# the revision currently serving production.
 # Contract migrations require their readiness revision to be fully deployed first.
 #
 # A failure aborts before any new revision exists, leaving $previousRevision

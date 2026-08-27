@@ -7,7 +7,11 @@ import { scrubBreadcrumb, scrubEvent } from './common/logging/sentry-scrub';
 if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV || 'development',
+    // Staging deliberately runs with NODE_ENV=production so it exercises the
+    // real cookie, startup, and security paths. Keep observability environment
+    // separate from runtime mode or staging incidents pollute production.
+    environment:
+      process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
     // Set by deploy.ps1 from the deployed commit. Without it every event lands
     // in one undifferentiated bucket, so a regression cannot be attributed to
     // the release that introduced it and "is this already fixed?" is unanswerable.

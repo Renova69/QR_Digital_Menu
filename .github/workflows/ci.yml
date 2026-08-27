@@ -86,7 +86,11 @@ jobs:
       - name: Validate deployment script syntax
         shell: pwsh
         run: |
-          $scripts = @('./deploy.ps1', './ops/db-backup/setup.ps1')
+          $scripts = @(
+            './deploy.ps1',
+            './ops/db-backup/setup.ps1',
+            './ops/staging/deploy-staging.ps1'
+          )
           foreach ($script in $scripts) {
             $tokens = $null
             $parseErrors = $null
