@@ -1,7 +1,24 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { backupMissingPolicy, backupPolicy } = require("./setup-alerts");
+const {
+  backupMissingPolicy,
+  backupPolicy,
+  readinessPolicy,
+} = require("./setup-alerts");
+
+test("readiness alerts when at least one checker reports failure", () => {
+  const policy = readinessPolicy("readiness-check-id");
+  const condition = policy.conditions[0].conditionThreshold;
+
+  assert.equal(condition.comparison, "COMPARISON_GT");
+  assert.equal(condition.thresholdValue, 0);
+  assert.equal(
+    condition.aggregations[0].crossSeriesReducer,
+    "REDUCE_COUNT_FALSE",
+  );
+  assert.match(condition.filter, /check_id="readiness-check-id"/);
+});
 
 test("explicit backup failures remain observable", () => {
   const policy = backupPolicy();
