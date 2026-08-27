@@ -24,15 +24,19 @@ describe('instrument', () => {
     );
   });
 
-  it('uses the 0.1 sample rate in production', () => {
+  it('uses the 0.1 sample rate and explicit Sentry environment in production', () => {
     process.env.SENTRY_DSN = 'https://dsn.example';
     process.env.NODE_ENV = 'production';
+    process.env.SENTRY_ENVIRONMENT = 'staging';
     const Sentry = require('@sentry/nestjs');
 
     require('./instrument');
 
     expect(Sentry.init).toHaveBeenCalledWith(
-      expect.objectContaining({ tracesSampleRate: 0.1 }),
+      expect.objectContaining({
+        environment: 'staging',
+        tracesSampleRate: 0.1,
+      }),
     );
   });
 
