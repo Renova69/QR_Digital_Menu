@@ -2,6 +2,11 @@
 
 Verification of every claim in `FULL_SECURITY_AUDIT_22082026.md` against the actual codebase and live infrastructure, plus a remediation plan.
 
+**Remediation update — 27 Aug 2026:** the historical findings below are retained
+as the 22 Aug evidence snapshot. The P2 ledger near the end is the current
+status: all active P2 engineering work is complete, with only explicit
+pre-launch operational gates deferred. P3-1 is next.
+
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
 **Headline:** the advisory document is a generic checklist, not an audit of this system. Of its 36 numbered steps, **14 describe things we already do**, 9 rest on a premise that is false here (we have no Cloudflare), and 13 point at real gaps. More importantly, **the single worst defect in the system is not mentioned anywhere in the document** — see C1.
@@ -60,9 +65,9 @@ Not a technical claim; it is the argument for doing this audit. The substantive 
 
 | Step | Claim                                                | Verdict                                                                                                                                                                                                                                                                                                                                                                            |
 | ---- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | You will default to dropping and recreating a column | **FALSE.** The most recent migration, `20260821130000_require_restaurant_slug`, sets `lock_timeout = '5s'`, runs a pre-flight `DO $$` block that raises and aborts if any NULL remains, and is explicitly documented as "Step 4 of the staged tenant vanity-URL rollout." That is textbook expand-contract. 62 migrations, CI enforces `migrate diff --exit-code` drift detection. |
-| 2    | Write the rollback script before the migration       | **TRUE.** Zero down/rollback scripts exist across all 62 migrations. Tracked as M9.                                                                                                                                                                                                                                                                                                |
-| 3    | Test on a staging mirror of live data first          | **TRUE.** No staging environment exists. Neon has 3 branches: `production` plus two archived July restore points. Nothing in `deploy.ps1` or CI references staging. Tracked as M9.                                                                                                                                                                                                 |
+| 1    | You will default to dropping and recreating a column | **FALSE.** The repository has 65 forward migrations. CI and deployment reject destructive SQL, production PostgreSQL guards independently block schema/table/column loss and truncation, and the migration policy requires expand/backfill/contract.                                                                                                                           |
+| 2    | Write the rollback script before the migration       | **SUPERSEDED.** Executable down scripts are intentionally prohibited because they can erase writes made after deployment. P2-9 requires a reviewed forward-recovery plan and an explicit old-app/new-schema compatibility window instead.                                                                                                                                       |
+| 3    | Test on a staging mirror of live data first          | **IMPLEMENTED, ACTIVATION DEFERRED PRE-LAUNCH.** PR #54 added an isolated Supabase/Cloud Run/Stripe test environment and exact-SHA proof. With no real tenants, payments, or customer data, activation is deferred by owner decision; bypass is explicit and staging remains the default deployment path.                                                                         |
 
 ### Scenario 8 — Error handling leaking internals
 
@@ -138,7 +143,7 @@ Additional finding not in the document: `.release-worktrees/`, `.codex/` and `.o
 | 10  | Caching and CDN               | Correct and tenant-scoped; deliberately `no-store` on authenticated responses                 |
 | 11  | Load balancing and scaling    | **Weakest layer** — no LB, `maxScale=3`, no autoscaling headroom                              |
 | 12  | Error tracking and logs       | Strong — Sentry both ends, structured logs, dual pipeline; missing release/scrub/user context |
-| 13  | Availability and recovery     | **Weakest layer** — backups silently broken, 6h PITR, no staging, no uptime monitoring        |
+| 13  | Availability and recovery     | **Remediated:** verified GCS backups, database loss guards, readiness probe + corrected alert; isolated staging is implemented and intentionally dormant until pre-launch |
 
 We have all 13 layers. Layers 11 and 13 are the ones that would fail an inspection.
 
@@ -311,7 +316,7 @@ the device row and rejects a renewed future lock before bcrypt or counter
 mutation. The regression test simulates the lost update race and pins both the
 429 response and the absence of bcrypt/database mutation.
 
-### P2-10 — Implementation COMPLETE, release verification PENDING
+### P2-10 — Implementation COMPLETE, manual verification DEFERRED PRE-LAUNCH
 
 **Implementation: COMPLETE** (`be0da3a6`, on top of `8b25d51e`, `20c3f399`,
 `a9059282`, `60c227d4`).
@@ -325,8 +330,10 @@ and no device loses trust before its own `deviceTrustExpiresAt` — both written
 by migration rather than derived from any date in application logic. This is no
 longer an active code blocker.
 
-**Release verification: PENDING.** Pushed is not shipped. After merge and
-deployment, verify by hand:
+**Deployment: COMPLETE. Manual product verification: DEFERRED PRE-LAUNCH.** The
+code is serving, but the owner deliberately deferred these checks while there
+are no real tenants or service-critical printers. Run them before the first
+real tenant:
 
 - [ ] Stale token presentation and countdown
 - [ ] Quarantined-token reactivation
@@ -336,24 +343,29 @@ deployment, verify by hand:
 
 Mark **production verified** only once those pass on the deployed environment.
 
-### P2 — This month
+### P2 — Development close-out
+
+All current P2 engineering lanes are complete. P2-4 is parked until a custom
+domain and real outbound email exist. P2-8 activation and P2-10 manual checks
+are explicit pre-launch gates, not active development blockers. Do not reopen
+completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
 | ID    | Task                                                                                                                                                                                             | Effort |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| P2-1  | `process.on('unhandledRejection')` net; `host.getType()` guard in `AllExceptionsFilter`; try/catch in `handleConnection`; `.catch()` on the ~19 floating promises; enable `no-floating-promises` | M      |
-| P2-2  | `@MonitoredCron` wrapper applied to all 24 cron jobs                                                                                                                                             | M      |
-| P2-3  | Sentry `release` from git SHA, `beforeSend` reusing the existing redaction helpers, `Sentry.setUser`, `requestId` tag                                                                            | S      |
-| P2-4  | Resend delivery webhook → record delivered/bounced/complained; add DMARC `rua=` and move toward `p=quarantine`                                                                                   | M      |
-| P2-5  | Uptime monitoring + alerting; make `/health` a real readiness probe so a wedged instance recycles                                                                                                | M      |
-| P2-6  | **COMPLETE in PR #43:** tenant R2 namespace, owner-scoped deletion, and explicit hard-purge capability                                                                                           | M      |
-| P2-7  | **IMPLEMENTATION COMPLETE:** tenant cache keys, logout cache clear, and browser account-switch regressions                                                                                       | S–M    |
-| P2-8  | **IMPLEMENTATION COMPLETE; ACTIVATION PENDING:** isolated Supabase target/runtime checks, dedicated Cloud Run staging deploy, and exact SHA + migration + image proof before production          | M      |
-| P2-9  | Write rollback scripts alongside new migrations; document the expand-contract sequence already in use                                                                                            | S      |
-| P2-10 | **COMPLETE in PR #43:** inactivity quarantine/reactivation, 180-day device trust, and 12-hour PIN JWT; supersedes calendar expiry                                                                | M      |
-| P2-11 | **COMPLETE in PR #43:** PIN dashboard signals and alerts with cross-instance database dedupe                                                                                                     | S      |
-| P2-12 | Replace the three `error.message` echoes with static messages; gate `ErrorBoundary`'s raw message behind `import.meta.env.DEV`                                                                   | S      |
-| P2-13 | **IMPLEMENTATION COMPLETE:** provider-isolated bounded HTTP pools; Redis throttling has a 500 ms command deadline plus observable per-instance local enforcement fallback; review/deploy pending | M      |
-| P2-14 | Correct the four stale claims in CLAUDE.md: `deeplApiKey` (column does not exist), the `['subscription-status']` key, lazy per-request translation, and production `VITE_API_URL`                | S      |
+| P2-1  | **COMPLETE in PR #47:** fatal rejection handling, non-HTTP filter guard, awaited critical promises, and `no-floating-promises` as an error                                                     | M      |
+| P2-2  | **COMPLETE in PR #51:** every scheduled job is Sentry-monitored and a coverage test rejects an unwrapped cron                                                                                   | M      |
+| P2-3  | **COMPLETE in PRs #46/#50:** release SHA, structural Sentry scrubbing, user context, and request ID tags                                                                                        | S      |
+| P2-4  | **DEFERRED PRE-LAUNCH:** add the Resend delivery webhook and DMARC reporting/enforcement when a custom domain and real outbound email exist                                                     | M      |
+| P2-5  | **COMPLETE in PRs #41/#44/#55:** readiness/liveness split, uptime monitoring, and corrected readiness-failure alert semantics                                                                  | M      |
+| P2-6  | **COMPLETE in PR #43:** tenant R2 namespace, owner-scoped deletion, and explicit hard-purge capability                                                                                          | M      |
+| P2-7  | **COMPLETE in PR #49:** tenant cache regressions, logout cache clearing, and browser account-switch coverage                                                                                    | S–M    |
+| P2-8  | **IMPLEMENTATION COMPLETE in PR #54; ACTIVATION DEFERRED PRE-LAUNCH:** isolated Supabase/Cloud Run/Stripe staging and exact-SHA release proof; development bypass is explicit, staging is default | M      |
+| P2-9  | **COMPLETE:** forward-only migration/recovery policy, required expand/backfill/contract evidence, and failed-migration decision path; destructive down scripts deliberately rejected            | S      |
+| P2-10 | **CODE + DEPLOY COMPLETE in PR #43; MANUAL CHECKS DEFERRED PRE-LAUNCH:** inactivity retirement, reactivation, device trust, and 12-hour PIN JWT                                                 | M      |
+| P2-11 | **COMPLETE in PR #43:** PIN dashboard signals and alerts with cross-instance database dedupe                                                                                                    | S      |
+| P2-12 | **COMPLETE in PR #43/current code:** owner-visible errors are static and `ErrorBoundary` exposes raw messages only in development                                                               | S      |
+| P2-13 | **COMPLETE in PR #48 and deployed:** bounded per-provider HTTP pools plus observable 500 ms Redis-throttling fallback                                                                           | M      |
+| P2-14 | **COMPLETE in PR #52:** stale architecture claims corrected in both agent guidance files                                                                                                        | S      |
 
 ### P3 — Strategic
 
@@ -374,8 +386,17 @@ Mark **production verified** only once those pass on the deployed environment.
 
 ## Answering the question directly
 
-**Are we good?** On the layers the advisory is loudest about — CI/CD, secrets, error handling, migrations, caching, email authentication, commit hygiene — we are ahead of what it asks for, in several cases with in-code comments explaining why the obvious wrong thing was avoided. That work is real and should not be redone.
+**Are we good?** For the current development phase, yes: P0, P1, and all active
+P2 engineering work are closed. The remaining P2 entries are explicit
+pre-launch operations: email/DMARC when a real domain is used, staging
+activation before real traffic, and the five credential-retirement product
+checks. That completed work should not be reopened without a regression or new
+evidence.
 
-**Did we think about everything it mentions?** Mostly yes, with four genuine blind spots: no edge protection at all (H8), rate limiting that does not key on the client (H2), no request deadlines (H7), and a recovery story that is quietly broken (H5).
+**What remains structurally?** Edge protection still depends on the custom
+domain work in PD-1/PD-2. Strategic hardening now starts at P3-1 with durable
+session inventory and per-session/global revocation. The original H2, H5, and
+bounded-dependency portions of H7 have been remediated; P3-2 is the broader
+cross-call request-budget design.
 
 **Is that the whole picture?** No — and this is the important part. The most serious defect in the system, C1, appears nowhere in the advisory. A generic checklist found the categories but missed the actual hole, because the actual hole required reading how `POST /orders` resolves a table. Treat the document as a prompt for inspection, not as the inspection.

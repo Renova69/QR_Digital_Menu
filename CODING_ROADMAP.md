@@ -1,13 +1,27 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** July 26, 2026
+> **Last Updated:** August 27, 2026
 > **MVP Status:** ✅ Complete
 > **V2 Status:** ✅ Phases 9–14 Complete
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
-> **Security Hardening:** ✅ Phase 21 + Round 2 Complete
+> **Security Hardening:** ✅ P0/P1 and active P2 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** Bug fixes & polish only — feature development paused per project directive.
+> **Current Focus:** P3-1 durable session inventory, per-session revocation, and sign out everywhere.
+
+---
+
+## Current security track
+
+- **P2 development close-out:** complete. Do not cycle back through completed
+  P2 items without a regression or new evidence.
+- **Pre-launch gates:** P2-4 email delivery/DMARC after a real domain is active;
+  P2-8 isolated staging activation before real traffic; P2-10 manual
+  credential-retirement checks before the first real tenant.
+- **Next implementation:** P3-1 session inventory and revocation.
+
+The detailed evidence and per-item status live in
+[`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).
 
 ---
 
