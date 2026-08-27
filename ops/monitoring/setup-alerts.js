@@ -13,7 +13,9 @@
 // lives in the alpha component and is not installed here. Auth is borrowed from
 // the local gcloud login, so there are no static credentials anywhere.
 //
-// Idempotent: everything is looked up by display name first and reused.
+// Idempotent: everything is looked up by display name first. Existing
+// readiness policies are reconciled because an old condition can otherwise
+// survive every subsequent setup run unchanged.
 //
 // Usage:  node ops/monitoring/setup-alerts.js <alert-email> [--dry-run]
 
@@ -126,13 +128,35 @@ async function ensureUptimeCheck() {
   return created.name;
 }
 
-async function ensurePolicy(displayName, build, channel) {
+async function ensurePolicy(
+  displayName,
+  build,
+  channel,
+  reconcileExisting = false,
+) {
   const existing = await findByDisplayName(
     "alertPolicies",
     displayName,
     "alertPolicies",
   );
   if (existing) {
+    if (reconcileExisting) {
+      if (DRY_RUN) {
+        console.log(`policy "${displayName}": would update`);
+        return;
+      }
+      const desired = build();
+      const conditions = desired.conditions.map((condition, index) => {
+        const existingName = existing.conditions?.[index]?.name;
+        return existingName ? { ...condition, name: existingName } : condition;
+      });
+      await api("PATCH", `${existing.name}?updateMask=conditions`, {
+        name: existing.name,
+        conditions,
+      });
+      console.log(`policy "${displayName}": updated ${existing.name}`);
+      return;
+    }
     console.log(`policy "${displayName}": already exists`);
     return;
   }
@@ -168,11 +192,13 @@ function readinessPolicy(uptimeCheckId) {
             'metric.type="monitoring.googleapis.com/uptime_check/check_passed" ' +
             'AND resource.type="uptime_url" ' +
             `AND metric.label.check_id="${uptimeCheckId}"`,
-          comparison: "COMPARISON_LT",
-          thresholdValue: 1,
+          // REDUCE_COUNT_FALSE produces the number of failed checker
+          // locations. Alert when that count is greater than zero.
+          comparison: "COMPARISON_GT",
+          thresholdValue: 0,
           // Two consecutive failed minutes, not one. A single missed check is
-          // routine (a cold start, a redeploy); five hours of them is what this
-          // exists to catch.
+          // routine (a cold start, a redeploy); sustained failures are what
+          // this exists to catch.
           duration: "120s",
           aggregations: [
             {
@@ -280,6 +306,7 @@ async function main() {
     UPTIME_POLICY,
     () => readinessPolicy(uptimeCheckId),
     channel,
+    true,
   );
   await ensurePolicy(BACKUP_POLICY, backupPolicy, channel);
   await ensurePolicy(BACKUP_MISSING_POLICY, backupMissingPolicy, channel);
@@ -300,4 +327,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { backupMissingPolicy, backupPolicy };
+module.exports = { backupMissingPolicy, backupPolicy, readinessPolicy };
