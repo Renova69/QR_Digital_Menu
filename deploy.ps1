@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
 # Deploy backend to Cloud Run.
 # Usage: .\deploy.ps1
+# Temporary development exception: .\deploy.ps1 -DevelopmentWithoutStaging
 #
 # Secrets live in Google Secret Manager -- never pass them here.
 # To update a secret value:
@@ -13,12 +14,17 @@
 # To add a NEW plain env var (non-secret):
 #   Use --update-env-vars, NOT --set-env-vars (which wipes everything).
 #
-# Deploy shape: build a commit-SHA-tagged image (never mutable :latest),
-# deploy it with --no-traffic so the current revision keeps serving 100% of
-# traffic, smoke-test the new revision directly via its own tagged URL, and
-# only then shift traffic to it. If the smoke check fails, traffic never
-# moved -- there is nothing to roll back. The previous revision name is
-# always printed so a rollback is one copy-pasted command either way.
+# Deploy shape: select the immutable image proved by staging, or build a
+# commit-SHA-tagged image under the explicit development exception. Deploy it
+# with --no-traffic so the current revision keeps serving 100% of traffic,
+# smoke-test the new revision directly via its own tagged URL, and only then
+# shift traffic to it. If the smoke check fails, traffic never moved -- there
+# is nothing to roll back. The previous revision name is always printed so an
+# application rollback is one copy-pasted command either way.
+
+param(
+    [switch]$DevelopmentWithoutStaging
+)
 
 $ErrorActionPreference = "Stop"
 # Windows PowerShell 5.1 / older .NET Framework can default to a TLS
@@ -190,6 +196,12 @@ $gitSha = $gitFullSha.Substring(0, 12)
 # staging revision proves the exact commit, migration set, and image digest.
 # Production then deploys that same digest; rebuilding here would create a
 # second, untested artifact even when the source commit is unchanged.
+#
+# While the product has no real tenants, payments, or customer data, the owner
+# may explicitly use -DevelopmentWithoutStaging. Staging remains the default;
+# remove the exception before the first real tenant or payment.
+$useStagingProof = -not $DevelopmentWithoutStaging
+if ($useStagingProof) {
 Write-Host "==> Verifying isolated staging proof..."
 $migrationDigest = (Invoke-Native -Description "Computing migration digest" -Command {
     & node ops/staging/staging-policy.js digest apps/backend/prisma/migrations
@@ -265,10 +277,15 @@ try {
     Remove-Item Env:STAGING_PROOF_JSON -ErrorAction SilentlyContinue
 }
 Write-Host "==> Isolated staging proof verified for $gitFullSha."
+$IMAGE = "gcr.io/$PROJECT/$STAGING_SERVICE@$expectedImageDigest"
+} else {
+    Write-Warning "DEVELOPMENT EXCEPTION: isolated staging proof is skipped explicitly."
+    Write-Warning "Remove this exception before the first real tenant, payment, or customer data."
+    $IMAGE = "gcr.io/$PROJECT/$SERVICE`:sha-$gitSha"
+}
 
 # Cloud Run traffic tags must start with a letter; git SHAs are hex and can
 # start with a digit, so both tags below are prefixed.
-$IMAGE       = "gcr.io/$PROJECT/$STAGING_SERVICE@$expectedImageDigest"
 $revisionTag = "rev-$gitSha"
 
 # --- 1. Identify what's currently serving, before anything changes --------
@@ -282,8 +299,15 @@ $currentTraffic = ($currentTrafficJson | Out-String | ConvertFrom-Json).status.t
 $previousRevision = ($currentTraffic | Where-Object { $_.percent -gt 0 } | Select-Object -First 1).revisionName
 Write-Host "==> Currently serving: $previousRevision"
 
-# --- 2. Select the artifact already exercised by staging --------------------
-Write-Host "==> Using staging-verified immutable image $IMAGE ..."
+# --- 2. Select or build the immutable artifact ------------------------------
+if ($useStagingProof) {
+    Write-Host "==> Using staging-verified immutable image $IMAGE ..."
+} else {
+    Write-Host "==> Building development image $IMAGE ..."
+    Invoke-Native -Description "Build" -Command {
+        & $GCLOUD builds submit --project=$PROJECT --tag=$IMAGE $SRC
+    }
+}
 
 # --- 2b. Migrate once, here, rather than once per container -----------------
 # The image no longer runs `prisma migrate deploy` at start-up (see the CMD
@@ -293,9 +317,10 @@ Write-Host "==> Using staging-verified immutable image $IMAGE ..."
 #
 # This uses DIRECT_URL from apps/backend/.env -- Supabase's session-mode pooler
 # -- because migrations need a real session. Ordering is deliberate: after the
-# exact image passed isolated staging, and before the deploy, so the schema is
-# always at or ahead of the code. Every migration must remain compatible with
-# the revision currently serving production.
+# image passed isolated staging (or the explicit development build completed),
+# and before the deploy, so the schema is always at or ahead of the code. Every
+# migration must remain compatible with the revision currently serving
+# production.
 # Contract migrations require their readiness revision to be fully deployed first.
 #
 # A failure aborts before any new revision exists, leaving $previousRevision

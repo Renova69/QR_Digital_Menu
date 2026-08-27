@@ -1,5 +1,10 @@
 # Production database loss guards
 
+Schema changes and failed-migration recovery must follow the
+[forward-only migration policy](./MIGRATION_POLICY.md). It requires an
+expand/backfill/contract sequence and a reviewed recovery plan for every
+migration.
+
 `install-production-guards.sql` adds independent PostgreSQL protections for the
 production `public` schema:
 
@@ -30,3 +35,10 @@ A database owner can deliberately alter or disable PostgreSQL protections. No
 automated break-glass/reset command is stored in the repository; a genuine
 production recovery requires separate owner authorization, a fresh verified
 backup, and a reviewed one-off procedure.
+
+Executable down scripts are intentionally not stored beside migrations. They
+cannot distinguish data that existed before a release from legitimate rows
+written afterwards, so a reusable rollback script would itself be a data-loss
+capability. Normal recovery is a forward corrective migration; application
+rollback is permitted only while the expanded schema remains backward
+compatible.

@@ -25,7 +25,27 @@ Do not bind production Resend, Twilio, R2, DeepL, Google OAuth, VAPID, or
 payment-provider credentials to the staging Cloud Run service. The deploy
 script uses an exact secret list so old or accidental bindings are removed.
 
-## Release order
+## Current development exception
+
+The staging infrastructure is intentionally dormant while the product has no
+real tenants, payments, or customer data. `deploy.ps1` still requires staging
+by default. A development deploy must opt out visibly:
+
+```powershell
+.\deploy.ps1 -DevelopmentWithoutStaging
+```
+
+This exception skips only the staging proof and builds an immutable
+commit-tagged image directly. CI verification, the pre-migration backup,
+migration safety scan, production database guards, schema verification,
+no-traffic canary, smoke test, and controlled traffic shift all remain
+mandatory.
+
+Before the first real tenant, payment, or customer data, stop using the switch
+and complete the release order below. Keeping staging as the script's default
+makes an accidental post-launch bypass fail safely.
+
+## Pre-launch release order
 
 1. Merge and wait for the `verify` check on `main`.
 2. From a clean, current `main`, run:
@@ -39,9 +59,9 @@ script uses an exact secret list so old or accidental bindings are removed.
    and invariants, deploys with no traffic, smoke-tests the tagged revision,
    then moves staging traffic.
 4. Run staging release checks using synthetic data.
-5. Run `./deploy.ps1`. Production refuses to build, back up, migrate, or deploy
-   unless the serving staging revision proves the same full commit, migration
-   digest, and immutable image digest.
+5. Run `./deploy.ps1` without the development switch. Production refuses to
+   build, back up, migrate, or deploy unless the serving staging revision proves
+   the same full commit, migration digest, and immutable image digest.
 
 There is intentionally no reset or restore command in this workflow. A staging
 database replacement is a separately reviewed operation; production recovery

@@ -205,7 +205,7 @@ test("production accepts only the exact ready staging revision proof", () => {
   }
 });
 
-test("deployment scripts keep staging before production and never reuse database secrets", () => {
+test("deployment scripts default to staging and keep the development exception explicit", () => {
   const root = resolve(__dirname, "../..");
   const production = readFileSync(join(root, "deploy.ps1"), "utf8");
   const stagingPath = join(root, "ops", "staging", "deploy-staging.ps1");
@@ -218,6 +218,19 @@ test("deployment scripts keep staging before production and never reuse database
   assert.ok(
     production.indexOf("Verifying isolated staging proof") <
       production.indexOf("Creating verified pre-migration database backup"),
+  );
+  assert.match(production, /\[switch\]\$DevelopmentWithoutStaging/u);
+  assert.match(
+    production,
+    /\$useStagingProof\s*=\s*-not\s+\$DevelopmentWithoutStaging/u,
+  );
+  assert.match(
+    production,
+    /DEVELOPMENT EXCEPTION: isolated staging proof is skipped explicitly/u,
+  );
+  assert.match(
+    production,
+    /gcloud builds submit|\$GCLOUD builds submit/u,
   );
   assert.match(staging, /DATABASE_URL=STAGING_DATABASE_URL:latest/u);
   assert.match(staging, /DIRECT_URL=STAGING_DIRECT_URL:latest/u);
