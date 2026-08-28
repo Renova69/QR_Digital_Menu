@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { UpsellContext, weatherConditionsToContexts } from './upsell-context';
 import { fetchWithDependencyPool } from '../../common/http/dependency-http';
+import { withoutRequestBudget } from '../../common/http/request-budget';
 
 type RestaurantLocation = {
   city?: string | null;
@@ -81,7 +82,9 @@ export class WeatherUpsellService {
     const current = this.inFlight.get(key);
     if (current) return current;
 
-    const request = this.fetchContexts(location)
+    // This refresh is shared across requests by `inFlight`. No one caller may
+    // cancel another caller's weather lookup; retain its own short timeout.
+    const request = withoutRequestBudget(() => this.fetchContexts(location))
       .then((contexts) => {
         const now = Date.now();
         this.contextCache.set(key, {

@@ -4,6 +4,11 @@ import * as Sentry from '@sentry/nestjs';
 import { PinSecurityService } from './pin-security.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
+import {
+  currentRequestBudget,
+  RequestBudget,
+  withRequestBudget,
+} from '../common/http/request-budget';
 
 const mockPrisma: any = {
   staffPinLoginAudit: { findMany: jest.fn(), count: jest.fn() },
@@ -239,6 +244,28 @@ describe('PinSecurityService', () => {
         tags: { subsystem: 'pin-security', phase: 'notify' },
       }),
     );
+  });
+
+  it('does not tie a recorded security alert push to the caller request lifetime', async () => {
+    mockPrisma.staffPinLoginAudit.findMany.mockResolvedValue([
+      { status: 'LOCKED', deviceTokenId: 'dev-1' },
+      { status: 'LOCKED', deviceTokenId: 'dev-2' },
+    ]);
+    const contexts: Array<RequestBudget | undefined> = [];
+    mockPush.sendPushNotification.mockImplementation(async () => {
+      contexts.push(currentRequestBudget());
+    });
+    const budget = new RequestBudget();
+    try {
+      await withRequestBudget(budget, () =>
+        service.evaluate('rest-1', 'dev-1'),
+      );
+      budget.close();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(contexts).toEqual([undefined]);
+    } finally {
+      budget.close();
+    }
   });
 
   it('records the alert even when the push fails', async () => {

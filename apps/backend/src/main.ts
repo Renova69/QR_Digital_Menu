@@ -19,6 +19,7 @@ import cookieParser from 'cookie-parser';
 import { authenticatedNoStore } from './common/authenticated-no-store.middleware';
 import { AppLogger } from './common/logging/app-logger';
 import { requestLogger } from './common/logging/request-logger';
+import { requestBudgetMiddleware } from './common/http/request-budget.middleware';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { isCsrfExemptPath } from './common/security/csrf-exempt';
 import { validatePaymentSecretCryptoConfig } from './payment/secret-crypto';
@@ -153,6 +154,7 @@ async function bootstrap() {
     next();
   });
   app.use(requestLogger);
+  app.use(requestBudgetMiddleware());
 
   // CORS must run first so ALL responses (including CSRF 403s) include CORS headers
   app.enableCors({

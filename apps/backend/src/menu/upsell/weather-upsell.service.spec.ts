@@ -1,4 +1,8 @@
 import { WeatherUpsellService } from './weather-upsell.service';
+import {
+  RequestBudget,
+  withRequestBudget,
+} from '../../common/http/request-budget';
 
 describe('WeatherUpsellService', () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -56,6 +60,42 @@ describe('WeatherUpsellService', () => {
     expect(requestUrl.searchParams.get('key')).toBe('test-key');
     expect(requestUrl.searchParams.get('q')).toBe('Sofia, Bulgaria');
     expect(requestUrl.searchParams.get('aqi')).toBe('no');
+  });
+
+  it('one caller closing cannot cancel a shared in-flight weather refresh', async () => {
+    let complete!: (response: Response) => void;
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const service = new WeatherUpsellService();
+    const firstBudget = new RequestBudget();
+    const secondBudget = new RequestBudget();
+    try {
+      const first = withRequestBudget(firstBudget, () =>
+        service.getContexts({ city: 'Sofia' }),
+      );
+      const second = withRequestBudget(secondBudget, () =>
+        service.getContexts({ city: 'Sofia' }),
+      );
+      firstBudget.close();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(false);
+      complete(
+        new Response(
+          JSON.stringify({
+            current: { temp_c: 7, precip_mm: 0, condition: { code: 1183 } },
+          }),
+        ),
+      );
+      await expect(second).resolves.toEqual(new Set(['COLD', 'RAINY']));
+      await first;
+    } finally {
+      firstBudget.close();
+      secondBudget.close();
+    }
   });
 
   it('deduplicates concurrent cache misses for the same location', async () => {

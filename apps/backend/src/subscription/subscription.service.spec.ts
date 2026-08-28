@@ -12,18 +12,25 @@ const mockSubscriptionsList = jest.fn().mockResolvedValue({ data: [] });
 const mockSubscriptionRetrieve = jest.fn();
 
 jest.mock('stripe', () =>
-  jest.fn().mockImplementation(() => ({
-    customers: { create: mockCustomersCreate },
-    checkout: {
-      sessions: { create: mockCheckoutCreate, retrieve: mockSessionRetrieve },
+  Object.assign(
+    jest.fn().mockImplementation(() => ({
+      customers: { create: mockCustomersCreate },
+      checkout: {
+        sessions: { create: mockCheckoutCreate, retrieve: mockSessionRetrieve },
+      },
+      billingPortal: { sessions: { create: mockPortalCreate } },
+      subscriptions: {
+        list: mockSubscriptionsList,
+        retrieve: mockSubscriptionRetrieve,
+      },
+      webhooks: { constructEvent: mockConstructEvent },
+    })),
+    {
+      createFetchHttpClient:
+        jest.requireActual<typeof import('stripe')>('stripe')
+          .createFetchHttpClient,
     },
-    billingPortal: { sessions: { create: mockPortalCreate } },
-    subscriptions: {
-      list: mockSubscriptionsList,
-      retrieve: mockSubscriptionRetrieve,
-    },
-    webhooks: { constructEvent: mockConstructEvent },
-  })),
+  ),
 );
 
 jest.mock('../prisma/prisma.service', () => ({ PrismaService: jest.fn() }));

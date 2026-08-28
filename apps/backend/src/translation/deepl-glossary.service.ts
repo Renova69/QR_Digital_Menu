@@ -3,6 +3,11 @@ import axios, { AxiosInstance } from 'axios';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
+import {
+  assertRequestBudget,
+  requestBudgetSignal,
+  withoutRequestBudget,
+} from '../common/http/request-budget';
 
 /**
  * Materializes verified GlossaryTerm rows into DeepL's native glossary API
@@ -60,7 +65,7 @@ export class DeepLGlossaryService {
     try {
       const res = await this.http.get(
         `${this.baseUrl}/v2/glossary-language-pairs`,
-        { headers: this.authHeaders() },
+        { headers: this.authHeaders(), signal: requestBudgetSignal() },
       );
       const pairs = new Set<string>(
         (res.data?.supported_languages ?? []).map(
@@ -71,6 +76,9 @@ export class DeepLGlossaryService {
       this.supportedPairs = pairs;
       return pairs;
     } catch (err) {
+      // One caller's deadline is not evidence that glossary support is absent
+      // for the entire process. Do not poison this shared cache on cancellation.
+      assertRequestBudget();
       this.logger.warn(
         `Could not load DeepL glossary-language-pairs — glossary support will be treated as unavailable this process: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -149,8 +157,8 @@ export class DeepLGlossaryService {
   /**
    * Returns a usable DeepL glossary_id for (sourceLang, targetLang), or
    * undefined if unavailable for any reason — unsupported pair, no
-   * verified terms, or a DeepL API failure. Never throws: an unavailable
-   * glossary must degrade translation quality, not block it.
+   * verified terms, or a DeepL API failure. Provider unavailability degrades
+   * quality; request cancellation propagates instead of poisoning shared state.
    */
   async ensureGlossary(
     sourceLang: string,
@@ -191,7 +199,7 @@ export class DeepLGlossaryService {
           entries: tsv,
           entries_format: 'tsv',
         },
-        { headers: this.authHeaders() },
+        { headers: this.authHeaders(), signal: requestBudgetSignal() },
       );
       const newId: string | undefined = res.data?.glossary_id;
       if (!newId)
@@ -221,19 +229,25 @@ export class DeepLGlossaryService {
       // one old glossary toward the 1000/account cap; the reaper cron
       // cleans those up.
       if (existing?.deeplGlossaryId && existing.deeplGlossaryId !== newId) {
-        this.http
-          .delete(`${this.baseUrl}/v2/glossaries/${existing.deeplGlossaryId}`, {
-            headers: this.authHeaders(),
-          })
-          .catch((err) =>
-            this.logger.warn(
-              `Failed to delete superseded glossary ${existing.deeplGlossaryId}: ${err instanceof Error ? err.message : String(err)}`,
+        void withoutRequestBudget(() =>
+          this.http
+            .delete(
+              `${this.baseUrl}/v2/glossaries/${existing.deeplGlossaryId}`,
+              {
+                headers: this.authHeaders(),
+              },
+            )
+            .catch((err) =>
+              this.logger.warn(
+                `Failed to delete superseded glossary ${existing.deeplGlossaryId}: ${err instanceof Error ? err.message : String(err)}`,
+              ),
             ),
-          );
+        );
       }
 
       return newId;
     } catch (err) {
+      assertRequestBudget();
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(
         `Failed to create/refresh DeepL glossary for ${sourceLang}->${targetLang}: ${message}`,
@@ -266,6 +280,7 @@ export class DeepLGlossaryService {
     try {
       const res = await this.http.get(`${this.baseUrl}/v2/glossaries`, {
         headers: this.authHeaders(),
+        signal: requestBudgetSignal(),
       });
       const known = new Set(
         (
@@ -283,6 +298,7 @@ export class DeepLGlossaryService {
           await this.http
             .delete(`${this.baseUrl}/v2/glossaries/${g.glossary_id}`, {
               headers: this.authHeaders(),
+              signal: requestBudgetSignal(),
             })
             .catch(() => undefined);
         }

@@ -8,6 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
+import { withoutRequestBudget } from '../common/http/request-budget';
 import {
   Prisma,
   LoyaltyPointTransactionType,
@@ -1370,13 +1371,13 @@ export class OrdersService {
     }
 
     if (!isAwaitingPayment) {
-      void this.printStationService
-        .routeOrderToPrinters(finalOrder.id)
-        .catch((err: Error) =>
-          this.logger.error(
-            `Print routing failed for order ${finalOrder.id}: ${err.message}`,
-          ),
-        );
+      void withoutRequestBudget(() =>
+        this.printStationService.routeOrderToPrinters(finalOrder.id),
+      ).catch((err: Error) =>
+        this.logger.error(
+          `Print routing failed for order ${finalOrder.id}: ${err.message}`,
+        ),
+      );
     }
 
     // Order-scoped token so the customer can track THIS order over the socket

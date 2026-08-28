@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import axios from 'axios';
 import { DateTime } from 'luxon';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
+import { requestBudgetSignal } from '../common/http/request-budget';
 
 export type BoricaMode = 'DEMO' | 'LIVE';
 
@@ -241,6 +242,7 @@ export class BoricaProvider {
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           httpsAgent: getDependencyNodeAgents('borica').httpsAgent,
+          signal: requestBudgetSignal(),
           timeout: 8000,
           responseType: 'json',
         },

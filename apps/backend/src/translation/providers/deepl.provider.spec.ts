@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeepLProvider } from './deepl.provider';
 import { TranslationUsageService } from '../translation-usage.service';
+import {
+  RequestBudget,
+  withRequestBudget,
+} from '../../common/http/request-budget';
 
 jest.mock('axios', () => {
   const mockPost = jest.fn();
@@ -60,6 +64,25 @@ describe('DeepLProvider', () => {
   });
 
   describe('translateBatch', () => {
+    it('passes the foreground signal and stops retrying when its budget is spent', async () => {
+      process.env.DEEPL_API_KEY = 'test-key';
+      const budget = new RequestBudget(100);
+      mockPost.mockRejectedValue({
+        response: { status: 429, headers: { 'retry-after': '30' } },
+      });
+      try {
+        await expect(
+          withRequestBudget(budget, () =>
+            provider.translateBatch(['Soup'], 'FR'),
+          ),
+        ).rejects.toMatchObject({ name: 'AbortError' });
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        expect(mockPost.mock.calls[0][2].signal).toBe(budget.signal);
+      } finally {
+        budget.close();
+      }
+    });
+
     it('calls the DeepL API and returns translated texts', async () => {
       process.env.DEEPL_API_KEY = 'test-key';
       mockPost.mockResolvedValue({

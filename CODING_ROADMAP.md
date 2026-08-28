@@ -7,7 +7,7 @@
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
 > **Security Hardening:** ✅ P0/P1 and active P2 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** P3-1 implemented; review and deployment pending. Next: P3-2 request budgets.
+> **Current Focus:** P3-1 merged/deployed (manual checks pending). P3-2 request budgets implemented, awaiting review and release. Next implementation: P3-3 tenant-access guard.
 
 ---
 
@@ -18,10 +18,15 @@
 - **Pre-launch gates:** P2-4 email delivery/DMARC after a real domain is active;
   P2-8 isolated staging activation before real traffic; P2-10 manual
   credential-retirement checks before the first real tenant.
-- **P3-1 implementation:** durable session inventory, per-session revocation,
-  and sign out everywhere implemented. Review/merge and release verification
-  remain pending; see [the rollout checklist](ops/db-safety/P3_SESSION_ROLLOUT.md).
-- **Next implementation after P3-1:** P3-2 cross-call request budgets.
+- **P3-1:** merged via PR #57 and backend deployed at `e7500785` on 28 Aug.
+  Manual two-browser/session-revocation checks remain pending; see
+  [the rollout checklist](ops/db-safety/P3_SESSION_ROLLOUT.md).
+- **P3-2:** shared 25-second HTTP deadline, cancellation propagated to foreground
+  provider calls/retries, explicit background-work separation. Implementation
+  complete; review, merge, and deployment pending. See
+  [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
+- **Next implementation:** P3-3 declarative restaurant-access guard. P3-4 through
+  P3-10 remain open in the ledger; none are implicitly closed by these changes.
 
 The detailed evidence and per-item status live in
 [`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).

@@ -12,6 +12,7 @@ import { TranslationService } from '../translation/translation.service';
 import { TranslationQuotaService } from '../translation/translation-quota.service';
 import { DeepLGlossaryService } from '../translation/deepl-glossary.service';
 import { EventsGateway } from '../events/events.gateway';
+import { withoutRequestBudget } from '../common/http/request-budget';
 
 interface ClaimedRow {
   id: string;
@@ -128,7 +129,7 @@ export class MenuTranslationWorkerService {
    * already in progress. */
   kick(): void {
     if (!this.isAvailable()) return;
-    void this.drain().catch((err) =>
+    void withoutRequestBudget(() => this.drain()).catch((err) =>
       this.logger.error(
         `Worker kick failed: ${err instanceof Error ? err.message : String(err)}`,
       ),
