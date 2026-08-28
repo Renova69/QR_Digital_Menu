@@ -1921,6 +1921,31 @@
     "daySat": "samedi",
     "daySun": "Dimanche"
   },
+  "sessions": {
+    "retry": "Réessayer",
+    "loadMore": "Charger plus",
+    "legacy": "Cette connexion est antérieure au suivi des sessions et ne figure pas dans la liste. Déconnectez tous les appareils pour révoquer aussi les connexions plus anciennes.",
+    "title": "Sessions actives",
+    "description": "Vérifiez où votre compte est connecté et révoquez l’accès.",
+    "current": "Cet appareil",
+    "unknownDevice": "Appareil inconnu",
+    "signedIn": "Connexion le {{date}}",
+    "expires": "Expire le {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "Déconnecter",
+    "signOutAll": "Tout déconnecter",
+    "signOutAllConfirm": "Se déconnecter de tous les appareils, y compris celui-ci ?",
+    "loadError": "Impossible de charger les sessions. Réessayez.",
+    "empty": "Aucune session active.",
+    "actionError": "Impossible de fermer cette session. Réessayez.",
+    "methods": {
+      "PASSWORD": "Mot de passe",
+      "GOOGLE": "Google",
+      "OTP": "Code à usage unique",
+      "PIN": "PIN du personnel",
+      "IMPERSONATION": "Accès assistance"
+    }
+  },
   "profile": {
     "title": "Mon profil",
     "welcome": "Bon retour parmi nous, {{name}} !",

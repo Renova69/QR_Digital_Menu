@@ -1921,6 +1921,31 @@
     "daySat": "sabato",
     "daySun": "Domenica"
   },
+  "sessions": {
+    "retry": "Riprova",
+    "loadMore": "Carica altro",
+    "legacy": "Questo accesso precede il registro delle sessioni e non compare nell'elenco. Disconnetti tutti i dispositivi per revocare anche gli accessi precedenti.",
+    "title": "Sessioni attive",
+    "description": "Controlla dove è connesso il tuo account e revoca l’accesso.",
+    "current": "Questo dispositivo",
+    "unknownDevice": "Dispositivo sconosciuto",
+    "signedIn": "Accesso il {{date}}",
+    "expires": "Scade il {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "Disconnetti",
+    "signOutAll": "Disconnetti tutti",
+    "signOutAllConfirm": "Disconnettersi da tutti i dispositivi, incluso questo?",
+    "loadError": "Impossibile caricare le sessioni. Riprova.",
+    "empty": "Nessuna sessione attiva.",
+    "actionError": "Impossibile chiudere la sessione. Riprova.",
+    "methods": {
+      "PASSWORD": "Password",
+      "GOOGLE": "Google",
+      "OTP": "Codice monouso",
+      "PIN": "PIN del personale",
+      "IMPERSONATION": "Accesso assistenza"
+    }
+  },
   "profile": {
     "title": "Il mio profilo",
     "welcome": "Bentornato, {{name}}!",

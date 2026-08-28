@@ -1682,6 +1682,31 @@
       "changePhone": "Change number"
     }
   },
+  "sessions": {
+    "retry": "Try again",
+    "loadMore": "Load more",
+    "legacy": "This sign-in predates session tracking and is not listed. Use Sign out all to revoke older sign-ins too.",
+    "title": "Active sessions",
+    "description": "Review where your account is signed in and revoke access.",
+    "current": "This device",
+    "unknownDevice": "Unknown device",
+    "signedIn": "Signed in {{date}}",
+    "expires": "Expires {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "Sign out",
+    "signOutAll": "Sign out all",
+    "signOutAllConfirm": "Sign out of every device, including this one?",
+    "loadError": "Sessions could not be loaded. Try again.",
+    "empty": "No active sessions.",
+    "actionError": "That session could not be signed out. Try again.",
+    "methods": {
+      "PASSWORD": "Password",
+      "GOOGLE": "Google",
+      "OTP": "One-time code",
+      "PIN": "Staff PIN",
+      "IMPERSONATION": "Support access"
+    }
+  },
   "profile": {
     "title": "My Profile",
     "welcome": "Welcome back, {{name}}!",

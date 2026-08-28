@@ -27,6 +27,9 @@ describe('SuperAdminService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    userSession: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     order: {
       count: jest.fn(),
       updateMany: jest.fn(),

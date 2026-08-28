@@ -41,6 +41,7 @@ model User {
   disabledAt                     DateTime?
   disabledReason                 String?
   passwordChangedAt              DateTime?
+  sessionVersion                 Int                          @default(0)
   role                           UserRole                     @default(STAFF)
   restaurantId                   String?
   lastLoginDeviceTokenId         String?
@@ -65,9 +66,42 @@ model User {
   pushSubscriptions              PushSubscription[]
   resolvedPaymentReconciliations PaymentReconciliationIssue[] @relation("PaymentReconciliationResolvedBy")
   paymentNotificationCursors     PaymentNotificationCursor[]
+  userSessions                   UserSession[]
 
   @@index([restaurantId])
   @@map("app_user")
+}
+
+/// A durable login session. The JWT stores only this row's opaque id; no raw
+/// token, cookie, PIN, password, or credential hash is persisted here.
+model UserSession {
+  id             String    @id @default(uuid())
+  userId         String
+  sessionVersion Int
+  authMethod     String
+  deviceTokenId  String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  revokedReason  String?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@map("user_session")
+}
+
+/// Expand-contract bridge for JWTs minted by the old Cloud Run revision while
+/// a session-backed revision is canarying. The migration writes the deadline;
+/// application code contains no environment-specific calendar date.
+model AuthSessionRollout {
+  id                  Int      @id
+  legacyAcceptedUntil DateTime
+  createdAt           DateTime @default(now())
+
+  @@map("auth_session_rollout")
 }
 
 model Restaurant {

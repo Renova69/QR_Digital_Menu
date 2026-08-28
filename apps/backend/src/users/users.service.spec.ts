@@ -49,6 +49,9 @@ describe('UsersService', () => {
         delete: jest.fn().mockResolvedValue(mockUser),
         count: jest.fn().mockResolvedValue(0),
       },
+      userSession: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       restaurant: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'rest-1',

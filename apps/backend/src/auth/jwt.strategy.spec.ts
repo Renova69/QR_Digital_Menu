@@ -14,12 +14,17 @@ describe('JwtStrategy', () => {
     deviceEnrollmentToken: {
       findUnique: jest.fn(),
     },
+    userSession: { findFirst: jest.fn() },
+    authSessionRollout: { findUnique: jest.fn() },
   };
 
   let strategy: JwtStrategy;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.authSessionRollout.findUnique.mockResolvedValue({
+      legacyAcceptedUntil: new Date(Date.now() + 60_000),
+    });
     // A real SessionRevocationService over the same prisma mock: the revocation
     // rules moved out of the strategy, and driving them through the real
     // collaborator keeps this suite testing the behaviour rather than a stub

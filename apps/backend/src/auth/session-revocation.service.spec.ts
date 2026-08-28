@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('SessionRevocationService', () => {
   const prisma = {
     user: { findUnique: jest.fn() },
+    userSession: { findFirst: jest.fn() },
+    authSessionRollout: { findUnique: jest.fn() },
     deviceEnrollmentToken: { findUnique: jest.fn() },
     impersonationSession: { findUnique: jest.fn() },
   };
@@ -13,6 +15,9 @@ describe('SessionRevocationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.authSessionRollout.findUnique.mockResolvedValue({
+      legacyAcceptedUntil: new Date(Date.now() + 60_000),
+    });
     service = new SessionRevocationService(prisma as unknown as PrismaService);
   });
 
@@ -22,6 +27,7 @@ describe('SessionRevocationService', () => {
     isActive: true,
     disabledAt: null,
     passwordChangedAt: null,
+    sessionVersion: 0,
     restaurantId: 'rest-1',
     staffRestaurant: null,
     ...overrides,
@@ -77,6 +83,140 @@ describe('SessionRevocationService', () => {
     await expect(
       service.assertSessionUsable({ sub: 'user-1' }),
     ).rejects.toThrow('ACCOUNT_DISABLED');
+  });
+
+  it('accepts an active durable session with the matching global version', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(
+      activeUser({ sessionVersion: 3 }),
+    );
+    prisma.userSession.findFirst.mockResolvedValueOnce({
+      id: 'session-1',
+      createdAt: new Date(),
+    });
+
+    await expect(
+      service.assertSessionUsable({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        sessionVersion: 3,
+      }),
+    ).resolves.toMatchObject({ id: 'user-1' });
+  });
+
+  it('rejects a revoked or expired durable session', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(activeUser());
+    prisma.userSession.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.assertSessionUsable({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        sessionVersion: 0,
+      }),
+    ).rejects.toThrow('SESSION_REVOKED');
+  });
+
+  it.each([
+    { sessionId: 'session-1' },
+    { sessionVersion: 0 },
+    { sessionId: '', sessionVersion: 0 },
+    { sessionId: 'session-1', sessionVersion: -1 },
+    { sessionId: 'session-1', sessionVersion: 0.5 },
+  ])(
+    'never treats malformed durable claims as a legacy session: %j',
+    async (claims) => {
+      prisma.user.findUnique.mockResolvedValueOnce(activeUser());
+      await expect(
+        service.assertSessionUsable({ sub: 'user-1', ...claims }),
+      ).rejects.toThrow('SESSION_REVOKED');
+      expect(prisma.authSessionRollout.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
+  it('accepts a fresh durable login in the same second as a password change', async () => {
+    const changed = new Date('2026-08-28T10:00:00.123Z');
+    prisma.user.findUnique.mockResolvedValueOnce(
+      activeUser({ sessionVersion: 1, passwordChangedAt: changed }),
+    );
+    prisma.userSession.findFirst.mockResolvedValueOnce({
+      id: 'session-1',
+      createdAt: new Date(changed.getTime() + 1),
+    });
+    await expect(
+      service.assertSessionUsable({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        sessionVersion: 1,
+        iat: Math.floor(changed.getTime() / 1000),
+      }),
+    ).resolves.toMatchObject({ id: 'user-1' });
+  });
+
+  it('honours an old-revision password change after a durable session was issued', async () => {
+    const changed = new Date();
+    prisma.user.findUnique.mockResolvedValueOnce(
+      activeUser({ passwordChangedAt: changed }),
+    );
+    prisma.userSession.findFirst.mockResolvedValueOnce({
+      id: 'session-1',
+      createdAt: new Date(changed.getTime() - 1),
+    });
+    await expect(
+      service.assertSessionUsable({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        sessionVersion: 0,
+      }),
+    ).rejects.toThrow('PASSWORD_CHANGED');
+  });
+
+  it('closes the legacy bridge at the exact persisted deadline', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-28T10:00:00Z'));
+    try {
+      prisma.user.findUnique.mockResolvedValueOnce(activeUser());
+      prisma.authSessionRollout.findUnique.mockResolvedValueOnce({
+        legacyAcceptedUntil: new Date(),
+      });
+      await expect(
+        service.assertSessionUsable({ sub: 'user-1' }),
+      ).rejects.toThrow('SESSION_REVOKED');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('fails closed if the rollout row is missing', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(activeUser());
+    prisma.authSessionRollout.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.assertSessionUsable({ sub: 'user-1' }),
+    ).rejects.toThrow('SESSION_REVOKED');
+  });
+
+  it('rejects every session after the user session version increments', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(
+      activeUser({ sessionVersion: 4 }),
+    );
+
+    await expect(
+      service.assertSessionUsable({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        sessionVersion: 3,
+      }),
+    ).rejects.toThrow('SESSION_REVOKED');
+    expect(prisma.userSession.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects legacy JWTs after the persisted rollout window closes', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(activeUser());
+    prisma.authSessionRollout.findUnique.mockResolvedValueOnce({
+      legacyAcceptedUntil: new Date(Date.now() - 1),
+    });
+
+    await expect(
+      service.assertSessionUsable({ sub: 'user-1' }),
+    ).rejects.toThrow('SESSION_REVOKED');
   });
 
   describe('device-bound sessions', () => {

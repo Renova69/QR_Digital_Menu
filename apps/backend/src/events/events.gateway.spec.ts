@@ -134,6 +134,97 @@ describe('EventsGateway — room authorization', () => {
   // ─── handleConnection: handshake auth ────────────────────────────────────
 
   describe('handleConnection', () => {
+    it('disconnects an authenticated socket when its JWT expires', async () => {
+      jest.useFakeTimers();
+      try {
+        mockJwt.verify.mockReturnValue({
+          sub: 'user-1',
+          sessionId: 'session-1',
+          sessionVersion: 0,
+          exp: Math.floor(Date.now() / 1000) + 3,
+        });
+        const client = makeClient();
+        client.handshake.headers.cookie = 'token=valid.jwt.here';
+        client.disconnect = jest.fn();
+        await gateway.handleConnection(client);
+        expect(client.data.userId).toBe('user-1');
+        jest.advanceTimersByTime(3000);
+        expect(client.disconnect).toHaveBeenCalled();
+        expect(client.data.userId).toBeUndefined();
+      } finally {
+        gateway.onModuleDestroy();
+        jest.useRealTimers();
+      }
+    });
+
+    it('clears the expiry timer when a socket disconnects early', async () => {
+      jest.useFakeTimers();
+      try {
+        mockJwt.verify.mockReturnValue({
+          sub: 'user-1',
+          exp: Math.floor(Date.now() / 1000) + 3,
+        });
+        const client = makeClient();
+        client.handshake.headers.cookie = 'token=valid.jwt.here';
+        client.disconnect = jest.fn();
+        await gateway.handleConnection(client);
+        gateway.handleDisconnect(client);
+        jest.advanceTimersByTime(3000);
+        expect(client.disconnect).not.toHaveBeenCalled();
+      } finally {
+        gateway.onModuleDestroy();
+        jest.useRealTimers();
+      }
+    });
+    it.each(['session', 'user'] as const)(
+      'does not authenticate an in-flight handshake after %s revocation',
+      async (scope) => {
+        mockJwt.verify.mockReturnValue({
+          sub: 'user-1',
+          sessionId: 'session-1',
+          sessionVersion: 0,
+        });
+        const client = makeClient();
+        client.handshake.headers.cookie = 'token=valid.jwt.here';
+        client.disconnect = jest.fn().mockImplementation(() => {
+          Object.defineProperty(client, 'disconnected', { value: true });
+        });
+        gateway['server'] = {
+          fetchSockets: jest.fn().mockResolvedValue([client]),
+        } as unknown as import('socket.io').Server;
+        let finishValidation!: (value: unknown) => void;
+        mockSessionRevocation.assertSessionUsable.mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              finishValidation = resolve;
+            }),
+        );
+        const connecting = gateway.handleConnection(client);
+        expect(client.data.userId).toBeUndefined();
+        if (scope === 'session') await gateway.evictSession('session-1');
+        else await gateway.evictUser('user-1');
+        finishValidation({ id: 'user-1' });
+        await connecting;
+        expect(client.disconnect).toHaveBeenCalled();
+        expect(client.data.userId).toBeUndefined();
+      },
+    );
+
+    it('attaches the durable session identity only to the verified login', async () => {
+      mockJwt.verify.mockReturnValue({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        sessionVersion: 0,
+      });
+      const client = makeClient();
+      client.handshake.headers.cookie = 'token=valid.jwt.here';
+      await gateway.handleConnection(client);
+      expect(client.data).toMatchObject({
+        userId: 'user-1',
+        sessionId: 'session-1',
+      });
+      expect(client.data.authPendingUserId).toBeUndefined();
+    });
     it('attaches userId when a valid token cookie is present', async () => {
       mockJwt.verify.mockReturnValue({ sub: 'user-1', email: 'a@b.c' });
       const client = makeClient();
@@ -821,6 +912,28 @@ describe('EventsGateway — room authorization', () => {
   });
 
   describe('evictUser', () => {
+    it('revokes only the selected session even when the user has other sockets', async () => {
+      const selected = {
+        data: { userId: 'user-1', sessionId: 'session-1' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      const other = {
+        data: { userId: 'user-1', sessionId: 'session-2' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      gateway['server'] = {
+        fetchSockets: jest.fn().mockResolvedValue([selected, other]),
+      } as unknown as import('socket.io').Server;
+      await gateway.evictSession('session-1');
+      expect(selected.emit).toHaveBeenCalledWith(
+        'auth:evicted',
+        'session_revoked',
+      );
+      expect(selected.disconnect).toHaveBeenCalled();
+      expect(other.disconnect).not.toHaveBeenCalled();
+    });
     it('still disconnects matching sockets when another socket emit fails', async () => {
       const first = {
         id: 'socket-1',

@@ -40,6 +40,10 @@ vi.mock("./profile/DataPrivacyTab", () => ({
   default: () => <div data-testid="data-privacy-tab" />,
 }));
 
+vi.mock("../components/profile/SessionManagementCard", () => ({
+  SessionManagementCard: () => <div data-testid="session-management-card" />,
+}));
+
 describe("CustomerProfilePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();

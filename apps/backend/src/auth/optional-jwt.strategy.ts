@@ -1,9 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
 import { isBearerJwtAuthEnabled } from './auth-runtime-policy';
+import {
+  SessionJwtPayload,
+  SessionRevocationService,
+} from './session-revocation.service';
 
 @Injectable()
 export class OptionalJwtStrategy extends PassportStrategy(
@@ -12,7 +15,7 @@ export class OptionalJwtStrategy extends PassportStrategy(
 ) {
   constructor(
     private readonly configService: ConfigService,
-    private readonly prisma: PrismaService,
+    private readonly sessionRevocation: SessionRevocationService,
   ) {
     const extractors = isBearerJwtAuthEnabled()
       ? [
@@ -37,32 +40,8 @@ export class OptionalJwtStrategy extends PassportStrategy(
   // IS present it must be honored exactly like the mandatory JwtStrategy: a
   // disabled/revoked account, or a token issued before a password change, must
   // be rejected — not silently attributed to the order. (#1)
-  async validate(payload: { sub: string; email: string; iat?: number }) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        isActive: true,
-        disabledAt: true,
-        passwordChangedAt: true,
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException();
-    }
-    if (user.isActive === false || user.disabledAt) {
-      throw new UnauthorizedException('ACCOUNT_DISABLED');
-    }
-    if (
-      user.passwordChangedAt &&
-      payload.iat &&
-      payload.iat * 1000 < user.passwordChangedAt.getTime()
-    ) {
-      throw new UnauthorizedException('PASSWORD_CHANGED');
-    }
-
+  async validate(payload: SessionJwtPayload & { email: string }) {
+    const user = await this.sessionRevocation.assertSessionUsable(payload);
     return { id: user.id, email: user.email };
   }
 }

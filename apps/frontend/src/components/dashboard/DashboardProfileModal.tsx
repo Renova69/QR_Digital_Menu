@@ -6,6 +6,8 @@ import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
 import { changePassword, updateProfile } from "../../lib/api";
 import { getApiError } from "../../lib/apiError";
+import { SessionManagementCard } from "../profile/SessionManagementCard";
+import { useAuth } from "../../context/AuthContext";
 
 function roleLabel(role: string | undefined, t: TFunction): string {
   switch (role) {
@@ -50,6 +52,7 @@ export function DashboardProfileModal({
   onUserUpdate,
 }: DashboardProfileModalProps) {
   const { t } = useTranslation();
+  const { logout } = useAuth();
   const [name, setName] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -111,6 +114,10 @@ export function DashboardProfileModal({
       setNewPassword("");
       setConfirmPassword("");
       setPasswordMessage(t("profileDashboard.passwordSaved"));
+      // Password changes revoke this session too. Do not depend on a live
+      // socket to clear the profile when WebSockets are unavailable.
+      await logout();
+      onOpenChange(false);
     } catch (error: any) {
       setPasswordError(t(getApiError(error)));
     } finally {
@@ -251,6 +258,8 @@ export function DashboardProfileModal({
             {t("profileDashboard.changePassword")}
           </Button>
         </form>
+
+        <SessionManagementCard />
       </div>
     </Modal>
   );

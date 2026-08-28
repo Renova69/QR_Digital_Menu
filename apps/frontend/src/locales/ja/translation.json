@@ -522,6 +522,31 @@
       }
     }
   },
+  "sessions": {
+    "retry": "再試行",
+    "loadMore": "さらに読み込む",
+    "legacy": "このログインはセッション記録の開始前に行われたため、一覧に表示されません。古いログインも無効にするには、すべてのデバイスからログアウトしてください。",
+    "title": "アクティブなセッション",
+    "description": "アカウントのログイン先を確認し、アクセスを取り消します。",
+    "current": "このデバイス",
+    "unknownDevice": "不明なデバイス",
+    "signedIn": "ログイン日時: {{date}}",
+    "expires": "有効期限: {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "ログアウト",
+    "signOutAll": "すべてログアウト",
+    "signOutAllConfirm": "このデバイスを含むすべてのデバイスからログアウトしますか？",
+    "loadError": "セッションを読み込めませんでした。もう一度お試しください。",
+    "empty": "アクティブなセッションはありません。",
+    "actionError": "セッションを終了できませんでした。もう一度お試しください。",
+    "methods": {
+      "PASSWORD": "パスワード",
+      "GOOGLE": "Google",
+      "OTP": "ワンタイムコード",
+      "PIN": "スタッフPIN",
+      "IMPERSONATION": "サポートアクセス"
+    }
+  },
   "profile": {
     "title": "マイプロフィール",
     "welcome": "おかえりなさい、{{name}}さん！",

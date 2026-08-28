@@ -8,6 +8,7 @@ import { formatEuro, formatBgn } from "../lib/currency";
 import { orderStatusKeyMap } from "./Dashboard/analytics/shared";
 import DataPrivacyTab from "./profile/DataPrivacyTab";
 import LinkIdentityCard from "../components/profile/LinkIdentityCard";
+import { SessionManagementCard } from "../components/profile/SessionManagementCard";
 import {
   formatLoyaltyExpiryDate,
   groupExpiringPointBatches,
@@ -440,6 +441,10 @@ export const CustomerProfilePage: React.FC = () => {
             )}
           </>
         )}
+      </div>
+
+      <div className="mt-8">
+        <SessionManagementCard />
       </div>
 
       <div className="mt-8">

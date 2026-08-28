@@ -1921,6 +1921,31 @@
     "daySat": "Sa",
     "daySun": "Sonntag"
   },
+  "sessions": {
+    "retry": "Erneut versuchen",
+    "loadMore": "Mehr laden",
+    "legacy": "Diese Anmeldung erfolgte vor der Sitzungserfassung und wird nicht angezeigt. Mit „Alle abmelden“ beendest du auch ältere Anmeldungen.",
+    "title": "Aktive Sitzungen",
+    "description": "Prüfen Sie, wo Ihr Konto angemeldet ist, und widerrufen Sie den Zugriff.",
+    "current": "Dieses Gerät",
+    "unknownDevice": "Unbekanntes Gerät",
+    "signedIn": "Angemeldet am {{date}}",
+    "expires": "Läuft ab am {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "Abmelden",
+    "signOutAll": "Alle abmelden",
+    "signOutAllConfirm": "Von allen Geräten einschließlich diesem abmelden?",
+    "loadError": "Sitzungen konnten nicht geladen werden. Versuchen Sie es erneut.",
+    "empty": "Keine aktiven Sitzungen.",
+    "actionError": "Die Sitzung konnte nicht beendet werden. Versuchen Sie es erneut.",
+    "methods": {
+      "PASSWORD": "Passwort",
+      "GOOGLE": "Google",
+      "OTP": "Einmalcode",
+      "PIN": "Mitarbeiter-PIN",
+      "IMPERSONATION": "Supportzugriff"
+    }
+  },
   "profile": {
     "title": "Mein Profil",
     "welcome": "Willkommen zurück, {{name}}!",

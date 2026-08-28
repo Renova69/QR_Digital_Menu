@@ -33,6 +33,7 @@ const makeUser = (overrides: Record<string, unknown> = {}) => ({
   pinHash: null,
   pinAttempts: 0,
   pinLockedUntil: null,
+  sessionVersion: 0,
   ...overrides,
 });
 
@@ -67,6 +68,11 @@ describe('AuthService', () => {
         update: jest.fn().mockResolvedValue(makeUser()),
         updateMany: jest.fn().mockResolvedValue({}),
         findMany: jest.fn().mockResolvedValue([]),
+      },
+      userSession: {
+        create: jest.fn().mockResolvedValue({}),
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       restaurant: {
         findUnique: jest.fn().mockResolvedValue({
@@ -108,8 +114,14 @@ describe('AuthService', () => {
       findByPhone: jest.fn(),
       create: jest.fn(),
     };
-    mockJwt = { sign: jest.fn().mockReturnValue('test-jwt-token') };
-    mockEvents = { evictUser: jest.fn().mockResolvedValue(undefined) };
+    mockJwt = {
+      sign: jest.fn().mockReturnValue('test-jwt-token'),
+      verify: jest.fn(),
+    };
+    mockEvents = {
+      evictUser: jest.fn().mockResolvedValue(undefined),
+      evictSession: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new AuthService(
       mockUsersService,
@@ -413,10 +425,28 @@ describe('AuthService', () => {
       expect(result.token).toBe('test-jwt-token');
       expect(result.user.id).toBe('usr1');
       expect(result.user.email).toBe('user@example.com');
-      expect(mockJwt.sign).toHaveBeenCalledWith({
-        email: user.email,
-        sub: user.id,
-      });
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: user.email,
+          sub: user.id,
+          sessionId: expect.any(String),
+          sessionVersion: 0,
+        }),
+        { expiresIn: 86_400 },
+      );
+      const persisted = mockPrisma.userSession.create.mock.calls[0][0].data;
+      expect(persisted).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          userId: user.id,
+          authMethod: 'PASSWORD',
+          sessionVersion: 0,
+        }),
+      );
+      expect(persisted.id).toBe(
+        (mockJwt.sign as jest.Mock).mock.calls[0][0].sessionId,
+      );
+      expect(persisted).not.toHaveProperty('token');
     });
 
     // A dashboard login is a person at a machine they control, so it keeps the
@@ -427,7 +457,7 @@ describe('AuthService', () => {
       await service.login(user);
 
       const [, options] = (mockJwt.sign as jest.Mock).mock.calls[0];
-      expect(options).toBeUndefined();
+      expect(options).toEqual({ expiresIn: 86_400 });
     });
   });
 
@@ -903,7 +933,7 @@ describe('AuthService', () => {
       // means it is still a working credential all night. 12h covers a
       // trading day and expires at close, rather than mid-service.
       expect((mockJwt.sign as jest.Mock).mock.calls[0][1]).toEqual({
-        expiresIn: '12h',
+        expiresIn: 43_200,
       });
       expect(mockJwt.sign).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -913,7 +943,7 @@ describe('AuthService', () => {
           deviceSessionVersion: 0,
         }),
         // Second argument is the shortened device-session TTL, asserted above.
-        expect.objectContaining({ expiresIn: expect.any(String) }),
+        expect.objectContaining({ expiresIn: 43_200 }),
       );
       // Attempts reset on the device token, not via user.updateMany
       expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
@@ -1146,7 +1176,18 @@ describe('AuthService', () => {
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: 'usr1' },
-        data: { password: 'new-hash', passwordChangedAt: expect.any(Date) },
+        data: {
+          password: 'new-hash',
+          passwordChangedAt: expect.any(Date),
+          sessionVersion: { increment: 1 },
+        },
+      });
+      expect(mockPrisma.userSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'usr1', revokedAt: null },
+        data: {
+          revokedAt: expect.any(Date),
+          revokedReason: 'password_changed',
+        },
       });
       expect(result).toEqual({ success: true });
     });
@@ -2004,6 +2045,193 @@ describe('AuthService', () => {
         );
         expect(result.user.phone).toBe('+15550003333');
       });
+    });
+  });
+
+  describe('durable session management', () => {
+    it('lists only the caller current version and marks the current session', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ sessionVersion: 2 });
+      mockPrisma.userSession.findMany.mockResolvedValue([
+        {
+          id: 'session-current',
+          authMethod: 'PASSWORD',
+          deviceTokenId: null,
+          ipAddress: null,
+          userAgent: null,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      ]);
+
+      const result = await service.listSessions('usr1', 'session-current');
+
+      expect(mockPrisma.userSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'usr1',
+            sessionVersion: 2,
+            revokedAt: null,
+          }),
+        }),
+      );
+      expect(result.sessions[0].current).toBe(true);
+      expect(result.nextCursor).toBeNull();
+      expect(result.legacyCurrentSession).toBe(false);
+    });
+
+    it('revokes one owned session and evicts only its sockets', async () => {
+      const result = await service.revokeSession(
+        'usr1',
+        'session-2',
+        'session-1',
+      );
+
+      expect(mockPrisma.userSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 'session-2', userId: 'usr1', revokedAt: null },
+        data: {
+          revokedAt: expect.any(Date),
+          revokedReason: 'user_revoked',
+        },
+      });
+      expect(mockEvents.evictSession).toHaveBeenCalledWith(
+        'session-2',
+        'session_revoked',
+      );
+      expect(result).toEqual({ success: true, current: false });
+    });
+
+    it('does not reveal or revoke a session owned by another user', async () => {
+      mockPrisma.userSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.revokeSession('usr1', 'foreign-session', 'session-1'),
+      ).rejects.toThrow('Active session not found.');
+      expect(mockEvents.evictSession).not.toHaveBeenCalled();
+    });
+
+    it('increments the global version and revokes every durable session', async () => {
+      await service.signOutEverywhere('usr1');
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'usr1' },
+        data: {
+          sessionVersion: { increment: 1 },
+          passwordChangedAt: expect.any(Date),
+        },
+      });
+      expect(mockPrisma.userSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'usr1', revokedAt: null },
+        data: {
+          revokedAt: expect.any(Date),
+          revokedReason: 'user_global_logout',
+        },
+      });
+      expect(mockEvents.evictUser).toHaveBeenCalledWith(
+        'usr1',
+        'user_global_logout',
+      );
+    });
+
+    it('revokes the signed cookie session without persisting the JWT', async () => {
+      (mockJwt.verify as jest.Mock).mockReturnValue({
+        sub: 'usr1',
+        sessionId: 'session-1',
+      });
+
+      await service.logoutSession('signed.jwt');
+
+      expect(mockPrisma.userSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 'session-1', userId: 'usr1', revokedAt: null },
+        data: { revokedAt: expect.any(Date), revokedReason: 'logout' },
+      });
+      expect(mockEvents.evictSession).toHaveBeenCalledWith(
+        'session-1',
+        'logout',
+      );
+    });
+
+    it('returns a bounded page and a continuation cursor instead of hiding old sessions', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ sessionVersion: 0 });
+      mockPrisma.userSession.findMany.mockResolvedValue(
+        Array.from({ length: 51 }, (_, index) => ({ id: `session-${index}` })),
+      );
+      const page = await service.listSessions('usr1', undefined, 'previous');
+      expect(page.sessions).toHaveLength(50);
+      expect(page.nextCursor).toBe('session-49');
+      expect(page.legacyCurrentSession).toBe(true);
+      expect(mockPrisma.userSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: 'usr1' }),
+          cursor: { id: 'previous' },
+          skip: 1,
+          take: 51,
+        }),
+      );
+    });
+
+    it('does not swallow a database failure during logout', async () => {
+      (mockJwt.verify as jest.Mock).mockReturnValue({
+        sub: 'usr1',
+        sessionId: 'session-1',
+      });
+      mockPrisma.userSession.updateMany.mockRejectedValueOnce(
+        new Error('database unavailable'),
+      );
+      await expect(service.logoutSession('signed.jwt')).rejects.toThrow(
+        'database unavailable',
+      );
+      expect(mockEvents.evictSession).not.toHaveBeenCalled();
+    });
+
+    it('does not trust or persist an invalid logout credential', async () => {
+      (mockJwt.verify as jest.Mock).mockImplementation(() => {
+        throw new Error('invalid signature');
+      });
+      await expect(service.logoutSession('invalid')).resolves.toBeUndefined();
+      expect(mockPrisma.userSession.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('retries socket eviction when logout is repeated after revocation', async () => {
+      (mockJwt.verify as jest.Mock).mockReturnValue({
+        sub: 'usr1',
+        sessionId: 'session-1',
+      });
+      mockPrisma.userSession.updateMany.mockResolvedValueOnce({ count: 0 });
+      await service.logoutSession('signed.jwt');
+      expect(mockEvents.evictSession).toHaveBeenCalledWith(
+        'session-1',
+        'logout',
+      );
+    });
+
+    it('persists the exact signed identity and bounds untrusted display metadata', async () => {
+      await service.login(makeUser({ sessionVersion: 4 }), {
+        ipAddress: 'x'.repeat(200),
+        userAgent: 'y'.repeat(1000),
+      });
+      const claims = (mockJwt.sign as jest.Mock).mock.calls[0][0];
+      expect(mockPrisma.userSession.create).toHaveBeenCalledWith({
+        data: {
+          id: claims.sessionId,
+          userId: 'usr1',
+          sessionVersion: 4,
+          authMethod: 'PASSWORD',
+          deviceTokenId: null,
+          ipAddress: 'x'.repeat(128),
+          userAgent: 'y'.repeat(512),
+          expiresAt: expect.any(Date),
+        },
+      });
+      expect(claims.sessionVersion).toBe(4);
+    });
+
+    it('never hands out a login JWT when its durable row could not be created', async () => {
+      mockPrisma.userSession.create.mockRejectedValueOnce(
+        new Error('database unavailable'),
+      );
+      await expect(service.login(makeUser())).rejects.toThrow(
+        'database unavailable',
+      );
     });
   });
 });

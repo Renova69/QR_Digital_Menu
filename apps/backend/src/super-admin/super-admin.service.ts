@@ -564,11 +564,23 @@ export class SuperAdminService {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const passwordChangedAt = new Date();
 
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: restaurant.ownerId },
-        data: { password: hashedPassword, passwordChangedAt: new Date() },
+        data: {
+          password: hashedPassword,
+          passwordChangedAt,
+          sessionVersion: { increment: 1 },
+        },
+      }),
+      this.prisma.userSession.updateMany({
+        where: { userId: restaurant.ownerId, revokedAt: null },
+        data: {
+          revokedAt: passwordChangedAt,
+          revokedReason: 'password_changed',
+        },
       }),
       this.prisma.adminAuditLog.create({
         data: {
@@ -586,7 +598,7 @@ export class SuperAdminService {
     // connection and carries on receiving live events. forceLogout already
     // evicted; this path did not — which matters more here, since an admin
     // resetting an owner's password is usually responding to a compromise.
-    void this.events.evictUser(restaurant.ownerId, 'password_changed');
+    await this.events.evictUser(restaurant.ownerId, 'password_changed');
 
     return { success: true };
   }
@@ -823,10 +835,18 @@ export class SuperAdminService {
         message: 'Restaurant not found',
       });
 
+    const revokedAt = new Date();
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: restaurant.ownerId },
-        data: { passwordChangedAt: new Date() },
+        data: {
+          passwordChangedAt: revokedAt,
+          sessionVersion: { increment: 1 },
+        },
+      }),
+      this.prisma.userSession.updateMany({
+        where: { userId: restaurant.ownerId, revokedAt: null },
+        data: { revokedAt, revokedReason: 'admin_force_logout' },
       }),
       this.prisma.adminAuditLog.create({
         data: {
@@ -839,7 +859,7 @@ export class SuperAdminService {
       }),
     ]);
 
-    void this.events.evictUser(restaurant.ownerId, 'admin_force_logout');
+    await this.events.evictUser(restaurant.ownerId, 'admin_force_logout');
     return { success: true };
   }
 

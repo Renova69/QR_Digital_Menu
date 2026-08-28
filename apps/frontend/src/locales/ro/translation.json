@@ -1682,6 +1682,31 @@
       "changePhone": "Schimbă numărul"
     }
   },
+  "sessions": {
+    "retry": "Încearcă din nou",
+    "loadMore": "Încarcă mai multe",
+    "legacy": "Această autentificare este anterioară evidenței sesiunilor și nu apare în listă. Folosește deconectarea de pe toate dispozitivele pentru a revoca și autentificările mai vechi.",
+    "title": "Sesiuni active",
+    "description": "Verifică unde este conectat contul și revocă accesul.",
+    "current": "Acest dispozitiv",
+    "unknownDevice": "Dispozitiv necunoscut",
+    "signedIn": "Conectat la {{date}}",
+    "expires": "Expiră la {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "Deconectează",
+    "signOutAll": "Deconectează toate",
+    "signOutAllConfirm": "Deconectezi toate dispozitivele, inclusiv acesta?",
+    "loadError": "Sesiunile nu au putut fi încărcate. Încearcă din nou.",
+    "empty": "Nu există sesiuni active.",
+    "actionError": "Sesiunea nu a putut fi închisă. Încearcă din nou.",
+    "methods": {
+      "PASSWORD": "Parolă",
+      "GOOGLE": "Google",
+      "OTP": "Cod unic",
+      "PIN": "PIN personal",
+      "IMPERSONATION": "Acces asistență"
+    }
+  },
   "profile": {
     "title": "Profilul meu",
     "welcome": "Bine ați revenit, {{name}}!",

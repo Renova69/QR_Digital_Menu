@@ -11,6 +11,8 @@ import { isPinRole } from '../users/staff-roles';
 export type SessionJwtPayload = {
   sub: string;
   iat?: number;
+  sessionId?: string;
+  sessionVersion?: number;
   deviceTokenId?: string;
   deviceSessionVersion?: number;
   isImpersonation?: boolean;
@@ -59,6 +61,60 @@ export class SessionRevocationService {
 
     if (user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('ACCOUNT_DISABLED');
+    }
+
+    const legacy =
+      payload.sessionId === undefined && payload.sessionVersion === undefined;
+    if (
+      !legacy &&
+      (typeof payload.sessionId !== 'string' ||
+        !payload.sessionId ||
+        !Number.isInteger(payload.sessionVersion) ||
+        (payload.sessionVersion ?? -1) < 0)
+    ) {
+      throw new UnauthorizedException('SESSION_REVOKED');
+    }
+    const payloadSessionVersion = legacy ? 0 : payload.sessionVersion;
+    let issuedAt = payload.iat ? new Date(payload.iat * 1000) : undefined;
+
+    // sessionVersion is the O(1) global-revocation gate. Legacy JWTs predate
+    // the claim and therefore read as version zero; a sign-out-everywhere or
+    // password reset increments the user row and invalidates them too.
+    if (payloadSessionVersion !== (user.sessionVersion ?? 0)) {
+      throw new UnauthorizedException('SESSION_REVOKED');
+    }
+
+    if (payload.sessionId) {
+      const session = await this.prisma.userSession.findFirst({
+        where: {
+          id: payload.sessionId,
+          userId: payload.sub,
+          sessionVersion: payloadSessionVersion,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true, createdAt: true },
+      });
+
+      if (!session) {
+        throw new UnauthorizedException('SESSION_REVOKED');
+      }
+      // A fresh login in the same second as a password change must work.
+      // JWT iat loses milliseconds; the durable row does not. Retaining this
+      // check also honours password changes made by the old serving revision.
+      issuedAt = session.createdAt;
+    } else {
+      // Expand-contract bridge: the old revision can mint a JWT without a
+      // session id while the new revision is canarying. The migration persists
+      // a deadline equal to the old token's maximum TTL. Once it passes, the
+      // fallback closes itself; there is no hardcoded date or permanent bypass.
+      const rollout = await this.prisma.authSessionRollout.findUnique({
+        where: { id: 1 },
+        select: { legacyAcceptedUntil: true },
+      });
+      if (!rollout || rollout.legacyAcceptedUntil <= new Date()) {
+        throw new UnauthorizedException('SESSION_REVOKED');
+      }
     }
 
     if (payload.deviceTokenId) {
@@ -116,8 +172,8 @@ export class SessionRevocationService {
     // reset). `iat` is in seconds; passwordChangedAt is a Date. Reject stale tokens.
     if (
       user.passwordChangedAt &&
-      payload.iat &&
-      payload.iat * 1000 < user.passwordChangedAt.getTime()
+      issuedAt &&
+      issuedAt < user.passwordChangedAt
     ) {
       throw new UnauthorizedException('PASSWORD_CHANGED');
     }

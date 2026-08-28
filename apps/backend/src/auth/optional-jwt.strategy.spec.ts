@@ -2,23 +2,29 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OptionalJwtStrategy } from './optional-jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { SessionRevocationService } from './session-revocation.service';
 
 describe('OptionalJwtStrategy', () => {
   const prisma = {
     user: {
       findUnique: jest.fn(),
     },
+    userSession: { findFirst: jest.fn() },
+    authSessionRollout: { findUnique: jest.fn() },
   };
 
   let strategy: OptionalJwtStrategy;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.authSessionRollout.findUnique.mockResolvedValue({
+      legacyAcceptedUntil: new Date(Date.now() + 60_000),
+    });
     strategy = new OptionalJwtStrategy(
       {
         get: jest.fn().mockReturnValue('test-secret'),
       } as unknown as ConfigService,
-      prisma as unknown as PrismaService,
+      new SessionRevocationService(prisma as unknown as PrismaService),
     );
   });
 
@@ -29,6 +35,7 @@ describe('OptionalJwtStrategy', () => {
       isActive: false,
       disabledAt: new Date(),
       passwordChangedAt: null,
+      sessionVersion: 0,
     });
 
     await expect(
@@ -52,6 +59,7 @@ describe('OptionalJwtStrategy', () => {
       isActive: true,
       disabledAt: null,
       passwordChangedAt,
+      sessionVersion: 0,
     });
 
     const staleIat = Math.floor(passwordChangedAt.getTime() / 1000) - 60;
@@ -72,6 +80,7 @@ describe('OptionalJwtStrategy', () => {
       isActive: true,
       disabledAt: null,
       passwordChangedAt: null,
+      sessionVersion: 0,
     });
 
     const result = await strategy.validate({

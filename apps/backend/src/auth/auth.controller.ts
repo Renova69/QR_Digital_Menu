@@ -2,7 +2,11 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Patch,
+  Param,
+  Query,
+  Header,
   Body,
   Res,
   Req,
@@ -23,13 +27,25 @@ import { PinLoginDto } from './dto/pin-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
 import { AddIdentityDto, VerifyIdentityDto } from './dto/identity.dto';
+import { ListSessionsDto } from './dto/list-sessions.dto';
 import { clearAuthTokenCookie, setAuthTokenCookie } from './auth-cookie';
+
+type SessionRequest = ExpressRequest & {
+  user: { id: string; sessionId?: string };
+};
 
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
   constructor(private readonly authService: AuthService) {}
+
+  private sessionMetadata(req: ExpressRequest) {
+    return {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+  }
 
   @Post('register')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -48,9 +64,11 @@ export class AuthController {
   async verifyRegistration(
     @Body() verifyRegistrationDto: VerifyRegistrationDto,
     @Res({ passthrough: true }) res: Response,
+    @Req() req: ExpressRequest,
   ) {
     const result = await this.authService.verifyRegistration(
       verifyRegistrationDto,
+      this.sessionMetadata(req),
     );
     setAuthTokenCookie(res, result.token);
     return result;
@@ -60,7 +78,10 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(@Request() req: any, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.login(req.user);
+    const result = await this.authService.login(
+      req.user,
+      this.sessionMetadata(req),
+    );
     setAuthTokenCookie(res, result.token);
     return result;
   }
@@ -68,7 +89,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getProfile(@Request() req: any) {
-    return req.user;
+    const { sessionId: _sessionId, ...profile } = req.user;
+    return profile;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -107,7 +129,11 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
     const user = await this.authService.validateGoogleUser(req.user);
-    const { token } = await this.authService.login(user);
+    const { token } = await this.authService.login(
+      user,
+      this.sessionMetadata(req),
+      'GOOGLE',
+    );
     setAuthTokenCookie(res, token);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 
@@ -155,6 +181,7 @@ export class AuthController {
     @Body('name') name: string | undefined,
     @Body('restaurantId') restaurantId: string | undefined,
     @Res({ passthrough: true }) res: Response,
+    @Req() req: ExpressRequest,
   ) {
     const result = await this.authService.verifyOtp(
       email,
@@ -162,6 +189,7 @@ export class AuthController {
       phone,
       name,
       restaurantId,
+      this.sessionMetadata(req),
     );
     setAuthTokenCookie(res, result.token);
     return result;
@@ -196,9 +224,58 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
-    clearAuthTokenCookie(res);
+  async logout(
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      await this.authService.logoutSession(req.cookies?.token);
+    } finally {
+      clearAuthTokenCookie(res);
+    }
     return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  @Header('Cache-Control', 'no-store')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  listSessions(
+    @Request() req: SessionRequest,
+    @Query() query: ListSessionsDto,
+  ) {
+    return this.authService.listSessions(
+      req.user.id,
+      req.user.sessionId,
+      query.cursor,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions')
+  async signOutEverywhere(
+    @Request() req: SessionRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.signOutEverywhere(req.user.id);
+    clearAuthTokenCookie(res);
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/:sessionId')
+  async revokeSession(
+    @Request() req: SessionRequest,
+    @Param('sessionId') sessionId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.revokeSession(
+      req.user.id,
+      sessionId,
+      req.user.sessionId,
+    );
+    if (result.current) clearAuthTokenCookie(res);
+    return result;
   }
 
   @Get('csrf-token')
@@ -210,9 +287,13 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async exchangeImpersonation(
     @Body('code') code: string,
+    @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.exchangeImpersonation(code);
+    const result = await this.authService.exchangeImpersonation(
+      code,
+      this.sessionMetadata(req),
+    );
     setAuthTokenCookie(res, result.token);
     return { user: result.user };
   }

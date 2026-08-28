@@ -143,6 +143,46 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
+export type AuthSession = {
+  id: string;
+  authMethod: "PASSWORD" | "GOOGLE" | "OTP" | "PIN" | "IMPERSONATION";
+  deviceTokenId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+};
+
+export type AuthSessionPage = {
+  sessions: AuthSession[];
+  nextCursor: string | null;
+  legacyCurrentSession: boolean;
+};
+
+export const getAuthSessions = async (
+  cursor?: string,
+): Promise<AuthSessionPage> => {
+  const response = await api.get("/auth/sessions", {
+    params: cursor ? { cursor } : undefined,
+  });
+  return response.data;
+};
+
+export const revokeAuthSession = async (
+  sessionId: string,
+): Promise<{ success: boolean; current: boolean }> => {
+  const response = await api.delete(
+    `/auth/sessions/${encodeURIComponent(sessionId)}`,
+  );
+  return response.data;
+};
+
+export const signOutEverywhere = async (): Promise<{ success: boolean }> => {
+  const response = await api.delete("/auth/sessions");
+  return response.data;
+};
+
 export const createOrder = async (orderData: any, idempotencyKey?: string) => {
   const submissionKey =
     idempotencyKey ?? orderData.posSubmission?.clientOrderId;

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import * as bcrypt from 'bcryptjs';
-import { randomInt, randomBytes, createHash } from 'crypto';
+import { randomInt, randomBytes, createHash, randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
@@ -56,7 +56,9 @@ const AUTH_PROVIDER_TIMEOUT_MS = 10_000;
 //
 // Deliberately not applied to dashboard logins: those are a person on a machine
 // they control, and shortening them only trains people to re-authenticate.
-const STAFF_DEVICE_SESSION_TTL = '12h';
+const DASHBOARD_SESSION_TTL_SECONDS = 24 * 60 * 60;
+const STAFF_DEVICE_SESSION_TTL_SECONDS = 12 * 60 * 60;
+const IMPERSONATION_SESSION_TTL_SECONDS = 60 * 60;
 
 // How long a device stays trusted to accept a 4-digit PIN after enrolment.
 // Separate from the enrolment link's own short TTL, and from the session TTL
@@ -70,10 +72,12 @@ const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000;
 const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000;
 
-type PinLoginMeta = {
+export type AuthSessionMetadata = {
   ipAddress?: string;
   userAgent?: string;
 };
+
+type AuthMethod = 'PASSWORD' | 'GOOGLE' | 'OTP' | 'PIN' | 'IMPERSONATION';
 
 @Injectable()
 export class AuthService {
@@ -90,6 +94,51 @@ export class AuthService {
 
   private normalizeEmail(email: string) {
     return email.toLowerCase().trim();
+  }
+
+  /**
+   * Mint a JWT and persist its independently revocable server-side identity.
+   * Only bounded descriptive metadata is stored; the raw JWT and every
+   * credential used to obtain it remain outside the database.
+   */
+  private async issueSessionToken(
+    user: { id: string; email: string; sessionVersion?: number | null },
+    authMethod: AuthMethod,
+    meta: AuthSessionMetadata = {},
+    extraClaims: Record<string, unknown> = {},
+    ttlSeconds = DASHBOARD_SESSION_TTL_SECONDS,
+  ): Promise<string> {
+    const sessionId = randomUUID();
+    const sessionVersion = user.sessionVersion ?? 0;
+    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+    const token = this.jwtService.sign(
+      {
+        ...extraClaims,
+        email: user.email,
+        sub: user.id,
+        sessionId,
+        sessionVersion,
+      },
+      { expiresIn: ttlSeconds },
+    );
+
+    await this.prisma.userSession.create({
+      data: {
+        id: sessionId,
+        userId: user.id,
+        sessionVersion,
+        authMethod,
+        deviceTokenId:
+          typeof extraClaims.deviceTokenId === 'string'
+            ? extraClaims.deviceTokenId
+            : null,
+        ipAddress: meta.ipAddress?.slice(0, 128) || null,
+        userAgent: meta.userAgent?.slice(0, 512) || null,
+        expiresAt,
+      },
+    });
+
+    return token;
   }
 
   private normalizePhone(phone: string): string {
@@ -204,10 +253,13 @@ export class AuthService {
     });
   }
 
-  async login(user: any) {
-    const payload = { email: user.email, sub: user.id };
+  async login(
+    user: any,
+    meta: AuthSessionMetadata = {},
+    authMethod: Extract<AuthMethod, 'PASSWORD' | 'GOOGLE'> = 'PASSWORD',
+  ) {
     return {
-      token: this.jwtService.sign(payload),
+      token: await this.issueSessionToken(user, authMethod, meta),
       user: {
         id: user.id,
         email: user.email,
@@ -274,14 +326,28 @@ export class AuthService {
           randomBytes(32).toString('hex'),
           10,
         );
-        await this.prisma.user.update({
-          where: { id: byEmail.id },
-          data: {
-            googleId,
-            password: invalidatedPassword,
-            passwordChangedAt: new Date(),
-          },
+        const passwordChangedAt = new Date();
+        const linkedUser = await this.prisma.$transaction(async (tx) => {
+          const updated = await tx.user.update({
+            where: { id: byEmail.id },
+            data: {
+              googleId,
+              password: invalidatedPassword,
+              passwordChangedAt,
+              sessionVersion: { increment: 1 },
+            },
+          });
+          await tx.userSession.updateMany({
+            where: { userId: byEmail.id, revokedAt: null },
+            data: {
+              revokedAt: passwordChangedAt,
+              revokedReason: 'google_identity_linked',
+            },
+          });
+          return updated;
         });
+        await this.events.evictUser(byEmail.id, 'google_identity_linked');
+        return linkedUser;
       }
       return byEmail;
     }
@@ -335,7 +401,10 @@ export class AuthService {
     };
   }
 
-  async verifyRegistration(createAuthDto: CreateAuthDto & { code: string }) {
+  async verifyRegistration(
+    createAuthDto: CreateAuthDto & { code: string },
+    meta: AuthSessionMetadata = {},
+  ) {
     const { email, password, code } = createAuthDto;
     const normalizedEmail = this.normalizeEmail(email);
 
@@ -371,9 +440,8 @@ export class AuthService {
     }
 
     const { password: _, ...result } = user;
-    const payload = { email: result.email, sub: result.id };
     return {
-      token: this.jwtService.sign(payload),
+      token: await this.issueSessionToken(result, 'PASSWORD', meta),
       user: {
         id: result.id,
         email: result.email,
@@ -519,7 +587,7 @@ export class AuthService {
     user: { id: string },
     restaurantId: string,
     deviceTokenId: string,
-    meta: PinLoginMeta,
+    meta: AuthSessionMetadata,
   ) {
     const bindingKey = {
       userId_deviceTokenId: { userId: user.id, deviceTokenId },
@@ -940,7 +1008,7 @@ export class AuthService {
     restaurantId: string,
     pin: string,
     deviceToken: string,
-    meta: PinLoginMeta = {},
+    meta: AuthSessionMetadata = {},
   ) {
     // Only device/floor roles authenticate by PIN. Dashboard roles
     // (OWNER/MANAGER/STAFF) are excluded so a 4-digit PIN can never mint a JWT
@@ -1143,16 +1211,18 @@ export class AuthService {
         meta,
       );
 
-      const payload = {
-        email: user.email,
-        sub: user.id,
+      const extraClaims = {
         deviceTokenId: enrolledDevice.id,
         deviceSessionVersion: enrolledDevice.sessionVersion ?? 0,
       };
       return {
-        token: this.jwtService.sign(payload, {
-          expiresIn: STAFF_DEVICE_SESSION_TTL,
-        }),
+        token: await this.issueSessionToken(
+          user,
+          'PIN',
+          meta,
+          extraClaims,
+          STAFF_DEVICE_SESSION_TTL_SECONDS,
+        ),
         user: {
           id: user.id,
           email: user.email,
@@ -1275,19 +1345,31 @@ export class AuthService {
       );
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        password: await bcrypt.hash(newPassword, 10),
-        passwordChangedAt: new Date(),
-      },
+    const passwordChangedAt = new Date();
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          password: hashedPassword,
+          passwordChangedAt,
+          sessionVersion: { increment: 1 },
+        },
+      });
+      await tx.userSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: {
+          revokedAt: passwordChangedAt,
+          revokedReason: 'password_changed',
+        },
+      });
     });
 
     // P1-13: passwordChangedAt kills the old token on the next HTTP request,
     // but a socket authenticated before the change keeps its connection and
     // carries on receiving live order and payment events. resetStaffPin
     // already evicted; the password paths did not.
-    void this.events.evictUser(userId, 'password_changed');
+    await this.events.evictUser(userId, 'password_changed');
 
     return { success: true };
   }
@@ -1298,6 +1380,7 @@ export class AuthService {
     phone?: string,
     name?: string,
     restaurantId?: string,
+    meta: AuthSessionMetadata = {},
   ): Promise<{ token: string; user: any; isNew: boolean }> {
     await this.checkCustomersAuthFeature(restaurantId);
     if (!code)
@@ -1383,9 +1466,8 @@ export class AuthService {
       }
     }
 
-    const payload = { email: user.email, sub: user.id };
     return {
-      token: this.jwtService.sign(payload),
+      token: await this.issueSessionToken(user, 'OTP', meta),
       user: {
         id: user.id,
         email: user.email,
@@ -1553,7 +1635,7 @@ export class AuthService {
     };
   }
 
-  async exchangeImpersonation(code: string) {
+  async exchangeImpersonation(code: string, meta: AuthSessionMetadata = {}) {
     if (!code || typeof code !== 'string')
       throw new UnauthorizedException('Missing exchange code.');
 
@@ -1586,15 +1668,19 @@ export class AuthService {
     }
 
     const user = session.target;
-    const payload = {
-      email: user.email,
-      sub: user.id,
+    const extraClaims = {
       isImpersonation: true,
       impersonationSessionId: session.id,
     };
 
     return {
-      token: this.jwtService.sign(payload, { expiresIn: '1h' }),
+      token: await this.issueSessionToken(
+        user,
+        'IMPERSONATION',
+        meta,
+        extraClaims,
+        IMPERSONATION_SESSION_TTL_SECONDS,
+      ),
       user: {
         id: user.id,
         email: user.email,
@@ -1606,15 +1692,164 @@ export class AuthService {
     };
   }
 
+  async listSessions(
+    userId: string,
+    currentSessionId?: string,
+    cursor?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { sessionVersion: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const sessions = await this.prisma.userSession.findMany({
+      where: {
+        userId,
+        sessionVersion: user.sessionVersion,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        authMethod: true,
+        deviceTokenId: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: 51,
+    });
+
+    const page = sessions.slice(0, 50);
+    return {
+      sessions: page.map((session) => ({
+        ...session,
+        current: session.id === currentSessionId,
+      })),
+      nextCursor: sessions.length > 50 ? page[49].id : null,
+      legacyCurrentSession: !currentSessionId,
+    };
+  }
+
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+    currentSessionId?: string,
+  ) {
+    const revokedAt = new Date();
+    const result = await this.prisma.userSession.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt, revokedReason: 'user_revoked' },
+    });
+
+    if (result.count !== 1) {
+      throw new NotFoundException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'Active session not found.',
+      });
+    }
+
+    await this.events.evictSession(sessionId, 'session_revoked');
+    return { success: true, current: sessionId === currentSessionId };
+  }
+
+  async signOutEverywhere(userId: string) {
+    const revokedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        // The timestamp also invalidates cookies on an old revision during
+        // the rollout overlap; new revisions use the exact version counter.
+        data: {
+          sessionVersion: { increment: 1 },
+          passwordChangedAt: revokedAt,
+        },
+      });
+      await tx.userSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt, revokedReason: 'user_global_logout' },
+      });
+    });
+
+    await this.events.evictUser(userId, 'user_global_logout');
+    return { success: true };
+  }
+
+  /** Idempotent cookie logout: invalid/expired legacy cookies are still clearable. */
+  async logoutSession(token?: string) {
+    if (!token) return;
+    let payload: {
+      sub?: string;
+      sessionId?: string;
+      impersonationSessionId?: string;
+    };
+    try {
+      payload = this.jwtService.verify<typeof payload>(token);
+    } catch {
+      // An invalid or expired signature grants no access and is safe to clear.
+      return;
+    }
+    if (typeof payload.sub !== 'string') return;
+    const userId = payload.sub;
+    const sessionId = payload.sessionId;
+    const revokedAt = new Date();
+    // Persistence errors deliberately propagate to the global error reporter.
+    // The controller clears the cookie in finally, but must not falsely report
+    // that a copied credential was revoked when the database is unavailable.
+    await this.prisma.$transaction(async (tx) => {
+      if (typeof sessionId === 'string') {
+        await tx.userSession.updateMany({
+          where: {
+            id: sessionId,
+            userId,
+            revokedAt: null,
+          },
+          data: { revokedAt, revokedReason: 'logout' },
+        });
+      }
+      if (typeof payload.impersonationSessionId === 'string') {
+        await tx.impersonationSession.updateMany({
+          where: {
+            id: payload.impersonationSessionId,
+            targetId: userId,
+            revokedAt: null,
+          },
+          data: { revokedAt },
+        });
+      }
+    });
+    if (typeof sessionId === 'string') {
+      // Retry eviction even for an already-revoked row (e.g. a prior Redis outage).
+      await this.events.evictSession(sessionId, 'logout');
+    }
+  }
+
   async exitImpersonation(jwtUser: {
     id: string;
     impersonationSessionId?: string;
+    sessionId?: string;
   }) {
-    if (jwtUser.impersonationSessionId) {
-      await this.prisma.impersonationSession.updateMany({
-        where: { id: jwtUser.impersonationSessionId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+    const revokedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      if (jwtUser.impersonationSessionId) {
+        await tx.impersonationSession.updateMany({
+          where: { id: jwtUser.impersonationSessionId, revokedAt: null },
+          data: { revokedAt },
+        });
+      }
+      if (jwtUser.sessionId) {
+        await tx.userSession.updateMany({
+          where: { id: jwtUser.sessionId, userId: jwtUser.id, revokedAt: null },
+          data: { revokedAt, revokedReason: 'impersonation_ended' },
+        });
+      }
+    });
+    if (jwtUser.sessionId) {
+      await this.events.evictSession(jwtUser.sessionId, 'impersonation_ended');
     }
   }
 }
