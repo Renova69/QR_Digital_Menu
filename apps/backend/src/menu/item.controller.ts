@@ -12,7 +12,6 @@ import {
   Put,
   Request,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
   ValidationPipe,
 } from '@nestjs/common';
@@ -20,7 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { MenuCrudService } from './menu-crud.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { UpdateItemTranslationDto } from './dto/update-item-translation.dto';
@@ -31,7 +30,12 @@ interface AuthenticatedRequest {
   user: { id: string };
 }
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'categoryId',
+  resource: 'category',
+})
 @Controller('categories/:categoryId/items')
 export class ItemController {
   constructor(private readonly crud: MenuCrudService) {}
@@ -45,13 +49,16 @@ export class ItemController {
   create(
     @Param('categoryId') categoryId: string,
     @Body(ValidationPipe) createItemDto: CreateItemDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.createItem(categoryId, createItemDto, req.user.id);
   }
 
   @Get()
-  findAll(@Param('categoryId') categoryId: string, @Request() req: any) {
+  findAll(
+    @Param('categoryId') categoryId: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.crud.findAllItemsInCategory(categoryId, req.user.id);
   }
 
@@ -59,13 +66,18 @@ export class ItemController {
   updateOrder(
     @Param('categoryId') categoryId: string,
     @Body('orderedIds') orderedIds: string[],
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.updateItemOrder(categoryId, orderedIds, req.user.id);
   }
 }
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'id',
+  resource: 'item',
+})
 @Controller('items')
 export class ItemDetailController {
   private readonly logger = new Logger(ItemDetailController.name);
@@ -106,19 +118,18 @@ export class ItemDetailController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateItemDto: UpdateItemDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.updateItem(id, updateItemDto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
+  remove(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.crud.removeItem(id, req.user.id);
   }
 
-  // Tighter per-route throttle: 5MB buffered in memory before ownership check
-  // means a valid-JWT non-owner can force allocations at the global 100/60s rate.
-  // 20/60s limits the blast radius without blocking legitimate use (L1.1).
+  // Tenant authorization now precedes Multer buffering. Keep the tighter
+  // throttle and 5MB cap to bound uploads by authorized owners/managers too.
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post(':id/image')
   @UseInterceptors(
@@ -137,7 +148,7 @@ export class ItemDetailController {
   async uploadImage(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');
@@ -163,7 +174,7 @@ export class ItemDetailController {
         uploaded.thumbnailUrl,
         req.user.id,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (uploaded && restaurantId) {
         await Promise.allSettled([
           this.storageService.delete(uploaded.url, restaurantId),

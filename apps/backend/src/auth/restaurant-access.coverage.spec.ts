@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RestaurantAccessGuard } from './restaurant-access.guard';
 import { RequireRestaurantAccess } from './require-restaurant-access.decorator';
 import {
+  isRestaurantAccessRequirement,
   RESTAURANT_ACCESS_KEY,
   RestaurantAccessRequirement,
 } from './restaurant-access.policy';
@@ -85,16 +86,7 @@ function guardErrors(route: Route): string[] {
   );
   if (requiredFeature && feature < 0)
     errors.push(`${id}: feature metadata without FeatureGuard`);
-  if (
-    ![
-      'dashboard',
-      'print-management',
-      'staff-management',
-      'scan-stats',
-    ].includes(requirement.policy) ||
-    !['params', 'query'].includes(requirement.source) ||
-    !requirement.key
-  )
+  if (!isRestaurantAccessRequirement(requirement))
     errors.push(`${id}: invalid access policy`);
   return errors;
 }
@@ -147,7 +139,7 @@ describe('Restaurant access route coverage (explicit rollout inventory)', () => 
     }
     for (const id of legacy.keys())
       if (!seen.has(id)) errors.push(`${id}: stale/renamed legacy entry`);
-    expect(migrated).toBeGreaterThanOrEqual(22);
+    expect(migrated).toBeGreaterThanOrEqual(41);
     expect(routes.length).toBeGreaterThanOrEqual(245);
     expect(errors).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import { RestaurantAccessGuard } from '../auth/restaurant-access.guard';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BulkItemController } from './bulk-item.controller';
 import { MenuBulkEditService } from './menu-bulk-edit.service';
@@ -15,7 +16,11 @@ describe('BulkItemController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BulkItemController],
       providers: [{ provide: MenuBulkEditService, useValue: mockBulkEdit }],
-    }).compile();
+    })
+      // Direct-call dispatch tests; the real guard runs in menu-access.http.spec.ts.
+      .overrideGuard(RestaurantAccessGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<BulkItemController>(BulkItemController);
     service = module.get<MenuBulkEditService>(MenuBulkEditService);

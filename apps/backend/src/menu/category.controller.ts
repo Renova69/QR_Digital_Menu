@@ -12,7 +12,6 @@ import {
   Put,
   Request,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
   ValidationPipe,
 } from '@nestjs/common';
@@ -20,12 +19,17 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { MenuCrudService } from './menu-crud.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { StorageService } from '../storage/storage.service';
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'restaurantId',
+  resource: 'restaurant',
+})
 @Controller('restaurants/:restaurantId/categories')
 export class CategoryController {
   constructor(private readonly crud: MenuCrudService) {}
@@ -37,7 +41,7 @@ export class CategoryController {
   create(
     @Param('restaurantId') restaurantId: string,
     @Body(ValidationPipe) createCategoryDto: CreateCategoryDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.createCategory(
       restaurantId,
@@ -47,7 +51,10 @@ export class CategoryController {
   }
 
   @Get()
-  findAll(@Param('restaurantId') restaurantId: string, @Request() req: any) {
+  findAll(
+    @Param('restaurantId') restaurantId: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.crud.findAllCategories(restaurantId, req.user.id);
   }
 
@@ -55,13 +62,18 @@ export class CategoryController {
   updateOrder(
     @Param('restaurantId') restaurantId: string,
     @Body('orderedIds') orderedIds: string[],
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.updateCategoryOrder(restaurantId, orderedIds, req.user.id);
   }
 }
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'id',
+  resource: 'category',
+})
 @Controller('categories')
 export class CategoryDetailController {
   private readonly logger = new Logger(CategoryDetailController.name);
@@ -76,13 +88,13 @@ export class CategoryDetailController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateCategoryDto: UpdateCategoryDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.updateCategory(id, updateCategoryDto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
+  remove(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.crud.removeCategory(id, req.user.id);
   }
 
@@ -104,7 +116,7 @@ export class CategoryDetailController {
   async uploadImage(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');
@@ -127,7 +139,7 @@ export class CategoryDetailController {
         uploaded.thumbnailUrl,
         req.user.id,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (uploaded && restaurantId) {
         await Promise.allSettled([
           this.storageService.delete(uploaded.url, restaurantId),

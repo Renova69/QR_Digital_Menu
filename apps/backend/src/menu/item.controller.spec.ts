@@ -1,3 +1,4 @@
+import { RestaurantAccessGuard } from '../auth/restaurant-access.guard';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ItemController, ItemDetailController } from './item.controller';
@@ -19,7 +20,11 @@ describe('ItemController', () => {
     const m = await Test.createTestingModule({
       controllers: [ItemController],
       providers: [{ provide: MenuCrudService, useValue: mockCrud }],
-    }).compile();
+    })
+      // Direct-call dispatch tests; the real guard runs in menu-access.http.spec.ts.
+      .overrideGuard(RestaurantAccessGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = m.get<ItemController>(ItemController);
   });
   afterEach(() => jest.clearAllMocks());
@@ -79,7 +84,11 @@ describe('ItemDetailController', () => {
           useValue: mockOverrides,
         },
       ],
-    }).compile();
+    })
+      // Direct-call dispatch tests; the real guard runs in menu-access.http.spec.ts.
+      .overrideGuard(RestaurantAccessGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = m.get<ItemDetailController>(ItemDetailController);
   });
   afterEach(() => jest.clearAllMocks());

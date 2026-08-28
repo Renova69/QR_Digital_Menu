@@ -1,6 +1,7 @@
 # P3-3 — Declarative restaurant access
 
-Status: **PARTIAL — first controller slice implemented; review/release pending.**
+Status: **PARTIAL — first 22 routes merged via PR #59 (`6a76bba4`), main CI green;
+second slice adds 19 menu-editing routes for review. Batch release pending.**
 This is not completion of the repository-wide migration. No schema, migration,
 credential, dependency, or frontend change is involved.
 
@@ -34,6 +35,9 @@ it: that would turn an effective STAFF back into a MANAGER.
 
 - Each declaration names exactly one source (`params` or `query`) and key.
   Conflicting values in another location cannot change the authorized tenant.
+- Menu declarations additionally require an explicit `resource` and `params`
+  source. Missing/unknown resource kinds, query-based menu targets, and attaching
+  child-resource resolution to another policy fail closed in runtime and CI.
 - Guards execute before validation pipes. Non-string, array, object, empty,
   whitespace-padded, and overlong ids fail with 400 before Prisma.
   Suspended dashboard/printer requests retain `RESTAURANT_SUSPENDED` for the
@@ -63,6 +67,44 @@ getSummary(@AuthorizedRestaurant() access: RestaurantAccessContext) {
 }
 ```
 
+## Second slice: menu editing
+
+The `menu-management` policy permits the actual owner or an assigned **effective
+MANAGER**, and rejects suspended/soft-deleted restaurants with the existing
+`RESTAURANT_SUSPENDED` code. No new subscription feature gate is added.
+
+| Controller                 | Routes | Authoritative target                                 |
+| -------------------------- | -----: | ---------------------------------------------------- |
+| CategoryController         |      3 | `params.restaurantId` is the restaurant              |
+| CategoryDetailController   |      3 | `params.id` -> category.restaurantId                 |
+| ItemController             |      3 | `params.categoryId` -> category.restaurantId         |
+| ItemDetailController       |      5 | `params.id` -> item.category.restaurantId            |
+| MenuOptionController       |      1 | `params.itemId` -> item.category.restaurantId        |
+| MenuOptionDetailController |      2 | `params.id` -> option.menuItem.category.restaurantId |
+| BulkItemController         |      2 | `params.id` is the restaurant                        |
+
+The shared guard uses minimal relationship selects, then authorizes the resolved
+restaurant. Bodies, query parameters and a user's default restaurant cannot
+replace that relationship. Direct targets add one guard restaurant lookup;
+child targets add a resource lookup plus a restaurant lookup. The existing
+service checks remain intentionally; P3-4 is the separate write-scoping work.
+
+**Intentional hardening:** the legacy menu helper reloads the raw user role.
+The guard now prevents a subscription-demoted MANAGER (effective STAFF) from
+regaining editing access through that helper. An actual owner and an assigned
+effective MANAGER retain access. There is no blanket SUPER_ADMIN bypass.
+
+Guards run before `FileInterceptor`, so unauthorized uploads do not reach Multer
+buffering, image processing or storage. Authorized uploads retain their existing
+throttle, 5MB limit, second service ownership check, server-derived R2 namespace
+and orphan cleanup. Bulk/reorder/translation service checks remain unchanged,
+including per-item bulk checks when one owner owns multiple restaurants.
+
+Public QR/menu routes and the JWT-only menu-index hint are untouched. The audit
+report is explicitly left for its own policy: its existing service allows the
+owner or an assigned user, not only managers, and has different status behavior.
+Menu imports are also a later slice, not silently included here.
+
 ## Coverage and remaining work
 
 `restaurant-access.coverage.spec.ts` imports every `*.controller.ts` and inspects
@@ -70,7 +112,8 @@ actual Nest route/guard metadata. It currently discovers **245 routes**. For
 migrated routes it verifies authentication before access and feature checks after
 access. Mutation fixtures prove missing policies/guards and wrong ordering fail.
 
-The other **223 routes** are frozen, individually named in
+With both slices, **41 routes** use the guard. The other **204 routes** are
+frozen, individually named in
 `restaurant-access.legacy-routes.ts`. This is an explicit rollout inventory, **not
 an authorization assertion or runtime bypass**. It includes public/token routes,
 account-only operations, super-admin endpoints, and tenant routes still guarded
@@ -81,12 +124,10 @@ are migrated.
 
 Next P3-3 slices:
 
-1. Menu/category/item/option and other resource-id routes: resolve the resource's
-   restaurant server-side, preserving upload ordering and manager permissions.
-2. Restaurant settings, devices, imports, tables/zones, reservations, notifications,
+1. Restaurant settings, devices, imports, menu audit, tables/zones, reservations, notifications,
    loyalty, feedback, orders and payment management: preserve distinct owner,
    staff, super-admin and token-based policies; remove each legacy entry on migration.
-3. Separate permanent public/account/admin classifications from the remaining
+2. Separate permanent public/account/admin classifications from the remaining
    tenant migration inventory, then close P3-3 only after that inventory is empty.
 
 Existing child-resource/service checks remain. This guard is not a substitute for
@@ -100,19 +141,32 @@ It cannot promise a transactional permission snapshot across concurrent updates.
   database errors and request-context isolation.
 - Local HTTP tests use the real Nest pipeline and FeatureGuard with fake
   authentication/I/O: no AppModule, `.env`, external credentials or live database.
+- Menu HTTP tests exercise all 19 editing routes for owner/manager success,
+  absent JWT and foreign-tenant denial, plus effective-role demotion, resource
+  errors, inactive/deleted targets, unmodified anonymous menu access, real Multer
+  ordering/size limits and the real bulk service's cross-restaurant row checks.
 - Controller tests retain analytics tier filtering, date validation and service
   dispatch/audit-actor checks. Authorization cases moved to guard/HTTP tests,
   because directly calling a controller does not execute Nest decorators.
 
-Local verification: **207 backend suites / 2,984 tests passed**, with coverage
+First-slice verification: **207 backend suites / 2,984 tests passed**, with coverage
 at 88.92% lines and 75.28% branches. Type checking and the Nest/SWC build pass.
 All changed files pass lint without warnings; repository lint has zero errors
 and 614 existing warnings (down from 640, cap unchanged). Prettier, Gitleaks
 8.28.0 with CI's flags, the 14 secret-scanner tests, and migration safety pass.
 Clean-install Linux CI and its disposable-database E2E job remain merge gates.
 
+Second-slice verification: **209 backend suites / 3,124 tests passed**, including
+101 new menu HTTP cases and 39 resource/policy cases. Coverage is 89.06% lines
+and 75.38% branches. Type checking and Nest/SWC build pass. Changed files have
+zero lint warnings; repository lint has zero errors / 595 existing warnings
+(cap unchanged). Prettier, Gitleaks 8.28.0 with CI's flags, migration safety and
+all 14 secret-scanner tests pass.
+Clean-install Linux CI and its disposable-database E2E job remain merge gates.
+
 **Deployment is deliberately batched** at the user's request (28 Aug 2026).
-PR #58/P3-2 is merged at `f4ec9a61` but not backend-deployed. The last confirmed
+PR #58/P3-2 is merged at `f4ec9a61` and PR #59 at `6a76bba4`; neither is
+backend-deployed. The last confirmed
 backend deployment is P3-1 at `e7500785`. No deploy script or live database command
 is part of this implementation. Later, deploy approved merged main once through
 the existing backup/safety/canary workflow and run the accumulated release checks.
@@ -120,3 +174,6 @@ the existing backup/safety/canary workflow and run the accumulated release check
 After that batch deploy, verify owner/manager dashboard access, a denied
 cross-restaurant request, printer listing/reactivation, staff PIN reset and public
 scan recording using development/demo data. P3-1/P2-10 manual checks remain open.
+Also verify menu editing/translations/reordering and image upload as an owner
+and assigned manager, cross-restaurant resource denial, bulk editing isolation,
+and anonymous access through an already-printed QR.
