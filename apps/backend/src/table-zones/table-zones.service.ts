@@ -9,6 +9,8 @@ import { EventsGateway } from '../events/events.gateway';
 import { CreateZoneDto } from './dto/create-zone.dto';
 import { UpdateZoneDto } from './dto/update-zone.dto';
 import { ReorderZonesDto } from './dto/reorder-zones.dto';
+import { restaurantManagementWhere } from '../auth/restaurant-management-scope';
+import { scopedWrite } from '../common/prisma/scoped-write';
 
 @Injectable()
 export class TableZonesService {
@@ -39,20 +41,24 @@ export class TableZonesService {
     const displayOrder =
       dto.displayOrder ?? (await this.maxDisplayOrder(restaurantId)) + 1000;
 
-    const zone = await this.prisma.tableZone.create({
-      data: {
-        name: dto.name.trim(),
-        zoneKey: dto.zoneKey ?? null,
-        restaurantId,
-        displayOrder,
-      },
-    });
+    const zone = await scopedWrite(
+      this.prisma.tableZone.create({
+        data: {
+          name: dto.name.trim(),
+          zoneKey: dto.zoneKey ?? null,
+          restaurant: {
+            connect: { id: restaurantId, ...restaurantManagementWhere(userId) },
+          },
+          displayOrder,
+        },
+      }),
+    );
     this.events.emitZoneChanged(restaurantId);
     return zone;
   }
 
   async update(zoneId: string, dto: UpdateZoneDto, userId: string) {
-    const zone = await this.findZoneOrThrow(zoneId);
+    const zone = await this.findZoneOrThrow(zoneId, userId);
     await this.verifyRestaurantOwnership(zone.restaurantId, userId);
 
     if (dto.name && dto.name !== zone.name) {
@@ -68,22 +74,28 @@ export class TableZonesService {
       }
     }
 
-    const updated = await this.prisma.tableZone.update({
-      where: { id: zoneId },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.zoneKey !== undefined && { zoneKey: dto.zoneKey }),
-        ...(dto.displayOrder !== undefined && {
-          displayOrder: dto.displayOrder,
-        }),
-      },
-    });
+    const updated = await scopedWrite(
+      this.prisma.tableZone.update({
+        where: {
+          id: zoneId,
+          restaurantId: zone.restaurantId,
+          restaurant: restaurantManagementWhere(userId),
+        },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name.trim() }),
+          ...(dto.zoneKey !== undefined && { zoneKey: dto.zoneKey }),
+          ...(dto.displayOrder !== undefined && {
+            displayOrder: dto.displayOrder,
+          }),
+        },
+      }),
+    );
     this.events.emitZoneChanged(zone.restaurantId);
     return updated;
   }
 
   async remove(zoneId: string, userId: string) {
-    const zone = await this.findZoneOrThrow(zoneId);
+    const zone = await this.findZoneOrThrow(zoneId, userId);
     await this.verifyRestaurantOwnership(zone.restaurantId, userId);
 
     const zones = await this.prisma.tableZone.findMany({
@@ -103,13 +115,30 @@ export class TableZonesService {
       );
     }
 
-    await this.prisma.$transaction([
-      this.prisma.restaurantTable.updateMany({
-        where: { zoneId: zone.id },
-        data: { zoneId: defaultZone.id },
-      }),
-      this.prisma.tableZone.delete({ where: { id: zone.id } }),
-    ]);
+    const restaurantWhere = {
+      ...restaurantManagementWhere(userId),
+      // The fallback zone must still belong to the same tenant at each write.
+      tableZones: { some: { id: defaultZone.id } },
+    };
+    await scopedWrite(
+      this.prisma.$transaction([
+        this.prisma.restaurantTable.updateMany({
+          where: {
+            zoneId: zone.id,
+            restaurantId: zone.restaurantId,
+            restaurant: restaurantWhere,
+          },
+          data: { zoneId: defaultZone.id },
+        }),
+        this.prisma.tableZone.delete({
+          where: {
+            id: zone.id,
+            restaurantId: zone.restaurantId,
+            restaurant: restaurantWhere,
+          },
+        }),
+      ]),
+    );
 
     this.events.emitZoneChanged(zone.restaurantId);
     return { movedToZoneId: defaultZone.id };
@@ -131,12 +160,18 @@ export class TableZonesService {
       );
     }
 
-    await this.prisma.$transaction(
-      dto.items.map((item) =>
-        this.prisma.tableZone.update({
-          where: { id: item.id },
-          data: { displayOrder: item.displayOrder },
-        }),
+    await scopedWrite(
+      this.prisma.$transaction(
+        dto.items.map((item) =>
+          this.prisma.tableZone.update({
+            where: {
+              id: item.id,
+              restaurantId,
+              restaurant: restaurantManagementWhere(userId),
+            },
+            data: { displayOrder: item.displayOrder },
+          }),
+        ),
       ),
     );
 
@@ -159,9 +194,9 @@ export class TableZonesService {
     return result._max.displayOrder ?? 0;
   }
 
-  private async findZoneOrThrow(zoneId: string) {
+  private async findZoneOrThrow(zoneId: string, userId: string) {
     const zone = await this.prisma.tableZone.findUnique({
-      where: { id: zoneId },
+      where: { id: zoneId, restaurant: restaurantManagementWhere(userId) },
     });
     if (!zone) {
       throw new NotFoundException('Zone not found');
@@ -174,7 +209,7 @@ export class TableZonesService {
     userId: string,
   ) {
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ...restaurantManagementWhere(userId) },
     });
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');

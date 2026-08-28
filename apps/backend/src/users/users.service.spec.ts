@@ -9,6 +9,7 @@ import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
 import { EventsGateway } from '../events/events.gateway';
+import { Prisma } from '@prisma/client';
 
 jest.mock('bcryptjs', () => {
   const real = jest.requireActual('bcryptjs');
@@ -79,6 +80,74 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
+  });
+
+  describe('P3-4 staff write scope', () => {
+    it.each(['edit', 'pin', 'remove', 'delete'] as const)(
+      'pins restaurant and original role for %s',
+      async (operation) => {
+        prisma.user.findFirst.mockResolvedValue(mockUser);
+        prisma.user.findMany.mockResolvedValue([]);
+        mockBcryptHash.mockResolvedValue('fixture-hash');
+        if (operation === 'edit') {
+          await service.updateStaffMember('rest-1', 'user-1', {
+            isActive: false,
+          });
+        } else if (operation === 'pin') {
+          await service.resetStaffPin('rest-1', 'user-1');
+        } else {
+          await service.removeStaffMember(
+            'rest-1',
+            'user-1',
+            'OWNER',
+            undefined,
+            operation === 'delete',
+          );
+        }
+        const mutation =
+          operation === 'delete' ? prisma.user.delete : prisma.user.update;
+        expect(mutation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'user-1', restaurantId: 'rest-1', role: 'WAITER' },
+          }),
+        );
+      },
+    );
+
+    it.each(['edit', 'pin', 'remove', 'delete'] as const)(
+      'stops %s before revocation/audit/events if the scoped target changed',
+      async (operation) => {
+        prisma.user.findFirst.mockResolvedValue(mockUser);
+        prisma.user.findMany.mockResolvedValue([]);
+        mockBcryptHash.mockResolvedValue('fixture-hash');
+        const error = new Prisma.PrismaClientKnownRequestError(
+          'Scoped target changed',
+          {
+            code: 'P2025',
+            clientVersion: '6',
+          },
+        );
+        const mutation =
+          operation === 'delete' ? prisma.user.delete : prisma.user.update;
+        mutation.mockRejectedValueOnce(error);
+        const result =
+          operation === 'edit'
+            ? service.updateStaffMember('rest-1', 'user-1', { isActive: false })
+            : operation === 'pin'
+              ? service.resetStaffPin('rest-1', 'user-1', 'OWNER', 'owner-1')
+              : service.removeStaffMember(
+                  'rest-1',
+                  'user-1',
+                  'OWNER',
+                  'owner-1',
+                  operation === 'delete',
+                );
+        await expect(result).rejects.toThrow(NotFoundException);
+        expect(prisma.userSession.updateMany).not.toHaveBeenCalled();
+        expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
+        expect(events.evictUser).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('findByEmail', () => {
@@ -637,7 +706,7 @@ describe('UsersService', () => {
       prisma.user.findFirst.mockResolvedValue(mockUser);
       const result = await service.removeStaffMember('rest-1', 'user-1');
       expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
+        where: { id: 'user-1', restaurantId: 'rest-1', role: 'WAITER' },
         data: expect.objectContaining({
           isActive: false,
           disabledAt: expect.any(Date),
@@ -661,7 +730,7 @@ describe('UsersService', () => {
         true,
       );
       expect(prisma.user.delete).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
+        where: { id: 'user-1', restaurantId: 'rest-1', role: 'WAITER' },
       });
       expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
         data: {

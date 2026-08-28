@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuCrudService } from './menu-crud.service';
 import { BulkUpdateItemsDto } from './dto/bulk-update-items.dto';
+import { restaurantManagementWhere } from '../auth/restaurant-management-scope';
 
 export interface BulkUpdateResult {
   updated: string[];
@@ -40,7 +41,12 @@ export class MenuBulkEditService {
     await this.menuCrud.verifyRestaurantOwnership(restaurantId, userId);
 
     return this.prisma.menuItem.findMany({
-      where: { category: { restaurantId } },
+      where: {
+        category: {
+          restaurantId,
+          restaurant: restaurantManagementWhere(userId),
+        },
+      },
       orderBy: [{ category: { order: 'asc' } }, { order: 'asc' }],
       select: BULK_EDIT_ITEM_SELECT,
     });
@@ -67,7 +73,13 @@ export class MenuBulkEditService {
     for (const { id, ...fields } of dto.updates) {
       try {
         const item = await this.prisma.menuItem.findUnique({
-          where: { id },
+          where: {
+            id,
+            category: {
+              restaurantId,
+              restaurant: restaurantManagementWhere(userId),
+            },
+          },
           select: { category: { select: { restaurantId: true } } },
         });
         if (!item) {
@@ -81,7 +93,7 @@ export class MenuBulkEditService {
           });
           continue;
         }
-        await this.menuCrud.updateItem(id, fields, userId);
+        await this.menuCrud.updateItem(id, fields, userId, restaurantId);
         result.updated.push(id);
       } catch (error: any) {
         result.failed.push({
