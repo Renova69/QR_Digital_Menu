@@ -476,6 +476,7 @@ describe('Menu resource authorization over HTTP', () => {
       'item-1',
       { price: 9 },
       'owner',
+      'r1',
     );
   });
 

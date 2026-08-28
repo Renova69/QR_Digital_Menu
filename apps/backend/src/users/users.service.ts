@@ -12,6 +12,7 @@ import { FeatureService } from '../subscription/feature.service';
 import { EventsGateway } from '../events/events.gateway';
 import { isPinRole } from './staff-roles';
 import { User, Prisma } from '@prisma/client';
+import { scopedWrite } from '../common/prisma/scoped-write';
 
 @Injectable()
 export class UsersService {
@@ -301,49 +302,51 @@ export class UsersService {
       ? await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10)
       : undefined;
     const updated = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.user.update({
-        where: { id: userId },
-        data: {
-          ...(data.role ? { role: data.role as any } : {}),
-          ...(accessChanged ? { sessionVersion: { increment: 1 } } : {}),
-          ...(pinCredential
-            ? {
-                pinHash: pinCredential.pinHash,
-                pinAttempts: 0,
-                pinLockedUntil: null,
-                password: invalidatedPassword,
-                passwordChangedAt: revokedAt,
-              }
-            : {}),
-          ...(clearPin
-            ? {
-                pinHash: null,
-                pinAttempts: 0,
-                pinLockedUntil: null,
-                passwordChangedAt: revokedAt,
-              }
-            : {}),
-          ...(typeof data.isActive === 'boolean'
-            ? {
-                isActive: data.isActive,
-                disabledAt: data.isActive ? null : revokedAt,
-                disabledReason: data.isActive
-                  ? null
-                  : 'Disabled by staff manager',
-              }
-            : {}),
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          restaurantId: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
+      const result = await scopedWrite(
+        tx.user.update({
+          where: { id: userId, restaurantId, role: user.role },
+          data: {
+            ...(data.role ? { role: data.role as any } : {}),
+            ...(accessChanged ? { sessionVersion: { increment: 1 } } : {}),
+            ...(pinCredential
+              ? {
+                  pinHash: pinCredential.pinHash,
+                  pinAttempts: 0,
+                  pinLockedUntil: null,
+                  password: invalidatedPassword,
+                  passwordChangedAt: revokedAt,
+                }
+              : {}),
+            ...(clearPin
+              ? {
+                  pinHash: null,
+                  pinAttempts: 0,
+                  pinLockedUntil: null,
+                  passwordChangedAt: revokedAt,
+                }
+              : {}),
+            ...(typeof data.isActive === 'boolean'
+              ? {
+                  isActive: data.isActive,
+                  disabledAt: data.isActive ? null : revokedAt,
+                  disabledReason: data.isActive
+                    ? null
+                    : 'Disabled by staff manager',
+                }
+              : {}),
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            restaurantId: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+      );
       if (accessChanged) {
         await tx.userSession.updateMany({
           where: { userId, revokedAt: null },
@@ -398,16 +401,18 @@ export class UsersService {
     );
     const pinHash = await bcrypt.hash(rawPin, 10);
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          pinHash,
-          pinAttempts: 0,
-          pinLockedUntil: null,
-          passwordChangedAt: new Date(),
-          sessionVersion: { increment: 1 },
-        },
-      });
+      await scopedWrite(
+        tx.user.update({
+          where: { id: userId, restaurantId, role: user.role },
+          data: {
+            pinHash,
+            pinAttempts: 0,
+            pinLockedUntil: null,
+            passwordChangedAt: new Date(),
+            sessionVersion: { increment: 1 },
+          },
+        }),
+      );
 
       await tx.userSession.updateMany({
         where: { userId, revokedAt: null },
@@ -457,18 +462,24 @@ export class UsersService {
     const removedAt = new Date();
     const result = await this.prisma.$transaction(async (tx) => {
       const updatedOrDeleted = hardDelete
-        ? await tx.user.delete({ where: { id: userId } })
-        : await tx.user.update({
-            where: { id: userId },
-            data: {
-              isActive: false,
-              disabledAt: removedAt,
-              disabledReason: 'Removed by staff manager',
-              pinAttempts: 0,
-              pinLockedUntil: null,
-              sessionVersion: { increment: 1 },
-            },
-          });
+        ? await scopedWrite(
+            tx.user.delete({
+              where: { id: userId, restaurantId, role: user.role },
+            }),
+          )
+        : await scopedWrite(
+            tx.user.update({
+              where: { id: userId, restaurantId, role: user.role },
+              data: {
+                isActive: false,
+                disabledAt: removedAt,
+                disabledReason: 'Removed by staff manager',
+                pinAttempts: 0,
+                pinLockedUntil: null,
+                sessionVersion: { increment: 1 },
+              },
+            }),
+          );
 
       if (!hardDelete) {
         await tx.userSession.updateMany({

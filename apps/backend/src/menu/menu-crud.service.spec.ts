@@ -15,6 +15,17 @@ import { FeatureService } from '../subscription/feature.service';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
 import { WeatherUpsellService } from './upsell/weather-upsell.service';
+import { Prisma } from '@prisma/client';
+
+const managementScope = {
+  OR: [
+    { ownerId: 'user-1' },
+    { staffMembers: { some: { id: 'user-1', role: 'MANAGER' } } },
+  ],
+  isActive: true,
+  deletedAt: null,
+};
+const categoryScope = { restaurantId: 'rest-1', restaurant: managementScope };
 
 jest.mock('@sentry/nestjs', () => ({
   captureException: jest.fn(),
@@ -181,7 +192,9 @@ describe('MenuCrudService', () => {
     mockWeatherUpsell.getContexts.mockResolvedValue(new Set());
     mockPrisma.menuTranslationState.findMany.mockResolvedValue([]);
     mockPrisma.restaurant.count.mockResolvedValue(0);
-    mockPrisma.$transaction.mockResolvedValue([]);
+    mockPrisma.$transaction.mockImplementation((queries: Promise<unknown>[]) =>
+      Promise.all(queries),
+    );
   });
 
   // в”Ђв”Ђ getPublicMenu в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -1379,7 +1392,10 @@ describe('MenuCrudService', () => {
 
       expect(mockPrisma.menuCategory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ restaurantId: 'rest-1', order: 2 }),
+          data: expect.objectContaining({
+            restaurant: { connect: { id: 'rest-1', ...managementScope } },
+            order: 2,
+          }),
         }),
       );
       expect(result.id).toBe('cat-1');
@@ -1679,7 +1695,7 @@ describe('MenuCrudService', () => {
         { id: 'cat-1' },
         { id: 'cat-2' },
       ]);
-      mockPrisma.menuCategory.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.menuCategory.update.mockResolvedValue(makeCategory());
 
       const result = await service.updateCategoryOrder(
         'rest-1',
@@ -1714,7 +1730,7 @@ describe('MenuCrudService', () => {
       await service.removeCategory('cat-1', 'user-1');
 
       expect(mockPrisma.menuCategory.delete).toHaveBeenCalledWith({
-        where: { id: 'cat-1' },
+        where: { id: 'cat-1', ...categoryScope },
       });
     });
   });
@@ -1800,7 +1816,10 @@ describe('MenuCrudService', () => {
 
       expect(mockPrisma.menuItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ categoryId: 'cat-1', order: 3 }),
+          data: expect.objectContaining({
+            category: { connect: { id: 'cat-1', ...categoryScope } },
+            order: 3,
+          }),
         }),
       );
       expect(result.id).toBe('item-1');
@@ -2077,6 +2096,7 @@ describe('MenuCrudService', () => {
       );
       expect(mockPrisma.menuTranslationState.findMany).toHaveBeenCalledWith({
         where: {
+          restaurantId: 'rest-1',
           entityType: 'ITEM',
           entityId: 'item-1',
           field: 'DESCRIPTION',
@@ -2126,7 +2146,7 @@ describe('MenuCrudService', () => {
       });
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuItem.findMany.mockResolvedValue([{ id: 'item-1' }]);
-      mockPrisma.menuItem.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.menuItem.update.mockResolvedValue(makeItem());
 
       const result = await service.updateItemOrder(
         'cat-1',
@@ -2161,12 +2181,12 @@ describe('MenuCrudService', () => {
 
       expect(mockPrisma.menuItem.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'item-2' },
+          where: { id: 'item-2', category: categoryScope },
           data: { relatedItemIds: ['item-3'] },
         }),
       );
       expect(mockPrisma.menuItem.delete).toHaveBeenCalledWith({
-        where: { id: 'item-1' },
+        where: { id: 'item-1', category: categoryScope },
       });
     });
 
@@ -2180,7 +2200,7 @@ describe('MenuCrudService', () => {
 
       expect(mockPrisma.menuItem.update).not.toHaveBeenCalled();
       expect(mockPrisma.menuItem.delete).toHaveBeenCalledWith({
-        where: { id: 'item-1' },
+        where: { id: 'item-1', category: categoryScope },
       });
     });
   });
@@ -2397,7 +2417,7 @@ describe('MenuCrudService', () => {
       await service.removeMenuOption('opt-1', 'user-1');
 
       expect(mockPrisma.menuOption.delete).toHaveBeenCalledWith({
-        where: { id: 'opt-1' },
+        where: { id: 'opt-1', menuItem: { category: categoryScope } },
       });
     });
   });
@@ -2598,6 +2618,240 @@ describe('MenuCrudService', () => {
       // tier and features stay: the public menu gates rendering on them.
       expect(result.restaurant.tier).toBeDefined();
       expect(result.restaurant.features).toBeDefined();
+    });
+  });
+
+  describe('P3-4 query scope', () => {
+    const membership = {
+      OR: [
+        { ownerId: 'user-1' },
+        { staffMembers: { some: { id: 'user-1', role: 'MANAGER' } } },
+      ],
+    };
+    const restaurant = { ...membership, isActive: true, deletedAt: null };
+    const category = { restaurantId: 'rest-1', restaurant };
+
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        targetLanguages: [],
+      });
+      mockPrisma.menuCategory.findUnique.mockResolvedValue(makeCategory());
+      mockPrisma.menuItem.findUnique.mockResolvedValue(makeItem());
+      mockPrisma.menuOption.findUnique.mockResolvedValue({
+        id: 'opt-1',
+        menuItem: { category: { restaurantId: 'rest-1' } },
+      });
+      mockPrisma.menuItem.findMany.mockResolvedValue([]);
+      mockPrisma.menuCategory.update.mockResolvedValue(makeCategory());
+      mockPrisma.menuCategory.delete.mockResolvedValue(makeCategory());
+      mockPrisma.menuItem.update.mockResolvedValue(makeItem());
+      mockPrisma.menuItem.delete.mockResolvedValue(makeItem());
+      mockPrisma.menuOption.update.mockResolvedValue({ id: 'opt-1' });
+      mockPrisma.menuOption.delete.mockResolvedValue({ id: 'opt-1' });
+    });
+
+    it.each([
+      'category',
+      'category-image',
+      'item',
+      'item-image',
+      'option',
+    ] as const)(
+      'scopes the %s edit by captured tenant and current management access',
+      async (operation) => {
+        if (operation === 'category')
+          await service.updateCategory('cat-1', { name: 'New' }, 'user-1');
+        if (operation === 'category-image')
+          await service.updateCategoryImage(
+            'cat-1',
+            'new-image',
+            'new-thumb',
+            'user-1',
+          );
+        if (operation === 'item')
+          await service.updateItem('item-1', { price: 7 }, 'user-1');
+        if (operation === 'item-image')
+          await service.updateItemImage(
+            'item-1',
+            'new-image',
+            'new-thumb',
+            'user-1',
+          );
+        if (operation === 'option')
+          await service.updateMenuOption('opt-1', { name: 'New' }, 'user-1');
+        const mutation = operation.startsWith('category')
+          ? mockPrisma.menuCategory.update
+          : operation === 'option'
+            ? mockPrisma.menuOption.update
+            : mockPrisma.menuItem.update;
+        const where = operation.startsWith('category')
+          ? { id: 'cat-1', restaurantId: 'rest-1', restaurant }
+          : operation === 'option'
+            ? { id: 'opt-1', menuItem: { category } }
+            : { id: 'item-1', category };
+        expect(mutation).toHaveBeenCalledWith(
+          expect.objectContaining({ where }),
+        );
+      },
+    );
+
+    it.each(['category', 'item', 'option'] as const)(
+      'scopes %s deletion and does no image cleanup when the row no longer matches',
+      async (operation) => {
+        const error = new Prisma.PrismaClientKnownRequestError(
+          'Scoped row missing',
+          {
+            code: 'P2025',
+            clientVersion: '6',
+          },
+        );
+        const mutation =
+          operation === 'category'
+            ? mockPrisma.menuCategory.delete
+            : operation === 'item'
+              ? mockPrisma.menuItem.delete
+              : mockPrisma.menuOption.delete;
+        mutation.mockRejectedValueOnce(error);
+        const result =
+          operation === 'category'
+            ? service.removeCategory('cat-1', 'user-1')
+            : operation === 'item'
+              ? service.removeItem('item-1', 'user-1')
+              : service.removeMenuOption('opt-1', 'user-1');
+        await expect(result).rejects.toThrow(NotFoundException);
+        const where =
+          operation === 'category'
+            ? { id: 'cat-1', restaurantId: 'rest-1', restaurant }
+            : operation === 'item'
+              ? { id: 'item-1', category }
+              : { id: 'opt-1', menuItem: { category } };
+        expect(mutation).toHaveBeenCalledWith({ where });
+        expect(mockStorage.delete).not.toHaveBeenCalled();
+        expect(mockStorage.deleteExact).not.toHaveBeenCalled();
+      },
+    );
+
+    it('retains the bulk-edit tenant in the second lookup, without a fallback', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateItem('item-1', { price: 7 }, 'user-1', 'rest-1'),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.menuItem.findUnique).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.menuItem.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'item-1',
+            category: { restaurantId: 'rest-1', restaurant: membership },
+          },
+        }),
+      );
+      expect(mockPrisma.menuItem.update).not.toHaveBeenCalled();
+      expect(mockEvents.emitPublicMenuItemAvailability).not.toHaveBeenCalled();
+    });
+
+    it.each(['category', 'item'] as const)(
+      'rejects the %s reorder transaction when one scoped row no longer matches',
+      async (operation) => {
+        const isCategory = operation === 'category';
+        const ids = isCategory ? ['cat-1', 'cat-2'] : ['item-1', 'item-2'];
+        const model = isCategory
+          ? mockPrisma.menuCategory
+          : mockPrisma.menuItem;
+        model.findMany.mockResolvedValueOnce(ids.map((id) => ({ id })));
+        model.update
+          .mockResolvedValueOnce({ id: ids[0] })
+          .mockRejectedValueOnce(
+            new Prisma.PrismaClientKnownRequestError('Scoped row missing', {
+              code: 'P2025',
+              clientVersion: '6',
+            }),
+          );
+
+        await expect(
+          isCategory
+            ? service.updateCategoryOrder('rest-1', ids, 'user-1')
+            : service.updateItemOrder('cat-1', ids, 'user-1'),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+        ids.forEach((id, order) => {
+          expect(model.update).toHaveBeenCalledWith({
+            where: isCategory
+              ? { id, restaurantId: 'rest-1', restaurant }
+              : { id, categoryId: 'cat-1', category },
+            data: { order },
+          });
+        });
+        expect(model.updateMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it('pins a category print-station connection to the captured tenant', async () => {
+      jest
+        .spyOn(service['featureService'], 'restaurantHasFeature')
+        .mockReturnValue(true);
+      mockPrisma.printStation.findUnique.mockResolvedValueOnce({
+        restaurantId: 'rest-1',
+      });
+      await service.updateCategory(
+        'cat-1',
+        { printStationId: 'station-1' },
+        'user-1',
+      );
+      expect(mockPrisma.menuCategory.update).toHaveBeenCalledWith({
+        where: { id: 'cat-1', restaurantId: 'rest-1', restaurant },
+        data: {
+          availabilityType: 'ALWAYS',
+          startTime: null,
+          endTime: null,
+          daysOfWeek: [],
+          printStation: {
+            connect: { id: 'station-1', restaurantId: 'rest-1' },
+          },
+        },
+      });
+    });
+
+    it('preserves explicit print-station removal without a connection lookup', async () => {
+      jest
+        .spyOn(service['featureService'], 'restaurantHasFeature')
+        .mockReturnValue(true);
+      await service.updateCategory('cat-1', { printStationId: null }, 'user-1');
+      expect(mockPrisma.menuCategory.update).toHaveBeenCalledWith({
+        where: { id: 'cat-1', restaurantId: 'rest-1', restaurant },
+        data: {
+          availabilityType: 'ALWAYS',
+          startTime: null,
+          endTime: null,
+          daysOfWeek: [],
+          printStation: { disconnect: true },
+        },
+      });
+      expect(mockPrisma.printStation.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('pins the option creation connection to the captured tenant', async () => {
+      mockPrisma.menuOption.create.mockResolvedValueOnce({ id: 'opt-1' });
+      await service.createMenuOption(
+        'item-1',
+        {
+          name: 'Size',
+          type: 'VARIATION',
+          choices: JSON.stringify([{ name: 'Large', priceModifier: 1 }]),
+        },
+        'user-1',
+      );
+      expect(mockPrisma.menuOption.create).toHaveBeenCalledWith({
+        data: {
+          name: 'Size',
+          type: 'VARIATION',
+          choices: [{ name: 'Large', priceModifier: 1 }],
+          menuItem: { connect: { id: 'item-1', category } },
+        },
+      });
     });
   });
 });

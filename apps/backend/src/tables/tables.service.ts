@@ -12,6 +12,8 @@ import { CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import { cronMonitor } from '../common/cron-monitor';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { restaurantManagementWhere } from '../auth/restaurant-management-scope';
+import { scopedWrite } from '../common/prisma/scoped-write';
 import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
@@ -103,7 +105,7 @@ export class TablesService {
     const normalizedName = createTableDto.name.trim().replace(/\s+/g, ' ');
     const type = this.normalizeServicePointType(createTableDto.type);
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ...restaurantManagementWhere(userId) },
     });
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
@@ -136,7 +138,7 @@ export class TablesService {
       // a table link to another tenant's zone and turning a bad/deleted id into
       // an uncaught Prisma FK (P2003) 500.
       const zone = await this.prisma.tableZone.findUnique({
-        where: { id: zoneId },
+        where: { id: zoneId, restaurantId },
       });
       if (!zone || zone.restaurantId !== restaurantId) {
         throw new NotFoundException('Zone not found');
@@ -149,28 +151,39 @@ export class TablesService {
       zoneId = defaultZone?.id ?? null;
     }
 
-    const table = await this.prisma.restaurantTable.create({
-      data: {
-        name: normalizedName,
-        restaurantId,
-        zoneId,
-        type,
-        // P0-2: physical tables now get a token too. Previously only service
-        // points did, which left the table's *name* as its only credential —
-        // and a name is guessable. Issuing it at creation means no table is
-        // ever born on the legacy path.
-        publicToken: this.createPublicToken(),
-        isActive: createTableDto.isActive ?? true,
-        fulfillmentModes: this.normalizeFulfillmentModes(
+    const table = await scopedWrite(
+      this.prisma.restaurantTable.create({
+        data: {
+          name: normalizedName,
+          restaurant: {
+            connect: {
+              id: restaurantId,
+              ...restaurantManagementWhere(userId),
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+          ...(zoneId === null
+            ? {}
+            : { zone: { connect: { id: zoneId, restaurantId } } }),
           type,
-          createTableDto.fulfillmentModes,
-        ),
-        paymentMethods: this.normalizePaymentMethods(
-          type,
-          createTableDto.paymentMethods,
-        ),
-      },
-    });
+          // P0-2: physical tables now get a token too. Previously only service
+          // points did, which left the table's *name* as its only credential —
+          // and a name is guessable. Issuing it at creation means no table is
+          // ever born on the legacy path.
+          publicToken: this.createPublicToken(),
+          isActive: createTableDto.isActive ?? true,
+          fulfillmentModes: this.normalizeFulfillmentModes(
+            type,
+            createTableDto.fulfillmentModes,
+          ),
+          paymentMethods: this.normalizePaymentMethods(
+            type,
+            createTableDto.paymentMethods,
+          ),
+        },
+      }),
+    );
     this.events.emitToRestaurant(restaurantId, 'table:created', {
       tableIds: [table.id],
     });
@@ -184,7 +197,7 @@ export class TablesService {
     }
 
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ...restaurantManagementWhere(userId) },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     assertRestaurantActive(restaurant);
@@ -205,20 +218,31 @@ export class TablesService {
       return Number.isFinite(n) ? Math.max(max, n) : max;
     }, 0);
 
-    const tables = await this.prisma.$transaction(
-      Array.from({ length: count }, (_, i) =>
-        this.prisma.restaurantTable.create({
-          data: {
-            name: `Table ${maxN + i + 1}`,
-            restaurantId,
-            zoneId: defaultZone?.id ?? null,
-            type: 'TABLE',
-            // P0-2: bulk-created tables need a QR token like any other.
-            publicToken: this.createPublicToken(),
-            fulfillmentModes: DEFAULT_FULFILLMENT_MODES.TABLE,
-            paymentMethods: DEFAULT_PAYMENT_METHODS.TABLE,
-          },
-        }),
+    const tables = await scopedWrite(
+      this.prisma.$transaction(
+        Array.from({ length: count }, (_, i) =>
+          this.prisma.restaurantTable.create({
+            data: {
+              name: `Table ${maxN + i + 1}`,
+              restaurant: {
+                connect: {
+                  id: restaurantId,
+                  ...restaurantManagementWhere(userId),
+                  isActive: true,
+                  deletedAt: null,
+                },
+              },
+              ...(defaultZone
+                ? { zone: { connect: { id: defaultZone.id, restaurantId } } }
+                : {}),
+              type: 'TABLE',
+              // P0-2: bulk-created tables need a QR token like any other.
+              publicToken: this.createPublicToken(),
+              fulfillmentModes: DEFAULT_FULFILLMENT_MODES.TABLE,
+              paymentMethods: DEFAULT_PAYMENT_METHODS.TABLE,
+            },
+          }),
+        ),
       ),
     );
     this.events.emitToRestaurant(restaurantId, 'table:created', {
@@ -230,7 +254,7 @@ export class TablesService {
 
   async update(id: string, dto: UpdateTableDto, userId: string) {
     const table = await this.prisma.restaurantTable.findUnique({
-      where: { id },
+      where: { id, restaurant: restaurantManagementWhere(userId) },
       include: { restaurant: true },
     });
     if (!table) throw new NotFoundException('Table not found');
@@ -250,7 +274,7 @@ export class TablesService {
       }
       if (dto.zoneId !== null) {
         const zone = await this.prisma.tableZone.findUnique({
-          where: { id: dto.zoneId },
+          where: { id: dto.zoneId, restaurantId: table.restaurantId },
         });
         if (!zone || zone.restaurantId !== table.restaurantId)
           throw new NotFoundException('Zone not found');
@@ -288,10 +312,36 @@ export class TablesService {
       );
     }
 
-    const updated = await this.prisma.restaurantTable.update({
-      where: { id },
-      data,
-    });
+    const { zoneId, ...fields } = data;
+    const updated = await scopedWrite(
+      this.prisma.restaurantTable.update({
+        where: {
+          id,
+          restaurantId: table.restaurantId,
+          restaurant: {
+            ...restaurantManagementWhere(userId),
+            isActive: true,
+            deletedAt: null,
+          },
+        },
+        data: {
+          ...fields,
+          ...(zoneId === undefined
+            ? {}
+            : {
+                zone:
+                  zoneId === null
+                    ? { disconnect: true }
+                    : {
+                        connect: {
+                          id: zoneId,
+                          restaurantId: table.restaurantId,
+                        },
+                      },
+              }),
+        },
+      }),
+    );
     this.events.emitToRestaurant(table.restaurantId, 'table:updated', {
       tableId: id,
     });
@@ -402,7 +452,7 @@ export class TablesService {
 
   async rotatePublicToken(id: string, userId: string) {
     const table = await this.prisma.restaurantTable.findUnique({
-      where: { id },
+      where: { id, restaurant: restaurantManagementWhere(userId) },
       include: { restaurant: true },
     });
     if (!table) throw new NotFoundException('Service point not found');
@@ -416,10 +466,20 @@ export class TablesService {
       throw new BadRequestException('Table QR links use the table name');
     }
     this.assertServicePointsEnabled(table.restaurant);
-    return this.prisma.restaurantTable.update({
-      where: { id },
-      data: { publicToken: this.createPublicToken() },
-    });
+    return scopedWrite(
+      this.prisma.restaurantTable.update({
+        where: {
+          id,
+          restaurantId: table.restaurantId,
+          restaurant: {
+            ...restaurantManagementWhere(userId),
+            isActive: true,
+            deletedAt: null,
+          },
+        },
+        data: { publicToken: this.createPublicToken() },
+      }),
+    );
   }
 
   /** Owner OR an assigned MANAGER may manage this restaurant's tables. Mirrors
@@ -656,7 +716,7 @@ export class TablesService {
 
   async remove(id: string, userId: string) {
     const table = await this.prisma.restaurantTable.findUnique({
-      where: { id },
+      where: { id, restaurant: restaurantManagementWhere(userId) },
       include: { restaurant: true },
     });
     if (!table) {
@@ -672,7 +732,11 @@ export class TablesService {
       this.assertServicePointsEnabled(table.restaurant);
     }
     const activeSession = await this.prisma.tableSession.findFirst({
-      where: { tableId: id, status: { in: ['OPEN', 'PAID'] } },
+      where: {
+        tableId: id,
+        restaurantId: table.restaurantId,
+        status: { in: ['OPEN', 'PAID'] },
+      },
     });
     if (activeSession) {
       throw new ConflictException(
@@ -683,9 +747,19 @@ export class TablesService {
     // and CashPaymentRequest table pointers are SetNull on delete, so removing
     // a table with only closed-out sessions preserves payment history instead
     // of blocking the removal outright.
-    const deleted = await this.prisma.restaurantTable.delete({
-      where: { id },
-    });
+    const deleted = await scopedWrite(
+      this.prisma.restaurantTable.delete({
+        where: {
+          id,
+          restaurantId: table.restaurantId,
+          restaurant: {
+            ...restaurantManagementWhere(userId),
+            isActive: true,
+            deletedAt: null,
+          },
+        },
+      }),
+    );
     this.events.emitToRestaurant(deleted.restaurantId, 'table:deleted', {
       tableId: id,
     });
