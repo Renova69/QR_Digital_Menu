@@ -23,6 +23,7 @@ import { RestaurantsService } from './restaurants.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { StorageService } from '../storage/storage.service';
 import { DeviceEnrollmentService } from './device-enrollment.service';
 import { PinSecurityService } from '../auth/pin-security.service';
@@ -31,7 +32,6 @@ import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 
-@UseGuards(JwtAuthGuard)
 @Controller('restaurants')
 export class RestaurantsController {
   private readonly logger = new Logger(RestaurantsController.name);
@@ -43,46 +43,67 @@ export class RestaurantsController {
     private readonly pinSecurity: PinSecurityService,
   ) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(
     // Validation + whitelist handled by the global ValidationPipe (main.ts).
     @Body() createRestaurantDto: CreateRestaurantDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.restaurantsService.create(createRestaurantDto, req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req: any) {
+  findAll(@Request() req: { user: { id: string } }) {
     return this.restaurantsService.findAll(req.user.id);
   }
 
+  @RequireRestaurantAccess({
+    policy: 'restaurant-read',
+    source: 'params',
+    key: 'id',
+  })
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: any) {
+  findOne(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.restaurantsService.findOneOrStaff(id, req.user.id);
   }
 
+  @RequireRestaurantAccess({
+    policy: 'restaurant-management',
+    source: 'params',
+    key: 'id',
+  })
   @Patch(':id')
   update(
     @Param('id') id: string,
     // Validation + whitelist handled by the global ValidationPipe (main.ts).
     @Body() updateRestaurantDto: UpdateRestaurantDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.restaurantsService.update(id, updateRestaurantDto, req.user.id);
   }
 
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'id',
+  })
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
+  remove(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.restaurantsService.remove(id, req.user.id);
   }
 
-  // Per-route throttle: each call buffers up to 5MB in memory before the
-  // ownership check, so the global 100/60s is too loose for a valid-JWT abuser.
-  // 20/60s caps the blast radius without blocking legitimate branding edits (#7).
+  // The access and feature guards run before Multer buffers the file. Keep
+  // the tighter throttle and 5MB cap for authorized branding uploads too.
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @RequireFeature(FeatureFlag.BRANDING_CUSTOM)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Post(':restaurantId/logo')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -100,7 +121,7 @@ export class RestaurantsController {
   async uploadLogo(
     @Param('restaurantId') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');
@@ -143,7 +164,7 @@ export class RestaurantsController {
       }
 
       return { logoUrl: url, logoThumbnailUrl: thumbnailUrl };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Preserve a real 403/404 from the ownership check rather than
       // flattening it to 400, and never echo an internal storage or database
       // message back to the caller.
@@ -158,13 +179,18 @@ export class RestaurantsController {
   }
 
   @RequireFeature(FeatureFlag.POS)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'device-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Post(':restaurantId/device-enrollment')
   createDeviceEnrollment(
     @Param('restaurantId') id: string,
     @Body(new ValidationPipe({ whitelist: true }))
     _dto: CreateDeviceEnrollmentDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     // Build the enrollment URL from server-side config only. The request
     // `Origin` header is attacker-controlled (any authenticated caller can set
@@ -179,11 +205,16 @@ export class RestaurantsController {
   }
 
   @RequireFeature(FeatureFlag.POS)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'device-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get(':restaurantId/device-enrollments')
   listDeviceEnrollments(
     @Param('restaurantId') id: string,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.deviceEnrollment.listEnrollments(id, req.user.id);
   }
@@ -196,11 +227,16 @@ export class RestaurantsController {
    * restaurant may read about another.
    */
   @RequireFeature(FeatureFlag.POS)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'device-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get(':restaurantId/pin-security-alerts')
   async listPinSecurityAlerts(
     @Param('restaurantId') id: string,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     // Reuses the manager check the enrolment list performs, rather than
     // trusting the route parameter.
@@ -212,12 +248,17 @@ export class RestaurantsController {
    *  PIN login. The device will be rejected at next login attempt.
    *  DELETE /api/restaurants/:restaurantId/device-enrollments/:tokenId */
   @RequireFeature(FeatureFlag.POS)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'device-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Delete(':restaurantId/device-enrollments/:tokenId')
   revokeDeviceEnrollment(
     @Param('restaurantId') restaurantId: string,
     @Param('tokenId') tokenId: string,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.deviceEnrollment.revokeEnrollment(
       tokenId,
@@ -231,28 +272,49 @@ export class RestaurantsController {
   // MenuTranslationWorkerService does the actual translation asynchronously.
   @Throttle({ default: { limit: 2, ttl: 60000 } })
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Post(':restaurantId/translate-all')
   @HttpCode(202)
-  translateAll(@Param('restaurantId') id: string, @Request() req: any) {
+  translateAll(
+    @Param('restaurantId') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.restaurantsService.enqueueTranslateAll(id, req.user.id);
   }
 
   // Poll fallback for the dashboard progress bar (socket-only had no
   // timeout/reconnect story) and the outdated/failed count badge.
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get(':restaurantId/translation-status')
-  getTranslationStatus(@Param('restaurantId') id: string, @Request() req: any) {
+  getTranslationStatus(
+    @Param('restaurantId') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.restaurantsService.getTranslationStatus(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Post(':restaurantId/stripe/connect')
   generateConnectLink(
     @Param('restaurantId') id: string,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Body('returnUrl') returnUrl?: string,
     @Body('refreshUrl') refreshUrl?: string,
   ) {
@@ -267,23 +329,46 @@ export class RestaurantsController {
   /** Return the restaurant logo as a base64 data URL so the QR PNG download
    *  can embed it inline without cross-origin canvas taint (Issue 18). */
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-management',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get(':restaurantId/logo-base64')
-  getLogoBase64(@Param('restaurantId') id: string, @Request() req: any) {
+  getLogoBase64(
+    @Param('restaurantId') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.restaurantsService.getLogoBase64(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get(':restaurantId/stripe/status')
-  getStripeStatus(@Param('restaurantId') id: string, @Request() req: any) {
+  getStripeStatus(
+    @Param('restaurantId') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.restaurantsService.getStripeStatus(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Post(':restaurantId/stripe/disconnect')
-  disconnectStripe(@Param('restaurantId') id: string, @Request() req: any) {
+  disconnectStripe(
+    @Param('restaurantId') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.restaurantsService.disconnectStripe(id, req.user.id);
   }
 }

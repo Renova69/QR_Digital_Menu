@@ -104,10 +104,16 @@ export class RestaurantAccessGuard implements CanActivate {
           select: RESTAURANT_SELECT,
         });
 
-    // Preserve status policy: dashboard/printing reject retired restaurants;
-    // staff recovery and scan reporting do not acquire a new suspension gate.
-    const hidesDeleted =
-      policy === 'dashboard' || policy === 'print-management';
+    // Match the underlying contracts: restaurant reads/settings/billing hide
+    // deleted rows, but only selected features impose a suspension gate.
+    // Device recovery, import and audit retain their separate status behavior.
+    const hidesDeleted = [
+      'dashboard',
+      'print-management',
+      'restaurant-read',
+      'restaurant-management',
+      'restaurant-owner',
+    ].includes(policy);
     if (!restaurant || (hidesDeleted && restaurant.deletedAt)) {
       if (policy === 'dashboard')
         throw new ForbiddenException('Restaurant not found');
@@ -127,9 +133,18 @@ export class RestaurantAccessGuard implements CanActivate {
     const allowed =
       isOwner ||
       (isAssigned &&
-        (((policy === 'dashboard' || policy === 'menu-management') &&
+        (([
+          'dashboard',
+          'menu-management',
+          'restaurant-management',
+          'device-management',
+        ].includes(policy) &&
           role === 'MANAGER') ||
           policy === 'staff-management' ||
+          // These existing read contracts allow any assigned account, not just
+          // editing roles. Do not demote their access to owner/manager-only.
+          policy === 'restaurant-read' ||
+          policy === 'menu-audit' ||
           (policy === 'scan-stats' &&
             ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'].includes(role))));
     // There is intentionally no SUPER_ADMIN bypass. FeatureGuard's tier bypass

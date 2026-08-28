@@ -7,13 +7,11 @@ import {
   UseGuards,
   Request,
   ValidationPipe,
-  Logger,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { MenuImportService } from './menu-import.service';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { ApiKeyGuard } from './guards/api-key.guard';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 
 @Controller('restaurants/:id/menu')
 export class MenuImportController {
@@ -38,12 +36,16 @@ export class MenuImportController {
    * POST /api/restaurants/:id/menu/import/confirm
    */
   @Post('import/confirm')
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'menu-import',
+    source: 'params',
+    key: 'id',
+  })
   importConfirm(
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     dto: ImportMenuDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.menuImportService
       .checkOwnership(id, req.user.id)
@@ -56,8 +58,12 @@ export class MenuImportController {
    * GET /api/restaurants/:id/menu/import/api-key
    */
   @Get('import/api-key')
-  @UseGuards(JwtAuthGuard)
-  getApiKey(@Param('id') id: string, @Request() req: any) {
+  @RequireRestaurantAccess({
+    policy: 'menu-import',
+    source: 'params',
+    key: 'id',
+  })
+  getApiKey(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.menuImportService.getOrCreateApiKey(id, req.user.id);
   }
 
@@ -66,8 +72,15 @@ export class MenuImportController {
    * POST /api/restaurants/:id/menu/import/api-key/regenerate
    */
   @Post('import/api-key/regenerate')
-  @UseGuards(JwtAuthGuard)
-  regenerateApiKey(@Param('id') id: string, @Request() req: any) {
+  @RequireRestaurantAccess({
+    policy: 'menu-import',
+    source: 'params',
+    key: 'id',
+  })
+  regenerateApiKey(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.menuImportService.regenerateApiKey(id, req.user.id);
   }
 
@@ -76,8 +89,15 @@ export class MenuImportController {
    * GET /api/restaurants/:id/menu/export
    */
   @Get('export')
-  @UseGuards(JwtAuthGuard)
-  exportMenu(@Param('id') id: string, @Request() req: any) {
+  @RequireRestaurantAccess({
+    policy: 'menu-import',
+    source: 'params',
+    key: 'id',
+  })
+  exportMenu(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.menuImportService.exportMenu(id, req.user.id);
   }
 }
