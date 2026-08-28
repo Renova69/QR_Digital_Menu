@@ -105,13 +105,6 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
   },
   {
-    file: 'menu/audit.controller.ts',
-    controller: 'MenuAuditController',
-    routes: ['auditMenu'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
     file: 'menu/public-menu.controller.ts',
     controller: 'PublicMenuController',
     routes: [
@@ -129,15 +122,9 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
   {
     file: 'menu-import/menu-import.controller.ts',
     controller: 'MenuImportController',
-    routes: [
-      'importFromOcr',
-      'importConfirm',
-      'getApiKey',
-      'regenerateApiKey',
-      'exportMenu',
-    ],
+    routes: ['importFromOcr'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'OCR import uses ApiKeyGuard with a hashed per-restaurant Bearer key; dashboard JWT routes are migrated.',
   },
   {
     file: 'menu-views/menu-view.controller.ts',
@@ -265,33 +252,16 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
   {
     file: 'restaurants/restaurants.controller.ts',
     controller: 'RestaurantsController',
-    routes: [
-      'create',
-      'findAll',
-      'findOne',
-      'update',
-      'remove',
-      'uploadLogo',
-      'createDeviceEnrollment',
-      'listDeviceEnrollments',
-      'listPinSecurityAlerts',
-      'revokeDeviceEnrollment',
-      'translateAll',
-      'getTranslationStatus',
-      'generateConnectLink',
-      'getLogoBase64',
-      'getStripeStatus',
-      'disconnectStripe',
-    ],
+    routes: ['create', 'findAll'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'JWT account-scoped restaurant creation and listing; there is no caller-selected existing restaurant.',
   },
   {
     file: 'restaurants/slug/slug.controller.ts',
     controller: 'SlugController',
-    routes: ['commit', 'rename', 'release', 'aliases', 'available'],
+    routes: ['available'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'JWT-only advisory slug availability over an already-public namespace; no tenant membership required.',
   },
   {
     file: 'restaurants/slug/slug.controller.ts',

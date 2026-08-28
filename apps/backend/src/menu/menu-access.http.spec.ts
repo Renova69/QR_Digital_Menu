@@ -499,7 +499,7 @@ describe('Menu resource authorization over HTTP', () => {
     await request(app.getHttpServer()).get('/menu').expect(200);
     expect(prisma.restaurant.findUnique).not.toHaveBeenCalled();
   });
-  it("leaves the audit report's broader assigned-staff policy with its existing service", async () => {
+  it("preserves the audit report's broader assigned-staff policy", async () => {
     actor = { id: 'staff', role: 'STAFF', restaurantId: 'r1' };
     await request(app.getHttpServer()).get('/menu/audit/r1').expect(200);
     expect(audit.auditMenu).toHaveBeenCalledWith('r1', 'staff');

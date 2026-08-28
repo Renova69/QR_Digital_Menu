@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MenuAuditController } from './audit.controller';
 import { MenuAuditService } from './menu-audit.service';
+import { RestaurantAccessGuard } from '../auth/restaurant-access.guard';
 
 describe('MenuAuditController', () => {
   let controller: MenuAuditController;
@@ -14,7 +15,11 @@ describe('MenuAuditController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MenuAuditController],
       providers: [{ provide: MenuAuditService, useValue: mockAudit }],
-    }).compile();
+    })
+      // Direct dispatch only; the real guard is exercised in HTTP tests.
+      .overrideGuard(RestaurantAccessGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<MenuAuditController>(MenuAuditController);
     service = module.get<MenuAuditService>(MenuAuditService);

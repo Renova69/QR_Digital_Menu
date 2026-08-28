@@ -1,7 +1,8 @@
 # P3-3 — Declarative restaurant access
 
-Status: **PARTIAL — first 22 routes merged via PR #59 (`6a76bba4`), main CI green;
-second slice adds 19 menu-editing routes for review. Batch release pending.**
+Status: **PARTIAL — 41 routes merged via PR #59 (`6a76bba4`) and PR #60
+(`6f472e53`), both with green PR and post-merge CI; third slice adds 23 tenant-management
+routes for review (64 total). Batch release pending.**
 This is not completion of the repository-wide migration. No schema, migration,
 credential, dependency, or frontend change is involved.
 
@@ -101,9 +102,50 @@ and orphan cleanup. Bulk/reorder/translation service checks remain unchanged,
 including per-item bulk checks when one owner owns multiple restaurants.
 
 Public QR/menu routes and the JWT-only menu-index hint are untouched. The audit
-report is explicitly left for its own policy: its existing service allows the
-owner or an assigned user, not only managers, and has different status behavior.
-Menu imports are also a later slice, not silently included here.
+report and dashboard imports follow in the third slice below, with their own
+policies rather than borrowing menu editing's owner/manager contract.
+
+## Third slice: tenant management
+
+All 23 declarations use the explicit path restaurant id (`id` or `restaurantId`).
+They extend the shared guard, with no parallel ownership implementation in each
+controller. Existing service/child checks remain, including the token lookup
+scoped by both token id and restaurant id during device revocation.
+
+| Policy                | Routes | Access                                     | Existing status contract                                   |
+| --------------------- | -----: | ------------------------------------------ | ---------------------------------------------------------- |
+| restaurant-read       |      1 | Actual owner or any assigned account       | Hide deleted; no new suspension gate                       |
+| restaurant-management |      6 | Actual owner or assigned effective MANAGER | Hide deleted; existing feature guards remain where present |
+| restaurant-owner      |      7 | Actual owner only                          | Hide deleted; existing Stripe feature guards remain        |
+| device-management     |      4 | Actual owner or assigned effective MANAGER | Existing POS feature guard enforces suspension/entitlement |
+| menu-import           |      4 | Actual owner only                          | No new suspension/deletion gate                            |
+| menu-audit            |      1 | Actual owner or any assigned account       | No new suspension/deletion gate                            |
+
+The management operations cover settings, logos, translation enqueue/status and
+slug commit (QR preparation). Deletion, Stripe connect/status/disconnect, slug
+rename/release/aliases and dashboard import/key/export stay owner-only. Slug
+release still requires server-validated `CONFIRM`; device revocation still
+increments session version and evicts the socket.
+
+**Intentional hardening and ordering:** as in menu editing, effective STAFF
+cannot regain MANAGER rights through a downstream raw-role lookup. JWT runs
+once per migrated request, then tenancy, then any FeatureGuard, then the handler
+and interceptors. Unauthorized or unentitled logo uploads never reach Multer.
+Unknown restaurants now stop with 404 at access authorization, before a feature
+guard can misclassify the missing target as a plan failure. Authorized logo
+uploads retain their throttle, 5MB cap and second service ownership check.
+
+This migration does not standardize status policy. Import/audit have no existing
+status gate, and device management relies on the existing feature guard rather
+than independently filtering deleted rows. Tests explicitly cover suspended
+restaurants and inconsistent active+deleted rows. Any change to those contracts
+is separate from this authorization-placement work.
+
+Different authentication remains explicit in the inventory: restaurant create
+and list are JWT account operations; slug availability is JWT-only advisory
+over a public namespace; OCR imports retain the tenant-bound hashed API-key
+guard; device verify/status retain enrollment-token validation and atomic
+single-use enrollment. None receives a new dashboard JWT requirement.
 
 ## Coverage and remaining work
 
@@ -112,7 +154,7 @@ actual Nest route/guard metadata. It currently discovers **245 routes**. For
 migrated routes it verifies authentication before access and feature checks after
 access. Mutation fixtures prove missing policies/guards and wrong ordering fail.
 
-With both slices, **41 routes** use the guard. The other **204 routes** are
+With three slices, **64 routes** use the guard. The other **181 routes** are
 frozen, individually named in
 `restaurant-access.legacy-routes.ts`. This is an explicit rollout inventory, **not
 an authorization assertion or runtime bypass**. It includes public/token routes,
@@ -124,8 +166,8 @@ are migrated.
 
 Next P3-3 slices:
 
-1. Restaurant settings, devices, imports, menu audit, tables/zones, reservations, notifications,
-   loyalty, feedback, orders and payment management: preserve distinct owner,
+1. Tables/zones, reservations, notifications, loyalty, feedback, orders,
+   subscription and payment management: preserve distinct owner,
    staff, super-admin and token-based policies; remove each legacy entry on migration.
 2. Separate permanent public/account/admin classifications from the remaining
    tenant migration inventory, then close P3-3 only after that inventory is empty.
@@ -164,9 +206,19 @@ zero lint warnings; repository lint has zero errors / 595 existing warnings
 all 14 secret-scanner tests pass.
 Clean-install Linux CI and its disposable-database E2E job remain merge gates.
 
+Third-slice verification: **211 backend suites / 3,366 tests passed**, including
+214 new HTTP cases and 28 policy cases. Coverage: 89.17% lines / 75.42% branches.
+Type checking and Nest/SWC build pass; changed-file lint has zero warnings and
+full lint has zero errors / 573 existing warnings (cap unchanged). The tests
+exercise real FeatureGuard, ApiKeyGuard and DeviceEnrollmentService against
+in-memory I/O, including child-token scope and credential-specific routes.
+Prettier, Gitleaks 8.28.0 with CI's exact flags, the migration SQL safety gate
+and all 14 secret-scanner tests pass. No scanner exemptions or bypasses.
+Clean-install Linux CI remains the merge gate for this slice.
+
 **Deployment is deliberately batched** at the user's request (28 Aug 2026).
-PR #58/P3-2 is merged at `f4ec9a61` and PR #59 at `6a76bba4`; neither is
-backend-deployed. The last confirmed
+PR #58/P3-2 is merged at `f4ec9a61`, PR #59 at `6a76bba4` and PR #60 at
+`6f472e53`; these await backend deployment. The last confirmed
 backend deployment is P3-1 at `e7500785`. No deploy script or live database command
 is part of this implementation. Later, deploy approved merged main once through
 the existing backup/safety/canary workflow and run the accumulated release checks.
@@ -177,3 +229,6 @@ scan recording using development/demo data. P3-1/P2-10 manual checks remain open
 Also verify menu editing/translations/reordering and image upload as an owner
 and assigned manager, cross-restaurant resource denial, bulk editing isolation,
 and anonymous access through an already-printed QR.
+Also verify settings/device access for the assigned manager; owner-only Stripe,
+import-key and slug actions; device revocation/re-enrollment; and continued OCR
+API-key, enrollment-token and advisory-slug flows using demo data.

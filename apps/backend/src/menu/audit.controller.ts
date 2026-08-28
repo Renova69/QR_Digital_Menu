@@ -1,16 +1,20 @@
-import { Controller, Get, Param, Request, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Controller, Get, Param, Request } from '@nestjs/common';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { MenuAuditService } from './menu-audit.service';
 
 @Controller('menu/audit')
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-audit',
+  source: 'params',
+  key: 'restaurantId',
+})
 export class MenuAuditController {
   constructor(private readonly audit: MenuAuditService) {}
 
   @Get(':restaurantId')
   async auditMenu(
     @Param('restaurantId') restaurantId: string,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.audit.auditMenu(restaurantId, req.user.id);
   }

@@ -5,7 +5,13 @@ export type RestaurantAccessPolicy =
   | 'print-management'
   | 'staff-management'
   | 'scan-stats'
-  | 'menu-management';
+  | 'menu-management'
+  | 'restaurant-read'
+  | 'restaurant-management'
+  | 'restaurant-owner'
+  | 'device-management'
+  | 'menu-import'
+  | 'menu-audit';
 
 export type RestaurantAccessResource =
   | 'restaurant'
@@ -34,6 +40,12 @@ export function isRestaurantAccessRequirement(
       'staff-management',
       'scan-stats',
       'menu-management',
+      'restaurant-read',
+      'restaurant-management',
+      'restaurant-owner',
+      'device-management',
+      'menu-import',
+      'menu-audit',
     ].includes(requirement.policy ?? '') ||
     !['params', 'query'].includes(requirement.source ?? '') ||
     typeof requirement.key !== 'string' ||
@@ -49,6 +61,20 @@ export function isRestaurantAccessRequirement(
       )
     );
   }
+  // These management routes select a restaurant explicitly from the path;
+  // none has the printer policy's optional query/default-owner semantics.
+  if (
+    [
+      'restaurant-read',
+      'restaurant-management',
+      'restaurant-owner',
+      'device-management',
+      'menu-import',
+      'menu-audit',
+    ].includes(requirement.policy ?? '') &&
+    requirement.source !== 'params'
+  )
+    return false;
   return (
     requirement.resource === undefined || requirement.resource === 'restaurant'
   );

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../../auth/require-restaurant-access.decorator';
 import { RestaurantsService } from '../restaurants.service';
 import { ReleaseSlugDto } from './dto/release-slug.dto';
 import { UpdateSlugDto } from './dto/update-slug.dto';
@@ -20,9 +21,8 @@ interface AuthenticatedRequest {
   user: { id: string };
 }
 
-// There is no @Roles decorator anywhere in this backend. Authorization is
-// performed inside a service method that takes req.user.id and checks it.
-// Do not introduce a RolesGuard here.
+// Shared access policies run before handlers; keep the existing service checks
+// too. There is no blanket RolesGuard or grant to every management operation.
 //
 // Deliberate three-level authorization ladder on this controller — do not
 // "simplify" one rung to match its neighbours:
@@ -32,7 +32,6 @@ interface AuthenticatedRequest {
 //   - available         -> JwtAuthGuard only, no membership check (the
 //                           slug namespace is already public via /m/<slug>)
 @Controller('restaurants/:id/slug')
-@UseGuards(JwtAuthGuard)
 export class SlugController {
   constructor(
     private readonly slugs: RestaurantSlugService,
@@ -49,6 +48,11 @@ export class SlugController {
    * that restaurant into its 14-day rename cooldown. Reuses the existing
    * findOneForManagement seam rather than a third bespoke check.
    */
+  @RequireRestaurantAccess({
+    policy: 'restaurant-management',
+    source: 'params',
+    key: 'id',
+  })
   @Post('commit')
   async commit(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     await this.restaurants.findOneForManagement(id, req.user.id);
@@ -59,6 +63,11 @@ export class SlugController {
   // MANAGER seam used elsewhere (findOneForManagement) — see assertOwner's
   // doc comment. Let ConflictException/BadRequestException from renameSlug
   // propagate unwrapped.
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'id',
+  })
   @Patch()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async rename(
@@ -72,6 +81,11 @@ export class SlugController {
   }
 
   // OWNER only, and requires the server-validated CONFIRM token on the DTO.
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'id',
+  })
   @Post('release')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   async release(
@@ -85,6 +99,11 @@ export class SlugController {
   }
 
   /** OWNER-only history used by settings release controls. */
+  @RequireRestaurantAccess({
+    policy: 'restaurant-owner',
+    source: 'params',
+    key: 'id',
+  })
   @Get('aliases')
   async aliases(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     await this.slugs.assertOwner(id, req.user.id);
@@ -96,6 +115,7 @@ export class SlugController {
   }
 
   /** Advisory only — the unique index is the authority at write time. */
+  @UseGuards(JwtAuthGuard)
   @Get('available')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   async available(@Query('slug') slug: string) {
