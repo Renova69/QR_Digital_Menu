@@ -5,15 +5,19 @@ import {
   Param,
   Patch,
   Request,
-  UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { MenuBulkEditService } from './menu-bulk-edit.service';
 import { BulkUpdateItemsDto } from './dto/bulk-update-items.dto';
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'id',
+  resource: 'restaurant',
+})
 @Controller('restaurants/:id/menu')
 export class BulkItemController {
   constructor(private readonly bulkEdit: MenuBulkEditService) {}
@@ -23,7 +27,10 @@ export class BulkItemController {
    * GET /api/restaurants/:id/menu/bulk-items
    */
   @Get('bulk-items')
-  getBulkItems(@Param('id') id: string, @Request() req: any) {
+  getBulkItems(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.bulkEdit.getBulkEditItems(id, req.user.id);
   }
 
@@ -35,7 +42,7 @@ export class BulkItemController {
   updateBulkItems(
     @Param('id') id: string,
     @Body(ValidationPipe) dto: BulkUpdateItemsDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.bulkEdit.bulkUpdateItems(id, dto, req.user.id);
   }

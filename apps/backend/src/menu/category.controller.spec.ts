@@ -1,3 +1,4 @@
+import { RestaurantAccessGuard } from '../auth/restaurant-access.guard';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
@@ -21,7 +22,11 @@ describe('CategoryController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CategoryController],
       providers: [{ provide: MenuCrudService, useValue: mockCrud }],
-    }).compile();
+    })
+      // Direct-call dispatch tests; the real guard runs in menu-access.http.spec.ts.
+      .overrideGuard(RestaurantAccessGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<CategoryController>(CategoryController);
     crud = module.get<MenuCrudService>(MenuCrudService);
@@ -102,7 +107,11 @@ describe('CategoryDetailController', () => {
         { provide: MenuCrudService, useValue: mockCrud },
         { provide: StorageService, useValue: mockStorage },
       ],
-    }).compile();
+    })
+      // Direct-call dispatch tests; the real guard runs in menu-access.http.spec.ts.
+      .overrideGuard(RestaurantAccessGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<CategoryDetailController>(CategoryDetailController);
     crud = module.get<MenuCrudService>(MenuCrudService);

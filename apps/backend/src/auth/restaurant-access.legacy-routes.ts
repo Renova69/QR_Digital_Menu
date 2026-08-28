@@ -112,61 +112,6 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
   },
   {
-    file: 'menu/bulk-item.controller.ts',
-    controller: 'BulkItemController',
-    routes: ['getBulkItems', 'updateBulkItems'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
-    file: 'menu/category.controller.ts',
-    controller: 'CategoryController',
-    routes: ['create', 'findAll', 'updateOrder'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
-    file: 'menu/category.controller.ts',
-    controller: 'CategoryDetailController',
-    routes: ['update', 'remove', 'uploadImage'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
-    file: 'menu/item.controller.ts',
-    controller: 'ItemController',
-    routes: ['create', 'findAll', 'updateOrder'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
-    file: 'menu/item.controller.ts',
-    controller: 'ItemDetailController',
-    routes: [
-      'getTranslations',
-      'updateTranslation',
-      'update',
-      'remove',
-      'uploadImage',
-    ],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
-    file: 'menu/menu-option.controller.ts',
-    controller: 'MenuOptionController',
-    routes: ['create'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
-    file: 'menu/menu-option.controller.ts',
-    controller: 'MenuOptionDetailController',
-    routes: ['update', 'remove'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
     file: 'menu/public-menu.controller.ts',
     controller: 'PublicMenuController',
     routes: [

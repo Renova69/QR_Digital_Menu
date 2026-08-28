@@ -10,7 +10,9 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
 import {
+  isRestaurantAccessRequirement,
   RESTAURANT_ACCESS_KEY,
   RestaurantAccessRequirement,
   setRestaurantAccess,
@@ -49,17 +51,7 @@ export class RestaurantAccessGuard implements CanActivate {
         RESTAURANT_ACCESS_KEY,
         [context.getHandler(), context.getClass()],
       );
-    if (
-      !requirement ||
-      ![
-        'dashboard',
-        'print-management',
-        'staff-management',
-        'scan-stats',
-      ].includes(requirement.policy) ||
-      !['params', 'query'].includes(requirement.source) ||
-      !requirement.key
-    ) {
+    if (!isRestaurantAccessRequirement(requirement)) {
       // A wiring error must fail closed, never silently authorize an endpoint.
       throw new InternalServerErrorException(
         'Restaurant access policy is missing or invalid',
@@ -106,7 +98,9 @@ export class RestaurantAccessGuard implements CanActivate {
           select: RESTAURANT_SELECT,
         })
       : await this.prisma.restaurant.findUnique({
-          where: { id: value as string },
+          where: {
+            id: await this.resolveRestaurantId(requirement, value as string),
+          },
           select: RESTAURANT_SELECT,
         });
 
@@ -125,12 +119,16 @@ export class RestaurantAccessGuard implements CanActivate {
         message: 'This restaurant has been suspended',
       });
     }
+    // Menu CRUD already rejects suspension AND soft deletion, with the same
+    // localized code. Keep this policy distinct from dashboard's hidden rows.
+    if (policy === 'menu-management') assertRestaurantActive(restaurant);
     const isOwner = restaurant.ownerId === userId;
     const isAssigned = request.user?.restaurantId === restaurant.id;
     const allowed =
       isOwner ||
       (isAssigned &&
-        ((policy === 'dashboard' && role === 'MANAGER') ||
+        (((policy === 'dashboard' || policy === 'menu-management') &&
+          role === 'MANAGER') ||
           policy === 'staff-management' ||
           (policy === 'scan-stats' &&
             ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'].includes(role))));
@@ -152,5 +150,47 @@ export class RestaurantAccessGuard implements CanActivate {
       forceTier: restaurant.forceTier ?? null,
     });
     return true;
+  }
+
+  private async resolveRestaurantId(
+    requirement: RestaurantAccessRequirement,
+    id: string,
+  ): Promise<string> {
+    // The resource relationships are authoritative, never a body/query tenant
+    // id. Keep the later service/child checks: this is not a transactional lock
+    // against ownership or resource changes between authorization and a write.
+    switch (requirement.resource) {
+      case 'category': {
+        const category = await this.prisma.menuCategory.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!category) throw new NotFoundException('Category not found');
+        return category.restaurantId;
+      }
+      case 'item': {
+        const item = await this.prisma.menuItem.findUnique({
+          where: { id },
+          select: { category: { select: { restaurantId: true } } },
+        });
+        if (!item) throw new NotFoundException('Menu item not found');
+        return item.category.restaurantId;
+      }
+      case 'option': {
+        const option = await this.prisma.menuOption.findUnique({
+          where: { id },
+          select: {
+            menuItem: {
+              select: { category: { select: { restaurantId: true } } },
+            },
+          },
+        });
+        if (!option) throw new NotFoundException('Menu option not found');
+        return option.menuItem.category.restaurantId;
+      }
+      default:
+        // Metadata validation only permits undefined or 'restaurant' here.
+        return id;
+    }
   }
 }

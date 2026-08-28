@@ -3,7 +3,6 @@ import {
   Post,
   Body,
   Param,
-  UseGuards,
   Request,
   ValidationPipe,
   Patch,
@@ -11,11 +10,16 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { MenuCrudService } from './menu-crud.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'itemId',
+  resource: 'item',
+})
 @Controller('items/:itemId/options')
 export class MenuOptionController {
   constructor(private readonly crud: MenuCrudService) {}
@@ -26,13 +30,18 @@ export class MenuOptionController {
   create(
     @Param('itemId') itemId: string,
     @Body(ValidationPipe) createMenuOptionDto: CreateMenuOptionDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.createMenuOption(itemId, createMenuOptionDto, req.user.id);
   }
 }
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'menu-management',
+  source: 'params',
+  key: 'id',
+  resource: 'option',
+})
 @Controller('options')
 export class MenuOptionDetailController {
   constructor(private readonly crud: MenuCrudService) {}
@@ -43,13 +52,13 @@ export class MenuOptionDetailController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateMenuOptionDto: UpdateMenuOptionDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.crud.updateMenuOption(id, updateMenuOptionDto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
+  remove(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.crud.removeMenuOption(id, req.user.id);
   }
 }

@@ -8,8 +8,9 @@ status: all active P2 engineering work is complete, with only explicit
 pre-launch operational gates deferred. P3-1 is merged/deployed at `e7500785`;
 manual product verification remains pending. P3-2 is merged via PR #58 at
 `f4ec9a61`; backend deployment is deliberately batched with later P3 work.
-P3-3 is PARTIAL: guard foundation and 22 routes implemented, review pending;
-the remaining tenant-route migration is still open.
+P3-3 is PARTIAL: guard foundation and 22 routes merged via PR #59 at `6a76bba4`
+with green CI; another 19 menu-editing routes are implemented for review (41
+guarded routes total). The remaining tenant-route migration is still open.
 
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
@@ -373,18 +374,18 @@ completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
 ### P3 — Strategic
 
-| ID    | Task                                                                                                                                                                                                                                             | Effort |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| P3-1  | **MERGED/DEPLOYED (PR #57, `e7500785`); MANUAL VERIFICATION PENDING:** durable sessions, session inventory, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md)                                               | M      |
-| P3-2  | **MERGED (PR #58, `f4ec9a61`); BATCH DEPLOY PENDING:** shared HTTP budget, cancellation, retry-budget accounting and detached background work; [contract and verification](ops/runtime/REQUEST_BUDGETS.md)                                       | M      |
-| P3-3  | **PARTIAL; FIRST SLICE REVIEW PENDING:** declarative guard, 22 migrated routes and discovery-based coverage of 245 routes. Remaining resource/tenant controllers still need migration; [policy and inventory](ops/security/RESTAURANT_ACCESS.md) | M      |
-| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous)                                                              | M–L    |
-| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                                               | M–L    |
-| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                                          | M      |
-| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                                                   | S      |
-| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                                                   | S      |
-| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                                        | S      |
-| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                                                       | S–M    |
+| ID    | Task                                                                                                                                                                                                                                                                     | Effort |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| P3-1  | **MERGED/DEPLOYED (PR #57, `e7500785`); MANUAL VERIFICATION PENDING:** durable sessions, session inventory, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md)                                                                       | M      |
+| P3-2  | **MERGED (PR #58, `f4ec9a61`); BATCH DEPLOY PENDING:** shared HTTP budget, cancellation, retry-budget accounting and detached background work; [contract and verification](ops/runtime/REQUEST_BUDGETS.md)                                                               | M      |
+| P3-3  | **PARTIAL; PR #59 MERGED, MENU SLICE REVIEW PENDING:** 22 merged routes plus 19 menu-editing routes (41 guarded total); resource-derived tenancy and pre-upload checks. Discovery covers 245 routes; [policy and remaining inventory](ops/security/RESTAURANT_ACCESS.md) | M      |
+| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous)                                                                                      | M–L    |
+| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                                                                       | M–L    |
+| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                                                                  | M      |
+| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                                                                           | S      |
+| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                                                                           | S      |
+| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                                                                | S      |
+| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                                                                               | S–M    |
 
 ---
 
@@ -402,7 +403,7 @@ domain work in PD-1/PD-2. P3-1 durable session inventory and per-session/global
 revocation are merged/deployed; manual product checks remain pending. P3-2
 cross-call request budgets are merged, awaiting the deliberately batched deployment;
 they are cooperative HTTP/provider cancellation, not database rollback or a
-CPU execution limit. P3-3 is partial (first 22 routes); its remaining tenant-route
+CPU execution limit. P3-3 is partial (22 routes merged, 19 more in review); its remaining tenant-route
 migration and P3-4 through P3-10 remain open. The original H2, H5, and
 bounded-dependency portions of H7 have been remediated.
 
