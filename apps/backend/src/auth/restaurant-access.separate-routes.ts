@@ -1,9 +1,10 @@
-/** Frozen, explicit rollout inventory, NOT a claim that JWT alone proves tenancy.
- * Remove entries as routes adopt RequireRestaurantAccess. A new method/controller
- * fails CI unless it is guarded or its different authorization is reviewed here.
- * No wildcard exemptions, no snapshot auto-update. See ops/security/RESTAURANT_ACCESS.md.
+/** Reviewed routes whose authorization is not restaurant-management membership.
+ * Public, account, super-admin and credential-scoped contracts stay separate.
+ * This is not a rollout backlog: all management routes declare their policy.
+ * No wildcard exemptions or snapshot auto-update; new routes must be classified.
+ * See ops/security/RESTAURANT_ACCESS.md.
  */
-export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
+export const SEPARATE_AUTHORIZATION_ROUTES = [
   {
     file: 'app.controller.ts',
     controller: 'AppController',
@@ -13,9 +14,9 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
   {
     file: 'assistance/assistance.controller.ts',
     controller: 'AssistanceController',
-    routes: ['create', 'findAll', 'findOne', 'update', 'remove'],
+    routes: ['create'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public call-waiter creation retains QR-token validation, deduplication and throttling; all management routes are migrated.',
   },
   {
     file: 'auth/auth.controller.ts',
@@ -68,12 +69,9 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'markVisitFeedbackPresented',
       'markGoogleReviewClick',
       'getGoogleReviewUrl',
-      'findAll',
-      'getSummary',
-      'getVisit',
     ],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public review links and session/invitation-token authorization; management reads are migrated.',
   },
   {
     file: 'health/health.controller.ts',
@@ -94,15 +92,12 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
     routes: [
       'getLoyaltyAccounts',
       'getHistory',
-      'getAnalytics',
-      'getExpiryReminders',
-      'notifyExpiryReminders',
       'getPublicConfig',
       'enroll',
       'getPoints',
     ],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Customer account-scoped loyalty membership/history/points plus public config; owner management routes are migrated.',
   },
   {
     file: 'menu/public-menu.controller.ts',
@@ -117,7 +112,7 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'getTrendingItems',
     ],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public menu/slug reads and the JWT-only menu-index hint; no restaurant-management membership is required.',
   },
   {
     file: 'menu-import/menu-import.controller.ts',
@@ -134,58 +129,29 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'Public view recording; getScanStats is migrated and must not be exempted.',
   },
   {
-    file: 'notifications/notification-delivery.controller.ts',
-    controller: 'NotificationDeliveryController',
-    routes: ['list', 'retry'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
     file: 'orders/orders.controller.ts',
     controller: 'OrdersController',
-    routes: ['create', 'findAll', 'findOne', 'bulkUpdate', 'update'],
+    routes: ['create'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public order creation retains OptionalJwtAuthGuard, QR/session validation, idempotency and POS attribution; management routes are migrated.',
   },
   {
     file: 'payment/payment.controller.ts',
     controller: 'PaymentController',
     routes: [
       'getOrCreateSession',
-      'forceOpenSession',
       'getSessionBill',
       'createPaymentIntent',
       'createCheckout',
       'createCashPaymentRequest',
       'abandonCheckout',
-      'closeSession',
-      'closeSessionWithCard',
-      'closeSessionWithCash',
-      'reconcileStuckSession',
-      'settlePartial',
-      'getTableSessions',
-      'getPaymentsOverview',
-      'getPayoutsSnapshot',
-      'getPaymentSettings',
-      'getPaymentHistory',
-      'getPaymentNotificationFeed',
-      'markPaymentNotificationsRead',
-      'getPaymentReconciliationIssues',
-      'resolvePaymentReconciliationIssue',
-      'reopenSessionForRecollection',
-      'getCashPaymentRequests',
-      'confirmCashPaymentRequest',
-      'cancelCashPaymentRequest',
-      'exportPayments',
-      'getPaymentDetail',
-      'refundPayment',
       'handleWebhook',
       'handleEpayNotify',
       'handleMyposNotify',
       'handleBoricaCallback',
     ],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public QR session creation, table-session credential operations and provider-signature webhooks; all JWT payment management is declaratively guarded.',
   },
   {
     file: 'platform-settings/platform-settings.controller.ts',
@@ -253,15 +219,9 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
   {
     file: 'subscription/subscription.controller.ts',
     controller: 'SubscriptionController',
-    routes: [
-      'getStatus',
-      'createCheckout',
-      'confirmSession',
-      'createPortal',
-      'webhook',
-    ],
+    routes: ['confirmSession', 'webhook'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Checkout confirmation binds the Stripe session to the authenticated account; webhook verifies the provider signature. Restaurant billing management is guarded.',
   },
   {
     file: 'super-admin/super-admin.controller.ts',

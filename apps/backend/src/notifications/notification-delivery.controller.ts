@@ -6,17 +6,20 @@ import {
   Post,
   Query,
   Request,
-  UseGuards,
 } from '@nestjs/common';
 import { NotificationDeliveryStatus } from '@prisma/client';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { NotificationDeliveryService } from './notification-delivery.service';
 
 type NotificationDeliveryRequest = {
   user: { id: string; role: string };
 };
 
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'notification-management',
+  source: 'params',
+  key: 'restaurantId',
+})
 @Controller('restaurants/:restaurantId/notification-deliveries')
 export class NotificationDeliveryController {
   constructor(private readonly deliveries: NotificationDeliveryService) {}

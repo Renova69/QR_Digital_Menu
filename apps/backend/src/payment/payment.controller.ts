@@ -25,12 +25,14 @@ import { ResolvePaymentReconciliationDto } from './dto/resolve-payment-reconcili
 import { ReopenSessionReconciliationDto } from './dto/reopen-session-reconciliation.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { PaymentService } from './payment.service';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { TableSessionToken } from './table-session-token.decorator';
+
+type PaymentActorRequest = { user: { id: string } };
 
 @Controller('payments')
 export class PaymentController {
@@ -56,10 +58,16 @@ export class PaymentController {
 
   @Post('session/force-open')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-pos',
+    source: 'body',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.POS)
   forceOpenSession(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Body() body: { tableId: string; restaurantId: string },
   ) {
     return this.paymentService.forceOpenSession(
@@ -93,7 +101,10 @@ export class PaymentController {
     @Body() body: CreateCheckoutDto,
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
-      'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
+      | 'STRIPE'
+      | 'EPAY'
+      | 'BORICA'
+      | 'MYPOS';
     return this.paymentService.createCheckout(
       token,
       provider,
@@ -125,10 +136,16 @@ export class PaymentController {
 
   @Post('session/close')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-pos',
+    source: 'body',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.POS)
   closeSession(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @TableSessionToken() token: string,
     @Body() body: { restaurantId: string },
   ) {
@@ -141,10 +158,16 @@ export class PaymentController {
 
   @Post('session/close-card')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-pos',
+    source: 'body',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.POS)
   closeSessionWithCard(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @TableSessionToken() token: string,
     @Body() body: { restaurantId: string },
   ) {
@@ -157,10 +180,16 @@ export class PaymentController {
 
   @Post('session/close-cash')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-pos',
+    source: 'body',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.POS)
   closeSessionWithCash(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @TableSessionToken() token: string,
     @Body() body: { restaurantId: string },
   ) {
@@ -173,18 +202,33 @@ export class PaymentController {
 
   @Post('session/reconcile-pending')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-pos',
+    source: 'headers',
+    key: 'x-table-session-token',
+    resource: 'table-session',
+  })
   @RequireFeature(FeatureFlag.POS)
-  reconcileStuckSession(@Req() req: any, @TableSessionToken() token: string) {
+  reconcileStuckSession(
+    @Req() req: PaymentActorRequest,
+    @TableSessionToken() token: string,
+  ) {
     return this.paymentService.reconcileStuckSession(token, req.user.id);
   }
 
   @Post('session/settle-partial')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-pos',
+    source: 'body',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.POS)
   settlePartial(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @TableSessionToken() token: string,
     @Body() body: SettlePartialDto,
   ) {
@@ -197,10 +241,16 @@ export class PaymentController {
   }
 
   @Get('sessions/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getTableSessions(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -214,10 +264,16 @@ export class PaymentController {
   }
 
   @Get('overview/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPaymentsOverview(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query() dateRange: DateRangeQueryDto,
   ) {
@@ -228,30 +284,48 @@ export class PaymentController {
   }
 
   @Get('payouts/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPayoutsSnapshot(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
   ) {
     return this.paymentService.getPayoutsSnapshot(restaurantId, req.user.id);
   }
 
   @Get('settings/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPaymentSettings(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
   ) {
     return this.paymentService.getPaymentSettings(restaurantId, req.user.id);
   }
 
   @Get('history/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPaymentHistory(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query() query: PaymentHistoryQueryDto,
   ) {
@@ -263,9 +337,14 @@ export class PaymentController {
   }
 
   @Get('notifications/:restaurantId')
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-staff',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   getPaymentNotificationFeed(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query('limit') limit?: string,
   ) {
@@ -278,9 +357,14 @@ export class PaymentController {
 
   @Post('notifications/:restaurantId/read')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-staff',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   markPaymentNotificationsRead(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
   ) {
     return this.paymentService.markPaymentNotificationsRead(
@@ -290,10 +374,16 @@ export class PaymentController {
   }
 
   @Get('reconciliation/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPaymentReconciliationIssues(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query() query: PaymentReconciliationQueryDto,
   ) {
@@ -306,10 +396,16 @@ export class PaymentController {
 
   @Post('reconciliation/issues/:issueId/resolve')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'issueId',
+    resource: 'payment-issue',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   resolvePaymentReconciliationIssue(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('issueId') issueId: string,
     @Body() body: ResolvePaymentReconciliationDto,
   ) {
@@ -323,10 +419,16 @@ export class PaymentController {
 
   @Post('reconciliation/issues/:issueId/reopen-session')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'issueId',
+    resource: 'payment-issue',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   reopenSessionForRecollection(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('issueId') issueId: string,
     @Body() body: ReopenSessionReconciliationDto,
   ) {
@@ -338,9 +440,14 @@ export class PaymentController {
   }
 
   @Get('cash-requests/:restaurantId')
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-staff',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   getCashPaymentRequests(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query('status') status?: string,
   ) {
@@ -353,23 +460,45 @@ export class PaymentController {
 
   @Post('cash-requests/:id/confirm')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  confirmCashPaymentRequest(@Req() req: any, @Param('id') id: string) {
+  @RequireRestaurantAccess({
+    policy: 'payment-cash',
+    source: 'params',
+    key: 'id',
+    resource: 'cash-request',
+  })
+  confirmCashPaymentRequest(
+    @Req() req: PaymentActorRequest,
+    @Param('id') id: string,
+  ) {
     return this.paymentService.confirmCashPaymentRequest(id, req.user.id);
   }
 
   @Post('cash-requests/:id/cancel')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  cancelCashPaymentRequest(@Req() req: any, @Param('id') id: string) {
+  @RequireRestaurantAccess({
+    policy: 'payment-cash',
+    source: 'params',
+    key: 'id',
+    resource: 'cash-request',
+  })
+  cancelCashPaymentRequest(
+    @Req() req: PaymentActorRequest,
+    @Param('id') id: string,
+  ) {
     return this.paymentService.cancelCashPaymentRequest(id, req.user.id);
   }
 
   @Get('export/:restaurantId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   exportPayments(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('restaurantId') restaurantId: string,
     @Query() query: PaymentExportQueryDto,
   ) {
@@ -377,18 +506,33 @@ export class PaymentController {
   }
 
   @Get(':paymentId')
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'paymentId',
+    resource: 'payment',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  getPaymentDetail(@Req() req: any, @Param('paymentId') paymentId: string) {
+  getPaymentDetail(
+    @Req() req: PaymentActorRequest,
+    @Param('paymentId') paymentId: string,
+  ) {
     return this.paymentService.getPaymentDetail(paymentId, req.user.id);
   }
 
   @Post(':paymentId/refund')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'payment-management',
+    source: 'params',
+    key: 'paymentId',
+    resource: 'payment',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   refundPayment(
-    @Req() req: any,
+    @Req() req: PaymentActorRequest,
     @Param('paymentId') paymentId: string,
     @Body() body: RefundPaymentDto,
   ) {

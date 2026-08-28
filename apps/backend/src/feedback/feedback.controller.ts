@@ -4,7 +4,6 @@ import {
   Post,
   Body,
   Query,
-  UseGuards,
   Request,
   ValidationPipe,
   Param,
@@ -12,13 +11,15 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { FeedbackSummaryQueryDto } from './dto/feedback-summary-query.dto';
 import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
 import { CreateFeedbackInvitationDto } from './dto/create-feedback-invitation.dto';
 import { CreateVisitFeedbackDto } from './dto/create-visit-feedback.dto';
 import { FeedbackInvitationTokenDto } from './dto/feedback-invitation-token.dto';
 import { TableSessionToken } from '../payment/table-session-token.decorator';
+
+type FeedbackActorRequest = { user: { id: string } };
 
 @Controller('feedback')
 export class FeedbackController {
@@ -76,7 +77,12 @@ export class FeedbackController {
   }
 
   // Protected — owner views all feedback
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'query',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @Get()
   // Read restaurantId off the validated DTO rather than binding it a second
   // time with @Query('restaurantId'). Mixing a named @Query() with a
@@ -84,14 +90,25 @@ export class FeedbackController {
   // an id the named binding accepts is rejected by forbidNonWhitelisted unless
   // the DTO also declares it -- which is how this 400'd. One binding, one
   // source of truth (matches getSummary below).
-  findAll(@Query() query: FeedbackListQueryDto, @Request() req: any) {
+  findAll(
+    @Query() query: FeedbackListQueryDto,
+    @Request() req: FeedbackActorRequest,
+  ) {
     return this.feedbackService.findAll(query.restaurantId, query, req.user.id);
   }
 
   // Protected — owner views feedback summary/stats
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'query',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @Get('summary')
-  getSummary(@Query() query: FeedbackSummaryQueryDto, @Request() req: any) {
+  getSummary(
+    @Query() query: FeedbackSummaryQueryDto,
+    @Request() req: FeedbackActorRequest,
+  ) {
     return this.feedbackService.getSummary(
       query.restaurantId,
       req.user.id,
@@ -101,9 +118,14 @@ export class FeedbackController {
 
   // Protected — the table visit a review came from. Declared after the literal
   // 'summary' route so it cannot shadow it.
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'params',
+    key: 'id',
+    resource: 'feedback',
+  })
   @Get(':id/visit')
-  getVisit(@Param('id') id: string, @Request() req: any) {
+  getVisit(@Param('id') id: string, @Request() req: FeedbackActorRequest) {
     return this.feedbackService.getVisit(id, req.user.id);
   }
 }

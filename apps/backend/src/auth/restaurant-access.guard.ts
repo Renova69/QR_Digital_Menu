@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
 import { RESERVATION_ACTION_ROLES } from '../reservations/reservation-access.service';
 import type { ReservationActionType } from '../reservations/dto/reservation-ops.dto';
+import { extractTableSessionToken } from '../payment/table-session-token.decorator';
 import {
   isRestaurantAccessRequirement,
   RESTAURANT_ACCESS_KEY,
@@ -34,6 +35,7 @@ interface AccessRequest {
   params?: Record<string, unknown>;
   query?: Record<string, unknown>;
   body?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -83,24 +85,54 @@ export class RestaurantAccessGuard implements CanActivate {
         'Print station management requires OWNER role',
       );
     }
-    if (policy === 'staff-management' && !['OWNER', 'MANAGER'].includes(role)) {
-      throw new ForbiddenException('Only owners and managers can manage staff');
+    if (policy === 'billing-owner' && role !== 'OWNER') {
+      throw new ForbiddenException('Only restaurant owners can manage billing');
+    }
+    if (
+      (policy === 'staff-management' ||
+        policy === 'notification-management' ||
+        (policy === 'order-update' && request.body?.status === 'CANCELED')) &&
+      !['OWNER', 'MANAGER'].includes(role)
+    ) {
+      throw new ForbiddenException(
+        policy === 'staff-management'
+          ? 'Only owners and managers can manage staff'
+          : 'This operation requires owner or manager role',
+      );
     }
 
-    const value = request[requirement.source]?.[requirement.key];
+    const headerTarget = requirement.source === 'headers';
+    const value = headerTarget
+      ? extractTableSessionToken(request.headers)
+      : request[requirement.source]?.[requirement.key];
+    if (policy === 'service-list' && value === undefined) {
+      // An unfiltered list is account-scoped, not one arbitrary owned tenant.
+      // The existing service always filters by this user's ownership/assignment.
+      // No single-restaurant context is fabricated; FeatureGuard must not pick
+      // up an undeclared body/parameter target for this mode.
+      return true;
+    }
     const ownerFallback =
       policy === 'print-management' &&
       requirement.source === 'query' &&
       value === undefined;
+    const billingPolicy =
+      policy === 'billing-status' || policy === 'billing-owner';
+    const billingFallback = billingPolicy && value === undefined;
+    const assignedDefault = billingFallback
+      ? request.user?.restaurantId
+      : undefined;
     if (
       !ownerFallback &&
+      !billingFallback &&
+      !headerTarget &&
       (typeof value !== 'string' ||
         !value.length ||
         value.length > 200 ||
         value.trim() !== value)
     ) {
       // Guards run before pipes: reject arrays/objects/empty ids before Prisma.
-      // Only an omitted print-management query can select the first owned row.
+      // Only explicitly optional declarations may select an account default.
       throw new BadRequestException(
         `${requirement.key} must be a non-empty string`,
       );
@@ -111,14 +143,26 @@ export class RestaurantAccessGuard implements CanActivate {
           orderBy: { createdAt: 'asc' },
           select: RESTAURANT_SELECT,
         })
-      : await this.prisma.restaurant.findUnique({
-          where: {
-            id: await this.resolveRestaurantId(requirement, value as string),
-          },
-          select: RESTAURANT_SELECT,
-        });
+      : billingFallback && !assignedDefault
+        ? await this.prisma.restaurant.findFirst({
+            where: { ownerId: userId },
+            select: RESTAURANT_SELECT,
+          })
+        : await this.prisma.restaurant.findUnique({
+            where: {
+              id:
+                assignedDefault ??
+                (await this.resolveRestaurantId(requirement, value as string)),
+            },
+            select: RESTAURANT_SELECT,
+          });
 
-    // Match the underlying contracts: restaurant reads/settings/billing hide
+    // Subscription status has always returned FREE when there is no restaurant,
+    // including a no-longer-existing explicit target. It must not reselect a
+    // different tenant in the controller. Checkout/portal still require a row.
+    if (!restaurant && policy === 'billing-status') return true;
+
+    // Match the underlying contracts: restaurant reads/settings hide
     // deleted rows, but only selected features impose a suspension gate.
     // Device recovery, import and audit retain their separate status behavior.
     const hidesDeleted = [
@@ -146,13 +190,26 @@ export class RestaurantAccessGuard implements CanActivate {
       'reservation-operations',
       'reservation-action',
     ].includes(policy);
+    const paymentPolicy = [
+      'payment-management',
+      'payment-pos',
+      'payment-staff',
+      'payment-cash',
+    ].includes(policy);
     const adminAccess =
       role === 'SUPER_ADMIN' &&
-      (policy === 'table-read' || policy === 'zone-read' || reservationPolicy);
+      (policy === 'table-read' ||
+        policy === 'zone-read' ||
+        reservationPolicy ||
+        policy === 'billing-status' ||
+        // PaymentCore's reporting helper checks actual owners before its admin
+        // exception. Preserve that ordering for an admin who owns this tenant.
+        (paymentPolicy &&
+          (policy !== 'payment-management' || restaurant.ownerId !== userId)));
     if (
       policy === 'menu-management' ||
       policy === 'table-management' ||
-      (policy === 'table-read' && !adminAccess)
+      ((policy === 'table-read' || paymentPolicy) && !adminAccess)
     )
       assertRestaurantActive(restaurant);
     if (reservationPolicy && !adminAccess && restaurant.isActive === false) {
@@ -175,12 +232,23 @@ export class RestaurantAccessGuard implements CanActivate {
         ].includes(policy) &&
           role === 'MANAGER') ||
           policy === 'staff-management' ||
+          policy === 'notification-management' ||
           // These existing read contracts allow any assigned account, not just
           // editing roles. Do not demote their access to owner/manager-only.
           policy === 'restaurant-read' ||
           policy === 'menu-audit' ||
           policy === 'table-read' ||
           policy === 'zone-read' ||
+          policy === 'service-member' ||
+          policy === 'service-list' ||
+          policy === 'order-update' ||
+          policy === 'payment-staff' ||
+          policy === 'billing-status' ||
+          (policy === 'payment-management' &&
+            ['OWNER', 'MANAGER'].includes(role)) ||
+          (policy === 'payment-pos' && ['MANAGER', 'WAITER'].includes(role)) ||
+          (policy === 'payment-cash' &&
+            ['OWNER', 'MANAGER', 'WAITER', 'STAFF'].includes(role)) ||
           (policy === 'reservation-read' &&
             ['MANAGER', 'WAITER', 'STAFF'].includes(role)) ||
           (policy === 'reservation-operations' &&
@@ -258,6 +326,65 @@ export class RestaurantAccessGuard implements CanActivate {
         });
         if (!zone) throw new NotFoundException('Zone not found');
         return zone.restaurantId;
+      }
+      case 'assistance': {
+        const assistance = await this.prisma.assistanceRequest.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!assistance)
+          throw new NotFoundException('Assistance request not found');
+        return assistance.restaurantId;
+      }
+      case 'order': {
+        const order = await this.prisma.order.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+        return order.restaurantId;
+      }
+      case 'feedback': {
+        const feedback = await this.prisma.feedback.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!feedback) throw new NotFoundException('Feedback not found');
+        return feedback.restaurantId;
+      }
+      case 'payment': {
+        const payment = await this.prisma.payment.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!payment) throw new NotFoundException('Payment not found');
+        return payment.restaurantId;
+      }
+      case 'payment-issue': {
+        const issue = await this.prisma.paymentReconciliationIssue.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!issue)
+          throw new NotFoundException('Reconciliation issue not found');
+        return issue.restaurantId;
+      }
+      case 'cash-request': {
+        const cashRequest = await this.prisma.cashPaymentRequest.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!cashRequest)
+          throw new NotFoundException('Cash payment request not found');
+        return cashRequest.restaurantId;
+      }
+      case 'table-session': {
+        const session = await this.prisma.tableSession.findFirst({
+          where: { token: id },
+          select: { restaurantId: true },
+        });
+        if (!session) throw new NotFoundException('Session not found');
+        return session.restaurantId;
       }
       default:
         // Metadata validation only permits undefined or 'restaurant' here.

@@ -19,7 +19,18 @@ export type RestaurantAccessPolicy =
   | 'reservation-read'
   | 'reservation-management'
   | 'reservation-operations'
-  | 'reservation-action';
+  | 'reservation-action'
+  | 'service-member'
+  | 'service-list'
+  | 'order-update'
+  | 'loyalty-management'
+  | 'notification-management'
+  | 'payment-management'
+  | 'payment-pos'
+  | 'payment-staff'
+  | 'payment-cash'
+  | 'billing-status'
+  | 'billing-owner';
 
 export type RestaurantAccessResource =
   | 'restaurant'
@@ -27,11 +38,18 @@ export type RestaurantAccessResource =
   | 'item'
   | 'option'
   | 'table'
-  | 'zone';
+  | 'zone'
+  | 'assistance'
+  | 'order'
+  | 'feedback'
+  | 'payment'
+  | 'payment-issue'
+  | 'cash-request'
+  | 'table-session';
 
 export interface RestaurantAccessRequirement {
   readonly policy: RestaurantAccessPolicy;
-  readonly source: 'params' | 'query' | 'body';
+  readonly source: 'params' | 'query' | 'body' | 'headers';
   readonly key: string;
   /** Child-resource policies explicitly identify the path resource. Direct
    * targets are authorized from exactly the declared source, never a fallback. */
@@ -64,13 +82,84 @@ export function isRestaurantAccessRequirement(
       'reservation-management',
       'reservation-operations',
       'reservation-action',
+      'service-member',
+      'service-list',
+      'order-update',
+      'loyalty-management',
+      'notification-management',
+      'payment-management',
+      'payment-pos',
+      'payment-staff',
+      'payment-cash',
+      'billing-status',
+      'billing-owner',
     ].includes(requirement.policy ?? '') ||
-    !['params', 'query', 'body'].includes(requirement.source ?? '') ||
+    !['params', 'query', 'body', 'headers'].includes(
+      requirement.source ?? '',
+    ) ||
     typeof requirement.key !== 'string' ||
     !requirement.key.length ||
     requirement.key.trim() !== requirement.key
   )
     return false;
+  if (requirement.policy === 'payment-pos') {
+    return (
+      (requirement.source === 'body' &&
+        requirement.key === 'restaurantId' &&
+        requirement.resource === 'restaurant') ||
+      (requirement.source === 'headers' &&
+        requirement.key === 'x-table-session-token' &&
+        requirement.resource === 'table-session')
+    );
+  }
+  if (requirement.source === 'headers') return false;
+  if (requirement.policy === 'payment-management') {
+    return (
+      requirement.source === 'params' &&
+      ['restaurant', 'payment', 'payment-issue'].includes(
+        requirement.resource ?? '',
+      )
+    );
+  }
+  if (
+    requirement.policy === 'payment-staff' ||
+    requirement.policy === 'payment-cash'
+  ) {
+    return (
+      requirement.source === 'params' &&
+      requirement.resource ===
+        (requirement.policy === 'payment-staff' ? 'restaurant' : 'cash-request')
+    );
+  }
+  if (
+    requirement.policy === 'billing-status' ||
+    requirement.policy === 'billing-owner'
+  ) {
+    return (
+      requirement.source ===
+        (requirement.policy === 'billing-status' ? 'query' : 'body') &&
+      requirement.key === 'restaurantId' &&
+      requirement.resource === undefined
+    );
+  }
+  if (requirement.policy === 'service-list') {
+    return (
+      requirement.source === 'query' &&
+      requirement.key === 'restaurantId' &&
+      requirement.resource === undefined
+    );
+  }
+  if (requirement.policy === 'order-update') {
+    return requirement.source === 'params' && requirement.resource === 'order';
+  }
+  if (requirement.policy === 'service-member') {
+    return requirement.source === 'params'
+      ? ['restaurant', 'assistance', 'order', 'feedback'].includes(
+          requirement.resource ?? '',
+        )
+      : requirement.key === 'restaurantId' &&
+          requirement.resource === 'restaurant';
+  }
   // Only these two existing reservation contracts select a tenant in the body.
   // Their services still bind the reservation id to that authorized restaurant.
   if (requirement.source === 'body') {
@@ -118,6 +207,8 @@ export function isRestaurantAccessRequirement(
       'reservation-read',
       'reservation-management',
       'reservation-operations',
+      'loyalty-management',
+      'notification-management',
     ].includes(requirement.policy ?? '') &&
     requirement.source !== 'params'
   )
