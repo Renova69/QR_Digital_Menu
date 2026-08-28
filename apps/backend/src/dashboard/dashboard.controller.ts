@@ -4,16 +4,16 @@ import {
   Post,
   Put,
   Body,
-  Param,
   Query,
   UseGuards,
-  ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { AuthUser } from '../auth/auth-user.decorator';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  AuthorizedRestaurant,
+  RequireRestaurantAccess,
+} from '../auth/require-restaurant-access.decorator';
+import { RestaurantAccessContext } from '../auth/restaurant-access.policy';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { FeatureService } from '../subscription/feature.service';
 import { RequireFeature } from '../subscription/require-feature.decorator';
@@ -44,7 +44,6 @@ const DASHBOARD_LANGUAGES = new Set([
 export class DashboardController {
   constructor(
     private readonly dashboardService: DashboardService,
-    private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
   ) {}
 
@@ -80,68 +79,34 @@ export class DashboardController {
     }
   }
 
-  private async verifyDashboardAccess(
-    user: any,
-    restaurantId: string,
-  ): Promise<{ tier: string; forceTier: string | null }> {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      // Issue 27: also check suspension and soft-delete status.
-      select: {
-        ownerId: true,
-        isActive: true,
-        deletedAt: true,
-        tier: true,
-        forceTier: true,
-      },
-    });
-
-    if (!restaurant || restaurant.deletedAt) {
-      throw new ForbiddenException('Restaurant not found');
-    }
-
-    if (!restaurant.isActive) {
-      throw new ForbiddenException('Restaurant is suspended');
-    }
-
-    const role = user?.role?.toUpperCase();
-    const hasAccess =
-      restaurant?.ownerId === user?.id ||
-      (role === 'MANAGER' && user?.restaurantId === restaurantId);
-
-    if (!hasAccess) {
-      throw new ForbiddenException(
-        "You do not have permission to access this restaurant's dashboard",
-      );
-    }
-
-    return {
-      tier: restaurant.tier ?? 'FREE',
-      forceTier: restaurant.forceTier ?? null,
-    };
-  }
-
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'dashboard',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
   @Get('summary')
-  async getSummary(
-    @AuthUser() user: any,
-    @Query('restaurantId') restaurantId: string,
-  ) {
-    await this.verifyDashboardAccess(user, restaurantId);
+  async getSummary(@AuthorizedRestaurant() access: RestaurantAccessContext) {
+    const { restaurantId } = access;
     return this.dashboardService.getSummary(restaurantId);
   }
 
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'dashboard',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   @Get('payments-summary')
   async getPaymentsSummary(
-    @AuthUser() user: any,
-    @Query('restaurantId') restaurantId: string,
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('period') periodStr?: string,
   ) {
+    const { restaurantId } = access;
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
     }
@@ -150,7 +115,6 @@ export class DashboardController {
     if (period !== undefined && ![1, 7, 14, 30].includes(period)) {
       throw new BadRequestException('period must be 1, 7, 14, or 30');
     }
-    await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getPaymentsSummary(
       restaurantId,
       startDate,
@@ -159,17 +123,22 @@ export class DashboardController {
     );
   }
 
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'dashboard',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
   @Get('analytics')
   async getAnalytics(
-    @AuthUser() user: any,
-    @Query('restaurantId') restaurantId: string,
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Query('period') periodStr?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('lang') lang?: string,
   ) {
+    const { restaurantId } = access;
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
     }
@@ -189,10 +158,7 @@ export class DashboardController {
 
     this.assertDateRange(startDate, endDate);
 
-    const { tier, forceTier } = await this.verifyDashboardAccess(
-      user,
-      restaurantId,
-    );
+    const { tier, forceTier } = access;
 
     // STARTER has ANALYTICS_BASIC but not ANALYTICS_FULL — strip premium-only fields
     // so the endpoint gate downgrade doesn't expose Pro data to lower tiers.
@@ -243,35 +209,43 @@ export class DashboardController {
     return result;
   }
 
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'dashboard',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
   @Get('target')
   async getDailyTarget(
-    @AuthUser() user: any,
-    @Query('restaurantId') restaurantId: string,
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Query('date') date?: string,
   ) {
+    const { restaurantId } = access;
     if (!restaurantId)
       throw new BadRequestException('restaurantId is required');
-    await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getDailyTarget(restaurantId, date);
   }
 
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'dashboard',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
   @Put('target')
   async setDailyTarget(
-    @AuthUser() user: any,
-    @Query('restaurantId') restaurantId: string,
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Body() body: { date?: string; dailyRevenue: number },
   ) {
+    const { restaurantId } = access;
     if (!restaurantId)
       throw new BadRequestException('restaurantId is required');
     if (typeof body.dailyRevenue !== 'number' || body.dailyRevenue < 0)
       throw new BadRequestException(
         'dailyRevenue must be a non-negative number',
       );
-    await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.setDailyTarget(
       restaurantId,
       body.date ?? new Date().toISOString().split('T')[0],
@@ -279,18 +253,22 @@ export class DashboardController {
     );
   }
 
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'dashboard',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @RequireFeature(FeatureFlag.ANALYTICS_FULL)
   @Get('closeout/:restaurantId')
   async getDailyCloseout(
-    @AuthUser() user: any,
-    @Param('restaurantId') restaurantId: string,
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Query('date') date: string,
   ) {
+    const { restaurantId } = access;
     if (!restaurantId)
       throw new BadRequestException('restaurantId is required');
     if (!date) throw new BadRequestException('date (YYYY-MM-DD) is required');
-    await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getDailyCloseout(restaurantId, date);
   }
 }

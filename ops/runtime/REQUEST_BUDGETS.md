@@ -1,8 +1,9 @@
 # P3-2 — Cross-call request budgets
 
-Implementation: complete in this change. Review, merge, deployment, and manual
-release verification: pending. No migration, environment change, or live database
-operation is required by this change.
+Implementation: merged via PR #58 at `f4ec9a61` with green CI. Backend deployment
+and manual release verification: pending, deliberately batched with later P3 work
+at the user's request on 28 Aug 2026. No migration, environment change, or live
+database operation is required by this change.
 
 ## Contract
 
@@ -64,8 +65,8 @@ commands, or pre-empt CPU work blocking Node's event loop. Database consistency
 continues to depend on existing transactions, idempotency, and durable workflows.
 No request timeout may trigger a database reset, ledger rewrite, or data restore.
 
-Merge after green exact-SHA CI and review. Deploy from clean updated `main` using
-the guarded backend script; no frontend dependency or schema change. Afterward:
+At the later approved batch release, deploy from clean updated `main` using the
+guarded backend script; no frontend dependency or schema change. Afterward:
 
 1. Confirm serving SHA, readiness, Redis, and ordinary login/OAuth behavior.
 2. Smoke-test demo/test-mode checkout and image upload; preserve existing payment

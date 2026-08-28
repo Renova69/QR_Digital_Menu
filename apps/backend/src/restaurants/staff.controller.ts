@@ -7,106 +7,86 @@ import {
   Body,
   Param,
   Query,
-  Request,
-  UseGuards,
   ValidationPipe,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { CreateStaffDto } from '../users/dto/create-staff.dto';
 import { UpdateStaffDto } from '../users/dto/update-staff.dto';
+import {
+  AuthorizedRestaurant,
+  RequireRestaurantAccess,
+} from '../auth/require-restaurant-access.decorator';
+import { RestaurantAccessContext } from '../auth/restaurant-access.policy';
 
-function assertManagerOrOwner(req: any): string {
-  const role: string = req.user?.role?.toUpperCase() ?? '';
-  if (role !== 'OWNER' && role !== 'MANAGER') {
-    throw new ForbiddenException('Only owners and managers can manage staff');
-  }
-  return role;
-}
-
-@UseGuards(JwtAuthGuard)
+@RequireRestaurantAccess({
+  policy: 'staff-management',
+  source: 'params',
+  key: 'restaurantId',
+})
 @Controller('restaurants/:restaurantId/staff')
 export class StaffController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  async listStaff(
-    @Param('restaurantId') restaurantId: string,
-    @Request() req: any,
-  ) {
-    assertManagerOrOwner(req);
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.listStaffMembers(restaurantId);
+  listStaff(@AuthorizedRestaurant() access: RestaurantAccessContext) {
+    return this.usersService.listStaffMembers(access.restaurantId);
   }
 
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async createStaff(
-    @Param('restaurantId') restaurantId: string,
+  createStaff(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Body(new ValidationPipe({ whitelist: true })) dto: CreateStaffDto,
-    @Request() req: any,
   ) {
-    const callerRole = assertManagerOrOwner(req);
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
     return this.usersService.createStaffMember(
-      restaurantId,
+      access.restaurantId,
       { name: dto.name, email: dto.email, role: dto.role },
-      callerRole,
+      access.role,
     );
   }
 
   @Patch(':userId')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  async updateStaff(
-    @Param('restaurantId') restaurantId: string,
+  updateStaff(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Param('userId') userId: string,
     @Body(new ValidationPipe({ whitelist: true })) dto: UpdateStaffDto,
-    @Request() req: any,
   ) {
-    const callerRole = assertManagerOrOwner(req);
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
     return this.usersService.updateStaffMember(
-      restaurantId,
+      access.restaurantId,
       userId,
       dto,
-      callerRole,
+      access.role,
     );
   }
 
   @Post(':userId/reset-pin')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async resetStaffPin(
-    @Param('restaurantId') restaurantId: string,
+  resetStaffPin(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Param('userId') userId: string,
-    @Request() req: any,
   ) {
-    const callerRole = assertManagerOrOwner(req);
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
     return this.usersService.resetStaffPin(
-      restaurantId,
+      access.restaurantId,
       userId,
-      callerRole,
-      req.user.id,
+      access.role,
+      access.userId,
     );
   }
 
   @Delete(':userId')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async removeStaff(
-    @Param('restaurantId') restaurantId: string,
+  removeStaff(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Param('userId') userId: string,
-    @Request() req: any,
     @Query('hard') hard = '',
   ) {
-    const callerRole = assertManagerOrOwner(req);
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
     return this.usersService.removeStaffMember(
-      restaurantId,
+      access.restaurantId,
       userId,
-      callerRole,
-      req.user.id,
+      access.role,
+      access.userId,
       hard === 'true',
     );
   }

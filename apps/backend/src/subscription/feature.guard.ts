@@ -10,6 +10,10 @@ import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
 import { FeatureFlag } from './feature-flag.enum';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractRestaurantId } from './restaurant-id.util';
+import {
+  getRestaurantAccess,
+  setRestaurantAccess,
+} from '../auth/restaurant-access.policy';
 
 const RESTAURANT_SELECT = {
   ownerId: true,
@@ -66,7 +70,11 @@ export class FeatureGuard implements CanActivate {
     // Resolve the TARGET restaurant: the one the request is acting on (from
     // params/query/body), not an arbitrary first-owned one (#2). Falls back to
     // the caller's own restaurant for routes with no restaurant in the request.
-    const targetId = extractRestaurantId(request);
+    // A declarative access guard may have resolved an owner fallback or a
+    // route-specific source. Entitlements must use that SAME verified tenant.
+    const authorizedAccess = getRestaurantAccess(request);
+    const targetId =
+      authorizedAccess?.restaurantId ?? extractRestaurantId(request);
     let restaurantId = targetId;
 
     // YOURS H-4: payment routes carry only paymentId, lookup its restaurantId
@@ -164,6 +172,16 @@ export class FeatureGuard implements CanActivate {
       });
     }
 
+    // A later feature lookup may observe a tier change. Response filtering must
+    // use this same snapshot, not the earlier access guard's premium tier.
+    // Keep the verified identity/tenant unchanged and replace the frozen context.
+    if (authorizedAccess) {
+      setRestaurantAccess(request, {
+        ...authorizedAccess,
+        tier: restaurant.tier ?? 'FREE',
+        forceTier: restaurant.forceTier ?? null,
+      });
+    }
     return true;
   }
 }
