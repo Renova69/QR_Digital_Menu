@@ -1,7 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { RestaurantAccessContext } from '../auth/restaurant-access.policy';
 import { FeatureService } from '../subscription/feature.service';
 import { BadRequestException } from '@nestjs/common';
 
@@ -59,9 +58,6 @@ const BASIC_KEYS = [
 
 describe('DashboardController analytics tier gating', () => {
   let controller: DashboardController;
-  const mockPrisma: Record<string, any> = {
-    restaurant: { findUnique: jest.fn() },
-  };
   const mockDashboard = {
     getAnalytics: jest.fn(),
     getSummary: jest.fn(),
@@ -71,41 +67,36 @@ describe('DashboardController analytics tier gating', () => {
     getDailyCloseout: jest.fn(),
   };
 
-  const OWNER = { id: 'owner-1', role: 'OWNER' };
-
-  const mockRestaurant = (tier: string, forceTier: string | null = null) => ({
-    ownerId: OWNER.id,
-    isActive: true,
-    deletedAt: null,
+  let access: RestaurantAccessContext;
+  const mockRestaurant = (
+    tier: string,
+    forceTier: string | null = null,
+  ): RestaurantAccessContext => ({
+    userId: 'owner-1',
+    restaurantId: 'rest-1',
+    role: 'OWNER',
     tier,
     forceTier,
   });
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [DashboardController],
-      providers: [
-        FeatureService, // real implementation — exercises the actual tier matrix
-        { provide: DashboardService, useValue: mockDashboard },
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
-
-    controller = module.get<DashboardController>(DashboardController);
+  beforeEach(() => {
+    // Authorization is exercised through real guards in restaurant-access.http.spec.
+    controller = new DashboardController(
+      mockDashboard as unknown as DashboardService,
+      new FeatureService(),
+    );
+    access = mockRestaurant('PROFESSIONAL');
     jest.clearAllMocks();
     mockDashboard.getAnalytics.mockResolvedValue({ ...FULL_PAYLOAD });
   });
 
   it('strips all PRO-only fields for STARTER (ANALYTICS_BASIC, no ANALYTICS_FULL)', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('STARTER'),
-    );
+    access = mockRestaurant('STARTER');
 
-    const result = (await controller.getAnalytics(
-      OWNER,
-      'rest-1',
-      '7',
-    )) as Record<string, unknown>;
+    const result = (await controller.getAnalytics(access, '7')) as Record<
+      string,
+      unknown
+    >;
 
     for (const key of PRO_ONLY_KEYS) {
       expect(result).not.toHaveProperty(key);
@@ -116,15 +107,12 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('does not leak payment-method split or refund totals to STARTER', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('STARTER'),
-    );
+    access = mockRestaurant('STARTER');
 
-    const result = (await controller.getAnalytics(
-      OWNER,
-      'rest-1',
-      '7',
-    )) as Record<string, unknown>;
+    const result = (await controller.getAnalytics(access, '7')) as Record<
+      string,
+      unknown
+    >;
 
     expect(result.paymentsByMethod).toBeUndefined();
     expect(result.refundedAmount).toBeUndefined();
@@ -132,15 +120,12 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('returns the full payload for PROFESSIONAL', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
-    const result = (await controller.getAnalytics(
-      OWNER,
-      'rest-1',
-      '7',
-    )) as Record<string, unknown>;
+    const result = (await controller.getAnalytics(access, '7')) as Record<
+      string,
+      unknown
+    >;
 
     for (const key of [...BASIC_KEYS, ...PRO_ONLY_KEYS]) {
       expect(result).toHaveProperty(key);
@@ -148,48 +133,33 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('returns the full payload for ENTERPRISE', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('ENTERPRISE'),
-    );
+    access = mockRestaurant('ENTERPRISE');
 
-    const result = (await controller.getAnalytics(
-      OWNER,
-      'rest-1',
-      '7',
-    )) as Record<string, unknown>;
+    const result = (await controller.getAnalytics(access, '7')) as Record<
+      string,
+      unknown
+    >;
 
     expect(result).toHaveProperty('paymentsByMethod');
     expect(result).toHaveProperty('topItems');
   });
 
   it('honors super-admin forceTier=PROFESSIONAL on a STARTER restaurant', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('STARTER', 'PROFESSIONAL'),
-    );
+    access = mockRestaurant('STARTER', 'PROFESSIONAL');
 
-    const result = (await controller.getAnalytics(
-      OWNER,
-      'rest-1',
-      '7',
-    )) as Record<string, unknown>;
+    const result = (await controller.getAnalytics(access, '7')) as Record<
+      string,
+      unknown
+    >;
 
     expect(result).toHaveProperty('paymentsByMethod');
     expect(result).toHaveProperty('repeatCustomerRate');
   });
 
   it('accepts Today and forwards the normalized dashboard language', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
-    await controller.getAnalytics(
-      OWNER,
-      'rest-1',
-      '1',
-      undefined,
-      undefined,
-      'EN-us',
-    );
+    await controller.getAnalytics(access, '1', undefined, undefined, 'EN-us');
 
     expect(mockDashboard.getAnalytics).toHaveBeenCalledWith(
       'rest-1',
@@ -202,36 +172,19 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('rejects unsupported dashboard languages', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
     await expect(
-      controller.getAnalytics(
-        OWNER,
-        'rest-1',
-        '1',
-        undefined,
-        undefined,
-        'unsupported',
-      ),
+      controller.getAnalytics(access, '1', undefined, undefined, 'unsupported'),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(mockDashboard.getAnalytics).not.toHaveBeenCalled();
   });
 
   it('forwards Today to the payment summary', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
-    await controller.getPaymentsSummary(
-      OWNER,
-      'rest-1',
-      undefined,
-      undefined,
-      '1',
-    );
+    await controller.getPaymentsSummary(access, undefined, undefined, '1');
 
     expect(mockDashboard.getPaymentsSummary).toHaveBeenCalledWith(
       'rest-1',
@@ -243,7 +196,7 @@ describe('DashboardController analytics tier gating', () => {
 
   it('rejects an unsupported payment-summary period', async () => {
     await expect(
-      controller.getPaymentsSummary(OWNER, 'rest-1', undefined, undefined, '2'),
+      controller.getPaymentsSummary(access, undefined, undefined, '2'),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
@@ -252,19 +205,13 @@ describe('DashboardController analytics tier gating', () => {
   // ── Daily Target ───────────────────────────────────────────────────────
 
   it('returns daily target for a given date', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
     mockDashboard.getDailyTarget.mockResolvedValue({
       date: '2026-08-01',
       dailyRevenue: 500,
     });
 
-    const result = await controller.getDailyTarget(
-      OWNER,
-      'rest-1',
-      '2026-08-01',
-    );
+    const result = await controller.getDailyTarget(access, '2026-08-01');
 
     expect(mockDashboard.getDailyTarget).toHaveBeenCalledWith(
       'rest-1',
@@ -274,18 +221,16 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('rejects getDailyTarget without restaurantId', async () => {
-    await expect(controller.getDailyTarget(OWNER, '')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      controller.getDailyTarget({ ...access, restaurantId: '' }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('sets daily target', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
     mockDashboard.setDailyTarget.mockResolvedValue({ success: true });
 
-    const result = await controller.setDailyTarget(OWNER, 'rest-1', {
+    const result = await controller.setDailyTarget(access, {
       dailyRevenue: 800,
     });
 
@@ -299,22 +244,23 @@ describe('DashboardController analytics tier gating', () => {
 
   it('rejects negative dailyRevenue in setDailyTarget', async () => {
     await expect(
-      controller.setDailyTarget(OWNER, 'rest-1', { dailyRevenue: -1 }),
+      controller.setDailyTarget(access, { dailyRevenue: -1 }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects setDailyTarget without restaurantId', async () => {
     await expect(
-      controller.setDailyTarget(OWNER, '', { dailyRevenue: 100 }),
+      controller.setDailyTarget(
+        { ...access, restaurantId: '' },
+        { dailyRevenue: 100 },
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
   // ── Daily Closeout ─────────────────────────────────────────────────────
 
   it('returns daily closeout for a date', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
     mockDashboard.getDailyCloseout.mockResolvedValue({
       date: '2026-08-01',
       orderedRevenue: 1200,
@@ -322,11 +268,7 @@ describe('DashboardController analytics tier gating', () => {
       netRevenue: 1150,
     });
 
-    const result = await controller.getDailyCloseout(
-      OWNER,
-      'rest-1',
-      '2026-08-01',
-    );
+    const result = await controller.getDailyCloseout(access, '2026-08-01');
 
     expect(mockDashboard.getDailyCloseout).toHaveBeenCalledWith(
       'rest-1',
@@ -336,59 +278,43 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('rejects getDailyCloseout without date', async () => {
-    await expect(
-      controller.getDailyCloseout(OWNER, 'rest-1', ''),
-    ).rejects.toThrow(BadRequestException);
+    await expect(controller.getDailyCloseout(access, '')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('rejects getDailyCloseout without restaurantId', async () => {
     await expect(
-      controller.getDailyCloseout(OWNER, '', '2026-08-01'),
+      controller.getDailyCloseout(
+        { ...access, restaurantId: '' },
+        '2026-08-01',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
   // ── Date range validation ──────────────────────────────────────────────
 
   it('rejects analytics with inverted date range', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
     await expect(
-      controller.getAnalytics(
-        OWNER,
-        'rest-1',
-        undefined,
-        '2026-12-31',
-        '2026-01-01',
-      ),
+      controller.getAnalytics(access, undefined, '2026-12-31', '2026-01-01'),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects analytics with excessive date range', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
     await expect(
-      controller.getAnalytics(
-        OWNER,
-        'rest-1',
-        undefined,
-        '2025-01-01',
-        '2026-12-31',
-      ),
+      controller.getAnalytics(access, undefined, '2025-01-01', '2026-12-31'),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('accepts analytics with valid date range', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
     await controller.getAnalytics(
-      OWNER,
-      'rest-1',
+      access,
       undefined,
       '2026-06-01',
       '2026-06-30',
@@ -403,7 +329,7 @@ describe('DashboardController analytics tier gating', () => {
   // controller, or the query silently widens to all-time and skips `period`.
   it('rejects a malformed startDate supplied without an endDate', async () => {
     await expect(
-      controller.getPaymentsSummary(OWNER, 'rest-1', 'not-a-date', undefined),
+      controller.getPaymentsSummary(access, 'not-a-date', undefined),
     ).rejects.toThrow(BadRequestException);
 
     expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
@@ -411,7 +337,7 @@ describe('DashboardController analytics tier gating', () => {
 
   it('rejects a malformed endDate supplied without a startDate', async () => {
     await expect(
-      controller.getPaymentsSummary(OWNER, 'rest-1', undefined, 'garbage'),
+      controller.getPaymentsSummary(access, undefined, 'garbage'),
     ).rejects.toThrow(BadRequestException);
 
     expect(mockDashboard.getPaymentsSummary).not.toHaveBeenCalled();
@@ -419,18 +345,16 @@ describe('DashboardController analytics tier gating', () => {
 
   it('rejects a malformed lone startDate on analytics', async () => {
     await expect(
-      controller.getAnalytics(OWNER, 'rest-1', undefined, '2026-13-45'),
+      controller.getAnalytics(access, undefined, '2026-13-45'),
     ).rejects.toThrow(BadRequestException);
 
     expect(mockDashboard.getAnalytics).not.toHaveBeenCalled();
   });
 
   it('accepts a valid open-ended single bound on payments-summary', async () => {
-    mockPrisma.restaurant.findUnique.mockResolvedValue(
-      mockRestaurant('PROFESSIONAL'),
-    );
+    access = mockRestaurant('PROFESSIONAL');
 
-    await controller.getPaymentsSummary(OWNER, 'rest-1', '2026-06-01');
+    await controller.getPaymentsSummary(access, '2026-06-01');
 
     expect(mockDashboard.getPaymentsSummary).toHaveBeenCalledWith(
       'rest-1',
@@ -441,8 +365,8 @@ describe('DashboardController analytics tier gating', () => {
   });
 
   it('rejects analytics without restaurantId', async () => {
-    await expect(controller.getAnalytics(OWNER, '')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      controller.getAnalytics({ ...access, restaurantId: '' }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

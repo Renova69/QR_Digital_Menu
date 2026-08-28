@@ -2,22 +2,21 @@ import {
   BadRequestException,
   Body,
   Controller,
-  ForbiddenException,
   Get,
   HttpCode,
-  NotFoundException,
   Param,
   Post,
   Query,
-  Req,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  AuthorizedRestaurant,
+  RequireRestaurantAccess,
+} from '../auth/require-restaurant-access.decorator';
+import { RestaurantAccessContext } from '../auth/restaurant-access.policy';
 import { MenuViewService } from './menu-view.service';
 
 class RecordViewDto {
@@ -34,10 +33,7 @@ class RecordViewDto {
 
 @Controller()
 export class MenuViewController {
-  constructor(
-    private readonly menuViewService: MenuViewService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly menuViewService: MenuViewService) {}
 
   @Post('menu/public/:restaurantId/view')
   @HttpCode(204)
@@ -54,10 +50,13 @@ export class MenuViewController {
   }
 
   @Get('dashboard/scan-stats/:restaurantId')
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'scan-stats',
+    source: 'params',
+    key: 'restaurantId',
+  })
   async getScanStats(
-    @Param('restaurantId') restaurantId: string,
-    @Req() req: any,
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Query('period') periodStr?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -92,31 +91,7 @@ export class MenuViewController {
       }
     }
 
-    const userId = req.user?.id ?? req.user?.sub;
-    const [restaurant, user] = await Promise.all([
-      this.prisma.restaurant.findUnique({
-        where: { id: restaurantId },
-        select: { ownerId: true },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { restaurantId: true, role: true },
-      }),
-    ]);
-
-    if (!restaurant) throw new NotFoundException('Restaurant not found');
-
-    const role = user?.role?.toUpperCase();
-    const hasAccess =
-      restaurant.ownerId === userId ||
-      (user?.restaurantId === restaurantId &&
-        ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'].includes(role ?? ''));
-
-    if (!hasAccess) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    return this.menuViewService.getScanStats(restaurantId, {
+    return this.menuViewService.getScanStats(access.restaurantId, {
       period,
       startDate,
       endDate,

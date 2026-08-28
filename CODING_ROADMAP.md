@@ -7,7 +7,7 @@
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
 > **Security Hardening:** ✅ P0/P1 and active P2 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** P3-1 merged/deployed (manual checks pending). P3-2 request budgets implemented, awaiting review and release. Next implementation: P3-3 tenant-access guard.
+> **Current Focus:** P3-2 merged; backend deployment deliberately batched. P3-3 PARTIAL: declarative guard and first 22 routes implemented, review pending. Continue the remaining tenant-route migration.
 
 ---
 
@@ -23,10 +23,16 @@
   [the rollout checklist](ops/db-safety/P3_SESSION_ROLLOUT.md).
 - **P3-2:** shared 25-second HTTP deadline, cancellation propagated to foreground
   provider calls/retries, explicit background-work separation. Implementation
-  complete; review, merge, and deployment pending. See
+  merged via PR #58 at `f4ec9a61` with green CI; backend deployment pending. See
   [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
-- **Next implementation:** P3-3 declarative restaurant-access guard. P3-4 through
-  P3-10 remain open in the ledger; none are implicitly closed by these changes.
+- **P3-3 PARTIAL:** declarative guard plus 22 dashboard/printer/staff/scan routes
+  implemented, review pending. A discovery-based test inventories all 245 routes;
+  legacy tenant routes still need migration. See
+  [the policy and remaining slices](ops/security/RESTAURANT_ACCESS.md).
+- **Deployment decision (28 Aug):** batch the backend deployment after additional
+  P3 merges; do not deploy after each PR. Last confirmed backend: `e7500785`.
+- **Next implementation:** remaining P3-3 resource/tenant-route guards. P3-4 through
+  P3-10 remain open; none are implicitly closed by these changes.
 
 The detailed evidence and per-item status live in
 [`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).
