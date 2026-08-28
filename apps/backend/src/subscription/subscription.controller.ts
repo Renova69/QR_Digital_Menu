@@ -4,18 +4,23 @@ import {
   Post,
   Body,
   Req,
-  Query,
   UseGuards,
   Headers,
   HttpCode,
-  NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateCheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FeatureService } from './feature.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  AuthorizedRestaurant,
+  RequireRestaurantAccess,
+} from '../auth/require-restaurant-access.decorator';
+import {
+  getRestaurantAccess,
+  RestaurantAccessContext,
+} from '../auth/restaurant-access.policy';
 
 @Controller('subscription')
 export class SubscriptionController {
@@ -25,67 +30,27 @@ export class SubscriptionController {
     private readonly prisma: PrismaService,
   ) {}
 
-  private async resolveRestaurant(
-    userId: string,
-    select: Record<string, boolean>,
-    restaurantId?: string,
-  ): Promise<Record<string, any> | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { restaurantId: true, role: true },
-    });
-
-    // Explicit target (e.g. active restaurant in a multi-location dashboard):
-    // resolve THAT restaurant and verify the caller may see it (#6).
-    if (restaurantId) {
-      const restaurant = await this.prisma.restaurant.findUnique({
-        where: { id: restaurantId },
-        select: { ...select, ownerId: true },
-      });
-      if (!restaurant) return null;
-      const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-      const isOwner = restaurant.ownerId === userId;
-      const isStaff = user?.restaurantId === restaurantId;
-      if (!isSuperAdmin && !isOwner && !isStaff) {
-        throw new ForbiddenException(
-          'You do not have access to this restaurant',
-        );
-      }
-      return restaurant;
-    }
-
-    // Fallback: caller's own restaurant. Staff via User.restaurantId; owners
-    // via Restaurant.ownerId.
-    if (user?.restaurantId) {
-      return this.prisma.restaurant.findUnique({
-        where: { id: user.restaurantId },
-        select,
-      });
-    }
-    return this.prisma.restaurant.findFirst({
-      where: { ownerId: userId },
-      select,
-    });
-  }
-
   @Get('status')
-  @UseGuards(JwtAuthGuard)
-  async getStatus(
-    @Req() req: any,
-    @Query('restaurantId') restaurantId?: string,
-  ) {
-    const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(
-      userId,
-      {
-        id: true,
-        tier: true,
-        forceTier: true,
-        stripeSubscriptionId: true,
-        tierUpdatedAt: true,
-      },
-      restaurantId,
-    );
+  @RequireRestaurantAccess({
+    policy: 'billing-status',
+    source: 'query',
+    key: 'restaurantId',
+  })
+  async getStatus(@Req() req: object) {
+    const access = getRestaurantAccess(req);
+    // No restaurant is a valid account-status result, not a reason to select
+    // a second default after the guard. Explicit/default targets are resolved once.
+    const restaurant = access
+      ? await this.prisma.restaurant.findUnique({
+          where: { id: access.restaurantId },
+          select: {
+            id: true,
+            tier: true,
+            forceTier: true,
+            stripeSubscriptionId: true,
+          },
+        })
+      : null;
     const tier = this.featureService.getEffectiveTier(
       restaurant?.tier ?? 'FREE',
       restaurant?.forceTier ?? null,
@@ -104,57 +69,54 @@ export class SubscriptionController {
   }
 
   @Post('checkout')
-  @UseGuards(JwtAuthGuard)
-  async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
-    if (req.user.role !== 'OWNER')
-      throw new ForbiddenException('Only restaurant owners can manage billing');
-    const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(
-      userId,
-      { id: true },
-      dto.restaurantId,
-    );
-    if (!restaurant)
-      throw new NotFoundException('No restaurant found for user');
+  @RequireRestaurantAccess({
+    policy: 'billing-owner',
+    source: 'body',
+    key: 'restaurantId',
+  })
+  async createCheckout(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
+    @Body() dto: CreateCheckoutDto,
+  ) {
     return this.subscriptionService.createCheckoutSession(
-      restaurant.id,
+      access.restaurantId,
       dto.tier,
       dto.billingPeriod ?? 'monthly',
-      userId,
+      access.userId,
       dto.onboarding ?? false,
     );
   }
 
   @Post('confirm-session')
   @UseGuards(JwtAuthGuard)
-  async confirmSession(@Req() req: any, @Body('sessionId') sessionId: string) {
+  async confirmSession(
+    @Req() req: { user: { id: string; sub?: string } },
+    @Body('sessionId') sessionId: string,
+  ) {
     if (!sessionId) return { tier: 'FREE' };
     const userId = req.user.id ?? req.user.sub;
     return this.subscriptionService.confirmCheckoutSession(sessionId, userId);
   }
 
   @Post('portal')
-  @UseGuards(JwtAuthGuard)
-  async createPortal(
-    @Req() req: any,
-    @Body('restaurantId') restaurantId?: string,
-  ) {
-    if (req.user.role !== 'OWNER')
-      throw new ForbiddenException('Only restaurant owners can manage billing');
-    const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(
-      userId,
-      { id: true },
-      restaurantId,
+  @RequireRestaurantAccess({
+    policy: 'billing-owner',
+    source: 'body',
+    key: 'restaurantId',
+  })
+  async createPortal(@AuthorizedRestaurant() access: RestaurantAccessContext) {
+    return this.subscriptionService.createPortalSession(
+      access.restaurantId,
+      access.userId,
     );
-    if (!restaurant)
-      throw new NotFoundException('No restaurant found for user');
-    return this.subscriptionService.createPortalSession(restaurant.id, userId);
   }
 
   @Post('webhook')
   @HttpCode(200)
-  async webhook(@Req() req: any, @Headers('stripe-signature') sig: string) {
+  async webhook(
+    @Req() req: { body: Buffer },
+    @Headers('stripe-signature') sig: string,
+  ) {
     return this.subscriptionService.handleWebhook(req.body, sig);
   }
 }

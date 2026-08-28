@@ -15,7 +15,7 @@ import {
   RESTAURANT_ACCESS_KEY,
   RestaurantAccessRequirement,
 } from './restaurant-access.policy';
-import { LEGACY_RESTAURANT_ACCESS_ROUTES } from './restaurant-access.legacy-routes';
+import { SEPARATE_AUTHORIZATION_ROUTES } from './restaurant-access.separate-routes';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { REQUIRE_FEATURE_KEY } from '../subscription/require-feature.decorator';
 
@@ -66,7 +66,7 @@ function guardErrors(route: Route): string[] {
   );
   if (!requirement)
     return [
-      `${id}: missing RequireRestaurantAccess or explicit legacy/public classification`,
+      `${id}: missing RequireRestaurantAccess or explicit separate authorization classification`,
     ];
   const guards: unknown[] = [
     ...((Reflect.getMetadata(GUARDS_METADATA, controller) as unknown[]) ?? []),
@@ -110,13 +110,14 @@ describe('Restaurant access route coverage (explicit rollout inventory)', () => 
         }
       }
     }
-    const legacy = new Map<string, string>();
-    for (const entry of LEGACY_RESTAURANT_ACCESS_ROUTES) {
+    const separate = new Map<string, string>();
+    for (const entry of SEPARATE_AUTHORIZATION_ROUTES) {
       expect(entry.reason.length).toBeGreaterThan(20);
+      expect(entry.reason).not.toMatch(/follow-up|not yet|pending migration/i);
       for (const method of entry.routes) {
         const id = `${entry.file}:${entry.controller}.${method}`;
-        expect(legacy.has(id)).toBe(false);
-        legacy.set(id, entry.reason);
+        expect(separate.has(id)).toBe(false);
+        separate.set(id, entry.reason);
       }
     }
     const errors: string[] = [];
@@ -132,14 +133,15 @@ describe('Restaurant access route coverage (explicit rollout inventory)', () => 
         );
       if (requirement) {
         migrated++;
-        if (legacy.has(route.id))
-          errors.push(`${route.id}: remove stale legacy exemption`);
+        if (separate.has(route.id))
+          errors.push(`${route.id}: remove stale separate exemption`);
         errors.push(...guardErrors(route));
-      } else if (!legacy.has(route.id)) errors.push(...guardErrors(route));
+      } else if (!separate.has(route.id)) errors.push(...guardErrors(route));
     }
-    for (const id of legacy.keys())
-      if (!seen.has(id)) errors.push(`${id}: stale/renamed legacy entry`);
-    expect(migrated).toBeGreaterThanOrEqual(107);
+    for (const id of separate.keys())
+      if (!seen.has(id)) errors.push(`${id}: stale/renamed separate entry`);
+    expect(separate.size).toBeLessThanOrEqual(113);
+    expect(migrated).toBeGreaterThanOrEqual(132);
     expect(routes.length).toBeGreaterThanOrEqual(245);
     expect(errors).toEqual([]);
   });

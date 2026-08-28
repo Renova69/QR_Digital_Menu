@@ -1,11 +1,11 @@
 # P3-3 — Declarative restaurant access
 
-Status: **PARTIAL — 64 routes merged via PR #59 (`6a76bba4`), #60
-(`6f472e53`) and #61 (`d6c5b2ef`), all with green PR and post-merge CI.
-Fourth slice adds 27 tables/zones/reservations routes for review (91 total).
-Two planned slices remain afterward. Batch release pending.**
-This is not completion of the repository-wide migration. No schema, migration,
-credential, dependency, or frontend change is involved.
+Status: **IMPLEMENTATION COMPLETE; final 41 routes in review in one combined PR.
+91 routes merged through PR #62 (`16d21007`), with green PR and post-merge CI.
+The last two slices add 16 service-management and 25 payment/subscription routes:
+132 guarded management routes; zero temporary migration entries remain.
+Merge/CI approval and the deliberately batched backend release are still pending.**
+No schema, migration, database, credential, dependency or frontend change is involved.
 
 ## First slice
 
@@ -36,7 +36,8 @@ it: that would turn an effective STAFF back into a MANAGER.
 ## Tenant selection and ordering
 
 - Each declaration names exactly one source and key: `params`, `query`, or
-  the existing `body.restaurantId` contract on reservation action/internal edits.
+  existing `body.restaurantId` contracts, or the fixed session-token header on
+  POS pending-payment reconciliation.
   Conflicting values in another location cannot change the authorized tenant.
 - Menu declarations additionally require an explicit `resource` and `params`
   source. Table/zone management similarly declares `restaurant` or its matching
@@ -46,10 +47,14 @@ it: that would turn an effective STAFF back into a MANAGER.
   whitespace-padded, and overlong ids fail with 400 before Prisma.
   Suspended dashboard/printer requests retain `RESTAURANT_SUSPENDED` for the
   frontend's localized error handling.
-- Only an **omitted** printer-management query permits the existing owner
-  fallback: first owned, non-deleted restaurant ordered by creation time.
-  An explicit invalid/missing/foreign id never falls back. Empty-string input
-  now returns 400 instead of silently selecting an owner's default restaurant.
+- An **omitted** printer-management query selects the first owned, non-deleted
+  restaurant ordered by creation time. Billing has its separate existing
+  assignment/first-owned fallback; optional service lists stay account-scoped.
+  See the final slices below. An explicit invalid/missing/foreign id never
+  selects a different default. Empty-string input returns 400.
+- Session credentials remain in `X-Table-Session-Token`, never path/query ids.
+  The access guard and parameter decorator share the same bounded extractor;
+  the resolved context contains the restaurant id, never the credential.
 - FeatureGuard runs afterward and uses the verified restaurant id, including
   the fallback. It cannot authorize one tenant and apply another tenant's tier.
   It refreshes the context's tier from that same feature check, so analytics
@@ -189,39 +194,85 @@ JWT once, tenancy, then FeatureGuard. Route discovery rejects a future method
 without that ordering. Service-point feature gates and anonymous QR resolution
 remain unchanged. No database/schema/provider or frontend change is involved.
 
-## Coverage and remaining work
+## Fifth slice: service management (16 routes)
+
+| Policy                  | Routes | Preserved contract                                                                                         |
+| ----------------------- | -----: | ---------------------------------------------------------------------------------------------------------- |
+| service-list            |      2 | Optional order/assistance restaurant filter; explicit targets require ownership or assignment              |
+| service-member          |      8 | Actual owner or any assigned account; assistance/order/feedback child targets resolve their own restaurant |
+| order-update            |      1 | Same membership; CANCELED additionally requires effective OWNER/MANAGER                                    |
+| loyalty-management      |      3 | Actual owner only, with the existing loyalty feature gate                                                  |
+| notification-management |      2 | Effective OWNER/MANAGER plus actual ownership or assignment                                                |
+
+An omitted list filter still means the account's existing owned/assigned scope.
+It does not select the first restaurant or invent a single-tenant context.
+The services retain their ownership/assignment filters; FeatureGuard ignores
+undeclared body targets and retains its assigned-restaurant fallback. An owner
+without an assigned restaurant still needs an explicit target for order-list
+entitlements. Explicit foreign targets are now rejected before dispatch rather
+than sometimes returning an empty filtered list.
+
+There is no new global admin grant, suspension or deletion policy. Existing
+order/loyalty feature checks remain. The guard prevents a raw database MANAGER
+role from reviving cancellation or delivery-management access after JWT demotion.
+Bulk orders still validate every order against the declared restaurant and status;
+notification retry still matches both delivery and restaurant and retains its
+failure/uncertainty/CAS checks. No business service or write logic changed.
+
+## Sixth slice: payment and billing (25 routes)
+
+| Policy             | Routes | Access beyond actual ownership                                |
+| ------------------ | -----: | ------------------------------------------------------------- |
+| payment-pos        |      6 | Assigned effective MANAGER/WAITER, or global SUPER_ADMIN      |
+| payment-management |     11 | Assigned effective OWNER/MANAGER, or existing admin exception |
+| payment-staff      |      3 | Any assigned account, or global SUPER_ADMIN                   |
+| payment-cash       |      2 | Assigned OWNER/MANAGER/WAITER/STAFF, or global SUPER_ADMIN    |
+| billing-status     |      1 | Any assigned account or global SUPER_ADMIN                    |
+| billing-owner      |      2 | Effective OWNER and actual ownership only                     |
+
+STAFF may collect cash but cannot force/close a table session. KITCHEN may read
+the existing cash/feed views but cannot confirm/cancel cash requests. The guard
+uses the effective JWT role; a raw MANAGER cannot restore demoted permissions.
+
+Payment policies retain suspension/deletion rejection with the existing admin
+exceptions. Reporting/refunds preserve PaymentCore's unusual owner-first ordering:
+an admin who actually owns that restaurant does not bypass its status check.
+Billing status/checkout/portal retain recovery access without adding a paid-plan,
+suspension or deletion gate; checkout/portal still recheck actual ownership in
+SubscriptionService before provider work.
+
+Payment, reconciliation-issue and cash-request ids resolve minimal authoritative
+relationships. Pending-session reconciliation resolves the header token to its
+restaurant before both authorization and the POS feature check. The other POS
+body-target routes retain their service-level token+restaurant/table checks.
+A different query/body/default restaurant cannot supply a higher plan.
+
+Billing defaults remain assignment first, otherwise the existing first-owned
+lookup. Explicit malformed ids are rejected, never interpreted as omitted.
+Status retains its FREE/no-subscription response when no restaurant exists
+(including an explicit missing row); checkout/portal still fail without a row.
+The controller uses only the guard-selected target and does not select a second
+default if the first-owned lookup changes. Public payment/session routes,
+provider-signature webhooks and account-bound checkout confirmation stay separate.
+
+## Coverage and close-out
 
 `restaurant-access.coverage.spec.ts` imports every `*.controller.ts` and inspects
-actual Nest route/guard metadata. It currently discovers **245 routes**. For
-migrated routes it verifies authentication before access and feature checks after
+actual Nest route/guard metadata: **245 routes = 132 guarded + 113 separately
+authorized**. Authentication must precede access, and FeatureGuard must follow
 access. Mutation fixtures prove missing policies/guards and wrong ordering fail.
 
-With four slices, **91 routes** use the guard. The other **154 routes** are
-frozen, individually named in
-`restaurant-access.legacy-routes.ts`. This is an explicit rollout inventory, **not
-an authorization assertion or runtime bypass**. It includes public/token routes,
-account-only operations, super-admin endpoints, and tenant routes still guarded
-inside controllers/services. No wildcard/class-wide exemption is allowed. New
-routes require either the declarative guard or a reviewed explanation of their
-different authorization. Stale/duplicated entries fail; remove entries as routes
-are migrated.
+`restaurant-access.separate-routes.ts` replaces the temporary legacy inventory.
+Its remaining entries are individually named public, account, super-admin,
+API-key, enrollment/session/manage-token or provider-signature contracts.
+They are **not 113 more P3-3 migrations**, and the file is not a runtime bypass.
+No wildcard/class-wide exception is allowed. New routes require the declarative
+guard or an explicitly reviewed different authorization contract; stale entries,
+duplicates and temporary follow-up reasons fail CI. The guard count is ratcheted
+to at least 132 and separate classifications to at most 113.
 
-Finite close-out, counted against merged PR #61 plus this fourth slice:
-
-| Slice                                                                                            | Status          | Management routes |
-| ------------------------------------------------------------------------------------------------ | --------------- | ----------------: |
-| Tables/zones/reservations                                                                        | This review     |                27 |
-| Orders (4), assistance (4), feedback (3), loyalty (3), notifications (2)                         | Next            |                16 |
-| Payment management (22), subscription status/checkout/portal (3), final inventory classification | Last P3-3 slice |                25 |
-
-After this review, **41 management routes in two slices remain**. The other
-**113 routes** have different public/account/admin/token authorization; they are
-not 113 more routes to put behind dashboard JWT. The final slice separates their
-permanent classifications from the temporary migration inventory. Existing
-optional account/default-restaurant contracts must be preserved explicitly.
-P3-3 closes when that management inventory is empty and route coverage passes,
-not when all 245 endpoints use one guard.
-
+The management migration inventory is now empty. P3-3 implementation is complete;
+review/merge/CI and batch release verification remain distinct gates.
 Existing child-resource/service checks remain. This guard is not a substitute for
 tenant-constrained queries at the write boundary; that separate work remains P3-4.
 It cannot promise a transactional permission snapshot across concurrent updates.
@@ -274,9 +325,23 @@ Gitleaks 8.28.0 with CI's flags, migration SQL safety and all 14 secret-scanner
 tests pass. No database or migration was executed. Clean-install Linux CI,
 including its disposable-database E2E checks, remains the merge gate.
 
+Final two-slice verification: **214 backend suites / 3,545 tests passed** (106
+new tests). Coverage: **89.80% lines / 76.19% branches**. Type checking and
+Nest/SWC build pass. Full lint has zero errors / 497 existing warnings (down
+from 544; cap unchanged); the shared policy/guard and new HTTP specs pass with
+zero warnings. Prettier, Gitleaks 8.28.0 with CI's exact flags, the static migration
+SQL safety gate and all 14 secret-scanner tests pass. Clean-install Linux CI
+and its disposable-database E2E job remain merge gates. No local E2E database
+or deployed environment was used; no scanner exemption or bypass was added.
+HTTP regressions exercise every added route, role/status matrices, cross-tenant
+resources, effective-role demotion, declared-source feature checks, optional
+lists/billing defaults, malformed ids, shared header parsing and public-route
+compatibility. All I/O is mocked; no database or provider is contacted.
+
 **Deployment is deliberately batched** at the user's request (28 Aug 2026).
 PR #58/P3-2 is merged at `f4ec9a61`, PR #59 at `6a76bba4`, PR #60 at
-`6f472e53` and PR #61 at `d6c5b2ef`; these await backend deployment. The last confirmed
+`6f472e53`, PR #61 at `d6c5b2ef` and PR #62 at `16d21007`; these await backend
+deployment. The last confirmed
 backend deployment is P3-1 at `e7500785`. No deploy script or live database command
 is part of this implementation. Later, deploy approved merged main once through
 the existing backup/safety/canary workflow and run the accumulated release checks.
@@ -293,3 +358,10 @@ API-key, enrollment-token and advisory-slug flows using demo data.
 For this slice, verify waiter table/zone reads and reservation arrival, manager
 table/zone configuration and booking decisions, denial of cross-restaurant
 table/zone edits, and continued service-point QR access. Do not deploy separately.
+
+After the final slices are merged and included in that later batch release, check
+order/assistance lists, manager cancellation, feedback/loyalty views, delivery
+retry, waiter POS actions, cashier cash collection, owner billing defaults and
+multi-location subscription status with demo data. Verify cross-restaurant
+denials and continued customer checkout/webhooks. This PR does not run those
+release checks or trigger deployment.

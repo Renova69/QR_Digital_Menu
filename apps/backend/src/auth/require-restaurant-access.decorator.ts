@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiHeader, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { RestaurantAccessGuard } from './restaurant-access.guard';
 import {
   getRestaurantAccess,
@@ -30,12 +30,16 @@ export function RequireRestaurantAccess(
             ApiQuery({
               name: requirement.key,
               type: String,
-              required: !['print-management', 'service-list'].includes(
-                requirement.policy,
-              ),
+              required: ![
+                'print-management',
+                'service-list',
+                'billing-status',
+              ].includes(requirement.policy),
             }),
           ]
-        : []), // Body schemas remain owned by the route's DTO.
+        : requirement.source === 'headers'
+          ? [ApiHeader({ name: requirement.key, required: true })]
+          : []), // Body schemas remain owned by the route's DTO.
   );
 }
 

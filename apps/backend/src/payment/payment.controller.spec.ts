@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('PaymentController table-session credential transport (M-PAY-1)', () => {
   let app: INestApplication;
@@ -15,7 +16,10 @@ describe('PaymentController table-session credential transport (M-PAY-1)', () =>
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [PaymentController],
-      providers: [{ provide: PaymentService, useValue: paymentService }],
+      providers: [
+        { provide: PaymentService, useValue: paymentService },
+        { provide: PrismaService, useValue: {} },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
