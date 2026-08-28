@@ -9,6 +9,10 @@ import { FeedbackService } from './feedback.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHmac } from 'crypto';
 
+const ownerRestaurantScope = {
+  OR: [{ ownerId: 'owner-1' }, { staffMembers: { some: { id: 'owner-1' } } }],
+};
+
 const mockPrisma = {
   feedback: {
     findUnique: jest.fn(),
@@ -687,6 +691,7 @@ describe('FeedbackService', () => {
         expect.objectContaining({
           where: {
             restaurantId: 'rest-1',
+            restaurant: ownerRestaurantScope,
             rating: 4,
             comment: { not: null },
             createdAt: {
@@ -698,6 +703,18 @@ describe('FeedbackService', () => {
           take: 10,
         }),
       );
+      expect(mockPrisma.feedback.count).toHaveBeenCalledWith({
+        where: {
+          restaurantId: 'rest-1',
+          restaurant: ownerRestaurantScope,
+          rating: 4,
+          comment: { not: null },
+          createdAt: {
+            gte: new Date('2026-07-01T00:00:00.000Z'),
+            lte: new Date('2026-07-31T23:59:59.999Z'),
+          },
+        },
+      });
     });
 
     it('sorts the review inbox from oldest to newest when requested', async () => {
@@ -815,6 +832,30 @@ describe('FeedbackService', () => {
       expect(result.averageRating).toBe(0);
       expect(result.googleRedirects).toBe(0);
       expect(result.positiveRate).toBe(0);
+      const where = {
+        restaurantId: 'rest-1',
+        restaurant: ownerRestaurantScope,
+      };
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith({
+        where: { id: 'rest-1', ...ownerRestaurantScope },
+        select: { ownerId: true, timezone: true },
+      });
+      expect(mockPrisma.feedback.aggregate).toHaveBeenCalledWith({
+        where,
+        _count: { _all: true },
+        _avg: { rating: true },
+      });
+      expect(mockPrisma.feedback.groupBy).toHaveBeenCalledWith({
+        by: ['rating'],
+        where,
+        _count: { _all: true },
+      });
+      expect(mockPrisma.feedback.count).toHaveBeenCalledWith({
+        where: { ...where, redirectedToGoogle: true },
+      });
+      expect(mockPrisma.feedback.count).toHaveBeenCalledWith({
+        where: { ...where, rating: { gte: 4 } },
+      });
     });
 
     it('calculates correct average rating', async () => {
@@ -959,7 +1000,11 @@ describe('FeedbackService', () => {
 
       expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'session-1', restaurantId: 'rest-1' },
+          where: {
+            id: 'session-1',
+            restaurantId: 'rest-1',
+            restaurant: ownerRestaurantScope,
+          },
         }),
       );
       expect(result.session.tableName).toBe('Table 4');
@@ -995,10 +1040,55 @@ describe('FeedbackService', () => {
 
       expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'session-9', restaurantId: 'rest-1' },
+          where: {
+            id: 'session-9',
+            restaurantId: 'rest-1',
+            restaurant: ownerRestaurantScope,
+          },
         }),
       );
       expect(result.session.id).toBe('session-9');
+    });
+
+    it('does not read visit details if the actor-scoped feedback lookup finds nothing', async () => {
+      mockPrisma.feedback.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getVisit('foreign-feedback', 'owner-1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.feedback.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'foreign-feedback',
+            restaurant: ownerRestaurantScope,
+          },
+        }),
+      );
+      expect(mockPrisma.restaurant.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('does not return visit details after membership is lost between reads', async () => {
+      ownRestaurant();
+      mockPrisma.feedback.findUnique.mockResolvedValueOnce({
+        id: 'feedback-1',
+        restaurantId: 'rest-1',
+        invitation: { tableSessionId: 'session-1' },
+      });
+      mockPrisma.tableSession.findFirst.mockResolvedValueOnce(null);
+
+      await expect(service.getVisit('feedback-1', 'owner-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'session-1',
+            restaurantId: 'rest-1',
+            restaurant: ownerRestaurantScope,
+          },
+        }),
+      );
     });
 
     it('404s when the review is not linked to any visit', async () => {

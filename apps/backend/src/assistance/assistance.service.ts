@@ -13,6 +13,7 @@ import { AssistanceQueryDto } from './dto/assistance-query.dto';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { Prisma } from '@prisma/client';
+import { restaurantMemberWhere } from '../auth/restaurant-member-scope';
 
 // Dedupe window for call-waiter requests. Matches the 60s client-side anti-spam
 // cooldown so the two gates agree; a request older than this no longer blocks the
@@ -31,7 +32,7 @@ export class AssistanceService {
 
   private async verifyRequestAccess(id: string, userId: string) {
     const request = await this.prisma.assistanceRequest.findUnique({
-      where: { id },
+      where: { id, restaurant: restaurantMemberWhere(userId) },
       include: {
         restaurant: { select: { ownerId: true } },
       },
@@ -212,12 +213,27 @@ export class AssistanceService {
     userId: string,
   ) {
     const request = await this.verifyRequestAccess(id, userId);
-    const updatedRequest = await this.prisma.assistanceRequest.update({
-      where: { id },
-      data: {
-        isResolved: updateAssistanceDto.isResolved,
-      },
-    });
+    const updatedRequest = await this.prisma.assistanceRequest
+      .update({
+        // Keep the captured tenant AND current membership on the write.
+        where: {
+          id,
+          restaurantId: request.restaurantId,
+          restaurant: restaurantMemberWhere(userId),
+        },
+        data: {
+          isResolved: updateAssistanceDto.isResolved,
+        },
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new NotFoundException('Assistance request not found');
+        }
+        throw error;
+      });
 
     this.eventsGateway.emitToRestaurant(
       request.restaurantId,
@@ -228,9 +244,23 @@ export class AssistanceService {
   }
 
   async remove(id: string, userId: string) {
-    await this.verifyRequestAccess(id, userId);
-    return this.prisma.assistanceRequest.delete({
-      where: { id },
-    });
+    const request = await this.verifyRequestAccess(id, userId);
+    return this.prisma.assistanceRequest
+      .delete({
+        where: {
+          id,
+          restaurantId: request.restaurantId,
+          restaurant: restaurantMemberWhere(userId),
+        },
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new NotFoundException('Assistance request not found');
+        }
+        throw error;
+      });
   }
 }

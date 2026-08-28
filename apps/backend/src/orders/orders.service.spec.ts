@@ -17,6 +17,7 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { PrintStationService } from '../print-station/print-station.service';
 import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
 import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
+import { Prisma } from '@prisma/client';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -3054,7 +3055,15 @@ describe('OrdersService', () => {
       const result = await service.findOne('order-1', 'user-1');
       expect(result).toBe(order);
       expect(prisma.order.findUnique).toHaveBeenCalledWith({
-        where: { id: 'order-1' },
+        where: {
+          id: 'order-1',
+          restaurant: {
+            OR: [
+              { ownerId: 'user-1' },
+              { staffMembers: { some: { id: 'user-1' } } },
+            ],
+          },
+        },
         include: {
           restaurant: {
             select: { ownerId: true, loyaltyPointExpiryDays: true },
@@ -3378,11 +3387,132 @@ describe('OrdersService', () => {
       ).rejects.toThrow(ConflictException);
 
       expect(prisma.order.updateMany).toHaveBeenCalledWith({
-        where: { id: 'order-1', status: 'NEW' },
+        where: {
+          id: 'order-1',
+          restaurantId: 'rest-1',
+          restaurant: {
+            OR: [
+              { ownerId: 'user-1' },
+              { staffMembers: { some: { id: 'user-1' } } },
+            ],
+          },
+          status: 'NEW',
+        },
         data: { status: 'CANCELED' },
       });
       expect(prisma.loyaltyAccount.findUnique).not.toHaveBeenCalled();
       expect(prisma.loyaltyPointLedger.create).not.toHaveBeenCalled();
+    });
+
+    it('does not cancel or reverse loyalty when the order moves to another owned restaurant', async () => {
+      prisma.order.findUnique.mockResolvedValue(
+        makeOrder({ customerId: 'cust-1', pointsRedeemedForDiscount: 50 }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      // Model a row moved after findOne. Even an owner of BOTH restaurants
+      // must not mutate it using authorization and loyalty data from rest-1.
+      prisma.order.updateMany.mockImplementation(
+        ({ where }: Prisma.OrderUpdateManyArgs) =>
+          Promise.resolve({
+            count: where?.restaurantId === 'rest-1' ? 0 : 1,
+          }),
+      );
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
+        makeOrder({ restaurantId: 'rest-2', status: 'CANCELED' }),
+      );
+
+      await expect(
+        service.updateStatus('order-1', { status: 'CANCELED' }, 'user-1'),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.order.findUniqueOrThrow).not.toHaveBeenCalled();
+      expect(prisma.loyaltyAccount.findUnique).not.toHaveBeenCalled();
+      expect(prisma.loyaltyPointLedger.create).not.toHaveBeenCalled();
+      expect(events.emitToOrder).not.toHaveBeenCalled();
+      expect(events.emitOrderEventToRestaurant).not.toHaveBeenCalled();
+      expect(events.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('rechecks membership on the claim after a staff assignment is revoked', async () => {
+      prisma.order.findUnique.mockResolvedValue(
+        makeOrder({ restaurant: { ownerId: 'owner-1' } }),
+      );
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      prisma.order.updateMany.mockImplementation(
+        ({ where }: Prisma.OrderUpdateManyArgs) =>
+          Promise.resolve({ count: where?.restaurant ? 0 : 1 }),
+      );
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
+        makeOrder({ status: 'SERVED' }),
+      );
+
+      await expect(
+        service.updateStatus('order-1', { status: 'SERVED' }, 'staff-1'),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'order-1',
+          restaurantId: 'rest-1',
+          status: 'NEW',
+          restaurant: {
+            OR: [
+              { ownerId: 'staff-1' },
+              { staffMembers: { some: { id: 'staff-1' } } },
+            ],
+          },
+        },
+        data: { status: 'SERVED' },
+      });
+      expect(events.emitToOrder).not.toHaveBeenCalled();
+      expect(events.emitOrderEventToRestaurant).not.toHaveBeenCalled();
+    });
+
+    it('aborts before loyalty and events if membership is lost before the transaction readback', async () => {
+      prisma.order.findUnique.mockResolvedValue(
+        makeOrder({ customerId: 'cust-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      prisma.order.findUniqueOrThrow.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Scoped row not found', {
+          code: 'P2025',
+          clientVersion: '6',
+        }),
+      );
+
+      await expect(
+        service.updateStatus('order-1', { status: 'CANCELED' }, 'user-1'),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.order.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: {
+          id: 'order-1',
+          restaurantId: 'rest-1',
+          restaurant: {
+            OR: [
+              { ownerId: 'user-1' },
+              { staffMembers: { some: { id: 'user-1' } } },
+            ],
+          },
+        },
+      });
+      expect(prisma.loyaltyAccount.findUnique).not.toHaveBeenCalled();
+      expect(events.emitToOrder).not.toHaveBeenCalled();
+    });
+
+    it('propagates a database failure during the transaction readback without emitting', async () => {
+      prisma.order.findUnique.mockResolvedValue(makeOrder());
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+      const failure = new Error('Database unavailable');
+      prisma.order.findUniqueOrThrow.mockRejectedValueOnce(failure);
+
+      await expect(
+        service.updateStatus('order-1', { status: 'SERVED' }, 'user-1'),
+      ).rejects.toBe(failure);
+      expect(events.emitToOrder).not.toHaveBeenCalled();
     });
   });
 
