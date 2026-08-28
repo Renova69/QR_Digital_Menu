@@ -7,7 +7,7 @@
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
 > **Security Hardening:** ✅ P0/P1 and active P2 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** P3-3 implementation complete; final 41 routes (16 service-management + 25 payment/subscription) in one PR for review. 91 routes merged through PR #62; 132 guarded in total and no temporary migration entries left. Review/merge/CI and the deliberately batched backend release remain pending. P3-4 is next after this PR.
+> **Current Focus:** P3-3 merged through PR #63 (`32fdc9e6`) with green post-merge CI: 132 guarded routes, no temporary migration entries. P3-4 query scoping for orders, assistance and feedback is in review; menu/tenant-management and payment/session work remains. Backend deployment stays deliberately batched.
 
 ---
 
@@ -31,20 +31,23 @@
   provider calls/retries, explicit background-work separation. Implementation
   merged via PR #58 at `f4ec9a61` with green CI; backend deployment pending. See
   [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
-- **P3-3 IMPLEMENTATION COMPLETE; FINAL PR IN REVIEW:** 91 routes merged via
-  PR #59 (`6a76bba4`), #60 (`6f472e53`), #61 (`d6c5b2ef`) and #62
-  (`16d21007`), with green PR and post-merge CI. The final 16 service-management
-  and 25 payment/subscription routes are combined in one PR: 132 guarded of 245.
+- **P3-3 MERGED/COMPLETE:** PR #59–#63, ending at `32fdc9e6`, with green
+  PR and post-merge CI. The final 16 service-management and 25 payment/subscription
+  routes merged together in PR #63: 132 guarded of 245.
   The 113 public/account/admin/token routes are permanently classified separately;
   no temporary management-migration entries remain. No new URLs, schema or
-  business workflow; existing service/child checks remain. Merge and batch
+  business workflow; existing service/child checks remain. Batch deployment and
   release verification are still pending. See
   [the policy and close-out evidence](ops/security/RESTAURANT_ACCESS.md).
+- **P3-4 PARTIAL, first slice in review:** member-scoped order/assistance reads
+  and writes, feedback queries/counts and linked-visit reads. Existing role rules
+  and order/loyalty transactions are preserved. RLS evaluated, not enabled.
+  [Scope, evidence and remaining work](ops/security/TENANT_QUERY_SCOPING.md).
 - **Deployment decision (28 Aug):** batch the backend deployment after additional
   P3 merges; do not deploy after each PR. Last confirmed backend: `e7500785`.
-- **Next implementation:** P3-4 tenant-constrained queries after the final P3-3
-  PR is approved and merged. P3-4 through P3-10 remain open; none are implicitly
-  closed by these changes. No deployment or database work in this PR.
+- **Next implementation:** remaining P3-4 menu/tenant-management and payment/
+  session query scoping, then its close-out inventory. P3-5 through P3-10 remain
+  open. No deployment or database work in this PR.
 
 The detailed evidence and per-item status live in
 [`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).

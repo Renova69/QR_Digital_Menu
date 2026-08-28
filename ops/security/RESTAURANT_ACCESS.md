@@ -1,10 +1,10 @@
 # P3-3 — Declarative restaurant access
 
-Status: **IMPLEMENTATION COMPLETE; final 41 routes in review in one combined PR.
-91 routes merged through PR #62 (`16d21007`), with green PR and post-merge CI.
-The last two slices add 16 service-management and 25 payment/subscription routes:
+Status: **MERGED/COMPLETE through PR #63 (`32fdc9e6`), with green PR and
+post-merge CI. The final 16 service-management and 25 payment/subscription routes
+merged together:
 132 guarded management routes; zero temporary migration entries remain.
-Merge/CI approval and the deliberately batched backend release are still pending.**
+Only the deliberately batched backend deployment and release checks are pending.**
 No schema, migration, database, credential, dependency or frontend change is involved.
 
 ## First slice
@@ -272,9 +272,10 @@ duplicates and temporary follow-up reasons fail CI. The guard count is ratcheted
 to at least 132 and separate classifications to at most 113.
 
 The management migration inventory is now empty. P3-3 implementation is complete;
-review/merge/CI and batch release verification remain distinct gates.
+PR #63 and its post-merge CI passed; batch release verification remains pending.
 Existing child-resource/service checks remain. This guard is not a substitute for
-tenant-constrained queries at the write boundary; that separate work remains P3-4.
+tenant-constrained queries at the write boundary; that separate work is tracked
+under [P3-4 query scoping](TENANT_QUERY_SCOPING.md).
 It cannot promise a transactional permission snapshot across concurrent updates.
 
 ## Verification and release

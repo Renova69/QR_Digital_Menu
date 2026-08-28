@@ -8,12 +8,12 @@ status: all active P2 engineering work is complete, with only explicit
 pre-launch operational gates deferred. P3-1 is merged/deployed at `e7500785`;
 manual product verification remains pending. P3-2 is merged via PR #58 at
 `f4ec9a61`; backend deployment is deliberately batched with later P3 work.
-P3-3 implementation is COMPLETE: 91 routes merged through PR #62 (`16d21007`),
-with green PR and post-merge CI; the final 16 service-management and 25
-payment/subscription routes are in one PR for review. All 132 management routes
+P3-3 is MERGED/COMPLETE through PR #63 (`32fdc9e6`), with green PR and
+post-merge CI. All 132 management routes
 are guarded; the other 113 have explicit separate authorization classifications.
-No temporary migration entries remain. Merge/CI approval and batch release
-verification are pending, not additional P3-3 implementation slices.
+No temporary migration entries remain. Batch release verification is pending,
+not additional P3-3 implementation. P3-4 is PARTIAL: orders/assistance/feedback
+query scoping is in review; menu/tenant-management and payment/session work remains.
 
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
@@ -377,18 +377,18 @@ completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
 ### P3 — Strategic
 
-| ID    | Task                                                                                                                                                                                                                                                                         | Effort |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| P3-1  | **MERGED/DEPLOYED (PR #57, `e7500785`); MANUAL VERIFICATION PENDING:** durable sessions, session inventory, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md)                                                                           | M      |
-| P3-2  | **MERGED (PR #58, `f4ec9a61`); BATCH DEPLOY PENDING:** shared HTTP budget, cancellation, retry-budget accounting and detached background work; [contract and verification](ops/runtime/REQUEST_BUDGETS.md)                                                                   | M      |
-| P3-3  | **IMPLEMENTATION COMPLETE; FINAL 41 ROUTES IN REVIEW:** 91 merged through PR #62 + 16 service-management + 25 payment/subscription = 132 guarded. 113 separate contracts; zero temporary entries. Merge/batch release pending; [evidence](ops/security/RESTAURANT_ACCESS.md) | M      |
-| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous)                                                                                          | M–L    |
-| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                                                                           | M–L    |
-| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                                                                      | M      |
-| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                                                                               | S      |
-| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                                                                               | S      |
-| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                                                                    | S      |
-| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                                                                                   | S–M    |
+| ID    | Task                                                                                                                                                                                                                                                                        | Effort |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| P3-1  | **MERGED/DEPLOYED (PR #57, `e7500785`); MANUAL VERIFICATION PENDING:** durable sessions, session inventory, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md)                                                                          | M      |
+| P3-2  | **MERGED (PR #58, `f4ec9a61`); BATCH DEPLOY PENDING:** shared HTTP budget, cancellation, retry-budget accounting and detached background work; [contract and verification](ops/runtime/REQUEST_BUDGETS.md)                                                                  | M      |
+| P3-3  | **MERGED/COMPLETE (PR #63, `32fdc9e6`), GREEN POST-MERGE CI:** 132 guarded; 113 separate contracts; zero temporary entries. Batch release pending; [evidence](ops/security/RESTAURANT_ACCESS.md)                                                                            | M      |
+| P3-4  | **PARTIAL; first slice in review:** compound tenant/member predicates for orders, assistance and feedback; RLS evaluated, not enabled. Menu/tenant-management and payment/session scoping plus close-out remain; [scope and evidence](ops/security/TENANT_QUERY_SCOPING.md) | M–L    |
+| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                                                                          | M–L    |
+| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                                                                     | M      |
+| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                                                                              | S      |
+| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                                                                              | S      |
+| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                                                                   | S      |
+| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                                                                                  | S–M    |
 
 ---
 
@@ -416,10 +416,11 @@ domain work in PD-1/PD-2. P3-1 durable session inventory and per-session/global
 revocation are merged/deployed; manual product checks remain pending. P3-2
 cross-call request budgets are merged, awaiting the deliberately batched deployment;
 they are cooperative HTTP/provider cancellation, not database rollback or a
-CPU execution limit. P3-3 implementation is complete (91 routes merged, final
-41 in review in one PR); the management inventory is empty. Merge/CI and the
-batch release remain pending. Public/account/admin/token routes are not
-unfinished tenant migrations. P3-4 through P3-10 remain open. The original H2, H5, and
+CPU execution limit. P3-3 is merged/complete through PR #63 with green post-merge
+CI; the management inventory is empty. The batch release remains pending.
+Public/account/admin/token routes are not unfinished tenant migrations.
+P3-4 is partial (orders/assistance/feedback query scoping in review); its remaining
+management/payment work and P3-5 through P3-10 remain open. The original H2, H5, and
 bounded-dependency portions of H7 have been remediated.
 
 **Is that the whole picture?** No — and this is the important part. The most serious defect in the system, C1, appears nowhere in the advisory. A generic checklist found the categories but missed the actual hole, because the actual hole required reading how `POST /orders` resolves a table. Treat the document as a prompt for inspection, not as the inspection.
