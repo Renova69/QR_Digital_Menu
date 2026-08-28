@@ -83,11 +83,27 @@ export class RestaurantAccessGuard implements CanActivate {
         'Print station management requires OWNER role',
       );
     }
-    if (policy === 'staff-management' && !['OWNER', 'MANAGER'].includes(role)) {
-      throw new ForbiddenException('Only owners and managers can manage staff');
+    if (
+      (policy === 'staff-management' ||
+        policy === 'notification-management' ||
+        (policy === 'order-update' && request.body?.status === 'CANCELED')) &&
+      !['OWNER', 'MANAGER'].includes(role)
+    ) {
+      throw new ForbiddenException(
+        policy === 'staff-management'
+          ? 'Only owners and managers can manage staff'
+          : 'This operation requires owner or manager role',
+      );
     }
 
     const value = request[requirement.source]?.[requirement.key];
+    if (policy === 'service-list' && value === undefined) {
+      // An unfiltered list is account-scoped, not one arbitrary owned tenant.
+      // The existing service always filters by this user's ownership/assignment.
+      // No single-restaurant context is fabricated; FeatureGuard must not pick
+      // up an undeclared body/parameter target for this mode.
+      return true;
+    }
     const ownerFallback =
       policy === 'print-management' &&
       requirement.source === 'query' &&
@@ -175,12 +191,16 @@ export class RestaurantAccessGuard implements CanActivate {
         ].includes(policy) &&
           role === 'MANAGER') ||
           policy === 'staff-management' ||
+          policy === 'notification-management' ||
           // These existing read contracts allow any assigned account, not just
           // editing roles. Do not demote their access to owner/manager-only.
           policy === 'restaurant-read' ||
           policy === 'menu-audit' ||
           policy === 'table-read' ||
           policy === 'zone-read' ||
+          policy === 'service-member' ||
+          policy === 'service-list' ||
+          policy === 'order-update' ||
           (policy === 'reservation-read' &&
             ['MANAGER', 'WAITER', 'STAFF'].includes(role)) ||
           (policy === 'reservation-operations' &&
@@ -258,6 +278,31 @@ export class RestaurantAccessGuard implements CanActivate {
         });
         if (!zone) throw new NotFoundException('Zone not found');
         return zone.restaurantId;
+      }
+      case 'assistance': {
+        const assistance = await this.prisma.assistanceRequest.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!assistance)
+          throw new NotFoundException('Assistance request not found');
+        return assistance.restaurantId;
+      }
+      case 'order': {
+        const order = await this.prisma.order.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+        return order.restaurantId;
+      }
+      case 'feedback': {
+        const feedback = await this.prisma.feedback.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!feedback) throw new NotFoundException('Feedback not found');
+        return feedback.restaurantId;
       }
       default:
         // Metadata validation only permits undefined or 'restaurant' here.

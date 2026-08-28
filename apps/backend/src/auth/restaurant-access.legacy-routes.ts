@@ -13,9 +13,9 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
   {
     file: 'assistance/assistance.controller.ts',
     controller: 'AssistanceController',
-    routes: ['create', 'findAll', 'findOne', 'update', 'remove'],
+    routes: ['create'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public call-waiter creation retains QR-token validation, deduplication and throttling; all management routes are migrated.',
   },
   {
     file: 'auth/auth.controller.ts',
@@ -68,12 +68,9 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'markVisitFeedbackPresented',
       'markGoogleReviewClick',
       'getGoogleReviewUrl',
-      'findAll',
-      'getSummary',
-      'getVisit',
     ],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public review links and session/invitation-token authorization; management reads are migrated.',
   },
   {
     file: 'health/health.controller.ts',
@@ -94,15 +91,12 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
     routes: [
       'getLoyaltyAccounts',
       'getHistory',
-      'getAnalytics',
-      'getExpiryReminders',
-      'notifyExpiryReminders',
       'getPublicConfig',
       'enroll',
       'getPoints',
     ],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Customer account-scoped loyalty membership/history/points plus public config; owner management routes are migrated.',
   },
   {
     file: 'menu/public-menu.controller.ts',
@@ -134,18 +128,11 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'Public view recording; getScanStats is migrated and must not be exempted.',
   },
   {
-    file: 'notifications/notification-delivery.controller.ts',
-    controller: 'NotificationDeliveryController',
-    routes: ['list', 'retry'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
     file: 'orders/orders.controller.ts',
     controller: 'OrdersController',
-    routes: ['create', 'findAll', 'findOne', 'bulkUpdate', 'update'],
+    routes: ['create'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Public order creation retains OptionalJwtAuthGuard, QR/session validation, idempotency and POS attribution; management routes are migrated.',
   },
   {
     file: 'payment/payment.controller.ts',

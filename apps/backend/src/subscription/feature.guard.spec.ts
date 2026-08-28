@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FeatureGuard } from './feature.guard';
 import { FeatureService } from './feature.service';
 import { FeatureFlag } from './feature-flag.enum';
+import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForbiddenException, ExecutionContext } from '@nestjs/common';
@@ -35,6 +36,12 @@ describe('FeatureGuard', () => {
     reflector = module.get<Reflector>(Reflector);
   });
 
+  function requireFeatures(features: FeatureFlag[] | undefined) {
+    (reflector.getAllAndOverride as jest.Mock).mockImplementation(
+      (key: string) => (key === REQUIRE_FEATURE_KEY ? features : undefined),
+    );
+  }
+
   function makeCtx(userId = 'u1') {
     return {
       getHandler: () => ({}),
@@ -54,14 +61,12 @@ describe('FeatureGuard', () => {
   }
 
   it('allows if no feature requirement set', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue(undefined);
+    requireFeatures(undefined);
     expect(await guard.canActivate(makeCtx())).toBe(true);
   });
 
   it('allows staff user whose tier has the required feature', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     // Staff: has restaurantId
     prismaMock.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
     prismaMock.restaurant.findUnique.mockResolvedValue({ tier: 'ENTERPRISE' });
@@ -69,9 +74,7 @@ describe('FeatureGuard', () => {
   });
 
   it('allows owner whose tier has the required feature', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.PAYMENTS_STRIPE,
-    ]);
+    requireFeatures([FeatureFlag.PAYMENTS_STRIPE]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -87,9 +90,7 @@ describe('FeatureGuard', () => {
   });
 
   it('throws ForbiddenException when staff tier lacks the feature', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     prismaMock.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
     prismaMock.restaurant.findUnique.mockResolvedValue({ tier: 'FREE' });
     await expect(guard.canActivate(makeCtx())).rejects.toThrow(
@@ -98,9 +99,7 @@ describe('FeatureGuard', () => {
   });
 
   it('throws ForbiddenException when owner tier lacks the feature', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -116,9 +115,7 @@ describe('FeatureGuard', () => {
   });
 
   it('throws ForbiddenException when user has no restaurant', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.ORDERS_RECEIVE,
-    ]);
+    requireFeatures([FeatureFlag.ORDERS_RECEIVE]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -131,9 +128,7 @@ describe('FeatureGuard', () => {
   // ── target-aware resolution (#2) ─────────────────────────────────────────
 
   it('checks the TARGET restaurant (from params.restaurantId), not the first owned', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.BRANDING_CUSTOM,
-    ]);
+    requireFeatures([FeatureFlag.BRANDING_CUSTOM]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -157,9 +152,7 @@ describe('FeatureGuard', () => {
   });
 
   it('denies passing another restaurant id you do not own (bypass prevention)', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.BRANDING_CUSTOM,
-    ]);
+    requireFeatures([FeatureFlag.BRANDING_CUSTOM]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -176,9 +169,7 @@ describe('FeatureGuard', () => {
   });
 
   it('resolves the target from body.restaurantId for staff', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.PAYMENTS_STRIPE,
-    ]);
+    requireFeatures([FeatureFlag.PAYMENTS_STRIPE]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: 'rest-3',
       role: 'WAITER',
@@ -194,9 +185,7 @@ describe('FeatureGuard', () => {
   });
 
   it('resolves an owner reconciliation action from params.issueId', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.PAYMENTS_STRIPE,
-    ]);
+    requireFeatures([FeatureFlag.PAYMENTS_STRIPE]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -227,9 +216,7 @@ describe('FeatureGuard', () => {
   });
 
   it('honors forceTier on the target restaurant', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.BRANDING_CUSTOM,
-    ]);
+    requireFeatures([FeatureFlag.BRANDING_CUSTOM]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -247,9 +234,7 @@ describe('FeatureGuard', () => {
   // ── suspension gate (M-10) ───────────────────────────────────────────────
 
   it('throws ForbiddenException when restaurant is suspended (isActive: false)', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     // Staff resolves to a target restaurant whose tier WOULD include the feature,
     // but the restaurant has been suspended — suspension must win over entitlement.
     prismaMock.user.findUnique.mockResolvedValue({
@@ -267,9 +252,7 @@ describe('FeatureGuard', () => {
   });
 
   it('throws ForbiddenException when caller-owned restaurant (no target) is suspended', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: 'rest-1',
       role: 'OWNER',
@@ -287,9 +270,7 @@ describe('FeatureGuard', () => {
   // ── SUPER_ADMIN bypass (L-1) ─────────────────────────────────────────────
 
   it('allows SUPER_ADMIN regardless of tier, without any restaurant lookup', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'SUPER_ADMIN',
@@ -304,9 +285,7 @@ describe('FeatureGuard', () => {
   // ── userId resolution from request.user.sub (L-4) ────────────────────────
 
   it('resolves userId from request.user.sub when id is absent', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.PAYMENTS_STRIPE,
-    ]);
+    requireFeatures([FeatureFlag.PAYMENTS_STRIPE]);
     prismaMock.user.findUnique.mockResolvedValue({
       restaurantId: null,
       role: 'OWNER',
@@ -337,9 +316,7 @@ describe('FeatureGuard', () => {
   });
 
   it('throws AUTH_REQUIRED when neither user.id nor user.sub is present', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      FeatureFlag.POS,
-    ]);
+    requireFeatures([FeatureFlag.POS]);
     const ctx = {
       getHandler: () => ({}),
       getClass: () => ({}),

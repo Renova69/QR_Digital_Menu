@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FeedbackController } from './feedback.controller';
 import { FeedbackService } from './feedback.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { FeedbackSummaryQueryDto } from './dto/feedback-summary-query.dto';
 import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
@@ -19,7 +20,10 @@ describe('FeedbackController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [FeedbackController],
-      providers: [{ provide: FeedbackService, useValue: mockFeedbackService }],
+      providers: [
+        { provide: FeedbackService, useValue: mockFeedbackService },
+        { provide: PrismaService, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get<FeedbackController>(FeedbackController);

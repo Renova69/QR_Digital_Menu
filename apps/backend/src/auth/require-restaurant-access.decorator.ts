@@ -30,7 +30,9 @@ export function RequireRestaurantAccess(
             ApiQuery({
               name: requirement.key,
               type: String,
-              required: requirement.policy !== 'print-management',
+              required: !['print-management', 'service-list'].includes(
+                requirement.policy,
+              ),
             }),
           ]
         : []), // Body schemas remain owned by the route's DTO.

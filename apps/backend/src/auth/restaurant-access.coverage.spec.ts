@@ -139,7 +139,7 @@ describe('Restaurant access route coverage (explicit rollout inventory)', () => 
     }
     for (const id of legacy.keys())
       if (!seen.has(id)) errors.push(`${id}: stale/renamed legacy entry`);
-    expect(migrated).toBeGreaterThanOrEqual(91);
+    expect(migrated).toBeGreaterThanOrEqual(107);
     expect(routes.length).toBeGreaterThanOrEqual(245);
     expect(errors).toEqual([]);
   });

@@ -18,7 +18,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { BulkUpdateOrderStatusDto } from './dto/bulk-update-order-status.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
@@ -50,7 +50,7 @@ export class OrdersController {
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   create(
     @Body() createOrderDto: CreateOrderDto,
-    @Request() req: any,
+    @Request() req: { user?: { id: string } },
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     this.logger.log('POST /orders');
@@ -81,22 +81,45 @@ export class OrdersController {
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-list',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @Get()
-  findAll(@Request() req: any, @Query() query: OrderQueryDto) {
+  findAll(
+    @Request() req: AuthenticatedOrderRequest,
+    @Query() query: OrderQueryDto,
+  ) {
     this.logger.log(`GET /orders for user ${req.user?.id}`);
     return this.ordersService.findAll(req.user.id, query);
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'params',
+    key: 'orderId',
+    resource: 'order',
+  })
   @Get(':orderId')
-  findOne(@Param('orderId') id: string, @Request() req: any) {
+  findOne(
+    @Param('orderId') id: string,
+    @Request() req: AuthenticatedOrderRequest,
+  ) {
     return this.ordersService.findOne(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'body',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @Patch('status/bulk')
   bulkUpdate(
     @Body() bulkUpdateOrderStatusDto: BulkUpdateOrderStatusDto,
@@ -109,12 +132,18 @@ export class OrdersController {
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'order-update',
+    source: 'params',
+    key: 'orderId',
+    resource: 'order',
+  })
   @Patch(':orderId/status')
   update(
     @Param('orderId') id: string,
     @Body() updateOrderDto: UpdateOrderDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedOrderRequest,
   ) {
     return this.ordersService.updateStatus(id, updateOrderDto, req.user.id);
   }

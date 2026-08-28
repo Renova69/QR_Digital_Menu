@@ -13,6 +13,8 @@ import { extractRestaurantId } from './restaurant-id.util';
 import {
   getRestaurantAccess,
   setRestaurantAccess,
+  RESTAURANT_ACCESS_KEY,
+  RestaurantAccessRequirement,
 } from '../auth/restaurant-access.policy';
 
 const RESTAURANT_SELECT = {
@@ -73,8 +75,16 @@ export class FeatureGuard implements CanActivate {
     // A declarative access guard may have resolved an owner fallback or a
     // route-specific source. Entitlements must use that SAME verified tenant.
     const authorizedAccess = getRestaurantAccess(request);
+    const declaredAccess =
+      this.reflector.getAllAndOverride<RestaurantAccessRequirement>(
+        RESTAURANT_ACCESS_KEY,
+        [context.getHandler(), context.getClass()],
+      );
     const targetId =
-      authorizedAccess?.restaurantId ?? extractRestaurantId(request);
+      authorizedAccess?.restaurantId ??
+      // A declared account-scoped list deliberately has no selected tenant.
+      // Do not let an unrelated body/query value choose its entitlement.
+      (declaredAccess ? undefined : extractRestaurantId(request));
     let restaurantId = targetId;
 
     // YOURS H-4: payment routes carry only paymentId, lookup its restaurantId

@@ -7,7 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
   Request,
   ValidationPipe,
 } from '@nestjs/common';
@@ -15,8 +14,10 @@ import { Throttle } from '@nestjs/throttler';
 import { AssistanceService } from './assistance.service';
 import { CreateAssistanceDto } from './dto/create-assistance.dto';
 import { UpdateAssistanceDto } from './dto/update-assistance.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { AssistanceQueryDto } from './dto/assistance-query.dto';
+
+type AssistanceActorRequest = { user: { id: string } };
 
 @Controller('assistance-requests')
 export class AssistanceController {
@@ -31,32 +32,54 @@ export class AssistanceController {
   }
 
   // Protected — only restaurant owners can view their requests
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-list',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @Get()
-  findAll(@Request() req: any, @Query() query: AssistanceQueryDto) {
+  findAll(
+    @Request() req: AssistanceActorRequest,
+    @Query() query: AssistanceQueryDto,
+  ) {
     return this.assistanceService.findAll(req.user.id, query);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'params',
+    key: 'id',
+    resource: 'assistance',
+  })
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: any) {
+  findOne(@Param('id') id: string, @Request() req: AssistanceActorRequest) {
     return this.assistanceService.findOne(id, req.user.id);
   }
 
   // Protected — only staff can resolve/unresolve requests
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'params',
+    key: 'id',
+    resource: 'assistance',
+  })
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateAssistanceDto: UpdateAssistanceDto,
-    @Request() req: any,
+    @Request() req: AssistanceActorRequest,
   ) {
     return this.assistanceService.update(id, updateAssistanceDto, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'service-member',
+    source: 'params',
+    key: 'id',
+    resource: 'assistance',
+  })
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
+  remove(@Param('id') id: string, @Request() req: AssistanceActorRequest) {
     return this.assistanceService.remove(id, req.user.id);
   }
 }

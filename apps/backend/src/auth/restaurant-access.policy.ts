@@ -19,7 +19,12 @@ export type RestaurantAccessPolicy =
   | 'reservation-read'
   | 'reservation-management'
   | 'reservation-operations'
-  | 'reservation-action';
+  | 'reservation-action'
+  | 'service-member'
+  | 'service-list'
+  | 'order-update'
+  | 'loyalty-management'
+  | 'notification-management';
 
 export type RestaurantAccessResource =
   | 'restaurant'
@@ -27,7 +32,10 @@ export type RestaurantAccessResource =
   | 'item'
   | 'option'
   | 'table'
-  | 'zone';
+  | 'zone'
+  | 'assistance'
+  | 'order'
+  | 'feedback';
 
 export interface RestaurantAccessRequirement {
   readonly policy: RestaurantAccessPolicy;
@@ -64,6 +72,11 @@ export function isRestaurantAccessRequirement(
       'reservation-management',
       'reservation-operations',
       'reservation-action',
+      'service-member',
+      'service-list',
+      'order-update',
+      'loyalty-management',
+      'notification-management',
     ].includes(requirement.policy ?? '') ||
     !['params', 'query', 'body'].includes(requirement.source ?? '') ||
     typeof requirement.key !== 'string' ||
@@ -71,6 +84,24 @@ export function isRestaurantAccessRequirement(
     requirement.key.trim() !== requirement.key
   )
     return false;
+  if (requirement.policy === 'service-list') {
+    return (
+      requirement.source === 'query' &&
+      requirement.key === 'restaurantId' &&
+      requirement.resource === undefined
+    );
+  }
+  if (requirement.policy === 'order-update') {
+    return requirement.source === 'params' && requirement.resource === 'order';
+  }
+  if (requirement.policy === 'service-member') {
+    return requirement.source === 'params'
+      ? ['restaurant', 'assistance', 'order', 'feedback'].includes(
+          requirement.resource ?? '',
+        )
+      : requirement.key === 'restaurantId' &&
+          requirement.resource === 'restaurant';
+  }
   // Only these two existing reservation contracts select a tenant in the body.
   // Their services still bind the reservation id to that authorized restaurant.
   if (requirement.source === 'body') {
@@ -118,6 +149,8 @@ export function isRestaurantAccessRequirement(
       'reservation-read',
       'reservation-management',
       'reservation-operations',
+      'loyalty-management',
+      'notification-management',
     ].includes(requirement.policy ?? '') &&
     requirement.source !== 'params'
   )
