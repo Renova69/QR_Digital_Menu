@@ -39,6 +39,8 @@ import { WeatherUpsellService } from './upsell/weather-upsell.service';
 import { withEffectiveRewardPointsPrice } from '../loyalty/reward-pricing';
 import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../restaurants/restaurant-languages';
 import { redactDiagnosticText } from '../common/logging/redact-secrets';
+import { restaurantManagementWhere } from '../auth/restaurant-management-scope';
+import { scopedWrite } from '../common/prisma/scoped-write';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -1096,7 +1098,7 @@ export class MenuCrudService {
 
   private async checkRestaurantOwnership(restaurantId: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ...restaurantManagementWhere(userId) },
     });
 
     if (!restaurant) {
@@ -1123,6 +1125,14 @@ export class MenuCrudService {
     return restaurant;
   }
 
+  private activeManagementWhere(userId: string) {
+    return {
+      ...restaurantManagementWhere(userId),
+      isActive: true,
+      deletedAt: null,
+    };
+  }
+
   private async isAssignedManager(
     userId: string,
     restaurantId: string,
@@ -1138,7 +1148,7 @@ export class MenuCrudService {
 
   async verifyCategoryOwnership(categoryId: string, userId: string) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: { restaurantId: true },
     });
 
@@ -1155,7 +1165,10 @@ export class MenuCrudService {
 
   async verifyItemOwnership(itemId: string, userId: string) {
     const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
+      where: {
+        id: itemId,
+        category: { restaurant: restaurantManagementWhere(userId) },
+      },
       select: { category: { select: { restaurantId: true } } },
     });
 
@@ -1213,7 +1226,7 @@ export class MenuCrudService {
         });
       }
       const station = await this.prisma.printStation.findUnique({
-        where: { id: sanitizedDto.printStationId },
+        where: { id: sanitizedDto.printStationId, restaurantId },
         select: { restaurantId: true },
       });
       if (!station || station.restaurantId !== restaurantId) {
@@ -1221,12 +1234,22 @@ export class MenuCrudService {
       }
     }
 
-    const data: Prisma.MenuCategoryUncheckedCreateInput = {
-      ...sanitizedDto,
-      restaurantId,
+    const { printStationId, ...fields } = sanitizedDto;
+    const data: Prisma.MenuCategoryCreateInput = {
+      ...fields,
+      restaurant: {
+        connect: { id: restaurantId, ...this.activeManagementWhere(userId) },
+      },
+      ...(printStationId == null
+        ? {}
+        : {
+            printStation: { connect: { id: printStationId, restaurantId } },
+          }),
       order: count,
     };
-    const category = await this.prisma.menuCategory.create({ data });
+    const category = await scopedWrite(
+      this.prisma.menuCategory.create({ data }),
+    );
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
       restaurant,
@@ -1254,7 +1277,7 @@ export class MenuCrudService {
   async findAllCategories(restaurantId: string, userId: string) {
     await this.checkRestaurantOwnership(restaurantId, userId);
     return this.prisma.menuCategory.findMany({
-      where: { restaurantId },
+      where: { restaurantId, restaurant: this.activeManagementWhere(userId) },
       orderBy: { order: 'asc' },
       include: { items: { include: { options: true } } },
     });
@@ -1266,7 +1289,7 @@ export class MenuCrudService {
     userId: string,
   ) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: {
         restaurantId: true,
         translations: true,
@@ -1309,7 +1332,10 @@ export class MenuCrudService {
         });
       }
       const station = await this.prisma.printStation.findUnique({
-        where: { id: sanitizedDto.printStationId },
+        where: {
+          id: sanitizedDto.printStationId,
+          restaurantId: category.restaurantId,
+        },
         select: { restaurantId: true },
       });
       if (!station || station.restaurantId !== category.restaurantId) {
@@ -1317,10 +1343,32 @@ export class MenuCrudService {
       }
     }
 
-    const updated = await this.prisma.menuCategory.update({
-      where: { id: categoryId },
-      data: sanitizedDto,
-    });
+    const { printStationId, ...fields } = sanitizedDto;
+    const updated = await scopedWrite(
+      this.prisma.menuCategory.update({
+        where: {
+          id: categoryId,
+          restaurantId: category.restaurantId,
+          restaurant: this.activeManagementWhere(userId),
+        },
+        data: {
+          ...fields,
+          ...(printStationId === undefined
+            ? {}
+            : {
+                printStation:
+                  printStationId === null
+                    ? { disconnect: true }
+                    : {
+                        connect: {
+                          id: printStationId,
+                          restaurantId: category.restaurantId,
+                        },
+                      },
+              }),
+        },
+      }),
+    );
 
     // Delete old R2 objects when the URL is explicitly removed (null) OR replaced
     // with a different URL. "undefined" means the field was not sent вЂ” leave as-is.
@@ -1401,12 +1449,18 @@ export class MenuCrudService {
         'orderedIds must include every category exactly once',
       );
     }
-    await this.prisma.$transaction(
-      orderedIds.map((id: string, index: number) =>
-        this.prisma.menuCategory.updateMany({
-          where: { id, restaurantId },
-          data: { order: index },
-        }),
+    await scopedWrite(
+      this.prisma.$transaction(
+        orderedIds.map((id: string, index: number) =>
+          this.prisma.menuCategory.update({
+            where: {
+              id,
+              restaurantId,
+              restaurant: this.activeManagementWhere(userId),
+            },
+            data: { order: index },
+          }),
+        ),
       ),
     );
     return { success: true };
@@ -1414,7 +1468,7 @@ export class MenuCrudService {
 
   async removeCategory(categoryId: string, userId: string) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: {
         restaurantId: true,
         imageUrl: true,
@@ -1427,9 +1481,15 @@ export class MenuCrudService {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
-    const deleted = await this.prisma.menuCategory.delete({
-      where: { id: categoryId },
-    });
+    const deleted = await scopedWrite(
+      this.prisma.menuCategory.delete({
+        where: {
+          id: categoryId,
+          restaurantId: category.restaurantId,
+          restaurant: this.activeManagementWhere(userId),
+        },
+      }),
+    );
     await this.deleteStoredImagePair(
       category.imageUrl,
       category.thumbnailUrl,
@@ -1456,7 +1516,7 @@ export class MenuCrudService {
     userId: string,
   ) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: { restaurantId: true, imageUrl: true, thumbnailUrl: true },
     });
 
@@ -1464,10 +1524,16 @@ export class MenuCrudService {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
-    const updated = await this.prisma.menuCategory.update({
-      where: { id: categoryId },
-      data: { imageUrl, thumbnailUrl } as any,
-    });
+    const updated = await scopedWrite(
+      this.prisma.menuCategory.update({
+        where: {
+          id: categoryId,
+          restaurantId: category.restaurantId,
+          restaurant: this.activeManagementWhere(userId),
+        },
+        data: { imageUrl, thumbnailUrl } as any,
+      }),
+    );
     if (category.imageUrl !== imageUrl) {
       await this.deleteStoredImagePair(
         category.imageUrl,
@@ -1487,7 +1553,7 @@ export class MenuCrudService {
     userId: string,
   ) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: { restaurantId: true },
     });
 
@@ -1501,12 +1567,18 @@ export class MenuCrudService {
 
     const count = await this.prisma.menuItem.count({ where: { categoryId } });
     const normalizedDto = this.normalizeRewardPricingInput(createItemDto);
-    const data: Prisma.MenuItemUncheckedCreateInput = {
+    const data: Prisma.MenuItemCreateInput = {
       ...normalizedDto,
-      categoryId,
+      category: {
+        connect: {
+          id: categoryId,
+          restaurantId: category.restaurantId,
+          restaurant: this.activeManagementWhere(userId),
+        },
+      },
       order: count,
-    } as Prisma.MenuItemUncheckedCreateInput;
-    const item = await this.prisma.menuItem.create({ data });
+    } as Prisma.MenuItemCreateInput;
+    const item = await scopedWrite(this.prisma.menuItem.create({ data }));
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
       restaurant,
@@ -1533,7 +1605,7 @@ export class MenuCrudService {
 
   async findAllItemsInCategory(categoryId: string, userId: string) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: { restaurantId: true },
     });
 
@@ -1542,7 +1614,13 @@ export class MenuCrudService {
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
     return this.prisma.menuItem.findMany({
-      where: { categoryId },
+      where: {
+        categoryId,
+        category: {
+          restaurantId: category.restaurantId,
+          restaurant: this.activeManagementWhere(userId),
+        },
+      },
       orderBy: { order: 'asc' },
       include: { options: true },
     });
@@ -1552,9 +1630,19 @@ export class MenuCrudService {
     itemId: string,
     updateItemDto: UpdateItemDto,
     userId: string,
+    // Bulk edits must retain the selected tenant across this second lookup.
+    expectedRestaurantId?: string,
   ) {
     const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
+      where: {
+        id: itemId,
+        category: {
+          ...(expectedRestaurantId !== undefined
+            ? { restaurantId: expectedRestaurantId }
+            : {}),
+          restaurant: restaurantManagementWhere(userId),
+        },
+      },
       select: {
         category: { select: { restaurantId: true } },
         name: true,
@@ -1585,10 +1673,19 @@ export class MenuCrudService {
         rewardPointsPrice?: number | null;
       },
     );
-    const updated = await this.prisma.menuItem.update({
-      where: { id: itemId },
-      data: normalizedDto as Prisma.MenuItemUpdateInput,
-    });
+    const tenantWhere = {
+      id: itemId,
+      category: {
+        restaurantId: item.category.restaurantId,
+        restaurant: this.activeManagementWhere(userId),
+      },
+    };
+    const updated = await scopedWrite(
+      this.prisma.menuItem.update({
+        where: tenantWhere,
+        data: normalizedDto as Prisma.MenuItemUpdateInput,
+      }),
+    );
 
     if (
       updateItemDto.isOutOfStock !== undefined &&
@@ -1651,6 +1748,7 @@ export class MenuCrudService {
         const manualDescriptions =
           await this.prisma.menuTranslationState.findMany({
             where: {
+              restaurantId: item.category.restaurantId,
               entityType: 'ITEM',
               entityId: itemId,
               field: 'DESCRIPTION',
@@ -1693,10 +1791,12 @@ export class MenuCrudService {
         }
       }
       if (dirty) {
-        await this.prisma.menuItem.update({
-          where: { id: itemId },
-          data: { translations: cached },
-        });
+        await scopedWrite(
+          this.prisma.menuItem.update({
+            where: tenantWhere,
+            data: { translations: cached },
+          }),
+        );
       }
     }
 
@@ -1739,7 +1839,10 @@ export class MenuCrudService {
     userId: string,
   ) {
     const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
+      where: {
+        id: itemId,
+        category: { restaurant: restaurantManagementWhere(userId) },
+      },
       select: {
         imageUrl: true,
         thumbnailUrl: true,
@@ -1751,10 +1854,18 @@ export class MenuCrudService {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
-    const updated = await this.prisma.menuItem.update({
-      where: { id: itemId },
-      data: { imageUrl, thumbnailUrl },
-    });
+    const updated = await scopedWrite(
+      this.prisma.menuItem.update({
+        where: {
+          id: itemId,
+          category: {
+            restaurantId: item.category.restaurantId,
+            restaurant: this.activeManagementWhere(userId),
+          },
+        },
+        data: { imageUrl, thumbnailUrl },
+      }),
+    );
     if (item.imageUrl !== imageUrl) {
       await this.deleteStoredImagePair(
         item.imageUrl,
@@ -1772,7 +1883,7 @@ export class MenuCrudService {
     userId: string,
   ) {
     const category = await this.prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+      where: { id: categoryId, restaurant: restaurantManagementWhere(userId) },
       select: { restaurantId: true },
     });
     if (!category) {
@@ -1798,12 +1909,21 @@ export class MenuCrudService {
         'orderedIds must include every item exactly once',
       );
     }
-    await this.prisma.$transaction(
-      orderedIds.map((id: string, index: number) =>
-        this.prisma.menuItem.updateMany({
-          where: { id, categoryId },
-          data: { order: index },
-        }),
+    await scopedWrite(
+      this.prisma.$transaction(
+        orderedIds.map((id: string, index: number) =>
+          this.prisma.menuItem.update({
+            where: {
+              id,
+              categoryId,
+              category: {
+                restaurantId: category.restaurantId,
+                restaurant: this.activeManagementWhere(userId),
+              },
+            },
+            data: { order: index },
+          }),
+        ),
       ),
     );
     return { success: true };
@@ -1811,7 +1931,10 @@ export class MenuCrudService {
 
   async removeItem(itemId: string, userId: string) {
     const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
+      where: {
+        id: itemId,
+        category: { restaurant: restaurantManagementWhere(userId) },
+      },
       select: {
         imageUrl: true,
         thumbnailUrl: true,
@@ -1823,32 +1946,41 @@ export class MenuCrudService {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
+    const categoryWhere = {
+      restaurantId: item.category.restaurantId,
+      restaurant: this.activeManagementWhere(userId),
+    };
 
     // Scope the scan to the same restaurant so we only read rows we own.
     // The global scan was functionally safe (cuid is unique) but forced a
     // full-table array-contains check across all restaurants (L1.5).
     const itemsHoldingOrphan = await this.prisma.menuItem.findMany({
       where: {
-        category: { restaurantId: item.category.restaurantId },
+        category: categoryWhere,
         relatedItemIds: { has: itemId },
       },
       select: { id: true, relatedItemIds: true },
     });
 
-    for (const orphanItem of itemsHoldingOrphan) {
-      await this.prisma.menuItem.update({
-        where: { id: orphanItem.id },
-        data: {
-          relatedItemIds: (
-            (orphanItem as any).relatedItemIds as string[]
-          ).filter((id) => id !== itemId),
-        },
-      });
-    }
-
-    const deleted = await this.prisma.menuItem.delete({
-      where: { id: itemId },
-    });
+    // Keep link cleanup and deletion atomic if a scoped row moves/disappears.
+    const writes = await scopedWrite(
+      this.prisma.$transaction([
+        ...itemsHoldingOrphan.map((orphanItem) =>
+          this.prisma.menuItem.update({
+            where: { id: orphanItem.id, category: categoryWhere },
+            data: {
+              relatedItemIds: orphanItem.relatedItemIds.filter(
+                (id) => id !== itemId,
+              ),
+            },
+          }),
+        ),
+        this.prisma.menuItem.delete({
+          where: { id: itemId, category: categoryWhere },
+        }),
+      ]),
+    );
+    const deleted = writes[writes.length - 1];
     await this.deleteStoredImagePair(
       item.imageUrl,
       item.thumbnailUrl,
@@ -1866,7 +1998,10 @@ export class MenuCrudService {
     userId: string,
   ) {
     const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
+      where: {
+        id: itemId,
+        category: { restaurant: restaurantManagementWhere(userId) },
+      },
       select: { category: { select: { restaurantId: true } } },
     });
 
@@ -1879,12 +2014,20 @@ export class MenuCrudService {
     );
 
     const choices = this.parseMenuOptionChoices(createMenuOptionDto.choices);
-    const data: Prisma.MenuOptionUncheckedCreateInput = {
+    const data: Prisma.MenuOptionCreateInput = {
       ...createMenuOptionDto,
       choices,
-      menuItemId: itemId,
+      menuItem: {
+        connect: {
+          id: itemId,
+          category: {
+            restaurantId: item.category.restaurantId,
+            restaurant: this.activeManagementWhere(userId),
+          },
+        },
+      },
     };
-    const option = await this.prisma.menuOption.create({ data });
+    const option = await scopedWrite(this.prisma.menuOption.create({ data }));
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
       restaurant,
@@ -1915,7 +2058,12 @@ export class MenuCrudService {
     userId: string,
   ) {
     const option = await this.prisma.menuOption.findUnique({
-      where: { id: optionId },
+      where: {
+        id: optionId,
+        menuItem: {
+          category: { restaurant: restaurantManagementWhere(userId) },
+        },
+      },
       select: {
         translations: true,
         menuItem: { select: { category: { select: { restaurantId: true } } } },
@@ -1943,10 +2091,20 @@ export class MenuCrudService {
       ...updateMenuOptionDto,
       choices,
     };
-    const updated = await this.prisma.menuOption.update({
-      where: { id: optionId },
-      data,
-    });
+    const updated = await scopedWrite(
+      this.prisma.menuOption.update({
+        where: {
+          id: optionId,
+          menuItem: {
+            category: {
+              restaurantId: option.menuItem.category.restaurantId,
+              restaurant: this.activeManagementWhere(userId),
+            },
+          },
+        },
+        data,
+      }),
+    );
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
       restaurant,
@@ -1978,7 +2136,12 @@ export class MenuCrudService {
 
   async removeMenuOption(optionId: string, userId: string) {
     const option = await this.prisma.menuOption.findUnique({
-      where: { id: optionId },
+      where: {
+        id: optionId,
+        menuItem: {
+          category: { restaurant: restaurantManagementWhere(userId) },
+        },
+      },
       select: {
         menuItem: { select: { category: { select: { restaurantId: true } } } },
       },
@@ -1993,6 +2156,18 @@ export class MenuCrudService {
       option.menuItem.category.restaurantId,
       userId,
     );
-    return this.prisma.menuOption.delete({ where: { id: optionId } });
+    return scopedWrite(
+      this.prisma.menuOption.delete({
+        where: {
+          id: optionId,
+          menuItem: {
+            category: {
+              restaurantId: option.menuItem.category.restaurantId,
+              restaurant: this.activeManagementWhere(userId),
+            },
+          },
+        },
+      }),
+    );
   }
 }

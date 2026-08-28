@@ -8,6 +8,16 @@ import * as dns from 'dns';
 import * as https from 'https';
 import * as http from 'http';
 import { RestaurantsService } from './restaurants.service';
+import { Prisma } from '@prisma/client';
+
+const settingsScope = {
+  id: 'rest1',
+  OR: [
+    { ownerId: 'user1' },
+    { staffMembers: { some: { id: 'user1', role: 'MANAGER' } } },
+  ],
+  deletedAt: null,
+};
 
 // http.request/https.request are non-configurable on the live module binding
 // in this Node version, so jest.spyOn(http, 'request') throws "Cannot
@@ -564,7 +574,7 @@ describe('RestaurantsService', () => {
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'rest1' },
+          where: settingsScope,
           data: { name: 'Updated' },
           select: expect.objectContaining({ slug: true }),
         }),
@@ -733,7 +743,7 @@ describe('RestaurantsService', () => {
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'rest1' },
+          where: settingsScope,
           data: { name: 'Updated' },
         }),
       );
@@ -750,7 +760,7 @@ describe('RestaurantsService', () => {
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'rest1' },
+          where: settingsScope,
           data: brandingDto,
         }),
       );
@@ -787,7 +797,7 @@ describe('RestaurantsService', () => {
       expect(mockPrisma.restaurant.delete).not.toHaveBeenCalled();
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'rest1' },
+          where: { id: 'rest1', ownerId: 'user1', deletedAt: null },
           data: expect.objectContaining({
             isActive: false,
             deletedAt: expect.any(Date),
@@ -839,7 +849,7 @@ describe('RestaurantsService', () => {
       );
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
+        where: settingsScope,
         data: {
           logoUrl: 'https://r2/logo.webp',
           logoThumbnailUrl: 'https://r2/logo_thumb.webp',
@@ -1407,6 +1417,60 @@ describe('RestaurantsService', () => {
       const result = await service.getLogoBase64('rest1', 'owner1');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('P3-4 settings query scope', () => {
+    const membership = {
+      OR: [
+        { ownerId: 'user1' },
+        { staffMembers: { some: { id: 'user1', role: 'MANAGER' } } },
+      ],
+    };
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant());
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+    });
+
+    it('scopes settings and logo updates, retaining the deleted-restaurant gate', async () => {
+      await service.update('rest1', { name: 'Updated' }, 'user1');
+      await service.updateLogo('rest1', 'image', 'thumb', 'user1');
+      expect(mockPrisma.restaurant.update).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: { id: 'rest1', ...membership, deletedAt: null },
+        }),
+      );
+      expect(mockPrisma.restaurant.update).toHaveBeenNthCalledWith(2, {
+        where: { id: 'rest1', ...membership, deletedAt: null },
+        data: { logoUrl: 'image', logoThumbnailUrl: 'thumb' },
+      });
+    });
+
+    it('keeps restaurant removal strictly owner-only at the write', async () => {
+      await service.remove('rest1', 'user1');
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1', ownerId: 'user1', deletedAt: null },
+          data: { deletedAt: expect.any(Date), isActive: false },
+        }),
+      );
+    });
+
+    it('does not evict devices after a scoped settings write loses access', async () => {
+      mockPrisma.restaurant.update.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Scoped restaurant missing', {
+          code: 'P2025',
+          clientVersion: '6',
+        }),
+      );
+      await expect(
+        service.update('rest1', { sharedDeviceModeEnabled: false }, 'user1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        mockDeviceEnrollment.evictRestaurantDevices,
+      ).not.toHaveBeenCalled();
+      expect(mockTranslationWorker.kick).not.toHaveBeenCalled();
     });
   });
 });

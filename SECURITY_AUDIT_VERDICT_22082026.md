@@ -392,6 +392,16 @@ completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
 ---
 
+## P3-4 management follow-up — 28 Aug 2026
+
+**PARTIAL; management slice implemented, review/CI pending.** The independent
+follow-up to PR #64 constrains menu CRUD/bulk edits, table/zone management,
+non-billing restaurant settings and existing staff-target writes. It preserves
+the existing guards and role contracts, adds no routes, and makes no database
+or deployment changes. Payment/session transaction review and the remaining
+repository query inventory are still open. See
+[the management query evidence](ops/security/TENANT_MANAGEMENT_QUERIES.md).
+
 ## Answering the question directly
 
 **Are we good?** For the current development phase, yes: P0, P1, and all active

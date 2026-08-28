@@ -13,6 +13,12 @@
 
 ## Current security track
 
+- **P3-4 management follow-up (28 Aug):** menu CRUD/bulk edits, table/zone
+  management, non-billing restaurant settings and existing staff-target writes
+  now carry tenant predicates through the final query. Independent of PR #64;
+  implementation ready for review, not merged/deployed. P3-4 stays PARTIAL:
+  payment/session transactions and the remaining query inventory are next.
+  [Scope, limits and evidence](ops/security/TENANT_MANAGEMENT_QUERIES.md).
 - **P2 development close-out:** complete. Do not cycle back through completed
   P2 items without a regression or new evidence.
 - **Pre-launch gates:** P2-4 email delivery/DMARC after a real domain is active;

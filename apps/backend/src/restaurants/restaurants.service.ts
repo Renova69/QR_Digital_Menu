@@ -26,6 +26,11 @@ import * as http from 'http';
 import * as https from 'https';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
 import { requestBudgetSignal } from '../common/http/request-budget';
+import {
+  restaurantManagementWhere,
+  restaurantOwnerWhere,
+} from '../auth/restaurant-management-scope';
+import { scopedWrite } from '../common/prisma/scoped-write';
 
 // Logo fetch (getLogoBase64) hardening: bound the request so a slow/malicious
 // origin can't hang a request or exhaust memory with an oversized response.
@@ -239,7 +244,7 @@ export class RestaurantsService {
 
   async findOne(id: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id },
+      where: { id, ...restaurantOwnerWhere(userId), deletedAt: null },
       select: RESTAURANT_READ_SELECT,
     });
 
@@ -304,7 +309,9 @@ export class RestaurantsService {
   // Allows owner OR assigned manager to manage non-billing settings.
   async findOneForManagement(id: string, userId: string) {
     const [restaurant, user] = await Promise.all([
-      this.prisma.restaurant.findUnique({ where: { id } }),
+      this.prisma.restaurant.findUnique({
+        where: { id, ...restaurantManagementWhere(userId), deletedAt: null },
+      }),
       this.prisma.user.findUnique({
         where: { id: userId },
         select: { restaurantId: true, role: true },
@@ -419,11 +426,13 @@ export class RestaurantsService {
       data.sharedDeviceModeEnabled === false &&
       restaurant.sharedDeviceModeEnabled !== false;
 
-    const updated = await this.prisma.restaurant.update({
-      where: { id },
-      select: RESTAURANT_READ_SELECT,
-      data,
-    });
+    const updated = await scopedWrite(
+      this.prisma.restaurant.update({
+        where: { id, ...restaurantManagementWhere(userId), deletedAt: null },
+        select: RESTAURANT_READ_SELECT,
+        data,
+      }),
+    );
 
     if (nextSourceLanguage) {
       // runId is cleared alongside the status reset. Run membership is
@@ -473,7 +482,7 @@ export class RestaurantsService {
 
   async remove(id: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id },
+      where: { id, ...restaurantOwnerWhere(userId), deletedAt: null },
       select: { id: true, ownerId: true, deletedAt: true },
     });
     if (!restaurant || restaurant.deletedAt) {
@@ -485,11 +494,13 @@ export class RestaurantsService {
       );
     }
 
-    const updated = await this.prisma.restaurant.update({
-      where: { id },
-      select: RESTAURANT_READ_SELECT,
-      data: { deletedAt: new Date(), isActive: false },
-    });
+    const updated = await scopedWrite(
+      this.prisma.restaurant.update({
+        where: { id, ...restaurantOwnerWhere(userId), deletedAt: null },
+        select: RESTAURANT_READ_SELECT,
+        data: { deletedAt: new Date(), isActive: false },
+      }),
+    );
     await this.deviceEnrollmentService.evictRestaurantDevices(id);
     return this.toRestaurantReadDto(updated);
   }
@@ -503,10 +514,12 @@ export class RestaurantsService {
     // First, ensure the restaurant exists and the user has permission
     await this.findOneForManagement(id, userId);
 
-    return this.prisma.restaurant.update({
-      where: { id },
-      data: { logoUrl, logoThumbnailUrl },
-    });
+    return scopedWrite(
+      this.prisma.restaurant.update({
+        where: { id, ...restaurantManagementWhere(userId), deletedAt: null },
+        data: { logoUrl, logoThumbnailUrl },
+      }),
+    );
   }
 
   /**

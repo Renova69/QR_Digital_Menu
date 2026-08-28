@@ -51,7 +51,17 @@ describe('MenuBulkEditService', () => {
       );
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { category: { restaurantId: RESTAURANT_ID } },
+          where: {
+            category: {
+              restaurantId: RESTAURANT_ID,
+              restaurant: {
+                OR: [
+                  { ownerId: USER_ID },
+                  { staffMembers: { some: { id: USER_ID, role: 'MANAGER' } } },
+                ],
+              },
+            },
+          },
         }),
       );
     });
@@ -99,6 +109,7 @@ describe('MenuBulkEditService', () => {
         'item-1',
         { price: 9.99 },
         USER_ID,
+        RESTAURANT_ID,
       );
       expect(result).toEqual({
         updated: ['item-1', 'item-2'],

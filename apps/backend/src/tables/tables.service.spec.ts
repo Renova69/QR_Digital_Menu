@@ -11,6 +11,16 @@ import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
+import { Prisma } from '@prisma/client';
+
+const activeManagementScope = {
+  OR: [
+    { ownerId: 'owner-1' },
+    { staffMembers: { some: { id: 'owner-1', role: 'MANAGER' } } },
+  ],
+  isActive: true,
+  deletedAt: null,
+};
 
 describe('TablesService', () => {
   let service: TablesService;
@@ -107,7 +117,10 @@ describe('TablesService', () => {
       const result = await service.create('rest-1', { name: 'T1' }, 'owner-1');
       expect(prisma.restaurantTable.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ name: 'T1', restaurantId: 'rest-1' }),
+          data: expect.objectContaining({
+            name: 'T1',
+            restaurant: { connect: { id: 'rest-1', ...activeManagementScope } },
+          }),
         }),
       );
       expect(events.emitToRestaurant).toHaveBeenCalledWith(
@@ -395,7 +408,11 @@ describe('TablesService', () => {
       await service.rotatePublicToken('room-304', 'owner-1');
       expect(prisma.restaurantTable.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'room-304' },
+          where: {
+            id: 'room-304',
+            restaurantId: 'rest-1',
+            restaurant: activeManagementScope,
+          },
           data: { publicToken: expect.any(String) },
         }),
       );
@@ -757,7 +774,11 @@ describe('TablesService', () => {
     it('deletes table and emits event when owner', async () => {
       const result = await service.remove('table-1', 'owner-1');
       expect(prisma.restaurantTable.delete).toHaveBeenCalledWith({
-        where: { id: 'table-1' },
+        where: {
+          id: 'table-1',
+          restaurantId: 'rest-1',
+          restaurant: activeManagementScope,
+        },
       });
       expect(events.emitToRestaurant).toHaveBeenCalledWith(
         'rest-1',
@@ -778,7 +799,11 @@ describe('TablesService', () => {
       const result = await service.remove('table-1', 'owner-1');
 
       expect(prisma.restaurantTable.delete).toHaveBeenCalledWith({
-        where: { id: 'table-1' },
+        where: {
+          id: 'table-1',
+          restaurantId: 'rest-1',
+          restaurant: activeManagementScope,
+        },
       });
       expect(result).toEqual(mockTable);
     });
@@ -959,7 +984,7 @@ describe('TablesService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             name: 'Table 9',
-            zoneId: 'zone-default',
+            zone: { connect: { id: 'zone-default', restaurantId: 'rest-1' } },
             type: 'TABLE',
           }),
         }),
@@ -969,7 +994,7 @@ describe('TablesService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             name: 'Table 10',
-            zoneId: 'zone-default',
+            zone: { connect: { id: 'zone-default', restaurantId: 'rest-1' } },
             type: 'TABLE',
           }),
         }),
@@ -1031,5 +1056,109 @@ describe('TablesService', () => {
         service.update('table-1', { name: 'T2' }, 'owner-1'),
       ).rejects.toThrow(new ConflictException('Table "T2" already exists'));
     });
+  });
+
+  describe('P3-4 query scope', () => {
+    const membership = {
+      OR: [
+        { ownerId: 'owner-1' },
+        { staffMembers: { some: { id: 'owner-1', role: 'MANAGER' } } },
+      ],
+    };
+    const restaurant = { ...membership, isActive: true, deletedAt: null };
+    const where = { id: 'table-1', restaurantId: 'rest-1', restaurant };
+
+    it.each(['update', 'rotate', 'delete'] as const)(
+      'pins the tenant on %s',
+      async (operation) => {
+        if (operation === 'update')
+          await service.update('table-1', { name: 'T3' }, 'owner-1');
+        if (operation === 'rotate') {
+          prisma.restaurantTable.findUnique.mockResolvedValue({
+            ...mockTable,
+            type: 'ROOM',
+            restaurant: mockRestaurant,
+          });
+          await service.rotatePublicToken('table-1', 'owner-1');
+        }
+        if (operation === 'delete') await service.remove('table-1', 'owner-1');
+        const mutation =
+          operation === 'delete'
+            ? prisma.restaurantTable.delete
+            : prisma.restaurantTable.update;
+        expect(mutation).toHaveBeenCalledWith(
+          expect.objectContaining({ where }),
+        );
+        expect(prisma.restaurantTable.findUnique).toHaveBeenCalledWith({
+          where: { id: 'table-1', restaurant: membership },
+          include: { restaurant: true },
+        });
+      },
+    );
+
+    it('scopes both restaurant and selected zone connections at creation', async () => {
+      await service.create(
+        'rest-1',
+        { name: 'T3', zoneId: 'zone-1' },
+        'owner-1',
+      );
+      expect(prisma.restaurantTable.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          restaurant: { connect: { id: 'rest-1', ...restaurant } },
+          zone: { connect: { id: 'zone-1', restaurantId: 'rest-1' } },
+        }),
+      });
+    });
+
+    it('scopes the replacement zone on update', async () => {
+      await service.update('table-1', { zoneId: 'zone-1' }, 'owner-1');
+      expect(prisma.restaurantTable.update).toHaveBeenCalledWith({
+        where,
+        data: { zone: { connect: { id: 'zone-1', restaurantId: 'rest-1' } } },
+      });
+    });
+
+    it('preserves explicit zone removal without a connection lookup', async () => {
+      await service.update('table-1', { zoneId: null }, 'owner-1');
+      expect(prisma.restaurantTable.update).toHaveBeenCalledWith({
+        where,
+        data: { zone: { disconnect: true } },
+      });
+      expect(prisma.tableZone.findUnique).not.toHaveBeenCalled();
+    });
+
+    it.each(['update', 'rotate', 'delete'] as const)(
+      'returns 404 with no success event for a missing scoped %s',
+      async (operation) => {
+        const error = new Prisma.PrismaClientKnownRequestError(
+          'Scoped row missing',
+          {
+            code: 'P2025',
+            clientVersion: '6',
+          },
+        );
+        const mutation =
+          operation === 'delete'
+            ? prisma.restaurantTable.delete
+            : prisma.restaurantTable.update;
+        mutation.mockRejectedValueOnce(error);
+        if (operation === 'rotate') {
+          prisma.restaurantTable.findUnique.mockResolvedValue({
+            ...mockTable,
+            type: 'ROOM',
+            restaurant: mockRestaurant,
+          });
+        }
+        const result =
+          operation === 'update'
+            ? service.update('table-1', { name: 'T3' }, 'owner-1')
+            : operation === 'rotate'
+              ? service.rotatePublicToken('table-1', 'owner-1')
+              : service.remove('table-1', 'owner-1');
+        await expect(result).rejects.toThrow(NotFoundException);
+        expect(events.emitToRestaurant).not.toHaveBeenCalled();
+        expect(events.emitZoneChanged).not.toHaveBeenCalled();
+      },
+    );
   });
 });
