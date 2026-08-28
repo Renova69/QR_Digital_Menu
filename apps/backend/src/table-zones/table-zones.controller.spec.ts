@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TableZonesController } from './table-zones.controller';
 import { TableZonesService } from './table-zones.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('TableZonesController', () => {
   let controller: TableZonesController;
@@ -17,7 +18,11 @@ describe('TableZonesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TableZonesController],
-      providers: [{ provide: TableZonesService, useValue: mockZonesService }],
+      providers: [
+        { provide: TableZonesService, useValue: mockZonesService },
+        // Direct controller dispatch tests; real guard I/O is covered over HTTP.
+        { provide: PrismaService, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get<TableZonesController>(TableZonesController);

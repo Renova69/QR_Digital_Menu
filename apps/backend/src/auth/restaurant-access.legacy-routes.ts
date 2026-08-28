@@ -223,26 +223,6 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
     reason: 'Public permanent booking redirect.',
   },
   {
-    file: 'reservations/reservations.controller.ts',
-    controller: 'ReservationsController',
-    routes: [
-      'getSettings',
-      'updateSettings',
-      'setServiceHours',
-      'deleteServiceHours',
-      'analytics',
-      'listBlackouts',
-      'addBlackout',
-      'removeBlackout',
-      'list',
-      'createManual',
-      'action',
-      'updateInternal',
-    ],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
     file: 'restaurants/device-enrollment.controller.ts',
     controller: 'DeviceEnrollmentController',
     routes: ['verify', 'status'],
@@ -316,30 +296,11 @@ export const LEGACY_RESTAURANT_ACCESS_ROUTES = [
       'Separate JwtAuthGuard + SuperAdminGuard; pinned by super-admin.guard-coverage.spec.ts.',
   },
   {
-    file: 'table-zones/table-zones.controller.ts',
-    controller: 'TableZonesController',
-    routes: ['findAll', 'create', 'update', 'remove', 'reorder'],
-    reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
-  },
-  {
     file: 'tables/tables.controller.ts',
     controller: 'TablesController',
-    routes: [
-      'create',
-      'bulkCreate',
-      'findAll',
-      'createServicePoint',
-      'findServicePoints',
-      'resolvePublicServicePoint',
-      'getTablesWithStatus',
-      'getTableOrders',
-      'update',
-      'rotatePublicToken',
-      'remove',
-    ],
+    routes: ['resolvePublicServicePoint'],
     reason:
-      'P3-3 follow-up: existing controller/service/resource or token authorization remains unchanged; not yet declaratively migrated.',
+      'Anonymous service-point QR lookup; random publicToken, active/plan checks and throttling remain in place.',
   },
   {
     file: 'users-data/users-data.controller.ts',

@@ -1,8 +1,9 @@
-import { INestApplication } from '@nestjs/common';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { ExecutionContext, INestApplication } from '@nestjs/common';
+import { GUARDS_METADATA, METHOD_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RestaurantAccessGuard } from '../auth/restaurant-access.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { FeatureGuard } from '../subscription/feature.guard';
@@ -11,7 +12,7 @@ import { REQUIRE_FEATURE_KEY } from '../subscription/require-feature.decorator';
 import { ReservationsController } from './reservations.controller';
 import { ReservationsService } from './reservations.service';
 
-function guardNames(metadataTarget: object | Function): string[] {
+function guardNames(metadataTarget: object): string[] {
   return (Reflect.getMetadata(GUARDS_METADATA, metadataTarget) ?? []).map(
     (guard: unknown) => {
       if (typeof guard === 'function') return guard.name;
@@ -22,12 +23,26 @@ function guardNames(metadataTarget: object | Function): string[] {
 
 describe('ReservationsController entitlement coverage', () => {
   it('gates the entire controller behind the paid reservations feature', () => {
-    expect(guardNames(ReservationsController)).toEqual(
-      expect.arrayContaining([JwtAuthGuard.name, FeatureGuard.name]),
-    );
-    // A class-level RequireFeature gates every route — including list/action/
-    // updateInternal, which previously shipped ungated — and any future handler,
-    // since FeatureGuard resolves the flag via getAllAndOverride([handler, class]).
+    expect(guardNames(ReservationsController)).toEqual([]);
+    // No class guard may run the feature check before method-level tenancy.
+    for (const name of Object.getOwnPropertyNames(
+      ReservationsController.prototype,
+    )) {
+      const handler: unknown = Object.getOwnPropertyDescriptor(
+        ReservationsController.prototype,
+        name,
+      )?.value;
+      if (
+        typeof handler !== 'function' ||
+        !Reflect.hasMetadata(METHOD_METADATA, handler)
+      )
+        continue;
+      expect(guardNames(handler)).toEqual([
+        JwtAuthGuard.name,
+        RestaurantAccessGuard.name,
+        FeatureGuard.name,
+      ]);
+    }
     expect(
       Reflect.getMetadata(REQUIRE_FEATURE_KEY, ReservationsController),
     ).toEqual([FeatureFlag.RESERVATIONS]);
@@ -49,6 +64,7 @@ describe('ReservationsController HTTP entitlement boundary', () => {
     },
     restaurant: {
       findUnique: jest.fn().mockImplementation(async () => ({
+        id: 'rest-1',
         ownerId: 'user-1',
         tier,
         forceTier: null,
@@ -70,8 +86,10 @@ describe('ReservationsController HTTP entitlement boundary', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({
-        canActivate: (context: any) => {
-          context.switchToHttp().getRequest().user = { id: 'user-1' };
+        canActivate: (context: ExecutionContext) => {
+          context.switchToHttp().getRequest<{ user: { id: string } }>().user = {
+            id: 'user-1',
+          };
           return true;
         },
       })

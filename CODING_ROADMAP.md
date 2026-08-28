@@ -7,7 +7,7 @@
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
 > **Security Hardening:** ✅ P0/P1 and active P2 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** P3-2 and the first two P3-3 slices merged; backend deployment deliberately batched. P3-3 PARTIAL: 41 routes merged via PR #59/#60, another 23 tenant-management routes implemented for review (64 total). Continue the remaining tenant-route migration.
+> **Current Focus:** P3-2 and the first three P3-3 slices merged; backend deployment deliberately batched. P3-3 PARTIAL: 64 routes merged via PR #59/#60/#61; 27 tables/zones/reservations routes implemented for review (91 total). Two bounded slices remain after this one: 16 service-management routes, then 25 payment/subscription routes and inventory close-out.
 
 ---
 
@@ -25,16 +25,18 @@
   provider calls/retries, explicit background-work separation. Implementation
   merged via PR #58 at `f4ec9a61` with green CI; backend deployment pending. See
   [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
-- **P3-3 PARTIAL:** 22 dashboard/printer/staff/scan routes merged via PR #59
-  (`6a76bba4`), then 19 menu-editing routes via PR #60 (`6f472e53`), with green
-  PR and post-merge CI. The third slice adds 23 restaurant/device/import/audit/slug routes
-  for review (64 guarded total), preserving owner/manager/member permissions
-  and separate token/API-key routes. Discovery still inventories all 245 routes;
-  other tenant routes need migration. See
+- **P3-3 PARTIAL:** 64 routes merged via PR #59 (`6a76bba4`), #60
+  (`6f472e53`) and #61 (`d6c5b2ef`), with green PR and post-merge CI.
+  The fourth slice adds 27 existing tables/zones/reservations routes for review
+  (91 guarded total). No new URLs or business workflow; existing role/status,
+  feature and child-resource service checks remain. Of 245 routes, another 41
+  management routes need migration in two slices; 113 have separate public,
+  account, admin or token authorization and do not need this guard. See
   [the policy and remaining slices](ops/security/RESTAURANT_ACCESS.md).
 - **Deployment decision (28 Aug):** batch the backend deployment after additional
   P3 merges; do not deploy after each PR. Last confirmed backend: `e7500785`.
-- **Next implementation:** remaining P3-3 resource/tenant-route guards. P3-4 through
+- **Next implementation:** P3-3 orders/assistance/feedback/loyalty/notifications
+  (16 routes), then payment/subscription management (25) plus inventory close-out. P3-4 through
   P3-10 remain open; none are implicitly closed by these changes.
 
 The detailed evidence and per-item status live in
