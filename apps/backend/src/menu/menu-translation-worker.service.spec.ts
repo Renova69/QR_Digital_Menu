@@ -6,6 +6,11 @@ import { TranslationService } from '../translation/translation.service';
 import { TranslationQuotaService } from '../translation/translation-quota.service';
 import { DeepLGlossaryService } from '../translation/deepl-glossary.service';
 import { EventsGateway } from '../events/events.gateway';
+import {
+  currentRequestBudget,
+  RequestBudget,
+  withRequestBudget,
+} from '../common/http/request-budget';
 
 const mockPrisma = {
   $queryRawUnsafe: jest.fn(),
@@ -173,6 +178,20 @@ describe('MenuTranslationWorkerService', () => {
   });
 
   describe('tick / kick — kill switch', () => {
+    it('detaches a queued worker kick from the enqueue request budget', async () => {
+      const contexts: Array<RequestBudget | undefined> = [];
+      mockPrisma.$queryRawUnsafe.mockImplementation(async () => {
+        await Promise.resolve();
+        contexts.push(currentRequestBudget());
+        return [];
+      });
+      const budget = new RequestBudget();
+      withRequestBudget(budget, () => service.kick());
+      budget.close();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(contexts).toEqual([undefined]);
+    });
+
     it('tick does nothing when TRANSLATION_ENABLED is not "true"', async () => {
       delete process.env.TRANSLATION_ENABLED;
       await service.tick();

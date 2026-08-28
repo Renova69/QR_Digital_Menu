@@ -6,6 +6,11 @@ import {
 } from '../translation-provider.interface';
 import { TranslationUsageService } from '../translation-usage.service';
 import { getDependencyNodeAgents } from '../../common/http/dependency-http';
+import {
+  assertRequestBudget,
+  requestBudgetDelay,
+  requestBudgetSignal,
+} from '../../common/http/request-budget';
 
 @Injectable()
 export class DeepLProvider implements ITranslationProvider {
@@ -45,7 +50,7 @@ export class DeepLProvider implements ITranslationProvider {
   }
 
   private sleep(ms: number) {
-    return new Promise((r) => setTimeout(r, ms));
+    return requestBudgetDelay(ms);
   }
 
   /** Transient errors worth retrying: rate limit (429), DeepL overload (529), 5xx. */
@@ -72,6 +77,7 @@ export class DeepLProvider implements ITranslationProvider {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= DeepLProvider.MAX_RETRIES; attempt++) {
+      assertRequestBudget();
       try {
         const response = await this.http.post(
           `${this.baseUrl}/v2/translate`,
@@ -90,6 +96,7 @@ export class DeepLProvider implements ITranslationProvider {
             ...(opts?.context ? { context: opts.context } : {}),
           },
           {
+            signal: requestBudgetSignal(),
             headers: {
               Authorization: `DeepL-Auth-Key ${key}`,
               'Content-Type': 'application/json',

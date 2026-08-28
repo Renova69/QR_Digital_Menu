@@ -8,6 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { withoutRequestBudget } from '../common/http/request-budget';
 import { SentryCron } from '@sentry/nestjs';
 import { CRON_DAILY, CRON_EVERY_MINUTE } from '../common/cron-schedules';
 import { cronMonitor } from '../common/cron-monitor';
@@ -1016,7 +1017,9 @@ export class PrintStationService {
         'The print job state changed before it could be retried',
       );
     }
-    void this.routeOrderToPrinters(job.orderId).catch((error: Error) =>
+    void withoutRequestBudget(() =>
+      this.routeOrderToPrinters(job.orderId),
+    ).catch((error: Error) =>
       this.logger.error(
         `Print retry failed for job ${jobId}: ${error.message}`,
       ),

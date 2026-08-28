@@ -9,6 +9,10 @@ import * as Sentry from '@sentry/nestjs';
 import { writeAppLog } from '../logging/app-logger';
 import { redactSensitivePath } from '../logging/redact-path';
 import { applySentryRequestContext } from '../logging/sentry-request-context';
+import {
+  currentRequestBudget,
+  RequestBudgetError,
+} from '../http/request-budget';
 
 function getExceptionResponse(exception: unknown, statusCode: number) {
   if (exception instanceof HttpException) {
@@ -60,6 +64,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const req = ctx.getRequest();
     const res = ctx.getResponse();
+    // The watchdog owns timeout reporting/response even when a guard hangs.
+    // Do not double-report its cancellation or write to a disconnected client.
+    if (
+      (exception instanceof RequestBudgetError ||
+        currentRequestBudget()?.signal.aborted) &&
+      (res?.headersSent || res?.destroyed)
+    ) {
+      return;
+    }
     const statusCode =
       exception instanceof HttpException
         ? exception.getStatus()

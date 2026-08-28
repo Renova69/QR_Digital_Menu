@@ -9,6 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
+import { withoutRequestBudget } from '../common/http/request-budget';
 import * as bcrypt from 'bcryptjs';
 import { randomInt, randomBytes, createHash, randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
@@ -1267,7 +1268,9 @@ export class AuthService {
     // per-device lockout above remains the only blocking control, because a
     // restaurant-wide one could be triggered on purpose to take every till
     // offline mid-service.
-    void this.pinSecurity.evaluate(restaurantId, enrolledDevice.id);
+    void withoutRequestBudget(() =>
+      this.pinSecurity.evaluate(restaurantId, enrolledDevice.id),
+    );
 
     const remaining = MAX_ATTEMPTS - attempts;
     if (remaining > 0) {

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
+import { withoutRequestBudget } from '../common/http/request-budget';
 
 /**
  * Detection for staff PIN-login abuse.
@@ -231,7 +232,9 @@ export class PinSecurityService {
     if (!recorded) return false;
 
     if (PUSH_KINDS.has(kind)) {
-      void this.notifyOwner(restaurantId, kind, detail);
+      void withoutRequestBudget(() =>
+        this.notifyOwner(restaurantId, kind, detail),
+      );
     }
     return true;
   }

@@ -5,8 +5,9 @@ Verification of every claim in `FULL_SECURITY_AUDIT_22082026.md` against the act
 **Remediation update — 28 Aug 2026:** the historical findings below are retained
 as the 22 Aug evidence snapshot. The P2 ledger near the end is the current
 status: all active P2 engineering work is complete, with only explicit
-pre-launch operational gates deferred. P3-1 is implemented; review, deployment,
-and release verification remain pending. P3-2 is the next implementation lane.
+pre-launch operational gates deferred. P3-1 is merged/deployed at `e7500785`;
+manual product verification remains pending. P3-2 is implemented in this change,
+awaiting review and release. P3-3 is the next implementation lane.
 
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
@@ -370,18 +371,18 @@ completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
 ### P3 — Strategic
 
-| ID    | Task                                                                                                                                                                                                                     | Effort |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| P3-1  | **IMPLEMENTED; REVIEW/RELEASE PENDING:** `User.sessionVersion`, `UserSession`, paginated `GET/DELETE /auth/sessions`, profile UI, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md) | M      |
-| P3-2  | Request-budget interceptor with `AsyncLocalStorage` deadline propagated as `AbortSignal` to ~10 outbound call sites — the only change that makes a true cascading budget real                                            | M      |
-| P3-3  | Declarative `@RequireRestaurantAccess()` guard replacing scattered inline ownership checks, with reflection-based coverage test so an unguarded new endpoint fails CI                                                    | M      |
-| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous)                                      | M–L    |
-| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                       | M–L    |
-| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                  | M      |
-| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                           | S      |
-| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                           | S      |
-| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                | S      |
-| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                               | S–M    |
+| ID    | Task                                                                                                                                                                                                                                             | Effort |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| P3-1  | **MERGED/DEPLOYED (PR #57, `e7500785`); MANUAL VERIFICATION PENDING:** durable sessions, session inventory, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md)                                               | M      |
+| P3-2  | **IMPLEMENTED; REVIEW/RELEASE PENDING:** shared 25-second HTTP budget, `AsyncLocalStorage` propagation and provider cancellation, retry-budget accounting, detached background work; [contract and verification](ops/runtime/REQUEST_BUDGETS.md) | M      |
+| P3-3  | Declarative `@RequireRestaurantAccess()` guard replacing scattered inline ownership checks, with reflection-based coverage test so an unguarded new endpoint fails CI                                                                            | M      |
+| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous)                                                              | M–L    |
+| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                                               | M–L    |
+| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                                          | M      |
+| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                                                   | S      |
+| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                                                   | S      |
+| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                                        | S      |
+| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                                                       | S–M    |
 
 ---
 
@@ -396,9 +397,10 @@ evidence.
 
 **What remains structurally?** Edge protection still depends on the custom
 domain work in PD-1/PD-2. P3-1 durable session inventory and per-session/global
-revocation are implemented, awaiting review and release. P3-2 request budgets
-are next. The original H2, H5, and
-bounded-dependency portions of H7 have been remediated; P3-2 is the broader
-cross-call request-budget design.
+revocation are merged/deployed; manual product checks remain pending. P3-2
+cross-call request budgets are implemented, awaiting review and deployment;
+they are cooperative HTTP/provider cancellation, not database rollback or a
+CPU execution limit. P3-3 through P3-10 remain open. The original H2, H5, and
+bounded-dependency portions of H7 have been remediated.
 
 **Is that the whole picture?** No — and this is the important part. The most serious defect in the system, C1, appears nowhere in the advisory. A generic checklist found the categories but missed the actual hole, because the actual hole required reading how `POST /orders` resolves a table. Treat the document as a prompt for inspection, not as the inspection.

@@ -10,6 +10,7 @@ import {
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { randomBytes } from 'crypto';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
+import { requestBudgetSignal } from '../common/http/request-budget';
 
 const sharp = require('sharp');
 
@@ -188,6 +189,7 @@ export class StorageService {
           ContentType: 'image/webp',
           CacheControl: 'public, max-age=31536000, immutable',
         }),
+        { abortSignal: requestBudgetSignal() },
       ),
       this.s3.send(
         new PutObjectCommand({
@@ -197,6 +199,7 @@ export class StorageService {
           ContentType: 'image/webp',
           CacheControl: 'public, max-age=31536000, immutable',
         }),
+        { abortSignal: requestBudgetSignal() },
       ),
     ]);
 
@@ -321,6 +324,7 @@ export class StorageService {
           Bucket: this.bucket,
           Key: key,
         }),
+        { abortSignal: requestBudgetSignal() },
       );
       this.logger.log(`Deleted: ${key}`);
     } catch (error) {
@@ -383,6 +387,7 @@ export class StorageService {
           Prefix: prefix,
           ContinuationToken: continuationToken,
         }),
+        { abortSignal: requestBudgetSignal() },
       );
       const objects = (page.Contents ?? [])
         .map(({ Key }) => Key)
@@ -395,6 +400,7 @@ export class StorageService {
             Bucket: this.bucket,
             Delete: { Objects: objects, Quiet: true },
           }),
+          { abortSignal: requestBudgetSignal() },
         );
         if (result.Errors?.length) {
           throw new Error(

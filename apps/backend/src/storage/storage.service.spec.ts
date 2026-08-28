@@ -1,5 +1,9 @@
 import { StorageService } from './storage.service';
 import { ConfigService } from '@nestjs/config';
+import {
+  RequestBudget,
+  withRequestBudget,
+} from '../common/http/request-budget';
 
 const mockSharpChain = {
   rotate: jest.fn().mockReturnThis(),
@@ -50,6 +54,26 @@ describe('StorageService', () => {
   });
 
   describe('upload', () => {
+    it('passes the same request cancellation signal to both R2 uploads', async () => {
+      const budget = new RequestBudget();
+      try {
+        await withRequestBudget(budget, () =>
+          service.upload(
+            Buffer.from('data'),
+            'photo.jpg',
+            'image/jpeg',
+            'rest-1',
+          ),
+        );
+        expect(mockS3Send).toHaveBeenCalledTimes(2);
+        for (const [, options] of mockS3Send.mock.calls) {
+          expect(options.abortSignal).toBe(budget.signal);
+        }
+      } finally {
+        budget.close();
+      }
+    });
+
     it('throws for unsupported MIME type (gif)', async () => {
       await expect(
         service.upload(Buffer.from('data'), 'file.gif', 'image/gif', 'rest-1'),

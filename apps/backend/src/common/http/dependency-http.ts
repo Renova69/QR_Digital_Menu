@@ -2,8 +2,14 @@ import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { Agent as HttpAgent, type AgentOptions } from 'node:http';
 import { Agent as HttpsAgent } from 'node:https';
 import { Agent as UndiciAgent, type Dispatcher } from 'undici';
+import { requestBudgetSignal } from './request-budget';
 
-export type FetchDependency = 'resend' | 'sms-gateway' | 'twilio' | 'weather';
+export type FetchDependency =
+  | 'resend'
+  | 'sms-gateway'
+  | 'stripe'
+  | 'twilio'
+  | 'weather';
 
 export type NodeHttpDependency =
   | 'borica'
@@ -76,13 +82,18 @@ type DispatcherRequestInit = RequestInit & { dispatcher: Dispatcher };
  * Keep `globalThis.fetch` as the seam so existing network-blocking tests and
  * mocks remain effective, while selecting a provider-specific dispatcher.
  */
-export function fetchWithDependencyPool(
+export async function fetchWithDependencyPool(
   dependency: FetchDependency,
   input: Parameters<typeof fetch>[0],
   init?: Parameters<typeof fetch>[1],
 ): ReturnType<typeof fetch> {
+  const signal = requestBudgetSignal(
+    init?.signal ?? (input instanceof Request ? input.signal : undefined),
+  );
+  signal?.throwIfAborted();
   return globalThis.fetch(input, {
     ...init,
+    signal,
     dispatcher: getDependencyFetchDispatcher(dependency),
   } as DispatcherRequestInit);
 }

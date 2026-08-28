@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile } from 'passport-google-oauth20';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
+import type { RequestOptions } from 'node:http';
+import { requestBudgetSignal } from '../common/http/request-budget';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -34,6 +36,20 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     // whose default is Node's unbounded global agent. Keep Google isolated
     // from the other providers just like the explicit fetch/SDK clients.
     this._oauth2.setAgent(getDependencyNodeAgents('google-oauth').httpsAgent);
+    // `oauth` exposes no signal option in its public get/token API. Adapt its
+    // single transport seam, leaving token parsing/profile validation untouched.
+    // Real-transport tests pin this SDK seam for dependency upgrades. The signal
+    // is read per invocation (before guards finish), never stored on the client.
+    const oauth = this._oauth2;
+    const execute = oauth['_executeRequest'];
+    oauth['_executeRequest'] = (...args: unknown[]): void => {
+      const options = args[1] as RequestOptions;
+      Reflect.apply(execute, oauth, [
+        args[0],
+        { ...options, signal: requestBudgetSignal(options.signal) },
+        ...args.slice(2),
+      ]);
+    };
   }
 
   async validate(

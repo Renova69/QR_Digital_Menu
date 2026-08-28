@@ -2,6 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { createHash } from 'crypto';
 import { DeepLGlossaryService } from './deepl-glossary.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  RequestBudget,
+  withRequestBudget,
+} from '../common/http/request-budget';
 
 jest.mock('axios', () => {
   const mockGet = jest.fn();
@@ -66,6 +70,23 @@ describe('DeepLGlossaryService', () => {
   });
 
   describe('ensureGlossary', () => {
+    it('does not poison the process-wide language-pair cache on request cancellation', async () => {
+      const budget = new RequestBudget();
+      mockGet.mockImplementationOnce(() => {
+        budget.close();
+        return Promise.reject(new Error('cancelled'));
+      });
+      try {
+        await expect(
+          withRequestBudget(budget, () => service.ensureGlossary('bg', 'de')),
+        ).rejects.toThrow('Request is no longer active');
+        expect(service['supportedPairs']).toBeNull();
+        expect(mockPrisma.deepLGlossary.upsert).not.toHaveBeenCalled();
+      } finally {
+        budget.close();
+      }
+    });
+
     it('returns undefined when DEEPL_API_KEY is not set', async () => {
       delete process.env.DEEPL_API_KEY;
       expect(await service.ensureGlossary('bg', 'de')).toBeUndefined();

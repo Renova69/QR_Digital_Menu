@@ -1,8 +1,26 @@
 # P3-1 — Durable login sessions
 
-Implementation: complete in this change. Review, merge, deployment, and manual
-release verification: pending. No production database operations were performed
-while implementing this change.
+Implementation/review/merge: complete via PR #57. Backend deployment checkpoint:
+28 Aug 2026, commit `e75007853d333186cdbc76db1dd20551b2b6e2ad`.
+Manual release verification: still pending; deployment alone does not prove the
+two-browser and live-socket product checks below.
+
+## Verified deployment checkpoint — 28 Aug 2026
+
+- Revision `qr-menu-backend-00206-tuq` received 100% traffic; readiness returned
+  200 and the Redis adapter was confirmed.
+- Pre-migration backup `db-backup-ksbkk` completed with a verified archive and
+  manifest: `gs://qr-menu-db-backups-469216/2026/08/qr-menu-db-2026-08-28T06-54-34Z.bak`.
+- `20260827160000_add_user_sessions` applied at `2026-08-28T06:55:05.925Z`.
+  All 66 migrations are successfully applied; schema diff was empty. Older
+  rolled-back attempts remain in the ledger and were not erased.
+- Persisted legacy JWT cutoff: `2026-08-29T06:55:05.715Z`; no ad hoc extension.
+- Application counts before/after were unchanged: 25 users, 16 restaurants,
+  2,657 orders, 1,027 menu items, 70 tables, 1,658 menu views, 84 payments.
+  The backup role could read both new session tables.
+- Historical checksum discrepancies were separately identified. No historical
+  migration files or ledger entries were changed; reconciliation is separate
+  from P3-2 and must not use resets or overwrite existing data.
 
 ## Contract
 

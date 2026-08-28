@@ -25,6 +25,7 @@ import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
+import { requestBudgetSignal } from '../common/http/request-budget';
 
 // Logo fetch (getLogoBase64) hardening: bound the request so a slow/malicious
 // origin can't hang a request or exhaust memory with an oversized response.
@@ -1148,6 +1149,7 @@ export class RestaurantsService {
           headers: { Host: hostname },
           ...(isHttps ? { servername: hostname } : {}),
           timeout: LOGO_FETCH_TIMEOUT_MS,
+          signal: requestBudgetSignal(),
         },
         (res) => {
           if (

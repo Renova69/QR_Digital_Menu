@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RequestBudgetInterceptor } from './common/http/request-budget.interceptor';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { SentryModule } from '@sentry/nestjs/setup';
@@ -116,6 +117,10 @@ import { DependencyHttpPoolLifecycle } from './common/http/dependency-http';
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestBudgetInterceptor,
     },
   ],
 })

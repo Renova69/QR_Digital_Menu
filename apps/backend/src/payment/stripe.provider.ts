@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { IPaymentProvider } from './payment-provider.interface';
-import { getDependencyNodeAgents } from '../common/http/dependency-http';
+import { createStripeHttpClient } from '../common/http/stripe-http-client';
 
 export type StripeWebhookEvent = ReturnType<
   InstanceType<typeof Stripe>['webhooks']['constructEvent']
@@ -22,10 +22,11 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
         // degraded Stripe could hold a Cloud Run request slot for four
         // minutes. Money calls still need room to answer, hence 15s rather
         // than something tighter, but one retry rather than two keeps the
-        // worst case bounded at ~30s.
+        // background worst case bounded at ~30s. Foreground attempts also
+        // share the shorter overall request deadline via the HTTP adapter.
         timeout: 15_000,
         maxNetworkRetries: 1,
-        httpAgent: getDependencyNodeAgents('stripe').httpsAgent,
+        httpClient: createStripeHttpClient(),
       },
     );
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
