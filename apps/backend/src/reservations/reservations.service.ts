@@ -24,6 +24,7 @@ import {
   resolveReservationActor,
   assertReservationRole,
   requireReservationEntitlement,
+  RESERVATION_ACTION_ROLES,
 } from './reservation-access.service';
 import {
   ReservationServiceHoursRow,
@@ -49,28 +50,25 @@ import {
   ReservationActionType,
 } from './dto/reservation-ops.dto';
 
-// action -> { from statuses allowed, target, roles beyond OWNER/SUPER_ADMIN }
+// State transitions; action roles are shared with the HTTP access guard.
 const ACTION_RULES: Record<
   ReservationActionType,
-  { from: string[]; to: string; roles: ActorRole[]; afterStart?: boolean }
+  { from: string[]; to: string; afterStart?: boolean }
 > = {
-  ACCEPT: { from: ['PENDING'], to: 'CONFIRMED', roles: ['MANAGER'] },
-  DECLINE: { from: ['PENDING'], to: 'DECLINED', roles: ['MANAGER'] },
+  ACCEPT: { from: ['PENDING'], to: 'CONFIRMED' },
+  DECLINE: { from: ['PENDING'], to: 'DECLINED' },
   CANCEL: {
     from: ['PENDING', 'CONFIRMED'],
     to: 'CANCELLED',
-    roles: ['MANAGER'],
   },
   NO_SHOW: {
     from: ['CONFIRMED'],
     to: 'NO_SHOW',
-    roles: ['MANAGER', 'WAITER'],
     afterStart: true,
   },
   ARRIVED: {
     from: ['CONFIRMED'],
     to: 'ARRIVED',
-    roles: ['MANAGER', 'WAITER', 'STAFF'],
   },
 };
 
@@ -146,7 +144,7 @@ export class ReservationsService {
     return resolveReservationActor(this.prisma, restaurantId, userId);
   }
 
-  private assertRole(role: ActorRole, allowed: ActorRole[]): void {
+  private assertRole(role: ActorRole, allowed: readonly ActorRole[]): void {
     assertReservationRole(role, allowed);
   }
 
@@ -1087,7 +1085,7 @@ export class ReservationsService {
   ) {
     const role = await this.resolveActor(restaurantId, userId);
     const rule = ACTION_RULES[action];
-    this.assertRole(role, rule.roles);
+    this.assertRole(role, RESERVATION_ACTION_ROLES[action]);
 
     const reservation = await this.prisma.reservation.findFirst({
       where: { id: reservationId, restaurantId },

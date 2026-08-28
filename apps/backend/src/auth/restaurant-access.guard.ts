@@ -11,6 +11,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
+import { RESERVATION_ACTION_ROLES } from '../reservations/reservation-access.service';
+import type { ReservationActionType } from '../reservations/dto/reservation-ops.dto';
 import {
   isRestaurantAccessRequirement,
   RESTAURANT_ACCESS_KEY,
@@ -31,6 +33,7 @@ interface AccessRequest {
   user?: { id?: string; sub?: string; role?: string; restaurantId?: string };
   params?: Record<string, unknown>;
   query?: Record<string, unknown>;
+  body?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -64,6 +67,17 @@ export class RestaurantAccessGuard implements CanActivate {
     if (!userId) throw new UnauthorizedException();
     const role = request.user?.role?.toUpperCase() ?? '';
     const { policy } = requirement;
+    let actionRoles: readonly string[] = [];
+    if (policy === 'reservation-action') {
+      const action = request.body?.action;
+      if (
+        typeof action !== 'string' ||
+        !Object.prototype.hasOwnProperty.call(RESERVATION_ACTION_ROLES, action)
+      ) {
+        throw new BadRequestException('Invalid reservation action');
+      }
+      actionRoles = RESERVATION_ACTION_ROLES[action as ReservationActionType];
+    }
     if (policy === 'print-management' && role !== 'OWNER') {
       throw new ForbiddenException(
         'Print station management requires OWNER role',
@@ -125,12 +139,29 @@ export class RestaurantAccessGuard implements CanActivate {
         message: 'This restaurant has been suspended',
       });
     }
-    // Menu CRUD already rejects suspension AND soft deletion, with the same
-    // localized code. Keep this policy distinct from dashboard's hidden rows.
-    if (policy === 'menu-management') assertRestaurantActive(restaurant);
+    // Preserve only the pre-existing admin exceptions, not a global bypass.
+    const reservationPolicy = [
+      'reservation-read',
+      'reservation-management',
+      'reservation-operations',
+      'reservation-action',
+    ].includes(policy);
+    const adminAccess =
+      role === 'SUPER_ADMIN' &&
+      (policy === 'table-read' || policy === 'zone-read' || reservationPolicy);
+    if (
+      policy === 'menu-management' ||
+      policy === 'table-management' ||
+      (policy === 'table-read' && !adminAccess)
+    )
+      assertRestaurantActive(restaurant);
+    if (reservationPolicy && !adminAccess && restaurant.isActive === false) {
+      throw new ForbiddenException('Restaurant is not active');
+    }
     const isOwner = restaurant.ownerId === userId;
     const isAssigned = request.user?.restaurantId === restaurant.id;
     const allowed =
+      adminAccess ||
       isOwner ||
       (isAssigned &&
         (([
@@ -138,6 +169,9 @@ export class RestaurantAccessGuard implements CanActivate {
           'menu-management',
           'restaurant-management',
           'device-management',
+          'table-management',
+          'zone-management',
+          'reservation-management',
         ].includes(policy) &&
           role === 'MANAGER') ||
           policy === 'staff-management' ||
@@ -145,10 +179,16 @@ export class RestaurantAccessGuard implements CanActivate {
           // editing roles. Do not demote their access to owner/manager-only.
           policy === 'restaurant-read' ||
           policy === 'menu-audit' ||
+          policy === 'table-read' ||
+          policy === 'zone-read' ||
+          (policy === 'reservation-read' &&
+            ['MANAGER', 'WAITER', 'STAFF'].includes(role)) ||
+          (policy === 'reservation-operations' &&
+            ['MANAGER', 'WAITER'].includes(role)) ||
+          (policy === 'reservation-action' && actionRoles.includes(role)) ||
           (policy === 'scan-stats' &&
             ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'].includes(role))));
-    // There is intentionally no SUPER_ADMIN bypass. FeatureGuard's tier bypass
-    // is not a grant to tenant data or owner-only printer/staff operations.
+    // FeatureGuard's tier bypass is not itself a grant to tenant data.
     if (!allowed) throw new ForbiddenException('Access denied');
     if (policy === 'print-management' && !restaurant.isActive) {
       throw new ForbiddenException({
@@ -202,6 +242,22 @@ export class RestaurantAccessGuard implements CanActivate {
         });
         if (!option) throw new NotFoundException('Menu option not found');
         return option.menuItem.category.restaurantId;
+      }
+      case 'table': {
+        const table = await this.prisma.restaurantTable.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!table) throw new NotFoundException('Table not found');
+        return table.restaurantId;
+      }
+      case 'zone': {
+        const zone = await this.prisma.tableZone.findUnique({
+          where: { id },
+          select: { restaurantId: true },
+        });
+        if (!zone) throw new NotFoundException('Zone not found');
+        return zone.restaurantId;
       }
       default:
         // Metadata validation only permits undefined or 'restaurant' here.

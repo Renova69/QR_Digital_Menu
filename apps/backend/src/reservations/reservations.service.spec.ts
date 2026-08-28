@@ -107,6 +107,36 @@ function build() {
 }
 
 describe('ReservationsService access control', () => {
+  it.each(['action', 'internal'] as const)(
+    '%s still binds the booking id to the authorized restaurant before any write',
+    async (operation) => {
+      const { service, prisma, events, notifications } = build();
+      prisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner',
+        isActive: true,
+      });
+      prisma.reservation.findFirst.mockResolvedValue(null);
+      const result =
+        operation === 'action'
+          ? service.executeAction('foreign-booking', 'owner', 'rest1', 'ACCEPT')
+          : service.updateInternal('foreign-booking', 'owner', 'rest1', {
+              internalNotes: 'Do not write across restaurants',
+            });
+      await expect(result).rejects.toThrow(NotFoundException);
+      expect(prisma.reservation.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'foreign-booking', restaurantId: 'rest1' },
+        }),
+      );
+      expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+      expect(prisma.reservation.update).not.toHaveBeenCalled();
+      expect(prisma.reservationEvent.create).not.toHaveBeenCalled();
+      expect(prisma.patron.update).not.toHaveBeenCalled();
+      expect(events.emitReservationUpdated).not.toHaveBeenCalled();
+      expect(notifications.notify).not.toHaveBeenCalled();
+    },
+  );
+
   it('denies a KITCHEN user', async () => {
     const { service, prisma } = build();
     prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner' });

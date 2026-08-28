@@ -23,13 +23,17 @@ export function RequireRestaurantAccess(
   return applyDecorators(
     SetMetadata(RESTAURANT_ACCESS_KEY, Object.freeze({ ...requirement })),
     UseGuards(JwtAuthGuard, RestaurantAccessGuard),
-    requirement.source === 'params'
-      ? ApiParam({ name: requirement.key, type: String, required: true })
-      : ApiQuery({
-          name: requirement.key,
-          type: String,
-          required: requirement.policy !== 'print-management',
-        }),
+    ...(requirement.source === 'params'
+      ? [ApiParam({ name: requirement.key, type: String, required: true })]
+      : requirement.source === 'query'
+        ? [
+            ApiQuery({
+              name: requirement.key,
+              type: String,
+              required: requirement.policy !== 'print-management',
+            }),
+          ]
+        : []), // Body schemas remain owned by the route's DTO.
   );
 }
 

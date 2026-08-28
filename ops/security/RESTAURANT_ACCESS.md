@@ -1,8 +1,9 @@
 # P3-3 — Declarative restaurant access
 
-Status: **PARTIAL — 41 routes merged via PR #59 (`6a76bba4`) and PR #60
-(`6f472e53`), both with green PR and post-merge CI; third slice adds 23 tenant-management
-routes for review (64 total). Batch release pending.**
+Status: **PARTIAL — 64 routes merged via PR #59 (`6a76bba4`), #60
+(`6f472e53`) and #61 (`d6c5b2ef`), all with green PR and post-merge CI.
+Fourth slice adds 27 tables/zones/reservations routes for review (91 total).
+Two planned slices remain afterward. Batch release pending.**
 This is not completion of the repository-wide migration. No schema, migration,
 credential, dependency, or frontend change is involved.
 
@@ -34,11 +35,13 @@ it: that would turn an effective STAFF back into a MANAGER.
 
 ## Tenant selection and ordering
 
-- Each declaration names exactly one source (`params` or `query`) and key.
+- Each declaration names exactly one source and key: `params`, `query`, or
+  the existing `body.restaurantId` contract on reservation action/internal edits.
   Conflicting values in another location cannot change the authorized tenant.
 - Menu declarations additionally require an explicit `resource` and `params`
-  source. Missing/unknown resource kinds, query-based menu targets, and attaching
-  child-resource resolution to another policy fail closed in runtime and CI.
+  source. Table/zone management similarly declares `restaurant` or its matching
+  child resource. Missing/unknown kinds, query-based child targets and mismatched
+  policy/resource combinations fail closed in runtime and CI.
 - Guards execute before validation pipes. Non-string, array, object, empty,
   whitespace-padded, and overlong ids fail with 400 before Prisma.
   Suspended dashboard/printer requests retain `RESTAURANT_SUSPENDED` for the
@@ -147,6 +150,45 @@ over a public namespace; OCR imports retain the tenant-bound hashed API-key
 guard; device verify/status retain enrollment-token validation and atomic
 single-use enrollment. None receives a new dashboard JWT requirement.
 
+## Fourth slice: tables, zones and reservations
+
+These are **27 existing routes**, not new APIs or workflows. Controller arguments,
+response shapes and service checks are unchanged. The guard moves rejection ahead
+of dispatch and feature checks; action permissions share one small role map with
+the reservation service so effective STAFF cannot regain raw MANAGER privileges.
+
+| Policy                 | Routes | Access beyond the actual owner                    | Existing status contract                                             |
+| ---------------------- | -----: | ------------------------------------------------- | -------------------------------------------------------------------- |
+| table-read             |      4 | Any assigned account; global SUPER_ADMIN          | Reject inactive/deleted except admin                                 |
+| table-management       |      6 | Assigned effective MANAGER                        | Reject inactive/deleted                                              |
+| zone-read              |      1 | Any assigned account; global SUPER_ADMIN          | No new status gate                                                   |
+| zone-management        |      4 | Assigned effective MANAGER                        | No new status gate                                                   |
+| reservation-management |      8 | Assigned effective MANAGER; global SUPER_ADMIN    | Reject inactive except admin; existing feature/service checks remain |
+| reservation-read       |      1 | Assigned MANAGER/WAITER/STAFF; global SUPER_ADMIN | Same reservation contract                                            |
+| reservation-operations |      2 | Assigned MANAGER/WAITER; global SUPER_ADMIN       | Same reservation contract                                            |
+| reservation-action     |      1 | Action-specific assigned role; global SUPER_ADMIN | Same reservation contract                                            |
+
+Reservation actions retain their existing matrix: MANAGER may accept, decline or
+cancel; MANAGER/WAITER may mark no-show; MANAGER/WAITER/STAFF may mark arrived.
+Actual owners and effective SUPER_ADMIN retain their existing action access.
+KITCHEN does not gain access to guest reservation data. Admin exceptions apply
+only to the named existing read/reservation policies, not table/zone editing or
+previously migrated owner-only routes.
+
+Table/zone edits resolve the resource's restaurant with a minimal relationship
+lookup. Table orders retain the declared query restaurant plus the service's
+compound table/session filter. Reservation action/internal routes authorize
+`body.restaurantId`; their services still check `{ id, restaurantId }` before
+writing. An alternate query/body/default tenant cannot replace the declared one.
+Malformed body ids and action names fail before Prisma. A missing restaurant
+now returns 404 even for an admin/read shortcut that formerly returned no rows.
+This does not add a new suspension/deletion rule to zones or reservations.
+
+The class-level reservations feature requirement remains; every method now runs
+JWT once, tenancy, then FeatureGuard. Route discovery rejects a future method
+without that ordering. Service-point feature gates and anonymous QR resolution
+remain unchanged. No database/schema/provider or frontend change is involved.
+
 ## Coverage and remaining work
 
 `restaurant-access.coverage.spec.ts` imports every `*.controller.ts` and inspects
@@ -154,7 +196,7 @@ actual Nest route/guard metadata. It currently discovers **245 routes**. For
 migrated routes it verifies authentication before access and feature checks after
 access. Mutation fixtures prove missing policies/guards and wrong ordering fail.
 
-With three slices, **64 routes** use the guard. The other **181 routes** are
+With four slices, **91 routes** use the guard. The other **154 routes** are
 frozen, individually named in
 `restaurant-access.legacy-routes.ts`. This is an explicit rollout inventory, **not
 an authorization assertion or runtime bypass**. It includes public/token routes,
@@ -164,13 +206,21 @@ routes require either the declarative guard or a reviewed explanation of their
 different authorization. Stale/duplicated entries fail; remove entries as routes
 are migrated.
 
-Next P3-3 slices:
+Finite close-out, counted against merged PR #61 plus this fourth slice:
 
-1. Tables/zones, reservations, notifications, loyalty, feedback, orders,
-   subscription and payment management: preserve distinct owner,
-   staff, super-admin and token-based policies; remove each legacy entry on migration.
-2. Separate permanent public/account/admin classifications from the remaining
-   tenant migration inventory, then close P3-3 only after that inventory is empty.
+| Slice                                                                                            | Status          | Management routes |
+| ------------------------------------------------------------------------------------------------ | --------------- | ----------------: |
+| Tables/zones/reservations                                                                        | This review     |                27 |
+| Orders (4), assistance (4), feedback (3), loyalty (3), notifications (2)                         | Next            |                16 |
+| Payment management (22), subscription status/checkout/portal (3), final inventory classification | Last P3-3 slice |                25 |
+
+After this review, **41 management routes in two slices remain**. The other
+**113 routes** have different public/account/admin/token authorization; they are
+not 113 more routes to put behind dashboard JWT. The final slice separates their
+permanent classifications from the temporary migration inventory. Existing
+optional account/default-restaurant contracts must be preserved explicitly.
+P3-3 closes when that management inventory is empty and route coverage passes,
+not when all 245 endpoints use one guard.
 
 Existing child-resource/service checks remain. This guard is not a substitute for
 tenant-constrained queries at the write boundary; that separate work remains P3-4.
@@ -216,9 +266,17 @@ Prettier, Gitleaks 8.28.0 with CI's exact flags, the migration SQL safety gate
 and all 14 secret-scanner tests pass. No scanner exemptions or bypasses.
 Clean-install Linux CI remains the merge gate for this slice.
 
+Fourth-slice verification: **212 backend suites / 3,439 tests passed** (73 new:
+71 HTTP/metadata cases and two real-service compound booking-scope regressions).
+Coverage: 89.40% lines / 75.62% branches. Type checking and Nest/SWC build pass;
+full lint has zero errors / 544 warnings (down from 573, cap unchanged).
+Gitleaks 8.28.0 with CI's flags, migration SQL safety and all 14 secret-scanner
+tests pass. No database or migration was executed. Clean-install Linux CI,
+including its disposable-database E2E checks, remains the merge gate.
+
 **Deployment is deliberately batched** at the user's request (28 Aug 2026).
-PR #58/P3-2 is merged at `f4ec9a61`, PR #59 at `6a76bba4` and PR #60 at
-`6f472e53`; these await backend deployment. The last confirmed
+PR #58/P3-2 is merged at `f4ec9a61`, PR #59 at `6a76bba4`, PR #60 at
+`6f472e53` and PR #61 at `d6c5b2ef`; these await backend deployment. The last confirmed
 backend deployment is P3-1 at `e7500785`. No deploy script or live database command
 is part of this implementation. Later, deploy approved merged main once through
 the existing backup/safety/canary workflow and run the accumulated release checks.
@@ -232,3 +290,6 @@ and anonymous access through an already-printed QR.
 Also verify settings/device access for the assigned manager; owner-only Stripe,
 import-key and slug actions; device revocation/re-enrollment; and continued OCR
 API-key, enrollment-token and advisory-slug flows using demo data.
+For this slice, verify waiter table/zone reads and reservation arrival, manager
+table/zone configuration and booking decisions, denial of cross-restaurant
+table/zone edits, and continued service-point QR access. Do not deploy separately.

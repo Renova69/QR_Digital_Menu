@@ -16,21 +16,30 @@ import { Throttle } from '@nestjs/throttler';
 import { TablesService } from './tables.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { RequireFeature } from '../subscription/require-feature.decorator';
+
+type TableActorRequest = {
+  user: { id: string; role?: string; restaurantId?: string };
+};
 
 @Controller()
 export class TablesController {
   constructor(private readonly tablesService: TablesService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @Post('restaurants/:restaurantId/tables')
   create(
     @Param('restaurantId') restaurantId: string,
     @Body() createTableDto: CreateTableDto,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     return this.tablesService.create(
       restaurantId,
@@ -39,29 +48,47 @@ export class TablesController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @Post('restaurants/:restaurantId/tables/bulk')
   bulkCreate(
     @Param('restaurantId') restaurantId: string,
     @Body('count', ParseIntPipe) count: number,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     return this.tablesService.bulkCreate(restaurantId, count, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-read',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get('restaurants/:restaurantId/tables')
-  findAll(@Param('restaurantId') restaurantId: string, @Request() req: any) {
+  findAll(
+    @Param('restaurantId') restaurantId: string,
+    @Request() req: TableActorRequest,
+  ) {
     return this.tablesService.findAll(restaurantId, req.user);
   }
 
   @RequireFeature(FeatureFlag.SERVICE_POINTS)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-management',
+    source: 'params',
+    key: 'restaurantId',
+    resource: 'restaurant',
+  })
   @Post('restaurants/:restaurantId/service-points')
   createServicePoint(
     @Param('restaurantId') restaurantId: string,
     @Body() createTableDto: CreateTableDto,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     if (createTableDto.type === 'TABLE') {
       throw new BadRequestException(
@@ -79,11 +106,16 @@ export class TablesController {
   }
 
   @RequireFeature(FeatureFlag.SERVICE_POINTS)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(FeatureGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-read',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get('restaurants/:restaurantId/service-points')
   findServicePoints(
     @Param('restaurantId') restaurantId: string,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     return this.tablesService.findServicePoints(restaurantId, req.user);
   }
@@ -99,12 +131,16 @@ export class TablesController {
     return this.tablesService.resolvePublicServicePoint(restaurantId, token);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-read',
+    source: 'params',
+    key: 'restaurantId',
+  })
   @Get('tables/status/:restaurantId')
   getTablesWithStatus(
     @Param('restaurantId') restaurantId: string,
     @Query('zoneId') zoneId: string | undefined,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     return this.tablesService.getTablesWithStatus(
       restaurantId,
@@ -113,35 +149,57 @@ export class TablesController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-read',
+    source: 'query',
+    key: 'restaurantId',
+  })
   @Get('tables/:tableId/orders')
   getTableOrders(
     @Param('tableId') tableId: string,
     @Query('restaurantId') restaurantId: string,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     return this.tablesService.getTableOrders(tableId, restaurantId, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-management',
+    source: 'params',
+    key: 'id',
+    resource: 'table',
+  })
   @Patch('tables/:id')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateTableDto,
-    @Request() req: any,
+    @Request() req: TableActorRequest,
   ) {
     return this.tablesService.update(id, dto, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-management',
+    source: 'params',
+    key: 'id',
+    resource: 'table',
+  })
   @Post('tables/:id/public-token/rotate')
-  rotatePublicToken(@Param('id') id: string, @Request() req: any) {
+  rotatePublicToken(
+    @Param('id') id: string,
+    @Request() req: TableActorRequest,
+  ) {
     return this.tablesService.rotatePublicToken(id, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireRestaurantAccess({
+    policy: 'table-management',
+    source: 'params',
+    key: 'id',
+    resource: 'table',
+  })
   @Delete('tables/:id')
-  remove(@Param('id') id: string, @Request() req: any) {
+  remove(@Param('id') id: string, @Request() req: TableActorRequest) {
     return this.tablesService.remove(id, req.user.id);
   }
 }

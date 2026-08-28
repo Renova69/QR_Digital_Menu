@@ -6,9 +6,25 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import type { ReservationActionType } from './dto/reservation-ops.dto';
 
 export type ActorRole =
-  'OWNER' | 'MANAGER' | 'WAITER' | 'STAFF' | 'SUPER_ADMIN';
+  | 'OWNER'
+  | 'MANAGER'
+  | 'WAITER'
+  | 'STAFF'
+  | 'SUPER_ADMIN';
+
+/** Shared by the HTTP guard (effective JWT role) and the service boundary. */
+export const RESERVATION_ACTION_ROLES: Readonly<
+  Record<ReservationActionType, readonly ActorRole[]>
+> = {
+  ACCEPT: ['MANAGER'],
+  DECLINE: ['MANAGER'],
+  CANCEL: ['MANAGER'],
+  NO_SHOW: ['MANAGER', 'WAITER'],
+  ARRIVED: ['MANAGER', 'WAITER', 'STAFF'],
+};
 
 /**
  * Shared reservation access-control primitives. Extracted so every reservation
@@ -57,7 +73,7 @@ export async function resolveReservationActor(
 
 export function assertReservationRole(
   role: ActorRole,
-  allowed: ActorRole[],
+  allowed: readonly ActorRole[],
 ): void {
   if (role === 'OWNER' || role === 'SUPER_ADMIN') return;
   if (!allowed.includes(role)) {
