@@ -8,6 +8,7 @@ import { AssistanceService } from './assistance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
+import { Prisma } from '@prisma/client';
 
 const mockPrisma = {
   assistanceRequest: {
@@ -347,6 +348,18 @@ describe('AssistanceService', () => {
       const result = await service.findOne('req-1', 'owner-1');
 
       expect(result).toEqual(req);
+      expect(mockPrisma.assistanceRequest.findUnique).toHaveBeenCalledWith({
+        where: {
+          id: 'req-1',
+          restaurant: {
+            OR: [
+              { ownerId: 'owner-1' },
+              { staffMembers: { some: { id: 'owner-1' } } },
+            ],
+          },
+        },
+        include: { restaurant: { select: { ownerId: true } } },
+      });
     });
 
     it('returns request when user is assigned staff', async () => {
@@ -383,6 +396,19 @@ describe('AssistanceService', () => {
       );
 
       expect(result.isResolved).toBe(true);
+      expect(mockPrisma.assistanceRequest.update).toHaveBeenCalledWith({
+        where: {
+          id: 'req-1',
+          restaurantId: 'rest-1',
+          restaurant: {
+            OR: [
+              { ownerId: 'owner-1' },
+              { staffMembers: { some: { id: 'owner-1' } } },
+            ],
+          },
+        },
+        data: { isResolved: true },
+      });
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest-1',
         'assistanceStatusChanged',
@@ -405,8 +431,64 @@ describe('AssistanceService', () => {
       await service.remove('req-1', 'owner-1');
 
       expect(mockPrisma.assistanceRequest.delete).toHaveBeenCalledWith({
-        where: { id: 'req-1' },
+        where: {
+          id: 'req-1',
+          restaurantId: 'rest-1',
+          restaurant: {
+            OR: [
+              { ownerId: 'owner-1' },
+              { staffMembers: { some: { id: 'owner-1' } } },
+            ],
+          },
+        },
       });
     });
+  });
+
+  describe('tenant scope at write time', () => {
+    beforeEach(() => {
+      mockPrisma.assistanceRequest.findUnique.mockResolvedValue({
+        id: 'req-1',
+        restaurantId: 'rest-1',
+        restaurant: { ownerId: 'owner-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+    });
+
+    it.each(['update', 'delete'] as const)(
+      'returns 404 without emitting when the scoped %s no longer matches',
+      async (operation) => {
+        mockPrisma.assistanceRequest[operation].mockRejectedValueOnce(
+          new Prisma.PrismaClientKnownRequestError('Scoped row not found', {
+            code: 'P2025',
+            clientVersion: '6',
+          }),
+        );
+
+        const result =
+          operation === 'update'
+            ? service.update('req-1', { isResolved: true }, 'owner-1')
+            : service.remove('req-1', 'owner-1');
+
+        await expect(result).rejects.toThrow(NotFoundException);
+        expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['update', 'delete'] as const)(
+      'does not hide a real database failure from %s',
+      async (operation) => {
+        const failure = new Error('Database unavailable');
+        mockPrisma.assistanceRequest[operation].mockRejectedValueOnce(failure);
+
+        const result =
+          operation === 'update'
+            ? service.update('req-1', { isResolved: true }, 'owner-1')
+            : service.remove('req-1', 'owner-1');
+
+        await expect(result).rejects.toBe(failure);
+        expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      },
+    );
   });
 });

@@ -13,6 +13,7 @@ import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { CreateVisitFeedbackDto } from './dto/create-visit-feedback.dto';
 import { FeedbackListQueryDto } from './dto/feedback-list-query.dto';
 import { buildRestaurantDateRange } from '../common/restaurant-date-range';
+import { restaurantMemberWhere } from '../auth/restaurant-member-scope';
 
 const FEEDBACK_WINDOW_MS = 48 * 60 * 60 * 1000;
 const EXPERIENCE_COMPLETE_STATUSES = new Set([
@@ -352,7 +353,7 @@ export class FeedbackService {
   private async verifyRestaurantAccess(restaurantId: string, userId: string) {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
-        where: { id: restaurantId },
+        where: { id: restaurantId, ...restaurantMemberWhere(userId) },
         select: { ownerId: true, timezone: true },
       }),
       this.prisma.user.findUnique({
@@ -439,7 +440,7 @@ export class FeedbackService {
     };
   }
 
-  // Get all feedback for a restaurant (owner-only)
+  // Management feedback: actual owner or an assigned account.
   async findAll(
     restaurantId: string,
     query: FeedbackListQueryDto,
@@ -456,6 +457,7 @@ export class FeedbackService {
     );
     const where = {
       restaurantId,
+      restaurant: restaurantMemberWhere(userId),
       ...(query.rating ? { rating: query.rating } : {}),
       ...(query.hasComment === true ? { comment: { not: null } } : {}),
       ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
@@ -551,7 +553,7 @@ export class FeedbackService {
    */
   async getVisit(feedbackId: string, userId: string) {
     const feedback = await this.prisma.feedback.findUnique({
-      where: { id: feedbackId },
+      where: { id: feedbackId, restaurant: restaurantMemberWhere(userId) },
       select: {
         id: true,
         restaurantId: true,
@@ -574,11 +576,13 @@ export class FeedbackService {
       throw new NotFoundException('This review is not linked to a table visit');
     }
 
-    // Scope by restaurantId as well as id: the session id came off a row we
-    // already authorised, but re-scoping keeps this query safe if that ever
-    // changes.
+    // Keep both the captured tenant and current membership on the detail read.
     const session = await this.prisma.tableSession.findFirst({
-      where: { id: sessionId, restaurantId: feedback.restaurantId },
+      where: {
+        id: sessionId,
+        restaurantId: feedback.restaurantId,
+        restaurant: restaurantMemberWhere(userId),
+      },
       select: {
         id: true,
         status: true,
@@ -656,7 +660,7 @@ export class FeedbackService {
     };
   }
 
-  // Get feedback summary stats (owner-only)
+  // Same membership scope for every aggregate as for the management list.
   async getSummary(
     restaurantId: string,
     userId: string,
@@ -670,6 +674,7 @@ export class FeedbackService {
     );
     const where = {
       restaurantId,
+      restaurant: restaurantMemberWhere(userId),
       ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
     };
 

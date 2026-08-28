@@ -49,6 +49,7 @@ import {
 import { PaymentProviderConfigService } from '../payment/payment-provider-config.service';
 import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
 import { createHash } from 'crypto';
+import { restaurantMemberWhere } from '../auth/restaurant-member-scope';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
 const POS_STAFF_ROLES = new Set([
@@ -1598,7 +1599,7 @@ export class OrdersService {
 
   async findOne(id: string, userId: string) {
     const order = await this.prisma.order.findUnique({
-      where: { id },
+      where: { id, restaurant: restaurantMemberWhere(userId) },
       include: {
         restaurant: {
           select: { ownerId: true, loyaltyPointExpiryDays: true },
@@ -1840,10 +1841,16 @@ export class OrdersService {
       updateOrderDto.status === OrderStatus.CANCELED &&
       order.status !== OrderStatus.CANCELED;
 
+    const tenantWhere = {
+      id,
+      restaurantId: order.restaurantId,
+      restaurant: restaurantMemberWhere(userId),
+    };
     const updatedOrder = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         const claim = await tx.order.updateMany({
-          where: { id, status: order.status },
+          // Membership/tenant changes must lose the same CAS as status changes.
+          where: { ...tenantWhere, status: order.status },
           data: { status: updateOrderDto.status },
         });
         if (claim.count !== 1) {
@@ -1851,7 +1858,20 @@ export class OrdersService {
             'Order status changed concurrently; please retry.',
           );
         }
-        const updated = await tx.order.findUniqueOrThrow({ where: { id } });
+        const updated = await tx.order
+          .findUniqueOrThrow({ where: tenantWhere })
+          .catch((error: unknown) => {
+            if (
+              error instanceof Prisma.PrismaClientKnownRequestError &&
+              error.code === 'P2025'
+            ) {
+              // Throw inside the transaction so its claim rolls back too.
+              throw new ConflictException(
+                'Order access changed concurrently; please retry.',
+              );
+            }
+            throw error;
+          });
         if (isCanceling && order.customerId) {
           await this.reverseLoyaltyForCanceledOrder(tx, order);
         }
