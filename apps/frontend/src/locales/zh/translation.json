@@ -1921,6 +1921,31 @@
     "daySat": "周六",
     "daySun": "周日"
   },
+  "sessions": {
+    "retry": "重试",
+    "loadMore": "加载更多",
+    "legacy": "此登录发生在会话记录功能启用之前，因此未列出。请退出所有设备，以同时撤销旧的登录。",
+    "title": "活跃会话",
+    "description": "查看账户已登录的位置并撤销访问权限。",
+    "current": "此设备",
+    "unknownDevice": "未知设备",
+    "signedIn": "登录时间：{{date}}",
+    "expires": "到期时间：{{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "退出登录",
+    "signOutAll": "全部退出",
+    "signOutAllConfirm": "退出所有设备，包括此设备？",
+    "loadError": "无法加载会话，请重试。",
+    "empty": "没有活跃会话。",
+    "actionError": "无法结束该会话，请重试。",
+    "methods": {
+      "PASSWORD": "密码",
+      "GOOGLE": "Google",
+      "OTP": "一次性验证码",
+      "PIN": "员工 PIN",
+      "IMPERSONATION": "支持访问"
+    }
+  },
   "profile": {
     "title": "我的个人资料",
     "welcome": "欢迎回来，{{name}}！",

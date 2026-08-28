@@ -22,6 +22,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PrintStationService } from '../print-station/print-station.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { FeatureService } from '../subscription/feature.service';
+import * as Sentry from '@sentry/nestjs';
 
 // C-2: pin to explicit origins — no wildcard CDN domains
 const wsOrigin = (
@@ -90,6 +91,10 @@ export class EventsGateway
     { count: number; resetAt: number }
   >();
   private sweepInterval: ReturnType<typeof setInterval> | undefined;
+  private readonly authExpiryTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   onModuleInit() {
     // Sweep expired IP rate-limit entries every 5 minutes (Issue 38)
@@ -101,6 +106,8 @@ export class EventsGateway
 
   onModuleDestroy() {
     if (this.sweepInterval) clearInterval(this.sweepInterval);
+    for (const timer of this.authExpiryTimers.values()) clearTimeout(timer);
+    this.authExpiryTimers.clear();
   }
 
   private sweepConnectAttempts() {
@@ -161,6 +168,16 @@ export class EventsGateway
       try {
         const payload = this.jwt.verify(token);
         if (payload?.sub) {
+          // Publish eviction identities BEFORE the async database check, but
+          // never grant room access until it passes. A concurrent revoke can
+          // then see and disconnect this in-flight handshake too.
+          client.data.authPendingUserId = payload.sub;
+          if (typeof payload.sessionId === 'string') {
+            client.data.sessionId = payload.sessionId;
+          }
+          if (typeof payload.deviceTokenId === 'string') {
+            client.data.deviceTokenId = payload.deviceTokenId;
+          }
           // A signature and an unexpired `exp` are not proof the session is
           // still alive. Password rotation, staff-device revocation and account
           // disable all happen after the token is minted, and the HTTP path has
@@ -168,12 +185,28 @@ export class EventsGateway
           // opened a socket that kept receiving live order traffic. Same rules,
           // one implementation (P1-14).
           await this.sessionRevocation.assertSessionUsable(payload);
+          if (client.disconnected) return;
           client.data.userId = payload.sub;
-          if (typeof payload.deviceTokenId === 'string') {
-            client.data.deviceTokenId = payload.deviceTokenId;
+          delete client.data.authPendingUserId;
+          if (typeof payload.exp === 'number' && Number.isFinite(payload.exp)) {
+            // An expired session disappears from inventory and must not keep
+            // receiving live data on a connection opened before its expiry.
+            const timer = setTimeout(
+              () => {
+                this.authExpiryTimers.delete(client.id);
+                delete client.data.userId;
+                client.disconnect();
+              },
+              Math.max(0, payload.exp * 1000 - Date.now()),
+            );
+            timer.unref();
+            this.authExpiryTimers.set(client.id, timer);
           }
         }
       } catch (error) {
+        delete client.data.authPendingUserId;
+        delete client.data.sessionId;
+        delete client.data.deviceTokenId;
         // invalid/expired/revoked — stay anonymous. debug (not warn): expired
         // tokens are routine on reconnect; this just keeps the failure reason
         // searchable if a token-refresh regression starts spiking these.
@@ -243,6 +276,9 @@ export class EventsGateway
   }
 
   handleDisconnect(client: Socket) {
+    const timer = this.authExpiryTimers.get(client.id);
+    if (timer) clearTimeout(timer);
+    this.authExpiryTimers.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
@@ -887,6 +923,14 @@ export class EventsGateway
     await this.evictMatchingSockets('userId', userId, reason);
   }
 
+  /** Disconnect one durable login session without disturbing other devices. */
+  async evictSession(
+    sessionId: string,
+    reason = 'session_revoked',
+  ): Promise<void> {
+    await this.evictMatchingSockets('sessionId', sessionId, reason);
+  }
+
   /**
    * Disconnect all sockets authenticated by a revoked device enrollment token.
    * Dashboard sessions do not carry this claim, so revoking one staff device
@@ -900,7 +944,7 @@ export class EventsGateway
   }
 
   private async evictMatchingSockets(
-    claim: 'userId' | 'deviceTokenId',
+    claim: 'userId' | 'sessionId' | 'deviceTokenId',
     targetId: string,
     reason: string,
   ): Promise<void> {
@@ -908,6 +952,9 @@ export class EventsGateway
     try {
       all = await this.server.fetchSockets();
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { subsystem: 'session-eviction' },
+      });
       this.logger.error('Socket eviction lookup failed', {
         claim,
         targetId,
@@ -920,7 +967,10 @@ export class EventsGateway
     let matched = 0;
     let failures = 0;
     for (const socket of all) {
-      if (String(socket.data[claim]) === String(targetId)) {
+      if (
+        socket.data[claim] === targetId ||
+        (claim === 'userId' && socket.data.authPendingUserId === targetId)
+      ) {
         matched++;
         try {
           socket.emit('auth:evicted', reason);
@@ -938,6 +988,9 @@ export class EventsGateway
           socket.disconnect();
         } catch (error) {
           failures++;
+          Sentry.captureException(error, {
+            tags: { subsystem: 'session-eviction' },
+          });
           this.logger.error('Socket eviction disconnect failed', {
             claim,
             targetId,

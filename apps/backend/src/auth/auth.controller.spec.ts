@@ -4,7 +4,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LocalAuthGuard } from './local-auth.guard';
-import { Response } from 'express';
+import { Response, Request as ExpressRequest } from 'express';
 import { Logger } from '@nestjs/common';
 
 const mockAuthService = {
@@ -14,6 +14,10 @@ const mockAuthService = {
   verifyOtp: jest.fn(),
   validateGoogleUser: jest.fn(),
   exitImpersonation: jest.fn(),
+  logoutSession: jest.fn(),
+  listSessions: jest.fn(),
+  revokeSession: jest.fn(),
+  signOutEverywhere: jest.fn(),
   addIdentity: jest.fn(),
   verifyIdentity: jest.fn(),
 };
@@ -29,6 +33,15 @@ const mockLocalAuthGuard = {
 describe('AuthController', () => {
   let controller: AuthController;
   let service: AuthService;
+  const request = (user: Record<string, unknown> = {}) =>
+    ({
+      user,
+      ip: '203.0.113.4',
+      get: jest.fn().mockReturnValue('Test Browser'),
+      cookies: {},
+    }) as unknown as ExpressRequest & {
+      user: { id: string; sessionId?: string };
+    };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -63,12 +76,15 @@ describe('AuthController', () => {
       const mockResult = { token: 'mock-token', user: { id: 1 } };
       mockAuthService.login.mockResolvedValue(mockResult);
 
-      const req = { user: { id: 1 } };
+      const req = request({ id: 1 });
       const res = { cookie: jest.fn() } as unknown as Response;
 
       const result = await controller.login(req, res);
 
-      expect(service.login).toHaveBeenCalledWith(req.user);
+      expect(service.login).toHaveBeenCalledWith(req.user, {
+        ipAddress: '203.0.113.4',
+        userAgent: 'Test Browser',
+      });
       expect(res.cookie).toHaveBeenCalledWith(
         'token',
         'mock-token',
@@ -98,11 +114,13 @@ describe('AuthController', () => {
   });
 
   describe('getProfile', () => {
-    it('should return the authenticated user', () => {
-      const req = { user: { id: 1, name: 'Test User' } };
+    it('returns the public profile without its internal session id', () => {
+      const req = {
+        user: { id: 1, name: 'Test User', sessionId: 'session-1' },
+      };
       const result = controller.getProfile(req);
 
-      expect(result).toEqual(req.user);
+      expect(result).toEqual({ id: 1, name: 'Test User' });
     });
   });
 
@@ -131,6 +149,7 @@ describe('AuthController', () => {
       mockAuthService.verifyOtp.mockResolvedValue(mockResult);
 
       const res = { cookie: jest.fn() } as unknown as Response;
+      const req = request();
       const result = await controller.verifyOtp(
         'test@test.com',
         '1234',
@@ -138,6 +157,7 @@ describe('AuthController', () => {
         'Test',
         'rest1',
         res,
+        req,
       );
 
       expect(service.verifyOtp).toHaveBeenCalledWith(
@@ -146,6 +166,10 @@ describe('AuthController', () => {
         '1234567890',
         'Test',
         'rest1',
+        {
+          ipAddress: '203.0.113.4',
+          userAgent: 'Test Browser',
+        },
       );
       expect(res.cookie).toHaveBeenCalledWith(
         'token',
@@ -166,6 +190,7 @@ describe('AuthController', () => {
       mockAuthService.verifyOtp.mockResolvedValue(mockResult);
 
       const res = { cookie: jest.fn() } as unknown as Response;
+      const req = request();
       const result = await controller.verifyOtp(
         'test@test.com',
         '1234',
@@ -173,6 +198,7 @@ describe('AuthController', () => {
         undefined,
         undefined,
         res,
+        req,
       );
 
       expect(service.verifyOtp).toHaveBeenCalledWith(
@@ -181,6 +207,10 @@ describe('AuthController', () => {
         '1234567890',
         undefined,
         undefined,
+        {
+          ipAddress: '203.0.113.4',
+          userAgent: 'Test Browser',
+        },
       );
       expect(res.cookie).toHaveBeenCalledWith(
         'token',
@@ -217,7 +247,10 @@ describe('AuthController', () => {
         token: 'mock-token',
         user: { id: 'user-1' },
       });
-      const req = { user: {}, query: { state: 'not-json' } };
+      const req = {
+        ...request(),
+        query: { state: 'not-json' },
+      };
       const res = {
         cookie: jest.fn(),
         redirect: jest.fn(),
@@ -275,6 +308,76 @@ describe('AuthController', () => {
         'real@example.com',
         undefined,
       );
+    });
+  });
+
+  describe('session controls', () => {
+    it.each(['listSessions', 'revokeSession', 'signOutEverywhere'] as const)(
+      'requires authentication for %s',
+      (method) => {
+        expect(
+          Reflect.getMetadata(
+            GUARDS_METADATA,
+            AuthController.prototype[method],
+          ),
+        ).toContain(JwtAuthGuard);
+      },
+    );
+
+    it('passes only the authenticated owner and current session into the inventory query', async () => {
+      await controller.listSessions(
+        request({ id: 'owner', sessionId: 'current' }),
+        { cursor: 'cursor' },
+      );
+      expect(mockAuthService.listSessions).toHaveBeenCalledWith(
+        'owner',
+        'current',
+        'cursor',
+      );
+    });
+
+    it.each([false, true])(
+      'clears the cookie only when the revoked session is current (%s)',
+      async (current) => {
+        mockAuthService.revokeSession.mockResolvedValue({
+          success: true,
+          current,
+        });
+        const res = { clearCookie: jest.fn() } as unknown as Response;
+        await controller.revokeSession(
+          request({ id: 'owner', sessionId: 'current' }),
+          'selected',
+          res,
+        );
+        expect(mockAuthService.revokeSession).toHaveBeenCalledWith(
+          'owner',
+          'selected',
+          'current',
+        );
+        expect(res.clearCookie).toHaveBeenCalledTimes(current ? 1 : 0);
+      },
+    );
+
+    it('clears the current cookie after global revocation succeeds', async () => {
+      mockAuthService.signOutEverywhere.mockResolvedValue({ success: true });
+      const res = { clearCookie: jest.fn() } as unknown as Response;
+      await controller.signOutEverywhere(request({ id: 'owner' }), res);
+      expect(mockAuthService.signOutEverywhere).toHaveBeenCalledWith('owner');
+      expect(res.clearCookie).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears the cookie but reports a failed server-side logout', async () => {
+      mockAuthService.logoutSession.mockRejectedValueOnce(
+        new Error('database unavailable'),
+      );
+      const req = request();
+      req.cookies.token = 'signed.jwt';
+      const res = { clearCookie: jest.fn() } as unknown as Response;
+      await expect(controller.logout(req, res)).rejects.toThrow(
+        'database unavailable',
+      );
+      expect(mockAuthService.logoutSession).toHaveBeenCalledWith('signed.jwt');
+      expect(res.clearCookie).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -37,6 +37,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     sub: string;
     email: string;
     iat?: number;
+    sessionId?: string;
+    sessionVersion?: number;
     deviceTokenId?: string;
     deviceSessionVersion?: number;
     isImpersonation?: boolean;
@@ -72,7 +74,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // P0-4: allowlist, never a blocklist. This value becomes req.user and is
-    // serialised verbatim by GET /auth/me, so a destructure-the-bad-fields
+    // returned by GET /auth/me (minus the internal session id), so a destructure-the-bad-fields
     // approach leaks every column added to User afterwards — which is how
     // pinHash (bcrypt over a 4-digit PIN, a 10,000-candidate keyspace) ended
     // up in the browser. Anything added here is a deliberate decision to
@@ -89,6 +91,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       onboardingComplete: user.onboardingComplete,
       onboardingStep: user.onboardingStep,
       isActive: user.isActive,
+      // Internal request context used by session-management endpoints. GET
+      // /auth/me strips this opaque id before returning the profile.
+      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
       ...(payload.isImpersonation
         ? {
             isImpersonation: true,

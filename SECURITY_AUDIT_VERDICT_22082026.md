@@ -2,10 +2,11 @@
 
 Verification of every claim in `FULL_SECURITY_AUDIT_22082026.md` against the actual codebase and live infrastructure, plus a remediation plan.
 
-**Remediation update — 27 Aug 2026:** the historical findings below are retained
+**Remediation update — 28 Aug 2026:** the historical findings below are retained
 as the 22 Aug evidence snapshot. The P2 ledger near the end is the current
 status: all active P2 engineering work is complete, with only explicit
-pre-launch operational gates deferred. P3-1 is next.
+pre-launch operational gates deferred. P3-1 is implemented; review, deployment,
+and release verification remain pending. P3-2 is the next implementation lane.
 
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
@@ -63,11 +64,11 @@ Not a technical claim; it is the argument for doing this audit. The substantive 
 
 ### Scenario 7 — Zero-downtime migrations
 
-| Step | Claim                                                | Verdict                                                                                                                                                                                                                                                                                                                                                                            |
-| ---- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | You will default to dropping and recreating a column | **FALSE.** The repository has 65 forward migrations. CI and deployment reject destructive SQL, production PostgreSQL guards independently block schema/table/column loss and truncation, and the migration policy requires expand/backfill/contract.                                                                                                                           |
-| 2    | Write the rollback script before the migration       | **SUPERSEDED.** Executable down scripts are intentionally prohibited because they can erase writes made after deployment. P2-9 requires a reviewed forward-recovery plan and an explicit old-app/new-schema compatibility window instead.                                                                                                                                       |
-| 3    | Test on a staging mirror of live data first          | **IMPLEMENTED, ACTIVATION DEFERRED PRE-LAUNCH.** PR #54 added an isolated Supabase/Cloud Run/Stripe test environment and exact-SHA proof. With no real tenants, payments, or customer data, activation is deferred by owner decision; bypass is explicit and staging remains the default deployment path.                                                                         |
+| Step | Claim                                                | Verdict                                                                                                                                                                                                                                                                                                   |
+| ---- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | You will default to dropping and recreating a column | **FALSE.** The repository has 65 forward migrations. CI and deployment reject destructive SQL, production PostgreSQL guards independently block schema/table/column loss and truncation, and the migration policy requires expand/backfill/contract.                                                      |
+| 2    | Write the rollback script before the migration       | **SUPERSEDED.** Executable down scripts are intentionally prohibited because they can erase writes made after deployment. P2-9 requires a reviewed forward-recovery plan and an explicit old-app/new-schema compatibility window instead.                                                                 |
+| 3    | Test on a staging mirror of live data first          | **IMPLEMENTED, ACTIVATION DEFERRED PRE-LAUNCH.** PR #54 added an isolated Supabase/Cloud Run/Stripe test environment and exact-SHA proof. With no real tenants, payments, or customer data, activation is deferred by owner decision; bypass is explicit and staging remains the default deployment path. |
 
 ### Scenario 8 — Error handling leaking internals
 
@@ -129,20 +130,20 @@ Additional finding not in the document: `.release-worktrees/`, `.codex/` and `.o
 
 ### The "13 layers" question
 
-| #   | Layer                         | State                                                                                         |
-| --- | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| 1   | Frontend foundations          | Solid — React 18, Vite, error boundaries, PWA, i18n across 12 locales                         |
-| 2   | APIs / backend logic          | Solid — 239 routes, real URI versioning, DTO validation with `forbidNonWhitelisted`           |
-| 3   | Database and storage          | Solid schema; **gaps:** no RLS, R2 not tenant-namespaced, 6h recovery window                  |
-| 4   | Auth and permissions          | Strong perimeter; **gaps:** no ABAC, no password lockout, no session table                    |
-| 5   | Hosting and deployment        | Good — canary deploy with `--no-traffic`, smoke test, then traffic shift                      |
-| 6   | Cloud and compute             | **Gap** — `maxScale=3`, concurrency 80, 300s timeout, no readiness probe                      |
-| 7   | CI/CD and version control     | **Strongest layer.** Branch ruleset + comprehensive CI                                        |
-| 8   | Security / row-level security | App-level only, no RLS; strong CSRF, CSP, helmet, cookie discipline                           |
-| 9   | Rate limiting                 | Present but **mis-keyed** (H2); no edge layer (H8)                                            |
-| 10  | Caching and CDN               | Correct and tenant-scoped; deliberately `no-store` on authenticated responses                 |
-| 11  | Load balancing and scaling    | **Weakest layer** — no LB, `maxScale=3`, no autoscaling headroom                              |
-| 12  | Error tracking and logs       | Strong — Sentry both ends, structured logs, dual pipeline; missing release/scrub/user context |
+| #   | Layer                         | State                                                                                                                                                                     |
+| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Frontend foundations          | Solid — React 18, Vite, error boundaries, PWA, i18n across 12 locales                                                                                                     |
+| 2   | APIs / backend logic          | Solid — 239 routes, real URI versioning, DTO validation with `forbidNonWhitelisted`                                                                                       |
+| 3   | Database and storage          | Solid schema; **gaps:** no RLS, R2 not tenant-namespaced, 6h recovery window                                                                                              |
+| 4   | Auth and permissions          | Strong perimeter; **gaps:** no ABAC, no password lockout, no session table                                                                                                |
+| 5   | Hosting and deployment        | Good — canary deploy with `--no-traffic`, smoke test, then traffic shift                                                                                                  |
+| 6   | Cloud and compute             | **Gap** — `maxScale=3`, concurrency 80, 300s timeout, no readiness probe                                                                                                  |
+| 7   | CI/CD and version control     | **Strongest layer.** Branch ruleset + comprehensive CI                                                                                                                    |
+| 8   | Security / row-level security | App-level only, no RLS; strong CSRF, CSP, helmet, cookie discipline                                                                                                       |
+| 9   | Rate limiting                 | Present but **mis-keyed** (H2); no edge layer (H8)                                                                                                                        |
+| 10  | Caching and CDN               | Correct and tenant-scoped; deliberately `no-store` on authenticated responses                                                                                             |
+| 11  | Load balancing and scaling    | **Weakest layer** — no LB, `maxScale=3`, no autoscaling headroom                                                                                                          |
+| 12  | Error tracking and logs       | Strong — Sentry both ends, structured logs, dual pipeline; missing release/scrub/user context                                                                             |
 | 13  | Availability and recovery     | **Remediated:** verified GCS backups, database loss guards, readiness probe + corrected alert; isolated staging is implemented and intentionally dormant until pre-launch |
 
 We have all 13 layers. Layers 11 and 13 are the ones that would fail an inspection.
@@ -350,37 +351,37 @@ domain and real outbound email exist. P2-8 activation and P2-10 manual checks
 are explicit pre-launch gates, not active development blockers. Do not reopen
 completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
-| ID    | Task                                                                                                                                                                                             | Effort |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| P2-1  | **COMPLETE in PR #47:** fatal rejection handling, non-HTTP filter guard, awaited critical promises, and `no-floating-promises` as an error                                                     | M      |
-| P2-2  | **COMPLETE in PR #51:** every scheduled job is Sentry-monitored and a coverage test rejects an unwrapped cron                                                                                   | M      |
-| P2-3  | **COMPLETE in PRs #46/#50:** release SHA, structural Sentry scrubbing, user context, and request ID tags                                                                                        | S      |
-| P2-4  | **DEFERRED PRE-LAUNCH:** add the Resend delivery webhook and DMARC reporting/enforcement when a custom domain and real outbound email exist                                                     | M      |
-| P2-5  | **COMPLETE in PRs #41/#44/#55:** readiness/liveness split, uptime monitoring, and corrected readiness-failure alert semantics                                                                  | M      |
-| P2-6  | **COMPLETE in PR #43:** tenant R2 namespace, owner-scoped deletion, and explicit hard-purge capability                                                                                          | M      |
-| P2-7  | **COMPLETE in PR #49:** tenant cache regressions, logout cache clearing, and browser account-switch coverage                                                                                    | S–M    |
+| ID    | Task                                                                                                                                                                                              | Effort |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| P2-1  | **COMPLETE in PR #47:** fatal rejection handling, non-HTTP filter guard, awaited critical promises, and `no-floating-promises` as an error                                                        | M      |
+| P2-2  | **COMPLETE in PR #51:** every scheduled job is Sentry-monitored and a coverage test rejects an unwrapped cron                                                                                     | M      |
+| P2-3  | **COMPLETE in PRs #46/#50:** release SHA, structural Sentry scrubbing, user context, and request ID tags                                                                                          | S      |
+| P2-4  | **DEFERRED PRE-LAUNCH:** add the Resend delivery webhook and DMARC reporting/enforcement when a custom domain and real outbound email exist                                                       | M      |
+| P2-5  | **COMPLETE in PRs #41/#44/#55:** readiness/liveness split, uptime monitoring, and corrected readiness-failure alert semantics                                                                     | M      |
+| P2-6  | **COMPLETE in PR #43:** tenant R2 namespace, owner-scoped deletion, and explicit hard-purge capability                                                                                            | M      |
+| P2-7  | **COMPLETE in PR #49:** tenant cache regressions, logout cache clearing, and browser account-switch coverage                                                                                      | S–M    |
 | P2-8  | **IMPLEMENTATION COMPLETE in PR #54; ACTIVATION DEFERRED PRE-LAUNCH:** isolated Supabase/Cloud Run/Stripe staging and exact-SHA release proof; development bypass is explicit, staging is default | M      |
-| P2-9  | **COMPLETE:** forward-only migration/recovery policy, required expand/backfill/contract evidence, and failed-migration decision path; destructive down scripts deliberately rejected            | S      |
-| P2-10 | **CODE + DEPLOY COMPLETE in PR #43; MANUAL CHECKS DEFERRED PRE-LAUNCH:** inactivity retirement, reactivation, device trust, and 12-hour PIN JWT                                                 | M      |
-| P2-11 | **COMPLETE in PR #43:** PIN dashboard signals and alerts with cross-instance database dedupe                                                                                                    | S      |
-| P2-12 | **COMPLETE in PR #43/current code:** owner-visible errors are static and `ErrorBoundary` exposes raw messages only in development                                                               | S      |
-| P2-13 | **COMPLETE in PR #48 and deployed:** bounded per-provider HTTP pools plus observable 500 ms Redis-throttling fallback                                                                           | M      |
-| P2-14 | **COMPLETE in PR #52:** stale architecture claims corrected in both agent guidance files                                                                                                        | S      |
+| P2-9  | **COMPLETE:** forward-only migration/recovery policy, required expand/backfill/contract evidence, and failed-migration decision path; destructive down scripts deliberately rejected              | S      |
+| P2-10 | **CODE + DEPLOY COMPLETE in PR #43; MANUAL CHECKS DEFERRED PRE-LAUNCH:** inactivity retirement, reactivation, device trust, and 12-hour PIN JWT                                                   | M      |
+| P2-11 | **COMPLETE in PR #43:** PIN dashboard signals and alerts with cross-instance database dedupe                                                                                                      | S      |
+| P2-12 | **COMPLETE in PR #43/current code:** owner-visible errors are static and `ErrorBoundary` exposes raw messages only in development                                                                 | S      |
+| P2-13 | **COMPLETE in PR #48 and deployed:** bounded per-provider HTTP pools plus observable 500 ms Redis-throttling fallback                                                                             | M      |
+| P2-14 | **COMPLETE in PR #52:** stale architecture claims corrected in both agent guidance files                                                                                                          | S      |
 
 ### P3 — Strategic
 
-| ID    | Task                                                                                                                                                                                | Effort |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| P3-1  | `User.sessionVersion` + a `UserSession` table; `GET/DELETE /auth/sessions`; "sign out everywhere"                                                                                   | M      |
-| P3-2  | Request-budget interceptor with `AsyncLocalStorage` deadline propagated as `AbortSignal` to ~10 outbound call sites — the only change that makes a true cascading budget real       | M      |
-| P3-3  | Declarative `@RequireRestaurantAccess()` guard replacing scattered inline ownership checks, with reflection-based coverage test so an unguarded new endpoint fails CI               | M      |
-| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous) | M–L    |
-| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                  | M–L    |
-| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                             | M      |
-| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                      | S      |
-| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                      | S      |
-| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                           | S      |
-| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                          | S–M    |
+| ID    | Task                                                                                                                                                                                                                     | Effort |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| P3-1  | **IMPLEMENTED; REVIEW/RELEASE PENDING:** `User.sessionVersion`, `UserSession`, paginated `GET/DELETE /auth/sessions`, profile UI, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md) | M      |
+| P3-2  | Request-budget interceptor with `AsyncLocalStorage` deadline propagated as `AbortSignal` to ~10 outbound call sites — the only change that makes a true cascading budget real                                            | M      |
+| P3-3  | Declarative `@RequireRestaurantAccess()` guard replacing scattered inline ownership checks, with reflection-based coverage test so an unguarded new endpoint fails CI                                                    | M      |
+| P3-4  | Migrate remaining fetch-then-verify sites to compound `where` clauses so the database enforces tenancy; evaluate RLS (note PgBouncer transaction mode makes session GUCs hazardous)                                      | M–L    |
+| P3-5  | Reusable circuit-breaker utility extracted from the DeepL implementation, applied to Stripe and R2                                                                                                                       | M–L    |
+| P3-6  | Step-up re-authentication on dangerous super-admin actions, payout changes, PIN reset, device enrolment                                                                                                                  | M      |
+| P3-7  | Time-of-day restriction on PIN login — restaurant IANA timezone and Luxon are already in place                                                                                                                           | S      |
+| P3-8  | Raise PR approvals to 1, or adopt a self-review checklist gate                                                                                                                                                           | S      |
+| P3-9  | Enable Dependabot security updates; add `npm audit` to CI                                                                                                                                                                | S      |
+| P3-10 | API changelog and a published OpenAPI artefact on the Docusaurus site — **not** live Swagger in production                                                                                                               | S–M    |
 
 ---
 
@@ -394,8 +395,9 @@ checks. That completed work should not be reopened without a regression or new
 evidence.
 
 **What remains structurally?** Edge protection still depends on the custom
-domain work in PD-1/PD-2. Strategic hardening now starts at P3-1 with durable
-session inventory and per-session/global revocation. The original H2, H5, and
+domain work in PD-1/PD-2. P3-1 durable session inventory and per-session/global
+revocation are implemented, awaiting review and release. P3-2 request budgets
+are next. The original H2, H5, and
 bounded-dependency portions of H7 have been remediated; P3-2 is the broader
 cross-call request-budget design.
 

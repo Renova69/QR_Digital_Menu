@@ -232,7 +232,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api.post("/auth/logout");
     } catch (_error) {
-      // Cookie cleared server-side regardless
+      // Clear local identity even offline, but never claim that a failed
+      // request cleared the httpOnly cookie or revoked a copied credential.
+      console.warn(
+        "Server-side logout could not be confirmed; clearing local state.",
+      );
     }
     queryClient.clear();
     localStorage.removeItem("cartItems");

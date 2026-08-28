@@ -1921,6 +1921,31 @@
     "daySat": "Sábado",
     "daySun": "Domingo"
   },
+  "sessions": {
+    "retry": "Reintentar",
+    "loadMore": "Cargar más",
+    "legacy": "Este inicio de sesión es anterior al registro de sesiones y no aparece en la lista. Cierra todas las sesiones para revocar también los accesos anteriores.",
+    "title": "Sesiones activas",
+    "description": "Revisa dónde está abierta tu cuenta y revoca el acceso.",
+    "current": "Este dispositivo",
+    "unknownDevice": "Dispositivo desconocido",
+    "signedIn": "Inicio de sesión: {{date}}",
+    "expires": "Caduca: {{date}}",
+    "ipAddress": "IP {{ip}}",
+    "signOut": "Cerrar sesión",
+    "signOutAll": "Cerrar todas",
+    "signOutAllConfirm": "¿Cerrar sesión en todos los dispositivos, incluido este?",
+    "loadError": "No se pudieron cargar las sesiones. Inténtalo de nuevo.",
+    "empty": "No hay sesiones activas.",
+    "actionError": "No se pudo cerrar esa sesión. Inténtalo de nuevo.",
+    "methods": {
+      "PASSWORD": "Contraseña",
+      "GOOGLE": "Google",
+      "OTP": "Código de un solo uso",
+      "PIN": "PIN del personal",
+      "IMPERSONATION": "Acceso de soporte"
+    }
+  },
   "profile": {
     "title": "Mi perfil",
     "welcome": "¡Bienvenido de nuevo, {{name}}!",

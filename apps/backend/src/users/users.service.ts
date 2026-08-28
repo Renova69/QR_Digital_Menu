@@ -292,58 +292,70 @@ export class UsersService {
       }
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(data.role ? { role: data.role as any } : {}),
-        ...(pinCredential
-          ? {
-              pinHash: pinCredential.pinHash,
-              pinAttempts: 0,
-              pinLockedUntil: null,
-              password: await bcrypt.hash(
-                crypto.randomBytes(24).toString('hex'),
-                10,
-              ),
-              passwordChangedAt: new Date(),
-            }
-          : {}),
-        ...(clearPin
-          ? {
-              pinHash: null,
-              pinAttempts: 0,
-              pinLockedUntil: null,
-              passwordChangedAt: new Date(),
-            }
-          : {}),
-        ...(typeof data.isActive === 'boolean'
-          ? {
-              isActive: data.isActive,
-              disabledAt: data.isActive ? null : new Date(),
-              disabledReason: data.isActive
-                ? null
-                : 'Disabled by staff manager',
-            }
-          : {}),
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        restaurantId: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const accessChanged =
+      data.isActive === false || Boolean(data.role && data.role !== user.role);
+    const revokedReason =
+      data.isActive === false ? 'account_disabled' : 'role_changed';
+    const revokedAt = new Date();
+    const invalidatedPassword = pinCredential
+      ? await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10)
+      : undefined;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.user.update({
+        where: { id: userId },
+        data: {
+          ...(data.role ? { role: data.role as any } : {}),
+          ...(accessChanged ? { sessionVersion: { increment: 1 } } : {}),
+          ...(pinCredential
+            ? {
+                pinHash: pinCredential.pinHash,
+                pinAttempts: 0,
+                pinLockedUntil: null,
+                password: invalidatedPassword,
+                passwordChangedAt: revokedAt,
+              }
+            : {}),
+          ...(clearPin
+            ? {
+                pinHash: null,
+                pinAttempts: 0,
+                pinLockedUntil: null,
+                passwordChangedAt: revokedAt,
+              }
+            : {}),
+          ...(typeof data.isActive === 'boolean'
+            ? {
+                isActive: data.isActive,
+                disabledAt: data.isActive ? null : revokedAt,
+                disabledReason: data.isActive
+                  ? null
+                  : 'Disabled by staff manager',
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          restaurantId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      if (accessChanged) {
+        await tx.userSession.updateMany({
+          where: { userId, revokedAt: null },
+          data: { revokedAt, revokedReason },
+        });
+      }
+      return result;
     });
 
-    // Evict live WebSocket sessions when access changes (Issue 39)
-    if (data.isActive === false || (data.role && data.role !== user.role)) {
-      void this.events.evictUser(
-        updated.id,
-        data.isActive === false ? 'account_disabled' : 'role_changed',
-      );
+    // Commit the access change and revocation together before evicting sockets.
+    if (accessChanged) {
+      await this.events.evictUser(updated.id, revokedReason);
     }
 
     // Surface the freshly minted PIN so the dashboard can show it (WAITER/KITCHEN).
@@ -393,7 +405,13 @@ export class UsersService {
           pinAttempts: 0,
           pinLockedUntil: null,
           passwordChangedAt: new Date(),
+          sessionVersion: { increment: 1 },
         },
+      });
+
+      await tx.userSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date(), revokedReason: 'pin_reset' },
       });
 
       if (callerUserId) {
@@ -436,6 +454,7 @@ export class UsersService {
       throw new ForbiddenException('Only owners can remove managers');
     }
     const action = hardDelete ? 'STAFF_HARD_DELETE' : 'STAFF_SOFT_REMOVE';
+    const removedAt = new Date();
     const result = await this.prisma.$transaction(async (tx) => {
       const updatedOrDeleted = hardDelete
         ? await tx.user.delete({ where: { id: userId } })
@@ -443,12 +462,20 @@ export class UsersService {
             where: { id: userId },
             data: {
               isActive: false,
-              disabledAt: new Date(),
+              disabledAt: removedAt,
               disabledReason: 'Removed by staff manager',
               pinAttempts: 0,
               pinLockedUntil: null,
+              sessionVersion: { increment: 1 },
             },
           });
+
+      if (!hardDelete) {
+        await tx.userSession.updateMany({
+          where: { userId, revokedAt: null },
+          data: { revokedAt: removedAt, revokedReason: 'account_removed' },
+        });
+      }
 
       if (callerUserId) {
         await tx.adminAuditLog.create({
