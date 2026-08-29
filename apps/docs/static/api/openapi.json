@@ -470,7 +470,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "summary": "Enable or disable payments for a tenant",
@@ -886,7 +893,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "summary": "Adjust loyalty points for an account",
@@ -1088,6 +1102,7 @@
             "description": ""
           }
         },
+        "summary": "OCR tool direct push — authenticated via per-restaurant Bearer API key.\nPOST /api/restaurants/:id/menu/import",
         "tags": [
           "MenuImport"
         ]
@@ -1121,6 +1136,7 @@
             "description": ""
           }
         },
+        "summary": "Dashboard UI confirm import — authenticated via JWT.\nPOST /api/restaurants/:id/menu/import/confirm",
         "tags": [
           "MenuImport"
         ]
@@ -1141,9 +1157,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
+        "summary": "Report whether an import key is configured (or generate + return one once).\nThe stored key is hashed and can never be re-revealed (#10).\nGET /api/restaurants/:id/menu/import/api-key",
         "tags": [
           "MenuImport"
         ]
@@ -1167,6 +1191,7 @@
             "description": ""
           }
         },
+        "summary": "Regenerate API key.\nPOST /api/restaurants/:id/menu/import/api-key/regenerate",
         "tags": [
           "MenuImport"
         ]
@@ -1190,6 +1215,7 @@
             "description": ""
           }
         },
+        "summary": "Export full menu as JSON in import-compatible format (round-trip safe).\nGET /api/restaurants/:id/menu/export",
         "tags": [
           "MenuImport"
         ]
@@ -1518,6 +1544,7 @@
             "description": ""
           }
         },
+        "summary": "Restoring a credential uses the same owner/tenant/feature gate as revocation.\nThe service also scopes the token and requires an existing quarantine;\na manually revoked (deleted) token cannot be restored.",
         "tags": [
           "PrintStation"
         ]
@@ -1551,7 +1578,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1574,7 +1611,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1605,7 +1649,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1626,7 +1677,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1731,6 +1789,7 @@
             "description": ""
           }
         },
+        "summary": "Staff PIN abuse signals for this restaurant's dashboard.\n\nSame guard and scoping as the enrolment list it sits beside: these describe\nwho has been failing PINs on which device, which is not something one\nrestaurant may read about another.",
         "tags": [
           "Restaurants"
         ]
@@ -1762,6 +1821,7 @@
             "description": ""
           }
         },
+        "summary": "Revoke a specific enrolled device token so it can no longer be used for\n PIN login. The device will be rejected at next login attempt.\n DELETE /api/restaurants/:restaurantId/device-enrollments/:tokenId",
         "tags": [
           "Restaurants"
         ]
@@ -1782,7 +1842,14 @@
         ],
         "responses": {
           "202": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1851,9 +1918,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
+        "summary": "Return the restaurant logo as a base64 data URL so the QR PNG download\n can embed it inline without cross-origin canvas taint (Issue 18).",
         "tags": [
           "Restaurants"
         ]
@@ -2040,7 +2115,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2149,6 +2231,7 @@
             "description": ""
           }
         },
+        "summary": "Precondition for rendering a QR. Not owner-gated — a manager printing\ntable tents must be able to trigger it, and it only freezes the current\n(already-chosen) name, not a privileged mutation. It DOES still require\nthe caller to be staff (OWNER or MANAGER) of *this* restaurant: without\nthat check, any authenticated account — staff of a different\nrestaurant, or a CUSTOMER — could commit a stranger's slug and force\nthat restaurant into its 14-day rename cooldown. Reuses the existing\nfindOneForManagement seam rather than a third bespoke check.",
         "tags": [
           "Slug"
         ]
@@ -2238,6 +2321,7 @@
             "description": ""
           }
         },
+        "summary": "OWNER-only history used by settings release controls.",
         "tags": [
           "Slug"
         ]
@@ -2261,6 +2345,7 @@
             "description": ""
           }
         },
+        "summary": "Advisory only — the unique index is the authority at write time.",
         "tags": [
           "Slug"
         ]
@@ -2381,7 +2466,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2542,6 +2634,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2610,6 +2718,75 @@
             "in": "path",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STRIPE",
+                "MYPOS",
+                "EPAY",
+                "CASH",
+                "BORICA"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
             }
           }
         ],
@@ -2688,11 +2865,34 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "RESOLVED",
+                "DISMISSED"
+              ]
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2725,7 +2925,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2758,7 +2965,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2789,7 +3003,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2812,7 +3036,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2835,7 +3066,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2854,11 +3092,69 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STRIPE",
+                "MYPOS",
+                "EPAY",
+                "CASH",
+                "BORICA"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2951,7 +3247,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2965,7 +3268,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2979,7 +3289,14 @@
         "parameters": [],
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3033,7 +3350,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3187,7 +3514,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3233,7 +3570,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3264,7 +3608,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3479,7 +3830,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3510,7 +3871,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3541,7 +3909,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3564,7 +3942,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3677,6 +4065,7 @@
             "description": ""
           }
         },
+        "summary": "Flat item list (all categories) for the bulk-edit grid.\nGET /api/restaurants/:id/menu/bulk-items",
         "tags": [
           "BulkItem"
         ]
@@ -3705,7 +4094,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3843,7 +4239,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3866,7 +4269,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4042,7 +4452,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4221,7 +4638,17 @@
     "/api/v1/auth/sessions": {
       "get": {
         "operationId": "AuthController_listSessions_v1",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -4358,7 +4785,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4373,7 +4807,72 @@
             "required": false,
             "in": "query",
             "schema": {
+              "maxLength": 128,
               "type": "string"
+            }
+          },
+          {
+            "name": "statuses",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "NEW",
+                  "IN_PROGRESS",
+                  "SERVED",
+                  "CANCELED",
+                  "COMPLETED",
+                  "PENDING_PAYMENT"
+                ]
+              }
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
             }
           }
         ],
@@ -4402,7 +4901,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4498,7 +5004,37 @@
             "required": false,
             "in": "query",
             "schema": {
+              "maxLength": 128,
               "type": "string"
+            }
+          },
+          {
+            "name": "isResolved",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
             }
           }
         ],
@@ -4527,7 +5063,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4704,7 +5247,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4841,7 +5391,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4972,7 +5532,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5103,7 +5673,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5238,6 +5818,7 @@
             "description": ""
           }
         },
+        "summary": "Liveness: is this process still running and able to serve?\n\nDeliberately dependency-free. If this failed during a database outage,\nCloud Run would restart every container at once and turn a recoverable\noutage into a restart storm against an already-struggling database. Point\ncontainer liveness probes here, and uptime monitoring at /health/ready.",
         "tags": [
           "Health"
         ]
@@ -5252,6 +5833,7 @@
             "description": ""
           }
         },
+        "summary": "Readiness: can this instance actually do its job?\n\nReturns 503 when a dependency it cannot work without is unavailable, which\nis the signal an uptime monitor should alert on.",
         "tags": [
           "Health"
         ]
@@ -5288,7 +5870,75 @@
             "required": true,
             "in": "query",
             "schema": {
+              "maxLength": 128,
               "type": "string"
+            }
+          },
+          {
+            "name": "rating",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 5,
+              "type": "number"
+            }
+          },
+          {
+            "name": "hasComment",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NEWEST",
+                "OLDEST"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
             }
           }
         ],
@@ -5318,7 +5968,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5426,10 +6083,27 @@
         "operationId": "FeedbackController_getSummary_v1",
         "parameters": [
           {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "restaurantId",
             "required": true,
             "in": "query",
             "schema": {
+              "maxLength": 128,
               "type": "string"
             }
           }
@@ -5484,7 +6158,31 @@
     "/api/v1/loyalty/orders/history": {
       "get": {
         "operationId": "LoyaltyController_getHistory_v1",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 25,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -5533,9 +6231,20 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
+        "summary": "Preview unnotified candidates without marking them as sent.",
         "tags": [
           "Loyalty"
         ]
@@ -5556,9 +6265,20 @@
         ],
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
           }
         },
+        "summary": "Send reminders: marks batches as sent so they won't appear again.",
         "tags": [
           "Loyalty"
         ]
@@ -5579,7 +6299,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5602,7 +6329,14 @@
         ],
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5625,7 +6359,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -5798,6 +6539,34 @@
             "in": "path",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "adults",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "children",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 50,
+              "type": "number"
             }
           }
         ],
@@ -6238,6 +7007,30 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "upcoming",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6386,155 +7179,1581 @@
     "schemas": {
       "CreateCheckoutDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "tipPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "boricaCardholder": {
+            "$ref": "#/components/schemas/BoricaCardholderDto"
+          },
+          "orderIds": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "UpdateTenantTierDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "forceTier": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "FREE",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
+          "forceTierExpiresInDays": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 365
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        },
+        "required": [
+          "confirmation"
+        ]
       },
       "UpdateTenantStatusDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        },
+        "required": [
+          "isActive",
+          "confirmation"
+        ]
       },
       "ResetOwnerPasswordDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "pattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)"
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        },
+        "required": [
+          "password",
+          "confirmation"
+        ]
       },
       "UpdatePaymentsEnabledDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "paymentsEnabled": {
+            "type": "boolean"
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        },
+        "required": [
+          "paymentsEnabled",
+          "confirmation"
+        ]
       },
       "SuperAdminConfirmationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        },
+        "required": [
+          "confirmation"
+        ]
       },
       "ReassignSlugDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          },
+          "targetRestaurantId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "confirmation",
+          "targetRestaurantId"
+        ]
+      },
+      "ImportChoiceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0
+          },
+          "priceModifier": {
+            "type": "number",
+            "minimum": 0
+          },
+          "weight": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ImportOptionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string"
+          },
+          "choices": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportChoiceDto"
+            }
+          }
+        },
+        "required": [
+          "choices"
+        ]
+      },
+      "ImportItemDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0
+          },
+          "costPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "weight": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR",
+              "BGN"
+            ]
+          },
+          "allergens": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dietaryTags": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "upsellContexts": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "order": {
+            "type": "number"
+          },
+          "translations": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "isOutOfStock": {
+            "type": "boolean"
+          },
+          "isFeatured": {
+            "type": "boolean"
+          },
+          "rewardPointsPrice": {
+            "type": "number",
+            "minimum": 1
+          },
+          "rewardPointsMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "AUTO",
+              "CUSTOM"
+            ]
+          },
+          "options": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportOptionDto"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ImportCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "order": {
+            "type": "number"
+          },
+          "availabilityType": {
+            "type": "string"
+          },
+          "translations": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "startTime": {
+            "type": "string"
+          },
+          "endTime": {
+            "type": "string"
+          },
+          "daysOfWeek": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "isDrinkCategory": {
+            "type": "boolean"
+          },
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportItemDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "items"
+        ]
       },
       "SuperAdminImportMenuDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "restaurant_name": {
+            "type": "string"
+          },
+          "categories": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportCategoryDto"
+            }
+          }
+        },
+        "required": [
+          "categories"
+        ]
       },
       "AdjustLoyaltyPointsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "loyaltyAccountId": {
+            "type": "string"
+          },
+          "delta": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "loyaltyAccountId",
+          "delta"
+        ]
       },
       "ClearLoyaltyPointsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "loyaltyAccountId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "loyaltyAccountId"
+        ]
       },
       "UpdateDataRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        }
       },
       "ImportMenuDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "restaurant_name": {
+            "type": "string"
+          },
+          "categories": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportCategoryDto"
+            }
+          }
+        },
+        "required": [
+          "categories"
+        ]
       },
       "CreatePrintStationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "printerIp": {
+            "type": "string"
+          },
+          "printerPort": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        },
+        "required": [
+          "name",
+          "printerIp"
+        ]
       },
       "UpdatePrintStationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "printerIp": {
+            "type": "string"
+          },
+          "printerPort": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "receiptTemplate": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
       },
       "GenerateTokenDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        }
       },
       "CreateRestaurantDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "accentColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "googleReviewUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "facebookUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "instagramUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "tiktokUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "websiteUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "youtubeUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "country": {
+            "type": "string"
+          },
+          "dashboardLanguage": {
+            "type": "string"
+          },
+          "menuSourceLanguage": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "UpdateRestaurantDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "accentColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "googleReviewUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "facebookUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "instagramUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "tiktokUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "websiteUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "youtubeUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "country": {
+            "type": "string"
+          },
+          "dashboardLanguage": {
+            "type": "string"
+          },
+          "menuSourceLanguage": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "contactInfo": {
+            "type": "string"
+          },
+          "targetLanguages": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "trendingMode": {
+            "type": "string"
+          },
+          "fontHeading": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "fontBody": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "themeBgColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeTextColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeCardColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeLightBgColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeLightTextColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeLightCardColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeLightAccentColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeDarkBgColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeDarkTextColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeDarkCardColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "themeDarkAccentColor": {
+            "type": "string",
+            "pattern": "^#?([0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"
+          },
+          "defaultTheme": {
+            "type": "string"
+          },
+          "logoThumbnailUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Thumbnail URL produced by the logo upload processor.  Persisted alongside\n logoUrl via the PATCH so both writes are atomic.  Null clears the thumbnail\n when the owner removes the logo.  StorageService always emits fully-qualified\n http/https URLs (falling back to localhost when R2_PUBLIC_URL is unset), so\n @IsUrl is safe here.",
+            "format": "uri"
+          },
+          "isLoyaltyEnabled": {
+            "type": "boolean"
+          },
+          "loyaltySignupBonus": {
+            "type": "number",
+            "minimum": 0
+          },
+          "loyaltyExchangeRate": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "loyaltyRedeemRate": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "loyaltyMaxRedemptionPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "loyaltyPointExpiryDays": {
+            "type": "number",
+            "minimum": 1
+          },
+          "loyaltyExpiryReminderDays": {
+            "type": "number",
+            "minimum": 1
+          },
+          "loyaltySilverThreshold": {
+            "type": "number",
+            "minimum": 1
+          },
+          "loyaltyGoldThreshold": {
+            "type": "number",
+            "minimum": 2
+          },
+          "loyaltySilverMultiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "loyaltyGoldMultiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "happyHourEnable": {
+            "type": "boolean"
+          },
+          "happyHourDays": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "happyHourStartTime": {
+            "type": "string"
+          },
+          "happyHourEndTime": {
+            "type": "string"
+          },
+          "happyHourMultiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "paymentsEnabled": {
+            "type": "boolean"
+          },
+          "epayEnabled": {
+            "type": "boolean"
+          },
+          "epayMode": {
+            "type": "string"
+          },
+          "epayClientId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9]+$"
+          },
+          "epayMerchantEmail": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "format": "email"
+          },
+          "epaySecret": {
+            "type": "string",
+            "nullable": true,
+            "description": "Raw ePay secret from the admin form. Encrypted to {@code epaySecretEncrypted} before storage.",
+            "maxLength": 256
+          },
+          "epayPage": {
+            "type": "string"
+          },
+          "boricaEnabled": {
+            "type": "boolean"
+          },
+          "boricaMode": {
+            "type": "string"
+          },
+          "boricaTerminalId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20,
+            "pattern": "^[A-Za-z0-9]+$"
+          },
+          "boricaMerchantId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20,
+            "pattern": "^[0-9]+$"
+          },
+          "boricaMerchantName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 25
+          },
+          "boricaPrivateKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "Raw BORICA private key from the admin form. Encrypted to {@code boricaPrivateKeyEncrypted} before storage."
+          },
+          "boricaPublicCert": {
+            "type": "string",
+            "nullable": true
+          },
+          "boricaCurrency": {
+            "type": "string"
+          },
+          "myposEnabled": {
+            "type": "boolean"
+          },
+          "myposMode": {
+            "type": "string"
+          },
+          "myposClientNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32,
+            "pattern": "^[0-9]+$"
+          },
+          "myposStoreId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9]+$"
+          },
+          "myposKeyIndex": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 8,
+            "pattern": "^[0-9]+$"
+          },
+          "myposPrivateKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "Raw MyPOS private key from the admin form. Encrypted to {@code myposPrivateKeyEncrypted} before storage."
+          },
+          "myposPublicCert": {
+            "type": "string",
+            "nullable": true
+          },
+          "myposCurrency": {
+            "type": "string"
+          },
+          "tipsEnabled": {
+            "type": "boolean"
+          },
+          "tipOptions": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "maximum": 100,
+              "minimum": 0
+            }
+          },
+          "sharedDeviceModeEnabled": {
+            "type": "boolean"
+          },
+          "pinLoginStartTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "pinLoginEndTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "notifyAllStaffOnPayment": {
+            "type": "boolean"
+          }
+        }
       },
       "CreateDeviceEnrollmentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "mode": {
+            "type": "string"
+          }
+        }
       },
       "VerifyDeviceEnrollmentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 32
+          }
+        },
+        "required": [
+          "token"
+        ]
       },
       "CreateStaffDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "role"
+        ]
       },
       "UpdateStaffDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
       },
       "UpdateSlugDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ]
       },
       "ReleaseSlugDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^CONFIRM$"
+          }
+        },
+        "required": [
+          "slug",
+          "confirmation"
+        ]
       },
       "CreatePaymentIntentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "tipPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "BoricaCardholderDto": {
+        "type": "object",
+        "properties": {
+          "cardholderName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "billingAddress": {
+            "type": "string"
+          }
+        }
       },
       "CreateCashRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "orderIds": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "restaurantId"
+        ]
+      },
+      "SettleAllocationDto": {
+        "type": "object",
+        "properties": {
+          "orderItemId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "orderItemId",
+          "quantity"
+        ]
       },
       "SettlePartialDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "ITEM",
+              "EVEN",
+              "CUSTOM"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "MYPOS"
+            ]
+          },
+          "allocations": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettleAllocationDto"
+            }
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "splitCount": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "tipPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "restaurantId",
+          "mode",
+          "provider"
+        ]
       },
       "ResolvePaymentReconciliationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "RESOLVED",
+              "DISMISSED"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "ReopenSessionReconciliationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
       },
       "RefundPaymentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
       },
       "CreateCategoryDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "availabilityType": {
+            "type": "string",
+            "enum": [
+              "ALWAYS",
+              "SCHEDULED",
+              "HIDDEN"
+            ]
+          },
+          "startTime": {
+            "type": "string"
+          },
+          "endTime": {
+            "type": "string"
+          },
+          "daysOfWeek": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "isDrinkCategory": {
+            "type": "boolean"
+          },
+          "printStationId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "UpdateCategoryDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set to null to clear the category image."
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set to null to clear the category thumbnail."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "availabilityType": {
+            "enum": [
+              "ALWAYS",
+              "SCHEDULED",
+              "HIDDEN"
+            ],
+            "type": "string"
+          },
+          "startTime": {
+            "type": "string"
+          },
+          "endTime": {
+            "type": "string"
+          },
+          "daysOfWeek": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "isDrinkCategory": {
+            "type": "boolean"
+          },
+          "printStationId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
       },
       "CreateItemDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "price": {
+            "type": "number",
+            "minimum": 1
+          },
+          "costPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "weight": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR",
+              "BGN"
+            ]
+          },
+          "allergens": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "dietaryTags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "isFeatured": {
+            "type": "boolean"
+          },
+          "relatedItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rewardPointsPrice": {
+            "type": "number",
+            "minimum": 1
+          },
+          "rewardPointsMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "AUTO",
+              "CUSTOM"
+            ]
+          },
+          "tags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "upsellContexts": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "price",
+          "currency"
+        ]
       },
       "UpdateItemTranslationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "NAME",
+              "DESCRIPTION"
+            ]
+          },
+          "locale": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "description": "null clears the override and hands the locale back to the pipeline.",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "field",
+          "locale",
+          "value"
+        ]
       },
       "UpdateItemDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set to null to clear the item image."
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set to null to clear the item thumbnail."
+          },
+          "isOutOfStock": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "price": {
+            "type": "number",
+            "minimum": 1
+          },
+          "costPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "weight": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "currency": {
+            "enum": [
+              "EUR",
+              "BGN"
+            ],
+            "type": "string"
+          },
+          "allergens": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "dietaryTags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "isFeatured": {
+            "type": "boolean"
+          },
+          "relatedItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rewardPointsPrice": {
+            "type": "number",
+            "minimum": 1
+          },
+          "rewardPointsMode": {
+            "enum": [
+              "OFF",
+              "AUTO",
+              "CUSTOM"
+            ],
+            "type": "string"
+          },
+          "tags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "upsellContexts": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "CreateMenuOptionDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "VARIATION",
+              "ADDON"
+            ]
+          },
+          "choices": {
+            "type": "string",
+            "maxLength": 20000,
+            "format": "json"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "choices"
+        ]
       },
       "UpdateMenuOptionDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "type": {
+            "enum": [
+              "VARIATION",
+              "ADDON"
+            ],
+            "type": "string"
+          },
+          "choices": {
+            "type": "string",
+            "maxLength": 20000,
+            "format": "json"
+          }
+        }
+      },
+      "BulkItemUpdateDto": {
+        "type": "object",
+        "properties": {
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set to null to clear the item image."
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set to null to clear the item thumbnail."
+          },
+          "isOutOfStock": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "price": {
+            "type": "number",
+            "minimum": 1
+          },
+          "costPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "weight": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "currency": {
+            "enum": [
+              "EUR",
+              "BGN"
+            ],
+            "type": "string"
+          },
+          "allergens": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "dietaryTags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "isFeatured": {
+            "type": "boolean"
+          },
+          "relatedItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rewardPointsPrice": {
+            "type": "number",
+            "minimum": 1
+          },
+          "rewardPointsMode": {
+            "enum": [
+              "OFF",
+              "AUTO",
+              "CUSTOM"
+            ],
+            "type": "string"
+          },
+          "tags": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          "upsellContexts": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
       },
       "BulkUpdateItemsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "updates": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkItemUpdateDto"
+            }
+          }
+        },
+        "required": [
+          "updates"
+        ]
       },
       "SubscribePushDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          },
+          "expirationTime": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
       },
       "UpdatePlatformSettingsDto": {
         "type": "object",
@@ -6586,40 +8805,65 @@
             "maximum": 365
           },
           "cookieBannerText": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "privacyPolicyContent": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "termsContent": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "cookiePolicyContent": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "dpaContent": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "refundPolicyContent": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "msaContent": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "dataControllerName": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           },
           "dataControllerEmail": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           },
           "dataControllerAddress": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 500
           },
           "announcementBannerEnabled": {
             "type": "boolean"
           },
           "announcementBannerText": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 500
           },
           "announcementBannerType": {
             "type": "string",
@@ -6633,135 +8877,1095 @@
       },
       "CreateHelpContentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "categoryKey": {
+            "type": "string"
+          },
+          "itemKey": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number",
+            "minimum": 0
+          },
+          "locale": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "section",
+          "categoryKey",
+          "itemKey",
+          "locale",
+          "title",
+          "body"
+        ]
+      },
+      "ReorderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "sortOrder"
+        ]
       },
       "ReorderHelpContentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReorderItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "UpdateHelpContentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "sortOrder": {
+            "type": "number",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
       },
       "CreateAuthDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
       },
       "VerifyRegistrationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "code"
+        ]
       },
       "ChangePasswordDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
       },
       "AddIdentityDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+?[0-9\\s\\-()]{7,20}$"
+          }
+        }
       },
       "VerifyIdentityDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+?[0-9\\s\\-()]{7,20}$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          }
+        },
+        "required": [
+          "code"
+        ]
       },
       "PinLoginDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "deviceToken": {
+            "type": "string",
+            "minLength": 32
+          },
+          "pin": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 4,
+            "pattern": "^\\d{4}$"
+          }
+        },
+        "required": [
+          "restaurantId",
+          "deviceToken",
+          "pin"
+        ]
+      },
+      "OrderItemOptionDto": {
+        "type": "object",
+        "properties": {
+          "optionId": {
+            "type": "string"
+          },
+          "optionName": {
+            "type": "string"
+          },
+          "choiceName": {
+            "type": "string"
+          },
+          "priceModifier": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "optionId",
+          "optionName",
+          "choiceName",
+          "priceModifier"
+        ]
+      },
+      "OrderItemDto": {
+        "type": "object",
+        "properties": {
+          "menuItemId": {
+            "type": "string"
+          },
+          "cartId": {
+            "type": "string",
+            "description": "Stable frontend cart line identifier.  When present, the backend uses it\n to match redeemCartIds exactly so the right specific line (with its own\n option set) is comped, not just any line sharing the same menuItemId."
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 999
+          },
+          "expectedUnitPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "selectedOptions": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemOptionDto"
+            }
+          },
+          "notes": {
+            "type": "string",
+            "description": "Per-item note (e.g. \"no onions\"). Printed on kitchen tickets (Issue 33).",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "menuItemId",
+          "quantity"
+        ]
       },
       "CreateOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "customerName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "customerPhone": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "tableId": {
+            "type": "string",
+            "description": "Legacy table identifier: the table's *name* (e.g. \"5\"), not its cuid.\n\nA name is not a secret — they are short and sequential in practice — so\nthis can no longer reach a table that has been issued a `publicToken`.\nRetained only for tables predating the token backfill. Removed on the\nsunset date recorded in SECURITY_AUDIT_VERDICT_22082026.md (P0-2)."
+          },
+          "tableToken": {
+            "type": "string",
+            "description": "The table's `publicToken`, carried by its QR code. This is the credential\nthat proves the customer is actually at the table, and it is what gates\naccess to the table's shared session (and therefore its bill). Mirrors\n`servicePointToken`, which has always worked this way.",
+            "maxLength": 128
+          },
+          "servicePointToken": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "fulfillmentType": {
+            "type": "string",
+            "enum": [
+              "PICKUP",
+              "DINE_IN",
+              "ROOM_DELIVERY"
+            ]
+          },
+          "paymentPreference": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "ONLINE",
+              "PAY_ON_DELIVERY",
+              "PAY_AT_PICKUP"
+            ]
+          },
+          "specialRequests": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "usePoints": {
+            "type": "boolean"
+          },
+          "redeemPoints": {
+            "type": "number",
+            "minimum": 1
+          },
+          "redeemItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redeemCartIds": {
+            "description": "Preferred over redeemItemIds when present.  Contains the cartId values\n of each cart line the customer wants to redeem as a free item.  Allows\n exact matching when the same product appears twice with different options.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sessionToken": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "POS"
+            ]
+          },
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "customerName",
+          "items"
+        ]
       },
       "BulkUpdateOrderStatusDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "orderIds": {
+            "uniqueItems": true,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "SERVED",
+              "CANCELED",
+              "COMPLETED",
+              "PENDING_PAYMENT"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "SERVED",
+              "CANCELED",
+              "COMPLETED",
+              "PENDING_PAYMENT"
+            ]
+          }
+        },
+        "required": [
+          "restaurantId",
+          "orderIds",
+          "fromStatus",
+          "status"
+        ]
       },
       "UpdateOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "SERVED",
+              "CANCELED",
+              "COMPLETED",
+              "PENDING_PAYMENT"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "CreateAssistanceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "tableId": {
+            "type": "string",
+            "description": "Legacy table *name*. See CreateOrderDto.tableId — same P0-2 sunset."
+          },
+          "tableToken": {
+            "type": "string",
+            "description": "The table's `publicToken`, carried by its QR code. See P0-2.",
+            "maxLength": 128
+          },
+          "restaurantId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tableId",
+          "restaurantId"
+        ]
       },
       "UpdateAssistanceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "isResolved": {
+            "type": "boolean"
+          }
+        }
       },
       "CreateTableDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "zoneId": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "TABLE",
+              "OTHER",
+              "ROOM",
+              "PICKUP"
+            ],
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "fulfillmentModes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PICKUP",
+                "DINE_IN",
+                "ROOM_DELIVERY"
+              ]
+            }
+          },
+          "paymentMethods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CASH",
+                "ONLINE",
+                "PAY_ON_DELIVERY",
+                "PAY_AT_PICKUP"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "UpdateTableDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "zoneId": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "fulfillmentModes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PICKUP",
+                "DINE_IN",
+                "ROOM_DELIVERY"
+              ]
+            }
+          },
+          "paymentMethods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CASH",
+                "ONLINE",
+                "PAY_ON_DELIVERY",
+                "PAY_AT_PICKUP"
+              ]
+            }
+          }
+        }
       },
       "CreateZoneDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "zoneKey": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "UpdateZoneDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "zoneKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayOrder": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "ZoneOrderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "displayOrder"
+        ]
       },
       "ReorderZonesDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ZoneOrderItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "CreateFeedbackDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "restaurantId": {
+            "type": "string"
+          },
+          "redirectedToGoogle": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rating",
+          "orderId",
+          "restaurantId"
+        ]
       },
       "CreateFeedbackInvitationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "description": "Optional. The client cannot always name the payment that just completed —\na hosted-checkout round-trip (Stripe/BORICA/ePay) leaves the app entirely\nand can come back without its sessionStorage marker, and waiter-settled\npayments are never initiated by the customer's device at all.\n\nWhen omitted the server resolves the session's most recent SUCCEEDED\npayment, which is the authoritative answer regardless. The table-session\ntoken in the request header is what actually authorizes the lookup, so\nomitting this widens nothing.",
+            "maxLength": 128
+          }
+        }
       },
       "CreateVisitFeedbackDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "invitationToken": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "invitationToken",
+          "rating"
+        ]
       },
       "FeedbackInvitationTokenDto": {
+        "type": "object",
+        "properties": {
+          "invitationToken": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "invitationToken"
+        ]
+      },
+      "Object": {
         "type": "object",
         "properties": {}
       },
       "RecordViewDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "table": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "visitorId": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
       },
       "RecordConsentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "visitorId": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ANALYTICS",
+              "MARKETING"
+            ]
+          },
+          "granted": {
+            "type": "boolean"
+          },
+          "policyVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "visitorId",
+          "category",
+          "granted",
+          "policyVersion"
+        ]
       },
       "CreateReservationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "guestName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "guestPhone": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "guestEmail": {
+            "type": "string",
+            "maxLength": 200,
+            "format": "email"
+          },
+          "startsAt": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "adultsCount": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "childrenCount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50
+          },
+          "occasion": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "BIRTHDAY",
+              "ANNIVERSARY",
+              "BUSINESS",
+              "FAMILY",
+              "OTHER"
+            ]
+          },
+          "customerNotes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "customerPreferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allergyNotes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "dietaryConsent": {
+            "type": "boolean"
+          },
+          "marketingConsent": {
+            "type": "boolean"
+          },
+          "notifyByEmail": {
+            "type": "boolean"
+          },
+          "notifyBySms": {
+            "type": "boolean"
+          },
+          "preferredZone": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "guestName",
+          "guestPhone",
+          "startsAt",
+          "adultsCount"
+        ]
       },
       "ModifyReservationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "startsAt": {
+            "type": "string"
+          },
+          "adultsCount": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "childrenCount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50
+          }
+        }
       },
       "UpdateReservationSettingsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "slotIntervalMinutes": {
+            "type": "number",
+            "minimum": 10,
+            "maximum": 120
+          },
+          "minLeadMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "bookingHorizonDays": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "maxTotalGuests": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "maxCoversPerSlot": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "autoConfirm": {
+            "type": "boolean"
+          },
+          "requirePhone": {
+            "type": "boolean"
+          },
+          "allergenSectionEnabled": {
+            "type": "boolean"
+          },
+          "customPreferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notifyEmail": {
+            "type": "string",
+            "maxLength": 200,
+            "format": "email"
+          },
+          "notifyPhone": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "diningDurationMinutes": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 600
+          },
+          "largePartyThreshold": {
+            "type": "number",
+            "minimum": 2,
+            "maximum": 50
+          },
+          "largePartyDurationMinutes": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 600
+          }
+        }
+      },
+      "ServiceHoursDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "openMinute": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1439
+          },
+          "lastSlotMinute": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1439
+          }
+        },
+        "required": [
+          "weekday",
+          "openMinute",
+          "lastSlotMinute"
+        ]
       },
       "SetServiceHoursDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "rows": {
+            "uniqueItems": true,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceHoursDto"
+            }
+          }
+        },
+        "required": [
+          "rows"
+        ]
       },
       "BlackoutDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "date"
+        ]
       },
       "ManualReservationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "guestName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "guestPhone": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "guestEmail": {
+            "type": "string",
+            "maxLength": 200,
+            "format": "email"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "adultsCount": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "childrenCount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50
+          },
+          "occasion": {
+            "enum": [
+              "NONE",
+              "BIRTHDAY",
+              "ANNIVERSARY",
+              "BUSINESS",
+              "FAMILY",
+              "OTHER"
+            ],
+            "type": "string"
+          },
+          "customerNotes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "customerPreferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allergyNotes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "dietaryConsent": {
+            "type": "boolean"
+          },
+          "marketingConsent": {
+            "type": "boolean"
+          },
+          "notifyByEmail": {
+            "type": "boolean"
+          },
+          "notifyBySms": {
+            "type": "boolean"
+          },
+          "preferredZone": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "localStartsAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2})?$"
+          },
+          "internalNotes": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "staffTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "guestName",
+          "guestPhone",
+          "adultsCount",
+          "localStartsAt"
+        ]
       },
       "ReservationActionBodyDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "NO_SHOW",
+              "ARRIVED",
+              "ACCEPT",
+              "DECLINE",
+              "CANCEL"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "restaurantId",
+          "action"
+        ]
       },
       "UpdateInternalDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "restaurantId": {
+            "type": "string"
+          },
+          "internalNotes": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "staffTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "restaurantId"
+        ]
       }
     }
   }

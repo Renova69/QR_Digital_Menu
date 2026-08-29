@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+/apps/backend/src/metadata.ts
 .pnp
 .pnp.js
 

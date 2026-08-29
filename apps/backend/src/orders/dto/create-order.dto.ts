@@ -23,7 +23,7 @@ import {
   type ServicePointPaymentMethod,
 } from '../../tables/service-point.constants';
 
-class OrderItemOptionDto {
+export class OrderItemOptionDto {
   @IsString()
   optionId: string;
 
@@ -37,7 +37,7 @@ class OrderItemOptionDto {
   priceModifier: number;
 }
 
-class OrderItemDto {
+export class OrderItemDto {
   @IsString()
   menuItemId: string;
 
