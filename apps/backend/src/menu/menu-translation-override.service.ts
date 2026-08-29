@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { MenuCrudService } from './menu-crud.service';
 import { computeSourceHash } from './menu-translation-hash.util';
+import { restaurantManagementWhere } from '../auth/restaurant-management-scope';
 
 export interface OverrideValue {
   value: string | null;
@@ -43,14 +43,20 @@ export interface ItemTranslations {
  */
 @Injectable()
 export class MenuTranslationOverrideService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly crud: MenuCrudService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   private async loadItem(itemId: string, userId: string) {
-    const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
+    const item = await this.prisma.menuItem.findFirst({
+      where: {
+        id: itemId,
+        category: {
+          restaurant: {
+            ...restaurantManagementWhere(userId),
+            isActive: true,
+            deletedAt: null,
+          },
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -71,10 +77,6 @@ export class MenuTranslationOverrideService {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
 
-    await this.crud.verifyRestaurantOwnership(
-      item.category.restaurantId,
-      userId,
-    );
     return item;
   }
 
@@ -216,8 +218,8 @@ export class MenuTranslationOverrideService {
           "reviewedAt" = now(),
           "updatedAt" = now()`;
 
-      if (trimmed) {
-        await tx.$executeRaw`
+      const updated = trimmed
+        ? await tx.$executeRaw`
           UPDATE "menu_item"
           SET translations = jsonb_set(
             COALESCE(translations, '{}'::jsonb),
@@ -231,13 +233,26 @@ export class MenuTranslationOverrideService {
             ) || jsonb_build_object(${jsonKey}::text, ${trimmed}::text),
             true
           )
-          WHERE id = ${itemId}`;
-      } else {
-        await tx.$executeRaw`
+          WHERE id = ${itemId}
+            AND EXISTS (
+              SELECT 1
+              FROM "menu_category" AS category
+              WHERE category.id = "menu_item"."categoryId"
+                AND category."restaurantId" = ${item.category.restaurantId}
+            )`
+        : await tx.$executeRaw`
           UPDATE "menu_item"
           SET translations = COALESCE(translations, '{}'::jsonb)
             #- ARRAY[${normalized}, ${jsonKey}]
-          WHERE id = ${itemId}`;
+          WHERE id = ${itemId}
+            AND EXISTS (
+              SELECT 1
+              FROM "menu_category" AS category
+              WHERE category.id = "menu_item"."categoryId"
+                AND category."restaurantId" = ${item.category.restaurantId}
+            )`;
+      if (updated !== 1) {
+        throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
       }
     });
 

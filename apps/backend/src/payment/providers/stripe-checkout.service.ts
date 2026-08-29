@@ -1003,11 +1003,12 @@ export class StripeCheckoutService {
 
   async refundPayment(
     paymentId: string,
+    restaurantId: string,
     userId: string,
     data: { amount?: number; reason?: string },
   ) {
     const payment = await this.prisma.payment.findUnique({
-      where: { id: paymentId },
+      where: { id: paymentId, restaurantId },
       include: {
         tableSession: {
           include: { table: { select: { name: true } } },
@@ -1023,7 +1024,7 @@ export class StripeCheckoutService {
       throw new NotFoundException('Payment not found');
     }
 
-    await this.core.verifyRestaurantAccess(payment.restaurantId, userId);
+    await this.core.verifyRestaurantAccess(restaurantId, userId);
 
     const refundAmount = data.amount ?? payment.amount;
     if (Math.abs(refundAmount - payment.amount) > 0.001) {
@@ -1185,7 +1186,7 @@ export class StripeCheckoutService {
     );
 
     const updated = await this.prisma.payment.findUnique({
-      where: { id: paymentId },
+      where: { id: paymentId, restaurantId },
       include: {
         tableSession: {
           include: {

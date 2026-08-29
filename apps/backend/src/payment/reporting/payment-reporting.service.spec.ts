@@ -105,6 +105,7 @@ describe('PaymentReportingService reconciliation queue', () => {
     await expect(
       service.resolvePaymentReconciliationIssue(
         'issue-1',
+        'rest-1',
         'owner-1',
         'RESOLVED',
       ),
@@ -125,13 +126,14 @@ describe('PaymentReportingService reconciliation queue', () => {
     await expect(
       service.resolvePaymentReconciliationIssue(
         'issue-1',
+        'rest-1',
         'owner-1',
         'RESOLVED',
         'Refunded through provider portal',
       ),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.paymentReconciliationIssue.updateMany).toHaveBeenCalledWith({
-      where: { id: 'issue-1', status: 'OPEN' },
+      where: { id: 'issue-1', restaurantId: 'rest-1', status: 'OPEN' },
       data: expect.objectContaining({
         status: 'RESOLVED',
         resolvedById: 'owner-1',
@@ -172,18 +174,16 @@ describe('PaymentReportingService reconciliation queue', () => {
       prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('checks tenant access before reopening', async () => {
-      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(
-        openIssue,
-      );
+      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(openIssue);
       core.verifyRestaurantAccess.mockRejectedValue(new ForbiddenException());
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
@@ -195,7 +195,7 @@ describe('PaymentReportingService reconciliation queue', () => {
       });
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -206,7 +206,7 @@ describe('PaymentReportingService reconciliation queue', () => {
       });
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -217,25 +217,21 @@ describe('PaymentReportingService reconciliation queue', () => {
       });
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('rejects when the linked table session no longer exists', async () => {
-      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(
-        openIssue,
-      );
+      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(openIssue);
       prisma.tableSession.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('refuses to reopen when the table already has a different open session', async () => {
-      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(
-        openIssue,
-      );
+      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(openIssue);
       prisma.tableSession.findUnique.mockResolvedValue({
         id: 'sess-1',
         tableId: 'table-1',
@@ -245,15 +241,13 @@ describe('PaymentReportingService reconciliation queue', () => {
       prisma.tableSession.findFirst.mockResolvedValue({ id: 'sess-2' });
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.tableSession.update).not.toHaveBeenCalled();
     });
 
     it('reopens the session, resolves the issue, and emits a table status change', async () => {
-      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(
-        openIssue,
-      );
+      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(openIssue);
       prisma.tableSession.findUnique.mockResolvedValue({
         id: 'sess-1',
         tableId: 'table-1',
@@ -264,17 +258,22 @@ describe('PaymentReportingService reconciliation queue', () => {
 
       await service.reopenSessionForRecollection(
         'issue-1',
+        'rest-1',
         'owner-1',
         'Collected cash from guest',
       );
 
       expect(prisma.tableSession.update).toHaveBeenCalledWith({
-        where: { id: 'sess-1' },
+        where: { id: 'sess-1', restaurantId: 'rest-1' },
         data: { status: 'OPEN', paidAt: null },
       });
       expect(prisma.paymentReconciliationIssue.updateMany).toHaveBeenCalledWith(
         {
-          where: { id: 'issue-1', status: 'OPEN' },
+          where: {
+            id: 'issue-1',
+            restaurantId: 'rest-1',
+            status: 'OPEN',
+          },
           data: expect.objectContaining({
             status: 'RESOLVED',
             resolvedById: 'owner-1',
@@ -290,9 +289,7 @@ describe('PaymentReportingService reconciliation queue', () => {
     });
 
     it('does not touch an already-OPEN session but still resolves the issue', async () => {
-      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(
-        openIssue,
-      );
+      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(openIssue);
       prisma.tableSession.findUnique.mockResolvedValue({
         id: 'sess-1',
         tableId: 'table-1',
@@ -300,7 +297,11 @@ describe('PaymentReportingService reconciliation queue', () => {
         status: 'OPEN',
       });
 
-      await service.reopenSessionForRecollection('issue-1', 'owner-1');
+      await service.reopenSessionForRecollection(
+        'issue-1',
+        'rest-1',
+        'owner-1',
+      );
 
       expect(prisma.tableSession.update).not.toHaveBeenCalled();
       expect(prisma.tableSession.findFirst).not.toHaveBeenCalled();
@@ -312,9 +313,7 @@ describe('PaymentReportingService reconciliation queue', () => {
     });
 
     it('uses a compare-and-set transition so two owners cannot both resolve it', async () => {
-      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(
-        openIssue,
-      );
+      prisma.paymentReconciliationIssue.findUnique.mockResolvedValue(openIssue);
       prisma.tableSession.findUnique.mockResolvedValue({
         id: 'sess-1',
         tableId: 'table-1',
@@ -326,7 +325,7 @@ describe('PaymentReportingService reconciliation queue', () => {
       });
 
       await expect(
-        service.reopenSessionForRecollection('issue-1', 'owner-1'),
+        service.reopenSessionForRecollection('issue-1', 'rest-1', 'owner-1'),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(events.emitTableStatusChanged).not.toHaveBeenCalled();
     });
