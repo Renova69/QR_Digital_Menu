@@ -24,6 +24,7 @@
     "build:all": "turbo build",
     "docs:dev": "npm run start --workspace @qr-menu/documentation",
     "docs:build": "npm run build --workspace @qr-menu/documentation",
+    "openapi:generate": "npm run openapi:generate --workspace apps/backend",
     "lint": "turbo lint",
     "test": "npm run test:node-version && npm run test:secret-scan && npm run test --workspace apps/backend -- --runInBand && npm run test:run --workspace apps/frontend && npm run test:ci --workspace apps/printer-agent",
     "test:coverage": "npm run test:cov --workspace apps/backend && npm run test:cov --workspace apps/frontend && npm run test:cov --workspace apps/printer-agent",
@@ -41,6 +42,8 @@
     "hooks:install": "node scripts/install-git-hooks.js",
     "secrets:scan": "node scripts/scan-staged-secrets.js",
     "test:secret-scan": "node --test scripts/scan-staged-secrets.test.js",
+    "test:repository-policy": "node --test scripts/scan-staged-secrets.test.js scripts/check-pr-review.test.js scripts/audit-production-dependencies.test.js",
+    "audit:production": "node scripts/audit-production-dependencies.js",
     "test:database-safety": "node --test scripts/check-migration-safety.test.js scripts/prisma-migrate-guard.test.js scripts/production-db-guard.test.js scripts/db-restore-safety.test.js scripts/seed-script-safety.test.js ops/monitoring/setup-alerts.test.js ops/staging/staging-policy.test.js"
   },
   "devDependencies": {

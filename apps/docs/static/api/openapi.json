@@ -1,0 +1,6768 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1": {
+      "get": {
+        "operationId": "AppController_getRoot_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "API Root Redirect",
+        "tags": [
+          "API Information"
+        ]
+      }
+    },
+    "/api/v1/api": {
+      "get": {
+        "operationId": "AppController_getApiInfo_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "API information and available endpoints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "message": "QR Menu API",
+                    "version": "1.0.0",
+                    "documentation": "/api-docs",
+                    "endpoints": {
+                      "authentication": "/api/auth",
+                      "menu": "/api/menu",
+                      "restaurants": "/api/restaurants",
+                      "dashboard": "/api/dashboard"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "API Information",
+        "tags": [
+          "API Information"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/notification-deliveries": {
+      "get": {
+        "operationId": "NotificationDeliveryController_list_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "NotificationDelivery"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/notification-deliveries/{deliveryId}/retry": {
+      "post": {
+        "operationId": "NotificationDeliveryController_retry_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "NotificationDelivery"
+        ]
+      }
+    },
+    "/api/v1/subscription/status": {
+      "get": {
+        "operationId": "SubscriptionController_getStatus_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscription"
+        ]
+      }
+    },
+    "/api/v1/subscription/checkout": {
+      "post": {
+        "operationId": "SubscriptionController_createCheckout_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscription"
+        ]
+      }
+    },
+    "/api/v1/subscription/confirm-session": {
+      "post": {
+        "operationId": "SubscriptionController_confirmSession_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscription"
+        ]
+      }
+    },
+    "/api/v1/subscription/portal": {
+      "post": {
+        "operationId": "SubscriptionController_createPortal_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscription"
+        ]
+      }
+    },
+    "/api/v1/subscription/webhook": {
+      "post": {
+        "operationId": "SubscriptionController_webhook_v1",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscription"
+        ]
+      }
+    },
+    "/api/v1/super-admin/stats": {
+      "get": {
+        "operationId": "SuperAdminController_getStats_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Platform-wide stats",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants": {
+      "get": {
+        "operationId": "SuperAdminController_getTenants_v1",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tier",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subscription",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List tenants with filters",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}": {
+      "get": {
+        "operationId": "SuperAdminController_getTenant_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get single tenant detail",
+        "tags": [
+          "Super Admin"
+        ]
+      },
+      "delete": {
+        "operationId": "SuperAdminController_deleteRestaurant_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Soft-delete a restaurant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/tier": {
+      "patch": {
+        "operationId": "SuperAdminController_updateTier_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantTierDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Force-override tenant tier",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/status": {
+      "patch": {
+        "operationId": "SuperAdminController_updateStatus_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Suspend or reactivate a tenant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/reset-password": {
+      "patch": {
+        "operationId": "SuperAdminController_resetOwnerPassword_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOwnerPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Reset owner password",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/payments": {
+      "patch": {
+        "operationId": "SuperAdminController_updatePaymentsEnabled_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentsEnabledDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Enable or disable payments for a tenant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/restore": {
+      "post": {
+        "operationId": "SuperAdminController_restoreRestaurant_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Restore a soft-deleted restaurant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/slugs/{slug}/reassign": {
+      "post": {
+        "operationId": "SuperAdminController_reassignSlug_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignSlugDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Reassign a released slug after a business sale",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{restaurantId}/staff/{userId}": {
+      "delete": {
+        "operationId": "SuperAdminController_deleteStaff_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a staff member from a restaurant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/menu/import": {
+      "post": {
+        "operationId": "SuperAdminController_importMenu_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminImportMenuDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Import menu JSON into a restaurant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/audit-log": {
+      "get": {
+        "operationId": "SuperAdminController_getAuditLog_v1",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "targetId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateTo",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Paginated admin audit log with filters",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/force-logout": {
+      "post": {
+        "operationId": "SuperAdminController_forceLogout_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Force-logout all sessions for a tenant owner",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/regenerate-api-key": {
+      "post": {
+        "operationId": "SuperAdminController_regenerateApiKey_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Regenerate OCR import API key for a tenant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/sessions": {
+      "get": {
+        "operationId": "SuperAdminController_getTenantSessions_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List active payment sessions for a tenant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "SuperAdminController_forceCloseSession_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Force-close a payment session",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/loyalty": {
+      "get": {
+        "operationId": "SuperAdminController_getLoyaltyAccounts_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List loyalty accounts for a tenant",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/loyalty/adjust": {
+      "post": {
+        "operationId": "SuperAdminController_adjustLoyaltyPoints_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustLoyaltyPointsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Adjust loyalty points for an account",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/loyalty/clear": {
+      "post": {
+        "operationId": "SuperAdminController_clearLoyaltyPoints_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearLoyaltyPointsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Clear loyalty points for an account",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/mrr": {
+      "get": {
+        "operationId": "SuperAdminController_getMrr_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "MRR / ARR dashboard",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/data-requests": {
+      "get": {
+        "operationId": "SuperAdminController_getDataRequests_v1",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List GDPR data requests",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/data-requests/{id}": {
+      "patch": {
+        "operationId": "SuperAdminController_updateDataRequest_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDataRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a GDPR data request",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/super-admin/tenants/{id}/impersonate": {
+      "post": {
+        "operationId": "SuperAdminController_impersonate_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperAdminConfirmationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create impersonation session for a tenant owner",
+        "tags": [
+          "Super Admin"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/menu/import": {
+      "post": {
+        "operationId": "MenuImportController_importFromOcr_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMenuDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuImport"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/menu/import/confirm": {
+      "post": {
+        "operationId": "MenuImportController_importConfirm_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMenuDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuImport"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/menu/import/api-key": {
+      "get": {
+        "operationId": "MenuImportController_getApiKey_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuImport"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/menu/import/api-key/regenerate": {
+      "post": {
+        "operationId": "MenuImportController_regenerateApiKey_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuImport"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/menu/export": {
+      "get": {
+        "operationId": "MenuImportController_exportMenu_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuImport"
+        ]
+      }
+    },
+    "/api/v1/print-stations": {
+      "get": {
+        "operationId": "PrintStationController_list_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      },
+      "post": {
+        "operationId": "PrintStationController_create_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePrintStationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/health": {
+      "get": {
+        "operationId": "PrintStationController_health_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/{id}": {
+      "patch": {
+        "operationId": "PrintStationController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePrintStationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      },
+      "delete": {
+        "operationId": "PrintStationController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/{id}/jobs": {
+      "get": {
+        "operationId": "PrintStationController_getJobs_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/{id}/jobs/{jobId}/retry": {
+      "post": {
+        "operationId": "PrintStationController_retryJob_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/{id}/tokens": {
+      "post": {
+        "operationId": "PrintStationController_generateToken_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/tokens/{tokenId}": {
+      "delete": {
+        "operationId": "PrintStationController_revokeToken_v1",
+        "parameters": [
+          {
+            "name": "tokenId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/print-stations/tokens/{tokenId}/reactivate": {
+      "post": {
+        "operationId": "PrintStationController_reactivateToken_v1",
+        "parameters": [
+          {
+            "name": "tokenId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PrintStation"
+        ]
+      }
+    },
+    "/api/v1/restaurants": {
+      "post": {
+        "operationId": "RestaurantsController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRestaurantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      },
+      "get": {
+        "operationId": "RestaurantsController_findAll_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}": {
+      "get": {
+        "operationId": "RestaurantsController_findOne_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      },
+      "patch": {
+        "operationId": "RestaurantsController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRestaurantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      },
+      "delete": {
+        "operationId": "RestaurantsController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/logo": {
+      "post": {
+        "operationId": "RestaurantsController_uploadLogo_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/device-enrollment": {
+      "post": {
+        "operationId": "RestaurantsController_createDeviceEnrollment_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeviceEnrollmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/device-enrollments": {
+      "get": {
+        "operationId": "RestaurantsController_listDeviceEnrollments_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/pin-security-alerts": {
+      "get": {
+        "operationId": "RestaurantsController_listPinSecurityAlerts_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/device-enrollments/{tokenId}": {
+      "delete": {
+        "operationId": "RestaurantsController_revokeDeviceEnrollment_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/translate-all": {
+      "post": {
+        "operationId": "RestaurantsController_translateAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/translation-status": {
+      "get": {
+        "operationId": "RestaurantsController_getTranslationStatus_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/stripe/connect": {
+      "post": {
+        "operationId": "RestaurantsController_generateConnectLink_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/logo-base64": {
+      "get": {
+        "operationId": "RestaurantsController_getLogoBase64_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/stripe/status": {
+      "get": {
+        "operationId": "RestaurantsController_getStripeStatus_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/stripe/disconnect": {
+      "post": {
+        "operationId": "RestaurantsController_disconnectStripe_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/api/v1/device-enrollment/verify": {
+      "post": {
+        "operationId": "DeviceEnrollmentController_verify_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDeviceEnrollmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "DeviceEnrollment"
+        ]
+      }
+    },
+    "/api/v1/device-enrollment/status": {
+      "post": {
+        "operationId": "DeviceEnrollmentController_status_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDeviceEnrollmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "DeviceEnrollment"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/staff": {
+      "get": {
+        "operationId": "StaffController_listStaff_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      },
+      "post": {
+        "operationId": "StaffController_createStaff_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStaffDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/staff/{userId}": {
+      "patch": {
+        "operationId": "StaffController_updateStaff_v1",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      },
+      "delete": {
+        "operationId": "StaffController_removeStaff_v1",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/staff/{userId}/reset-pin": {
+      "post": {
+        "operationId": "StaffController_resetStaffPin_v1",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      }
+    },
+    "/api/v1/restaurants/slug/available": {
+      "get": {
+        "operationId": "OnboardingSlugController_available_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OnboardingSlug"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/slug/commit": {
+      "post": {
+        "operationId": "SlugController_commit_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Slug"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/slug": {
+      "patch": {
+        "operationId": "SlugController_rename_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSlugDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Slug"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/slug/release": {
+      "post": {
+        "operationId": "SlugController_release_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseSlugDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Slug"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/slug/aliases": {
+      "get": {
+        "operationId": "SlugController_aliases_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Slug"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/slug/available": {
+      "get": {
+        "operationId": "SlugController_available_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Slug"
+        ]
+      }
+    },
+    "/api/v1/payments/session": {
+      "post": {
+        "operationId": "PaymentController_getOrCreateSession_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/force-open": {
+      "post": {
+        "operationId": "PaymentController_forceOpenSession_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/bill": {
+      "get": {
+        "operationId": "PaymentController_getSessionBill_v1",
+        "parameters": [
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/intent": {
+      "post": {
+        "operationId": "PaymentController_createPaymentIntent_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentIntentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/checkout": {
+      "post": {
+        "operationId": "PaymentController_createCheckout_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/cash-request": {
+      "post": {
+        "operationId": "PaymentController_createCashPaymentRequest_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCashRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/abandon": {
+      "post": {
+        "operationId": "PaymentController_abandonCheckout_v1",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/close": {
+      "post": {
+        "operationId": "PaymentController_closeSession_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/close-card": {
+      "post": {
+        "operationId": "PaymentController_closeSessionWithCard_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/close-cash": {
+      "post": {
+        "operationId": "PaymentController_closeSessionWithCash_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/reconcile-pending": {
+      "post": {
+        "operationId": "PaymentController_reconcileStuckSession_v1",
+        "parameters": [
+          {
+            "name": "x-table-session-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/session/settle-partial": {
+      "post": {
+        "operationId": "PaymentController_settlePartial_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettlePartialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/sessions/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getTableSessions_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/overview/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getPaymentsOverview_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/payouts/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getPayoutsSnapshot_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/settings/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getPaymentSettings_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/history/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getPaymentHistory_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/notifications/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getPaymentNotificationFeed_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/notifications/{restaurantId}/read": {
+      "post": {
+        "operationId": "PaymentController_markPaymentNotificationsRead_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/reconciliation/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getPaymentReconciliationIssues_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/reconciliation/issues/{issueId}/resolve": {
+      "post": {
+        "operationId": "PaymentController_resolvePaymentReconciliationIssue_v1",
+        "parameters": [
+          {
+            "name": "issueId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolvePaymentReconciliationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/reconciliation/issues/{issueId}/reopen-session": {
+      "post": {
+        "operationId": "PaymentController_reopenSessionForRecollection_v1",
+        "parameters": [
+          {
+            "name": "issueId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReopenSessionReconciliationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/cash-requests/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_getCashPaymentRequests_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/cash-requests/{id}/confirm": {
+      "post": {
+        "operationId": "PaymentController_confirmCashPaymentRequest_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/cash-requests/{id}/cancel": {
+      "post": {
+        "operationId": "PaymentController_cancelCashPaymentRequest_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/export/{restaurantId}": {
+      "get": {
+        "operationId": "PaymentController_exportPayments_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/{paymentId}": {
+      "get": {
+        "operationId": "PaymentController_getPaymentDetail_v1",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/{paymentId}/refund": {
+      "post": {
+        "operationId": "PaymentController_refundPayment_v1",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/webhook": {
+      "post": {
+        "operationId": "PaymentController_handleWebhook_v1",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/epay/notify": {
+      "post": {
+        "operationId": "PaymentController_handleEpayNotify_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/mypos/notify": {
+      "post": {
+        "operationId": "PaymentController_handleMyposNotify_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/payments/borica/callback": {
+      "post": {
+        "operationId": "PaymentController_handleBoricaCallback_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payment"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/categories": {
+      "post": {
+        "operationId": "CategoryController_create_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Category"
+        ]
+      },
+      "get": {
+        "operationId": "CategoryController_findAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Category"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/categories/order": {
+      "put": {
+        "operationId": "CategoryController_updateOrder_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Category"
+        ]
+      }
+    },
+    "/api/v1/categories/{id}": {
+      "patch": {
+        "operationId": "CategoryDetailController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CategoryDetail"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoryDetailController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CategoryDetail"
+        ]
+      }
+    },
+    "/api/v1/categories/{id}/image": {
+      "post": {
+        "operationId": "CategoryDetailController_uploadImage_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CategoryDetail"
+        ]
+      }
+    },
+    "/api/v1/categories/{categoryId}/items": {
+      "post": {
+        "operationId": "ItemController_create_v1",
+        "parameters": [
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Item"
+        ]
+      },
+      "get": {
+        "operationId": "ItemController_findAll_v1",
+        "parameters": [
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Item"
+        ]
+      }
+    },
+    "/api/v1/categories/{categoryId}/items/order": {
+      "put": {
+        "operationId": "ItemController_updateOrder_v1",
+        "parameters": [
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Item"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/translations": {
+      "get": {
+        "operationId": "ItemDetailController_getTranslations_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ItemDetail"
+        ]
+      },
+      "patch": {
+        "operationId": "ItemDetailController_updateTranslation_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemTranslationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ItemDetail"
+        ]
+      }
+    },
+    "/api/v1/items/{id}": {
+      "patch": {
+        "operationId": "ItemDetailController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ItemDetail"
+        ]
+      },
+      "delete": {
+        "operationId": "ItemDetailController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ItemDetail"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/image": {
+      "post": {
+        "operationId": "ItemDetailController_uploadImage_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ItemDetail"
+        ]
+      }
+    },
+    "/api/v1/menu": {
+      "get": {
+        "operationId": "PublicMenuController_getAllMenuData_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/public/resolve/{slug}": {
+      "get": {
+        "operationId": "PublicMenuController_resolveSlug_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/public/{restaurantId}": {
+      "get": {
+        "operationId": "PublicMenuController_getPublicMenu_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/public/{restaurantId}/meta": {
+      "get": {
+        "operationId": "PublicMenuController_getPublicMenuMeta_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/public/{restaurantId}/categories/{categoryId}/items": {
+      "get": {
+        "operationId": "PublicMenuController_getCategoryItems_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/public/{restaurantId}/items": {
+      "get": {
+        "operationId": "PublicMenuController_getPublicMenuItems_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/public/{restaurantId}/trending": {
+      "get": {
+        "operationId": "PublicMenuController_getTrendingItems_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicMenu"
+        ]
+      }
+    },
+    "/api/v1/menu/audit/{restaurantId}": {
+      "get": {
+        "operationId": "MenuAuditController_auditMenu_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuAudit"
+        ]
+      }
+    },
+    "/api/v1/items/{itemId}/options": {
+      "post": {
+        "operationId": "MenuOptionController_create_v1",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMenuOptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuOption"
+        ]
+      }
+    },
+    "/api/v1/options/{id}": {
+      "patch": {
+        "operationId": "MenuOptionDetailController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMenuOptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuOptionDetail"
+        ]
+      },
+      "delete": {
+        "operationId": "MenuOptionDetailController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuOptionDetail"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{id}/menu/bulk-items": {
+      "get": {
+        "operationId": "BulkItemController_getBulkItems_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BulkItem"
+        ]
+      },
+      "patch": {
+        "operationId": "BulkItemController_updateBulkItems_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkUpdateItemsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BulkItem"
+        ]
+      }
+    },
+    "/api/v1/push/subscribe": {
+      "post": {
+        "operationId": "PushController_subscribe_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Push"
+        ]
+      }
+    },
+    "/api/v1/platform-settings/public": {
+      "get": {
+        "operationId": "PlatformSettingsController_getPublic_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get public GDPR / legal settings (unauthenticated)",
+        "tags": [
+          "platform-settings"
+        ]
+      }
+    },
+    "/api/v1/super-admin/platform-settings": {
+      "get": {
+        "operationId": "PlatformSettingsController_getAdmin_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get full platform settings (super-admin)",
+        "tags": [
+          "platform-settings"
+        ]
+      },
+      "patch": {
+        "operationId": "PlatformSettingsController_updateAdmin_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update platform settings (super-admin)",
+        "tags": [
+          "platform-settings"
+        ]
+      }
+    },
+    "/api/v1/users/me/export": {
+      "get": {
+        "operationId": "UsersDataController_exportData_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Export personal data (GDPR Art. 20)",
+        "tags": [
+          "users-data"
+        ]
+      }
+    },
+    "/api/v1/users/me/delete": {
+      "delete": {
+        "operationId": "UsersDataController_deleteAccount_v1",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Erase account and all personal data (GDPR Art. 17)",
+        "tags": [
+          "users-data"
+        ]
+      }
+    },
+    "/api/v1/help-content/{section}": {
+      "get": {
+        "operationId": "HelpContentController_getPublic_v1",
+        "parameters": [
+          {
+            "name": "section",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HelpContent"
+        ]
+      }
+    },
+    "/api/v1/super-admin/help-content": {
+      "get": {
+        "operationId": "HelpContentController_getAll_v1",
+        "parameters": [
+          {
+            "name": "section",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HelpContent"
+        ]
+      },
+      "post": {
+        "operationId": "HelpContentController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHelpContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HelpContent"
+        ]
+      }
+    },
+    "/api/v1/super-admin/help-content/reorder": {
+      "patch": {
+        "operationId": "HelpContentController_reorder_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderHelpContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HelpContent"
+        ]
+      }
+    },
+    "/api/v1/super-admin/help-content/{id}": {
+      "patch": {
+        "operationId": "HelpContentController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHelpContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HelpContent"
+        ]
+      },
+      "delete": {
+        "operationId": "HelpContentController_delete_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HelpContent"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAuthDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register/verify": {
+      "post": {
+        "operationId": "AuthController_verifyRegistration_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRegistrationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_getProfile_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "patch": {
+        "operationId": "AuthController_updateProfile_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me/password": {
+      "patch": {
+        "operationId": "AuthController_changePassword_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/onboarding-step": {
+      "patch": {
+        "operationId": "AuthController_updateOnboardingStep_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/google": {
+      "get": {
+        "operationId": "AuthController_googleAuth_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/google/callback": {
+      "get": {
+        "operationId": "AuthController_googleAuthRedirect_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/otp/send": {
+      "post": {
+        "operationId": "AuthController_sendOtp_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/otp/verify": {
+      "post": {
+        "operationId": "AuthController_verifyOtp_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/identity/add": {
+      "post": {
+        "operationId": "AuthController_addIdentity_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddIdentityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/identity/verify": {
+      "post": {
+        "operationId": "AuthController_verifyIdentity_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyIdentityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "operationId": "AuthController_listSessions_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "delete": {
+        "operationId": "AuthController_signOutEverywhere_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "AuthController_revokeSession_v1",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/csrf-token": {
+      "get": {
+        "operationId": "AuthController_getCsrfToken_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/impersonate/exchange": {
+      "post": {
+        "operationId": "AuthController_exchangeImpersonation_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/impersonate/exit": {
+      "post": {
+        "operationId": "AuthController_exitImpersonation_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/pin-login": {
+      "post": {
+        "operationId": "AuthController_pinLogin_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "operationId": "OrdersController_create_v1",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ]
+      },
+      "get": {
+        "operationId": "OrdersController_findAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}": {
+      "get": {
+        "operationId": "OrdersController_findOne_v1",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/status/bulk": {
+      "patch": {
+        "operationId": "OrdersController_bulkUpdate_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkUpdateOrderStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/status": {
+      "patch": {
+        "operationId": "OrdersController_update_v1",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/assistance-requests": {
+      "post": {
+        "operationId": "AssistanceController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssistanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistance"
+        ]
+      },
+      "get": {
+        "operationId": "AssistanceController_findAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistance"
+        ]
+      }
+    },
+    "/api/v1/assistance-requests/{id}": {
+      "get": {
+        "operationId": "AssistanceController_findOne_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistance"
+        ]
+      },
+      "patch": {
+        "operationId": "AssistanceController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssistanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistance"
+        ]
+      },
+      "delete": {
+        "operationId": "AssistanceController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistance"
+        ]
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "operationId": "DashboardController_getSummary_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/payments-summary": {
+      "get": {
+        "operationId": "DashboardController_getPaymentsSummary_v1",
+        "parameters": [
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/analytics": {
+      "get": {
+        "operationId": "DashboardController_getAnalytics_v1",
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/target": {
+      "get": {
+        "operationId": "DashboardController_getDailyTarget_v1",
+        "parameters": [
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      },
+      "put": {
+        "operationId": "DashboardController_setDailyTarget_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/closeout/{restaurantId}": {
+      "get": {
+        "operationId": "DashboardController_getDailyCloseout_v1",
+        "parameters": [
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/tables": {
+      "post": {
+        "operationId": "TablesController_create_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTableDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      },
+      "get": {
+        "operationId": "TablesController_findAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/tables/bulk": {
+      "post": {
+        "operationId": "TablesController_bulkCreate_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/service-points": {
+      "post": {
+        "operationId": "TablesController_createServicePoint_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTableDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      },
+      "get": {
+        "operationId": "TablesController_findServicePoints_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/service-points/public/{token}": {
+      "get": {
+        "operationId": "TablesController_resolvePublicServicePoint_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/tables/status/{restaurantId}": {
+      "get": {
+        "operationId": "TablesController_getTablesWithStatus_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/tables/{tableId}/orders": {
+      "get": {
+        "operationId": "TablesController_getTableOrders_v1",
+        "parameters": [
+          {
+            "name": "tableId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/tables/{id}": {
+      "patch": {
+        "operationId": "TablesController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTableDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      },
+      "delete": {
+        "operationId": "TablesController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/tables/{id}/public-token/rotate": {
+      "post": {
+        "operationId": "TablesController_rotatePublicToken_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tables"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/zones": {
+      "get": {
+        "operationId": "TableZonesController_findAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TableZones"
+        ]
+      },
+      "post": {
+        "operationId": "TableZonesController_create_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateZoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TableZones"
+        ]
+      }
+    },
+    "/api/v1/zones/{id}": {
+      "patch": {
+        "operationId": "TableZonesController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateZoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TableZones"
+        ]
+      },
+      "delete": {
+        "operationId": "TableZonesController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TableZones"
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/zones/reorder": {
+      "patch": {
+        "operationId": "TableZonesController_reorder_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderZonesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TableZones"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "HealthController_check_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/feedback": {
+      "post": {
+        "operationId": "FeedbackController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFeedbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      },
+      "get": {
+        "operationId": "FeedbackController_findAll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/invitations": {
+      "post": {
+        "operationId": "FeedbackController_issueVisitInvitation_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFeedbackInvitationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/visit": {
+      "post": {
+        "operationId": "FeedbackController_createVisitFeedback_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVisitFeedbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/visit/presented": {
+      "post": {
+        "operationId": "FeedbackController_markVisitFeedbackPresented_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackInvitationTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/visit/google-click": {
+      "post": {
+        "operationId": "FeedbackController_markGoogleReviewClick_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackInvitationTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/google-review-url/{restaurantId}": {
+      "get": {
+        "operationId": "FeedbackController_getGoogleReviewUrl_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/summary": {
+      "get": {
+        "operationId": "FeedbackController_getSummary_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/feedback/{id}/visit": {
+      "get": {
+        "operationId": "FeedbackController_getVisit_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Feedback"
+        ]
+      }
+    },
+    "/api/v1/loyalty/accounts": {
+      "get": {
+        "operationId": "LoyaltyController_getLoyaltyAccounts_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/orders/history": {
+      "get": {
+        "operationId": "LoyaltyController_getHistory_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/{restaurantId}/analytics": {
+      "get": {
+        "operationId": "LoyaltyController_getAnalytics_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/{restaurantId}/expiry-reminders": {
+      "get": {
+        "operationId": "LoyaltyController_getExpiryReminders_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/{restaurantId}/expiry-reminders/notify": {
+      "post": {
+        "operationId": "LoyaltyController_notifyExpiryReminders_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/{restaurantId}/config": {
+      "get": {
+        "operationId": "LoyaltyController_getPublicConfig_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/{restaurantId}/enroll": {
+      "post": {
+        "operationId": "LoyaltyController_enroll_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/{restaurantId}": {
+      "get": {
+        "operationId": "LoyaltyController_getPoints_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/menu/public/{restaurantId}/view": {
+      "post": {
+        "operationId": "MenuViewController_recordView_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordViewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuView"
+        ]
+      }
+    },
+    "/api/v1/dashboard/scan-stats/{restaurantId}": {
+      "get": {
+        "operationId": "MenuViewController_getScanStats_v1",
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MenuView"
+        ]
+      }
+    },
+    "/api/v1/consent": {
+      "post": {
+        "operationId": "ConsentController_recordConsent_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConsentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Consent"
+        ]
+      }
+    },
+    "/api/v1/client-logs": {
+      "post": {
+        "operationId": "ClientLogsController_collect_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ClientLogs"
+        ]
+      }
+    },
+    "/api/v1/client-logs/csp": {
+      "post": {
+        "operationId": "ClientLogsController_collectCsp_v1",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ClientLogs"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}/config": {
+      "get": {
+        "operationId": "PublicReservationsController_config_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}/availability": {
+      "get": {
+        "operationId": "PublicReservationsController_availability_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}": {
+      "post": {
+        "operationId": "PublicReservationsController_create_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}/status/{referenceCode}": {
+      "get": {
+        "operationId": "PublicReservationsController_status_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "referenceCode",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}/manage/{token}": {
+      "get": {
+        "operationId": "PublicReservationsController_manageGet_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}/manage/{token}/cancel": {
+      "post": {
+        "operationId": "PublicReservationsController_manageCancel_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/public/{restaurantId}/manage/{token}/modify": {
+      "post": {
+        "operationId": "PublicReservationsController_manageModify_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifyReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicReservations"
+        ]
+      }
+    },
+    "/r/{token}": {
+      "get": {
+        "operationId": "ReservationRedirectController_redirect",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ReservationRedirect"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/settings": {
+      "get": {
+        "operationId": "ReservationsController_getSettings_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      },
+      "put": {
+        "operationId": "ReservationsController_updateSettings_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReservationSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/service-hours": {
+      "post": {
+        "operationId": "ReservationsController_setServiceHours_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetServiceHoursDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/service-hours/{weekday}": {
+      "delete": {
+        "operationId": "ReservationsController_deleteServiceHours_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "weekday",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/analytics": {
+      "get": {
+        "operationId": "ReservationsController_analytics_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/blackouts": {
+      "get": {
+        "operationId": "ReservationsController_listBlackouts_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      },
+      "post": {
+        "operationId": "ReservationsController_addBlackout_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlackoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/blackouts/{date}": {
+      "delete": {
+        "operationId": "ReservationsController_removeBlackout_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}": {
+      "get": {
+        "operationId": "ReservationsController_list_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{restaurantId}/manual": {
+      "post": {
+        "operationId": "ReservationsController_createManual_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/action/{id}": {
+      "post": {
+        "operationId": "ReservationsController_action_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationActionBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/internal/{id}": {
+      "patch": {
+        "operationId": "ReservationsController_updateInternal_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInternalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "QR Menu API",
+    "description": "API for QR-based restaurant menu system",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "authentication",
+      "description": "Endpoints for user authentication"
+    },
+    {
+      "name": "menu",
+      "description": "Endpoints for menu management"
+    },
+    {
+      "name": "restaurants",
+      "description": "Endpoints for restaurant management"
+    },
+    {
+      "name": "dashboard",
+      "description": "Endpoints for dashboard statistics"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "CreateCheckoutDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTenantTierDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTenantStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ResetOwnerPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePaymentsEnabledDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SuperAdminConfirmationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReassignSlugDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SuperAdminImportMenuDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdjustLoyaltyPointsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ClearLoyaltyPointsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateDataRequestDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ImportMenuDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePrintStationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePrintStationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "GenerateTokenDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRestaurantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateRestaurantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateDeviceEnrollmentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "VerifyDeviceEnrollmentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateStaffDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateStaffDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateSlugDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReleaseSlugDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePaymentIntentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCashRequestDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SettlePartialDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ResolvePaymentReconciliationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReopenSessionReconciliationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RefundPaymentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCategoryDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateCategoryDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateItemDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateItemTranslationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateItemDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateMenuOptionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateMenuOptionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BulkUpdateItemsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SubscribePushDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePlatformSettingsDto": {
+        "type": "object",
+        "properties": {
+          "gdprEnabled": {
+            "type": "boolean"
+          },
+          "cookieBannerEnabled": {
+            "type": "boolean"
+          },
+          "privacyPolicyEnabled": {
+            "type": "boolean"
+          },
+          "termsEnabled": {
+            "type": "boolean"
+          },
+          "cookiePolicyEnabled": {
+            "type": "boolean"
+          },
+          "dpaEnabled": {
+            "type": "boolean"
+          },
+          "refundPolicyEnabled": {
+            "type": "boolean"
+          },
+          "msaEnabled": {
+            "type": "boolean"
+          },
+          "erasureEndpointEnabled": {
+            "type": "boolean"
+          },
+          "dataExportEndpointEnabled": {
+            "type": "boolean"
+          },
+          "retentionCronEnabled": {
+            "type": "boolean"
+          },
+          "analyticsCookieEnabled": {
+            "type": "boolean"
+          },
+          "orderPiiRetentionYears": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50
+          },
+          "verificationTokenTtlDays": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "cookieBannerText": {
+            "type": "object"
+          },
+          "privacyPolicyContent": {
+            "type": "object"
+          },
+          "termsContent": {
+            "type": "object"
+          },
+          "cookiePolicyContent": {
+            "type": "object"
+          },
+          "dpaContent": {
+            "type": "object"
+          },
+          "refundPolicyContent": {
+            "type": "object"
+          },
+          "msaContent": {
+            "type": "object"
+          },
+          "dataControllerName": {
+            "type": "string"
+          },
+          "dataControllerEmail": {
+            "type": "string"
+          },
+          "dataControllerAddress": {
+            "type": "string"
+          },
+          "announcementBannerEnabled": {
+            "type": "boolean"
+          },
+          "announcementBannerText": {
+            "type": "string"
+          },
+          "announcementBannerType": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "maintenance"
+            ]
+          }
+        }
+      },
+      "CreateHelpContentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReorderHelpContentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateHelpContentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateAuthDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "VerifyRegistrationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AddIdentityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "VerifyIdentityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PinLoginDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateOrderDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BulkUpdateOrderStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateOrderDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateAssistanceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateAssistanceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateTableDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTableDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateZoneDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateZoneDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReorderZonesDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateFeedbackDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateFeedbackInvitationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateVisitFeedbackDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "FeedbackInvitationTokenDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RecordViewDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RecordConsentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateReservationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ModifyReservationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateReservationSettingsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SetServiceHoursDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BlackoutDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ManualReservationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReservationActionBodyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateInternalDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

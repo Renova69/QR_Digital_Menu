@@ -1,0 +1,13 @@
+{
+  "reviewedAt": "2026-08-29",
+  "scope": "npm audit --omit=dev",
+  "policy": "Known high advisories only. New high and every critical advisory fail CI.",
+  "advisoryIds": [
+    "1113686",
+    "1138808",
+    "1138809",
+    "1139427",
+    "1139509",
+    "1145093"
+  ]
+}
