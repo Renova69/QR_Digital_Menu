@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -641,6 +642,72 @@ describe('RestaurantsService', () => {
       expect(
         mockDeviceEnrollment.revokeRestaurantDevices,
       ).not.toHaveBeenCalled();
+    });
+
+    it('stores a complete PIN-login window atomically', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          timezone: 'Europe/Sofia',
+          pinLoginStartTime: null,
+          pinLoginEndTime: null,
+        }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+
+      await service.update(
+        'rest1',
+        { pinLoginStartTime: '18:00', pinLoginEndTime: '02:00' },
+        'user1',
+      );
+
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            pinLoginStartTime: '18:00',
+            pinLoginEndTime: '02:00',
+          }),
+        }),
+      );
+    });
+
+    it('rejects partial, equal, or invalid-timezone PIN windows before writing', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          timezone: 'Europe/Sofia',
+          pinLoginStartTime: null,
+          pinLoginEndTime: null,
+        }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+
+      await expect(
+        service.update('rest1', { pinLoginStartTime: '11:00' }, 'user1'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update(
+          'rest1',
+          { pinLoginStartTime: '11:00', pinLoginEndTime: '11:00' },
+          'user1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update(
+          'rest1',
+          {
+            timezone: 'Not/A_Zone',
+            pinLoginStartTime: '11:00',
+            pinLoginEndTime: '23:00',
+          },
+          'user1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.restaurant.update).not.toHaveBeenCalled();
     });
 
     it('invalidates cached targets when the explicit menu source language changes', async () => {

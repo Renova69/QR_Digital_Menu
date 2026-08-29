@@ -5,6 +5,7 @@ import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.servi
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { ReassignSlugDto } from './dto/update-tenant.dto';
+import { StepUpAuthGuard } from '../auth/step-up-auth.guard';
 
 describe('SuperAdminController', () => {
   let c: SuperAdminController;
@@ -44,7 +45,10 @@ describe('SuperAdminController', () => {
         { provide: SuperAdminService, useValue: mockSvc },
         { provide: RestaurantSlugService, useValue: mockSlugs },
       ],
-    }).compile();
+    })
+      .overrideGuard(StepUpAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     c = m.get<SuperAdminController>(SuperAdminController);
   });
   afterEach(() => jest.clearAllMocks());

@@ -81,6 +81,9 @@ describe('AuthService', () => {
           forceTier: null,
           isActive: true,
           sharedDeviceModeEnabled: true,
+          timezone: 'Europe/Sofia',
+          pinLoginStartTime: null,
+          pinLoginEndTime: null,
         }),
       },
       deviceEnrollmentToken: {
@@ -1137,6 +1140,30 @@ describe('AuthService', () => {
         service.pinLogin('rest1', '1234', deviceToken),
       ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.deviceEnrollmentToken.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects PIN login outside configured local hours before device or bcrypt work', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        tier: 'ENTERPRISE',
+        forceTier: null,
+        isActive: true,
+        sharedDeviceModeEnabled: true,
+        timezone: 'Europe/Sofia',
+        pinLoginStartTime: '00:01',
+        pinLoginEndTime: '00:02',
+      });
+      mockCompare.mockClear();
+
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: AuthErrorCode.PIN_LOGIN_OUTSIDE_HOURS,
+        }),
+      });
+      expect(mockPrisma.deviceEnrollmentToken.findFirst).not.toHaveBeenCalled();
+      expect(mockCompare).not.toHaveBeenCalled();
     });
   });
 

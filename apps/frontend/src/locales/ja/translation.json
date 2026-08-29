@@ -889,6 +889,17 @@
       "noOrders": "この来店に記録された注文はありません。"
     }
   },
+  "staff": {
+    "pinLoginHours": "PIN ログイン時間",
+    "pinLoginHoursDesc": "スタッフの PIN ログインをレストランの現地時間に制限できます。日付をまたぐ時間帯にも対応しています。",
+    "restrictPinLoginHours": "PIN ログイン時間を制限",
+    "pinLoginStart": "開始",
+    "pinLoginEnd": "終了",
+    "pinLoginHoursSaved": "PIN ログイン時間を保存しました。",
+    "pinLoginHoursInvalid": "開始時刻と終了時刻を別にしてください。",
+    "failedUpdatePinLoginHours": "PIN ログイン時間を更新できませんでした。",
+    "pinLoginTimezone": "時刻は {{timezone}} を使用します。"
+  },
   "deviceEnrollment": {
     "verifying": "デバイスリンクを確認しています...",
     "missingToken": "このデバイス登録リンクにはトークンがありません。",
@@ -926,6 +937,7 @@
     "emailAlreadyExists": "このメールアドレスのアカウントはすでに存在します。",
     "googleEmailNotVerified": "Googleアカウントのメールアドレスが確認されていません。Googleで確認してからもう一度お試しください。",
     "smsNotConfigured": "現在SMS認証はご利用いただけません。",
+    "stepUpRequired": "この重要な操作を実行する前に、再度ログインしてください。",
     "identityInUse": "このログインはすでに別のアカウントに連携されています。",
     "invalidPin": "PINが正しくありません。",
     "invalidPinWithAttempts_one": "PINが正しくありません。残り{{count}}回です。",
@@ -938,6 +950,7 @@
     "deviceTrustExpired": "このデバイスはPINログインで信頼されなくなりました。マネージャーに再設定を依頼してください。",
     "deviceRevoked": "このデバイスのアクセス権は取り消されました。",
     "sharedDeviceModeDisabled": "共有デバイスモードがオフです。マネージャーに有効化を依頼してください。",
+    "pinLoginOutsideHours": "現在、スタッフの PIN ログイン時間外です。",
     "restaurantSuspended": "このレストランは停止されています。",
     "staffDeviceLimitReached": "このレストランはスタッフデバイスの上限に達しました。",
     "posNotInPlan": "このプランにPOSは含まれていません。",

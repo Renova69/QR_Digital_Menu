@@ -23,7 +23,14 @@ import { FeatureService } from '../subscription/feature.service';
  * no AppModule, .env, external service or actual database is loaded. */
 describe('Declarative restaurant access over HTTP', () => {
   let app: INestApplication;
-  let actor: { id: string; role: string; restaurantId?: string } | undefined;
+  let actor:
+    | {
+        id: string;
+        role: string;
+        restaurantId?: string;
+        sessionId?: string;
+      }
+    | undefined;
   let restaurant: {
     id: string;
     ownerId: string;
@@ -35,6 +42,7 @@ describe('Declarative restaurant access over HTTP', () => {
   const prisma = {
     restaurant: { findUnique: jest.fn(), findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
+    userSession: { findFirst: jest.fn() },
   };
   const dashboard = {
     getSummary: jest.fn(),
@@ -89,7 +97,7 @@ describe('Declarative restaurant access over HTTP', () => {
   });
   beforeEach(() => {
     jest.resetAllMocks();
-    actor = { id: 'owner', role: 'OWNER' };
+    actor = { id: 'owner', role: 'OWNER', sessionId: 'fresh-session' };
     restaurant = {
       id: 'r1',
       ownerId: 'owner',
@@ -110,6 +118,7 @@ describe('Declarative restaurant access over HTTP', () => {
       Promise.resolve(restaurant),
     );
     prisma.user.findUnique.mockImplementation(() => Promise.resolve(actor));
+    prisma.userSession.findFirst.mockResolvedValue({ id: 'fresh-session' });
     dashboard.getSummary.mockResolvedValue({ total: 1 });
     dashboard.getDailyCloseout.mockResolvedValue({ total: 2 });
     printers.list.mockResolvedValue([]);
@@ -147,7 +156,12 @@ describe('Declarative restaurant access over HTTP', () => {
     },
   );
   it('allows an assigned manager into the dashboard', async () => {
-    actor = { id: 'manager', role: 'MANAGER', restaurantId: 'r1' };
+    actor = {
+      id: 'manager',
+      role: 'MANAGER',
+      restaurantId: 'r1',
+      sessionId: 'fresh-session',
+    };
     await request(app.getHttpServer())
       .get('/dashboard/summary?restaurantId=r1')
       .expect(200, { total: 1 });
@@ -261,7 +275,12 @@ describe('Declarative restaurant access over HTTP', () => {
     },
   );
   it('passes the effective caller role and audit identity to staff reset, never the body/query tenant', async () => {
-    actor = { id: 'manager', role: 'MANAGER', restaurantId: 'r1' };
+    actor = {
+      id: 'manager',
+      role: 'MANAGER',
+      restaurantId: 'r1',
+      sessionId: 'fresh-session',
+    };
     await request(app.getHttpServer())
       .post('/restaurants/r1/staff/waiter/reset-pin?restaurantId=r2')
       .send({ restaurantId: 'r3', role: 'OWNER' })

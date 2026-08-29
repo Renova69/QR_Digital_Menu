@@ -223,7 +223,14 @@ const routes: RouteCase[] = [
  * .env, database connection, migration or external request is used. */
 describe('Tenant management authorization over HTTP', () => {
   let app: INestApplication;
-  let actor: { id: string; role: string; restaurantId?: string } | undefined;
+  let actor:
+    | {
+        id: string;
+        role: string;
+        restaurantId?: string;
+        sessionId?: string;
+      }
+    | undefined;
   let restaurant: {
     id: string;
     ownerId: string;
@@ -238,6 +245,7 @@ describe('Tenant management authorization over HTTP', () => {
   const prisma = {
     restaurant: { findUnique: jest.fn(), findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
+    userSession: { findFirst: jest.fn() },
     deviceEnrollmentToken: {
       count: jest.fn(),
       create: jest.fn(),
@@ -305,7 +313,7 @@ describe('Tenant management authorization over HTTP', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     savedFrontendUrl = process.env.FRONTEND_URL;
-    actor = { id: 'owner', role: 'OWNER' };
+    actor = { id: 'owner', role: 'OWNER', sessionId: 'session-owner' };
     restaurant = {
       id: 'r1',
       ownerId: 'owner',
@@ -340,6 +348,7 @@ describe('Tenant management authorization over HTTP', () => {
         ),
     );
     prisma.user.findUnique.mockImplementation(() => Promise.resolve(actor));
+    prisma.userSession.findFirst.mockResolvedValue({ id: 'session-owner' });
     for (const handler of Object.values(handlers))
       handler.mockResolvedValue({});
     handlers.isSlugAvailable.mockResolvedValue(true);
@@ -445,7 +454,12 @@ describe('Tenant management authorization over HTTP', () => {
   it.each(routes)(
     'assigned manager: $method $path preserves its role policy',
     async (route) => {
-      actor = { id: 'manager', role: 'MANAGER', restaurantId: 'r1' };
+      actor = {
+        id: 'manager',
+        role: 'MANAGER',
+        restaurantId: 'r1',
+        sessionId: 'session-manager',
+      };
       await send(route).expect(
         route.access === 'owner' ? 403 : expectedStatus(route),
       );

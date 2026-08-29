@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SessionRevocationService } from './session-revocation.service';
+import { StepUpAuthGuard } from './step-up-auth.guard';
 
 /**
  * Standalone so both AuthModule (HTTP) and EventsModule (websocket) can import
@@ -8,7 +9,7 @@ import { SessionRevocationService } from './session-revocation.service';
  */
 @Module({
   imports: [PrismaModule],
-  providers: [SessionRevocationService],
-  exports: [SessionRevocationService],
+  providers: [SessionRevocationService, StepUpAuthGuard],
+  exports: [SessionRevocationService, StepUpAuthGuard],
 })
 export class SessionRevocationModule {}

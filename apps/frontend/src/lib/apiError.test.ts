@@ -100,6 +100,17 @@ describe("getApiError", () => {
     ).toBe("apiErrors.invalidCredentials");
   });
 
+  it("maps the fresh-auth requirement without exposing backend prose", () => {
+    expect(
+      getApiError(
+        apiError(403, {
+          code: "STEP_UP_REQUIRED",
+          message: "backend wording may change",
+        }),
+      ),
+    ).toBe("apiErrors.stepUpRequired");
+  });
+
   it("still honours the older 'Invalid credentials' wording", () => {
     expect(getApiError(apiError(401, { message: "Invalid credentials" }))).toBe(
       "apiErrors.invalidCredentials",
@@ -419,6 +430,7 @@ describe("translation coverage", () => {
       "DEVICE_TRUST_EXPIRED",
       "DEVICE_REVOKED",
       "SHARED_DEVICE_MODE_DISABLED",
+      "PIN_LOGIN_OUTSIDE_HOURS",
       "RESTAURANT_SUSPENDED",
       "STAFF_DEVICE_LIMIT_REACHED",
       "POS_NOT_IN_PLAN",

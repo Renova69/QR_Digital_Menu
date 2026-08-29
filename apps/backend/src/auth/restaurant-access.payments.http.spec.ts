@@ -355,6 +355,7 @@ describe('Payment and billing restaurant access', () => {
     await send('post', '/payments/cash-requests/cash1/confirm').expect(200);
     expect(payments.confirmCashPaymentRequest).toHaveBeenCalledWith(
       'cash1',
+      'r1',
       'manager',
     );
   });

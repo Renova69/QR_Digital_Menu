@@ -18,6 +18,7 @@ import {
   RequireRestaurantAccess,
 } from '../auth/require-restaurant-access.decorator';
 import { RestaurantAccessContext } from '../auth/restaurant-access.policy';
+import { RequireStepUp } from '../auth/step-up-auth.guard';
 
 @RequireRestaurantAccess({
   policy: 'staff-management',
@@ -63,6 +64,7 @@ export class StaffController {
 
   @Post(':userId/reset-pin')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @RequireStepUp()
   resetStaffPin(
     @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Param('userId') userId: string,

@@ -67,6 +67,7 @@ const CODE_TO_KEY: Record<string, string> = {
   EMAIL_ALREADY_EXISTS: "apiErrors.emailAlreadyExists",
   GOOGLE_EMAIL_NOT_VERIFIED: "apiErrors.googleEmailNotVerified",
   SMS_NOT_CONFIGURED: "apiErrors.smsNotConfigured",
+  STEP_UP_REQUIRED: "apiErrors.stepUpRequired",
   IDENTITY_IN_USE: "apiErrors.identityInUse",
   // changePassword has its own copy on the profile screen: a generic
   // "unauthorized" string is actively wrong for a valid session rejecting a
@@ -81,6 +82,7 @@ const CODE_TO_KEY: Record<string, string> = {
   DEVICE_TRUST_EXPIRED: "apiErrors.deviceTrustExpired",
   DEVICE_REVOKED: "apiErrors.deviceRevoked",
   SHARED_DEVICE_MODE_DISABLED: "apiErrors.sharedDeviceModeDisabled",
+  PIN_LOGIN_OUTSIDE_HOURS: "apiErrors.pinLoginOutsideHours",
   RESTAURANT_SUSPENDED: "apiErrors.restaurantSuspended",
   STAFF_DEVICE_LIMIT_REACHED: "apiErrors.staffDeviceLimitReached",
   POS_NOT_IN_PLAN: "apiErrors.posNotInPlan",

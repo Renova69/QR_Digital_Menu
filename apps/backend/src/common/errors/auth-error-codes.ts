@@ -43,6 +43,8 @@ export const AuthErrorCode = {
   GOOGLE_EMAIL_NOT_VERIFIED: 'GOOGLE_EMAIL_NOT_VERIFIED',
   /** SMS verification is not configured on this deployment. */
   SMS_NOT_CONFIGURED: 'SMS_NOT_CONFIGURED',
+  /** A high-impact mutation requires a new strong-auth session. */
+  STEP_UP_REQUIRED: 'STEP_UP_REQUIRED',
 
   // ── staff PIN / shared device ──────────────────────────────────────────
   /** Wrong PIN. Carries `attemptsRemaining` when attempts are left. */
@@ -59,6 +61,8 @@ export const AuthErrorCode = {
   DEVICE_REVOKED: 'DEVICE_REVOKED',
   /** Shared Device Mode is switched off for this restaurant. */
   SHARED_DEVICE_MODE_DISABLED: 'SHARED_DEVICE_MODE_DISABLED',
+  /** Restaurant-local PIN login schedule is currently closed. */
+  PIN_LOGIN_OUTSIDE_HOURS: 'PIN_LOGIN_OUTSIDE_HOURS',
   /** Restaurant is suspended; POS access is refused. */
   RESTAURANT_SUSPENDED: 'RESTAURANT_SUSPENDED',
   /** The restaurant already has as many enrolled devices as its plan allows. */

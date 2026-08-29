@@ -28,6 +28,7 @@ import {
 } from '../common/sms/sms-gateway';
 import { AuthErrorCode } from '../common/errors/auth-error-codes';
 import { fetchWithDependencyPool } from '../common/http/dependency-http';
+import { isPinLoginAllowed } from './pin-login-hours';
 
 const STAFF_DEVICE_LIMIT = 3;
 
@@ -1027,6 +1028,9 @@ export class AuthService {
         forceTier: true,
         isActive: true,
         sharedDeviceModeEnabled: true,
+        timezone: true,
+        pinLoginStartTime: true,
+        pinLoginEndTime: true,
       },
     });
     if (!restaurant) {
@@ -1052,6 +1056,18 @@ export class AuthService {
         code: AuthErrorCode.SHARED_DEVICE_MODE_DISABLED,
         message:
           'Shared Device Mode is off. Ask a manager to enable it before staff PIN login.',
+      });
+    }
+    if (
+      !isPinLoginAllowed({
+        timezone: restaurant.timezone,
+        startTime: restaurant.pinLoginStartTime,
+        endTime: restaurant.pinLoginEndTime,
+      })
+    ) {
+      throw new ForbiddenException({
+        code: AuthErrorCode.PIN_LOGIN_OUTSIDE_HOURS,
+        message: 'Staff PIN login is closed at this time.',
       });
     }
 

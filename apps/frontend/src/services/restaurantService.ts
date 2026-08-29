@@ -85,6 +85,8 @@ export interface Restaurant {
   platformFeePercent?: number;
   notifyAllStaffOnPayment?: boolean;
   sharedDeviceModeEnabled?: boolean;
+  pinLoginStartTime?: string | null;
+  pinLoginEndTime?: string | null;
   isActive?: boolean;
   tier?: "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
   features?: string[];

@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType } from '@nestjs/swagger';
 import { CreateRestaurantDto } from './create-restaurant.dto';
 import {
   IsOptional,
@@ -357,6 +357,18 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsBoolean()
   sharedDeviceModeEnabled?: boolean;
+
+  @IsOptional()
+  @Matches(HHMM_PATTERN, {
+    message: 'pinLoginStartTime must be HH:mm (00:00–23:59)',
+  })
+  pinLoginStartTime?: string | null;
+
+  @IsOptional()
+  @Matches(HHMM_PATTERN, {
+    message: 'pinLoginEndTime must be HH:mm (00:00–23:59)',
+  })
+  pinLoginEndTime?: string | null;
 
   @IsOptional()
   @IsBoolean()
