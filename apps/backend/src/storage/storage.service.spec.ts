@@ -390,4 +390,14 @@ describe('StorageService', () => {
       );
     });
   });
+
+  it('fast-fails R2 after repeated transport failures', async () => {
+    mockS3Send.mockRejectedValue(new Error('R2 unavailable'));
+
+    for (let i = 0; i < 6; i++) {
+      await service.deleteExact('tenants/rest-1/missing.webp', 'rest-1');
+    }
+
+    expect(mockS3Send).toHaveBeenCalledTimes(5);
+  });
 });

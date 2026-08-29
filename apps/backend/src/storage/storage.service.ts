@@ -11,6 +11,10 @@ import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { randomBytes } from 'crypto';
 import { getDependencyNodeAgents } from '../common/http/dependency-http';
 import { requestBudgetSignal } from '../common/http/request-budget';
+import {
+  createProviderCircuit,
+  classifyProviderError,
+} from '../common/http/provider-circuit';
 
 const sharp = require('sharp');
 
@@ -28,6 +32,7 @@ export class StorageService {
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicUrl: string;
+  private readonly circuit = createProviderCircuit('r2');
 
   /** Max dimension (width or height) for the main image */
   private static readonly MAX_DIMENSION = 1200;
@@ -181,25 +186,33 @@ export class StorageService {
 
     // Upload both in parallel — immutable cache-control lets Cloudflare CDN cache forever
     await Promise.all([
-      this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: mainKey,
-          Body: mainBuffer,
-          ContentType: 'image/webp',
-          CacheControl: 'public, max-age=31536000, immutable',
-        }),
-        { abortSignal: requestBudgetSignal() },
+      this.circuit.execute(
+        () =>
+          this.s3.send(
+            new PutObjectCommand({
+              Bucket: this.bucket,
+              Key: mainKey,
+              Body: mainBuffer,
+              ContentType: 'image/webp',
+              CacheControl: 'public, max-age=31536000, immutable',
+            }),
+            { abortSignal: requestBudgetSignal() },
+          ),
+        { error: classifyProviderError },
       ),
-      this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: thumbKey,
-          Body: thumbBuffer,
-          ContentType: 'image/webp',
-          CacheControl: 'public, max-age=31536000, immutable',
-        }),
-        { abortSignal: requestBudgetSignal() },
+      this.circuit.execute(
+        () =>
+          this.s3.send(
+            new PutObjectCommand({
+              Bucket: this.bucket,
+              Key: thumbKey,
+              Body: thumbBuffer,
+              ContentType: 'image/webp',
+              CacheControl: 'public, max-age=31536000, immutable',
+            }),
+            { abortSignal: requestBudgetSignal() },
+          ),
+        { error: classifyProviderError },
       ),
     ]);
 
@@ -319,12 +332,16 @@ export class StorageService {
     }
 
     try {
-      await this.s3.send(
-        new DeleteObjectCommand({
-          Bucket: this.bucket,
-          Key: key,
-        }),
-        { abortSignal: requestBudgetSignal() },
+      await this.circuit.execute(
+        () =>
+          this.s3.send(
+            new DeleteObjectCommand({
+              Bucket: this.bucket,
+              Key: key,
+            }),
+            { abortSignal: requestBudgetSignal() },
+          ),
+        { error: classifyProviderError },
       );
       this.logger.log(`Deleted: ${key}`);
     } catch (error) {
@@ -381,13 +398,17 @@ export class StorageService {
     let deleted = 0;
 
     do {
-      const page = await this.s3.send(
-        new ListObjectsV2Command({
-          Bucket: this.bucket,
-          Prefix: prefix,
-          ContinuationToken: continuationToken,
-        }),
-        { abortSignal: requestBudgetSignal() },
+      const page = await this.circuit.execute(
+        () =>
+          this.s3.send(
+            new ListObjectsV2Command({
+              Bucket: this.bucket,
+              Prefix: prefix,
+              ContinuationToken: continuationToken,
+            }),
+            { abortSignal: requestBudgetSignal() },
+          ),
+        { error: classifyProviderError },
       );
       const objects = (page.Contents ?? [])
         .map(({ Key }) => Key)
@@ -395,12 +416,16 @@ export class StorageService {
         .map((Key) => ({ Key }));
 
       if (objects.length > 0) {
-        const result = await this.s3.send(
-          new DeleteObjectsCommand({
-            Bucket: this.bucket,
-            Delete: { Objects: objects, Quiet: true },
-          }),
-          { abortSignal: requestBudgetSignal() },
+        const result = await this.circuit.execute(
+          () =>
+            this.s3.send(
+              new DeleteObjectsCommand({
+                Bucket: this.bucket,
+                Delete: { Objects: objects, Quiet: true },
+              }),
+              { abortSignal: requestBudgetSignal() },
+            ),
+          { error: classifyProviderError },
         );
         if (result.Errors?.length) {
           throw new Error(
