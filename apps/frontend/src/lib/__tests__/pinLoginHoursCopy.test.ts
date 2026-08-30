@@ -13,5 +13,11 @@ describe("PIN login hours copy", () => {
     expect(bgTranslation.staff.restrictPinLoginHours).toContain(
       "Разреши вход с ПИН само",
     );
+    expect(enTranslation.staff.pinLoginOvernightSummary).toContain(
+      "Ends next day",
+    );
+    expect(bgTranslation.staff.pinLoginOvernightSummary).toContain(
+      "следващия ден",
+    );
   });
 });

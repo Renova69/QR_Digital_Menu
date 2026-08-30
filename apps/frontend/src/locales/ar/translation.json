@@ -895,6 +895,7 @@
     "restrictPinLoginHours": "السماح بالدخول برمز PIN فقط خلال هذه الساعات",
     "pinLoginStart": "مسموح من",
     "pinLoginEnd": "مسموح حتى",
+    "pinLoginOvernightSummary": "ينتهي في اليوم التالي · يُسمح بتسجيل الدخول برمز PIN لمدة {{hours}} س {{minutes}} د.",
     "pinLoginHoursSaved": "تم حفظ ساعات الدخول برمز PIN.",
     "pinLoginHoursInvalid": "أدخل وقتين صالحين ومختلفين بتنسيق 24 ساعة HH:mm.",
     "failedUpdatePinLoginHours": "تعذر تحديث ساعات الدخول برمز PIN.",

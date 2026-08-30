@@ -345,6 +345,7 @@
     "restrictPinLoginHours": "Разреши вход с ПИН само през тези часове",
     "pinLoginStart": "Разрешен от",
     "pinLoginEnd": "Разрешен до",
+    "pinLoginOvernightSummary": "Край на следващия ден · входът с ПИН е разрешен за {{hours}} ч {{minutes}} мин.",
     "pinLoginHoursSaved": "Часовете за вход с ПИН са запазени.",
     "pinLoginHoursInvalid": "Въведете валидни и различни часове в 24-часов формат HH:mm.",
     "failedUpdatePinLoginHours": "Часовете за вход с ПИН не бяха актуализирани.",

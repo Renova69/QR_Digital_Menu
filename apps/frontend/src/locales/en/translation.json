@@ -343,6 +343,7 @@
     "restrictPinLoginHours": "Allow PIN login only during these hours",
     "pinLoginStart": "Allowed from",
     "pinLoginEnd": "Allowed until",
+    "pinLoginOvernightSummary": "Ends next day · PIN login allowed for {{hours}} h {{minutes}} min.",
     "pinLoginHoursSaved": "PIN login hours saved.",
     "pinLoginHoursInvalid": "Enter valid, different times in 24-hour HH:mm format.",
     "failedUpdatePinLoginHours": "Failed to update PIN login hours.",

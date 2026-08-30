@@ -999,6 +999,7 @@
     "restrictPinLoginHours": "Autoriser la connexion par PIN uniquement pendant ces heures",
     "pinLoginStart": "Autorisée à partir de",
     "pinLoginEnd": "Autorisée jusqu’à",
+    "pinLoginOvernightSummary": "Se termine le lendemain · connexion par PIN autorisée pendant {{hours}} h {{minutes}} min.",
     "pinLoginHoursSaved": "Horaires de connexion par PIN enregistrés.",
     "pinLoginHoursInvalid": "Saisissez des heures valides et différentes au format 24 heures HH:mm.",
     "failedUpdatePinLoginHours": "Impossible de mettre à jour les horaires de connexion par PIN.",

@@ -999,6 +999,7 @@
     "restrictPinLoginHours": "仅允许在这些时段使用 PIN 登录",
     "pinLoginStart": "允许开始时间",
     "pinLoginEnd": "允许结束时间",
+    "pinLoginOvernightSummary": "次日结束 · PIN 登录允许时长为 {{hours}} 小时 {{minutes}} 分钟。",
     "pinLoginHoursSaved": "PIN 登录时段已保存。",
     "pinLoginHoursInvalid": "请输入有效且不同的 24 小时制时间（HH:mm）。",
     "failedUpdatePinLoginHours": "无法更新 PIN 登录时段。",
