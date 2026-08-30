@@ -1,9 +1,8 @@
 # P3-4 — Menu and tenant-management queries
 
-Status (28 Aug 2026): **management slice implemented; review/CI pending.
-P3-4 remains PARTIAL.** This branch starts independently from main at
-`32fdc9e6` (PR #63), not from the open PR #64. PR #64 covers orders,
-assistance and feedback; this slice does not replace it.
+Status (29 Aug 2026): **IMPLEMENTATION COMPLETE — review/release pending.**
+The management slice is integrated with merged PR #64 and the final payment,
+import and translation-override slice on the consolidated P3 close-out branch.
 
 No deployment, migrations, schema/role changes, RLS activation, credentials,
 dependency changes or live database access. Backend deployment remains batched.
@@ -68,31 +67,26 @@ controllers, validation and bulk-edit service with substituted I/O.
 
 Local verification on this branch:
 
-- Backend: **216 suites / 3,595 tests pass**, including 50 new regression cases.
-  Coverage: 88.63% statements, 76.38% branches, 88.73% functions, 89.93% lines.
-- ESLint: **0 errors / 496 warnings**, within the unchanged 640-warning cap.
-- TypeScript `--noEmit --incremental false` and Nest build pass.
-- Gitleaks 8.28.0 with CI's directory-scan flags: no leaks; repository scanner
-  tests: 14/14; static migration-SQL safety check passes.
+- Full close-out backend: **222 suites / 3,661 tests pass**.
+- ESLint has zero errors within the existing warning cap; TypeScript/Nest and
+  frontend production builds pass.
+- Production dependency audit and all 26 database-safety policy tests pass.
 
 These are mocked Prisma contract tests, not live PostgreSQL race tests or
 proof of RLS enforcement. Database-backed e2e/migration checks and the full
 cross-app CI remain for CI; they were not run against any existing database.
 No database was connected, seeded, reset or modified for this slice.
 
-## Remaining P3-4 work
+## P3-4 close-out
 
-1. Review/merge PR #64 and this independent management slice; do not count an
-   open PR as merged or deployed.
-2. Review payment/session transaction scoping separately, preserving provider
-   callbacks, settlement and idempotency contracts.
-3. Complete the repository query inventory, including remaining import,
-   translation-override and other service-specific paths; either constrain
-   each relevant query or document its deliberate public/account/admin/token
-   contract. The six service modules above are not the whole repository.
-4. Carry the RLS evaluation from PR #64 into close-out. This PR neither enables
-   RLS nor changes pooling or database roles. Any infrastructure adoption is a
-   separate reviewed task, not an implied part of this code change.
+The final slice carries the authorized restaurant into payment settlement and
+reporting, cash-request mutation, menu import and translation-override queries.
+Provider callbacks, idempotency keys and public/token/account/admin paths retain
+their deliberately separate contracts. RLS remains deferred as described in
+the operational query evidence; no database role or pooling behavior changed.
+
+No implementation work remains inside P3-4. Review/CI and the batched release
+remain, and an open close-out PR must not be described as merged or deployed.
 
 Reference: [Prisma 6 query API](https://www.prisma.io/docs/orm/v6/reference/prisma-client-reference).
 The existing client accepts a unique ID alongside non-unique and relation
