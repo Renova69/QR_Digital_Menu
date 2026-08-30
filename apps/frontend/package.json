@@ -53,7 +53,7 @@
   "overrides": {
     "@svgr/webpack": "^8.0.1",
     "@adobe/css-tools": "^4.3.1",
-    "postcss": "^8.4.31"
+    "postcss": "^8.5.26"
   },
   "scripts": {
     "dev": "vite --host",
