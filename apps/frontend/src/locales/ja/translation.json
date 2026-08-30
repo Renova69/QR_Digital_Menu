@@ -891,12 +891,12 @@
   },
   "staff": {
     "pinLoginHours": "PIN ログイン時間",
-    "pinLoginHoursDesc": "スタッフの PIN ログインをレストランの現地時間に制限できます。日付をまたぐ時間帯にも対応しています。",
-    "restrictPinLoginHours": "PIN ログイン時間を制限",
-    "pinLoginStart": "開始",
-    "pinLoginEnd": "終了",
+    "pinLoginHoursDesc": "スタッフの PIN ログインは、レストランの現地時間で設定した時間帯のみ許可されます。日付をまたぐ時間帯にも対応しています。",
+    "restrictPinLoginHours": "この時間帯のみ PIN ログインを許可",
+    "pinLoginStart": "許可開始",
+    "pinLoginEnd": "許可終了",
     "pinLoginHoursSaved": "PIN ログイン時間を保存しました。",
-    "pinLoginHoursInvalid": "開始時刻と終了時刻を別にしてください。",
+    "pinLoginHoursInvalid": "有効かつ異なる時刻を24時間表記の HH:mm 形式で入力してください。",
     "failedUpdatePinLoginHours": "PIN ログイン時間を更新できませんでした。",
     "pinLoginTimezone": "時刻は {{timezone}} を使用します。"
   },

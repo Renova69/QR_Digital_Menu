@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Modal } from "../../../components/ui/modal";
+import { TwentyFourHourTimeInput } from "../../../components/ui/TwentyFourHourTimeInput";
 import StaffCreatedModal from "../../../components/staff/StaffCreatedModal";
 import {
   createDeviceEnrollment,
@@ -39,6 +40,7 @@ import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useFeature, useTier } from "../../../hooks/useFeature";
 import { useMinuteTicker } from "../../../hooks/useMinuteTicker";
 import { getApiError } from "../../../lib/apiError";
+import { isValidTwentyFourHourTime } from "../../../lib/twentyFourHourTime";
 import {
   deviceEnrollmentsForDashboard,
   deviceTrustState,
@@ -787,12 +789,14 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       pinHoursEnabled &&
       (!pinLoginStartTime ||
         !pinLoginEndTime ||
+        !isValidTwentyFourHourTime(pinLoginStartTime) ||
+        !isValidTwentyFourHourTime(pinLoginEndTime) ||
         pinLoginStartTime === pinLoginEndTime)
     ) {
       setPinHoursMessage(
         t(
           "staff.pinLoginHoursInvalid",
-          "Choose different start and end times.",
+          "Enter valid, different times in 24-hour HH:mm format.",
         ),
       );
       return;
@@ -1262,7 +1266,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       <p className="mt-1 text-xs text-muted-foreground">
                         {t(
                           "staff.pinLoginHoursDesc",
-                          "Optionally limit staff PIN login to restaurant-local hours. Overnight windows are supported.",
+                          "PIN login is allowed only within the configured restaurant-local time window. Overnight windows are supported.",
                         )}
                       </p>
                     </div>
@@ -1278,33 +1282,27 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       />
                       {t(
                         "staff.restrictPinLoginHours",
-                        "Restrict PIN login hours",
+                        "Allow PIN login only during these hours",
                       )}
                     </label>
                   </div>
                   {pinHoursEnabled && (
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <label className="text-xs text-muted-foreground">
-                        {t("staff.pinLoginStart", "Start")}
-                        <input
-                          type="time"
+                        {t("staff.pinLoginStart", "Allowed from")}
+                        <TwentyFourHourTimeInput
                           className={`${inputCls} mt-1`}
                           value={pinLoginStartTime}
-                          onChange={(event) =>
-                            setPinLoginStartTime(event.target.value)
-                          }
+                          onValueChange={setPinLoginStartTime}
                           disabled={pinHoursSaving}
                         />
                       </label>
                       <label className="text-xs text-muted-foreground">
-                        {t("staff.pinLoginEnd", "End")}
-                        <input
-                          type="time"
+                        {t("staff.pinLoginEnd", "Allowed until")}
+                        <TwentyFourHourTimeInput
                           className={`${inputCls} mt-1`}
                           value={pinLoginEndTime}
-                          onChange={(event) =>
-                            setPinLoginEndTime(event.target.value)
-                          }
+                          onValueChange={setPinLoginEndTime}
                           disabled={pinHoursSaving}
                         />
                       </label>
