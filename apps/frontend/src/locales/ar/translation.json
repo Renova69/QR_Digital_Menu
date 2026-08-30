@@ -891,12 +891,12 @@
   },
   "staff": {
     "pinLoginHours": "ساعات تسجيل الدخول برمز PIN",
-    "pinLoginHoursDesc": "يمكنك تقييد دخول الموظفين برمز PIN بحسب التوقيت المحلي للمطعم. الفترات التي تتجاوز منتصف الليل مدعومة.",
-    "restrictPinLoginHours": "تقييد ساعات الدخول برمز PIN",
-    "pinLoginStart": "البداية",
-    "pinLoginEnd": "النهاية",
+    "pinLoginHoursDesc": "يُسمح للموظفين بتسجيل الدخول برمز PIN فقط خلال الفترة المحددة حسب التوقيت المحلي للمطعم. الفترات التي تتجاوز منتصف الليل مدعومة.",
+    "restrictPinLoginHours": "السماح بالدخول برمز PIN فقط خلال هذه الساعات",
+    "pinLoginStart": "مسموح من",
+    "pinLoginEnd": "مسموح حتى",
     "pinLoginHoursSaved": "تم حفظ ساعات الدخول برمز PIN.",
-    "pinLoginHoursInvalid": "اختر وقتين مختلفين للبداية والنهاية.",
+    "pinLoginHoursInvalid": "أدخل وقتين صالحين ومختلفين بتنسيق 24 ساعة HH:mm.",
     "failedUpdatePinLoginHours": "تعذر تحديث ساعات الدخول برمز PIN.",
     "pinLoginTimezone": "تستخدم الأوقات المنطقة {{timezone}}."
   },

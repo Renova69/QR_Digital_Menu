@@ -906,12 +906,12 @@
   },
   "staff": {
     "pinLoginHours": "Часы входа по PIN",
-    "pinLoginHoursDesc": "При необходимости ограничьте вход сотрудников по PIN местным временем ресторана. Поддерживаются интервалы через полночь.",
-    "restrictPinLoginHours": "Ограничить часы входа по PIN",
-    "pinLoginStart": "Начало",
-    "pinLoginEnd": "Конец",
+    "pinLoginHoursDesc": "Вход сотрудников по PIN разрешён только в заданный период по местному времени ресторана. Поддерживаются интервалы через полночь.",
+    "restrictPinLoginHours": "Разрешать вход по PIN только в эти часы",
+    "pinLoginStart": "Разрешено с",
+    "pinLoginEnd": "Разрешено до",
     "pinLoginHoursSaved": "Часы входа по PIN сохранены.",
-    "pinLoginHoursInvalid": "Выберите разные время начала и окончания.",
+    "pinLoginHoursInvalid": "Введите корректные разные значения времени в 24-часовом формате HH:mm.",
     "failedUpdatePinLoginHours": "Не удалось обновить часы входа по PIN.",
     "pinLoginTimezone": "Время указано для {{timezone}}."
   },
