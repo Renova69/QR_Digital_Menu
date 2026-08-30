@@ -935,8 +935,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
           </div>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <section className="rounded-lg border border-border bg-background">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="min-w-0 rounded-lg border border-border bg-background">
             <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">
@@ -946,12 +946,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                   {t("staff.teamConsoleDesc")}
                 </p>
               </div>
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+              <label className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
                 <Filter className="h-4 w-4" />
                 <select
                   value={roleFilter}
                   onChange={(event) => setRoleFilter(event.target.value)}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium normal-case text-foreground"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium normal-case text-foreground md:flex-none"
                 >
                   <option value="ALL">{t("staff.filterAll")}</option>
                   <option value="ACTIVE">{t("staff.filterActive")}</option>
@@ -997,9 +997,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                 {t("staff.noStaffMatchFilter")}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+              <div className="overflow-visible md:overflow-x-auto">
+                <table className="block w-full text-sm md:table md:min-w-[760px]">
+                  <thead className="hidden bg-muted/40 text-xs uppercase text-muted-foreground md:table-header-group">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold">
                         {t("staff.nameColumn")}
@@ -1019,7 +1019,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       <th className="w-14 px-4 py-3" />
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="block space-y-3 p-3 md:table-row-group md:space-y-0 md:p-0">
                     {filteredStaff.map((member) => {
                       const isInactive = member.isActive === false;
                       const isBusy = busyStaffId === member.id;
@@ -1032,9 +1032,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                             { value: member.role, label: member.role },
                           ].filter((role) => role.value !== "OWNER");
                       return (
-                        <tr key={member.id} className="border-t border-border">
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-foreground">
+                        <tr
+                          key={member.id}
+                          className="relative block rounded-lg border border-border bg-muted/20 p-3 md:table-row md:rounded-none md:border-x-0 md:border-b-0 md:bg-transparent md:p-0"
+                        >
+                          <td className="block min-w-0 pr-12 md:table-cell md:px-4 md:py-3 md:pr-4">
+                            <p className="break-words font-medium text-foreground">
                               {member.name || t("staff.unnamedStaff")}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -1046,17 +1049,25 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               })}
                             </p>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {displayEmail(member.email)}
+                          <td className="mt-3 flex min-w-0 flex-col gap-1 border-t border-border pt-3 text-muted-foreground sm:flex-row sm:items-start sm:justify-between sm:gap-3 md:table-cell md:border-0 md:px-4 md:py-3">
+                            <span className="text-xs font-semibold text-foreground md:hidden">
+                              {t("staff.emailColumn")}
+                            </span>
+                            <span className="min-w-0 break-all sm:text-right md:text-left">
+                              {displayEmail(member.email)}
+                            </span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 md:table-cell md:border-0 md:px-4 md:py-3">
+                            <span className="text-xs font-semibold text-foreground md:hidden">
+                              {t("staff.roleColumn")}
+                            </span>
                             <select
                               value={member.role}
                               disabled={isBusy}
                               onChange={(event) =>
                                 handleRoleChange(member, event.target.value)
                               }
-                              className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground disabled:opacity-60"
+                              className="min-w-0 max-w-[65%] rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground disabled:opacity-60 md:max-w-none"
                             >
                               {roleOptions.map((role) => (
                                 <option key={role.value} value={role.value}>
@@ -1065,7 +1076,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               ))}
                             </select>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 md:table-cell md:border-0 md:px-4 md:py-3">
+                            <span className="text-xs font-semibold text-foreground md:hidden">
+                              {t("staff.colStatus")}
+                            </span>
                             <span
                               className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
                                 isInactive
@@ -1076,13 +1090,18 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               {isInactive ? "Inactive" : "Active"}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {formatDateTime(
-                              member.updatedAt,
-                              activeRestaurant.timezone,
-                            )}
+                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 text-muted-foreground md:table-cell md:border-0 md:px-4 md:py-3">
+                            <span className="text-xs font-semibold text-foreground md:hidden">
+                              {t("staff.colLastUpdate")}
+                            </span>
+                            <span className="text-right md:text-left">
+                              {formatDateTime(
+                                member.updatedAt,
+                                activeRestaurant.timezone,
+                              )}
+                            </span>
                           </td>
-                          <td className="relative px-4 py-3 text-right">
+                          <td className="absolute right-2 top-2 text-right md:relative md:right-auto md:top-auto md:table-cell md:px-4 md:py-3">
                             <button
                               type="button"
                               data-kebab
@@ -1189,12 +1208,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             )}
           </section>
 
-          <aside className="space-y-4">
+          <aside className="min-w-0 space-y-4">
             {/* Shared-device bonding is a POS/KDS concept — gate by canPos (#15) */}
             {canPos && (
               <section className="rounded-lg border border-border bg-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">
                       {t("staff.sharedDeviceMode")}
                     </p>
@@ -1208,6 +1227,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                     size="sm"
                     onClick={handleSharedDeviceToggle}
                     disabled={sharedDeviceUpdating}
+                    className="w-full sm:w-auto"
                   >
                     <Smartphone className="mr-2 h-4 w-4" />
                     {sharedDeviceUpdating
@@ -1234,8 +1254,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         ))}
                 </p>
                 <div className="mt-4 border-t border-border pt-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">
                         {t("staff.pinLoginHours", "PIN login hours")}
                       </p>
@@ -1246,7 +1266,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         )}
                       </p>
                     </div>
-                    <label className="flex shrink-0 items-center gap-2 text-xs text-foreground">
+                    <label className="flex items-center gap-2 text-xs text-foreground sm:shrink-0">
                       <input
                         type="checkbox"
                         checked={pinHoursEnabled}
@@ -1263,7 +1283,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                     </label>
                   </div>
                   {pinHoursEnabled && (
-                    <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <label className="text-xs text-muted-foreground">
                         {t("staff.pinLoginStart", "Start")}
                         <input
@@ -1290,7 +1310,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       </label>
                     </div>
                   )}
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-muted-foreground">
                       {t("staff.pinLoginTimezone", {
                         timezone: activeRestaurant.timezone ?? "Europe/Sofia",
@@ -1303,6 +1323,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       size="sm"
                       onClick={handleSavePinLoginHours}
                       disabled={pinHoursSaving}
+                      className="w-full sm:w-auto"
                     >
                       {pinHoursSaving
                         ? t("common.saving", "Saving")
@@ -1320,8 +1341,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
 
             {canPos && (
               <section className="rounded-lg border border-border bg-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">
                       {t("staff.bondDevice")}
                     </p>
@@ -1339,6 +1360,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       !activeRestaurant ||
                       !sharedDeviceEnabled
                     }
+                    className="w-full sm:w-auto"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     {deviceEnrollmentLoading ? t("staff.generating") : "New"}
@@ -1352,8 +1374,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                 )}
 
                 {deviceEnrollmentUrl && (
-                  <div className="mt-4 flex gap-3">
-                    <div className="rounded-lg bg-white p-2">
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <div className="mx-auto rounded-lg bg-white p-2 sm:mx-0">
                       <QRCodeSVG value={deviceEnrollmentUrl} size={112} />
                     </div>
                     <div className="min-w-0 flex-1">
