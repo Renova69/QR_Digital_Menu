@@ -1000,6 +1000,7 @@
     "restrictPinLoginHours": "Να επιτρέπεται σύνδεση με PIN μόνο αυτές τις ώρες",
     "pinLoginStart": "Επιτρέπεται από",
     "pinLoginEnd": "Επιτρέπεται έως",
+    "pinLoginOvernightSummary": "Λήγει την επόμενη ημέρα · η σύνδεση με PIN επιτρέπεται για {{hours}} ώρες {{minutes}} λεπτά.",
     "pinLoginHoursSaved": "Οι ώρες σύνδεσης με PIN αποθηκεύτηκαν.",
     "pinLoginHoursInvalid": "Εισαγάγετε έγκυρες και διαφορετικές ώρες σε 24ωρη μορφή HH:mm.",
     "failedUpdatePinLoginHours": "Δεν ήταν δυνατή η ενημέρωση των ωρών σύνδεσης με PIN.",

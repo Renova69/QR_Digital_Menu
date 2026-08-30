@@ -40,7 +40,10 @@ import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { useFeature, useTier } from "../../../hooks/useFeature";
 import { useMinuteTicker } from "../../../hooks/useMinuteTicker";
 import { getApiError } from "../../../lib/apiError";
-import { isValidTwentyFourHourTime } from "../../../lib/twentyFourHourTime";
+import {
+  getTwentyFourHourWindow,
+  isValidTwentyFourHourTime,
+} from "../../../lib/twentyFourHourTime";
 import {
   deviceEnrollmentsForDashboard,
   deviceTrustState,
@@ -237,6 +240,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   );
   const [pinHoursSaving, setPinHoursSaving] = useState(false);
   const [pinHoursMessage, setPinHoursMessage] = useState("");
+  const pinLoginWindow = getTwentyFourHourWindow(
+    pinLoginStartTime,
+    pinLoginEndTime,
+  );
 
   const [deviceEnrollmentUrl, setDeviceEnrollmentUrl] = useState("");
   const [deviceEnrollmentExpiresAt, setDeviceEnrollmentExpiresAt] =
@@ -1306,6 +1313,21 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                           disabled={pinHoursSaving}
                         />
                       </label>
+                      {pinLoginWindow?.crossesMidnight && (
+                        <p
+                          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 sm:col-span-2 dark:text-amber-300"
+                          role="status"
+                        >
+                          {t("staff.pinLoginOvernightSummary", {
+                            hours: Math.floor(
+                              pinLoginWindow.durationMinutes / 60,
+                            ),
+                            minutes: pinLoginWindow.durationMinutes % 60,
+                            defaultValue:
+                              "Ends next day · PIN login allowed for {{hours}} h {{minutes}} min.",
+                          })}
+                        </p>
+                      )}
                     </div>
                   )}
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

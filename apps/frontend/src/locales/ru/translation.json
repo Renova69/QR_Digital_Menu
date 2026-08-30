@@ -910,6 +910,7 @@
     "restrictPinLoginHours": "Разрешать вход по PIN только в эти часы",
     "pinLoginStart": "Разрешено с",
     "pinLoginEnd": "Разрешено до",
+    "pinLoginOvernightSummary": "Окончание на следующий день · вход по PIN разрешён на {{hours}} ч {{minutes}} мин.",
     "pinLoginHoursSaved": "Часы входа по PIN сохранены.",
     "pinLoginHoursInvalid": "Введите корректные разные значения времени в 24-часовом формате HH:mm.",
     "failedUpdatePinLoginHours": "Не удалось обновить часы входа по PIN.",
