@@ -77,8 +77,11 @@ jobs:
           node-version: "24.18.0"
           cache: "npm"
 
-      - name: Repo secret-pattern scanner tests
-        run: node --test scripts/scan-staged-secrets.test.js
+      - name: Pull request self-review gate
+        run: node scripts/check-pr-review.js
+
+      - name: Repository policy tests
+        run: npm run test:repository-policy
 
       - name: Reject destructive migration SQL
         run: node scripts/check-migration-safety.js apps/backend/prisma/migrations
@@ -116,6 +119,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Production dependency security gate
+        run: npm run audit:production
+
       - name: Database safety guard tests
         run: |
           npm run test:database-safety
@@ -124,6 +130,11 @@ jobs:
       - name: Generate Prisma Client
         working-directory: apps/backend
         run: npx prisma generate
+
+      - name: Verify published OpenAPI contract
+        run: |
+          npm run openapi:generate
+          git diff --exit-code -- apps/docs/static/api/openapi.json
 
       - name: Run Database Migrations
         working-directory: apps/backend

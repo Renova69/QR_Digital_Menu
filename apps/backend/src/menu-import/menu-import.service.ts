@@ -207,7 +207,7 @@ export class MenuImportService {
           }
 
           await tx.menuCategory.update({
-            where: { id: existingCat.id },
+            where: { id: existingCat.id, restaurantId },
             data: catData,
           });
           categoryId = existingCat.id;
@@ -326,7 +326,10 @@ export class MenuImportService {
             }
 
             await tx.menuItem.update({
-              where: { id: existing.id },
+              where: {
+                id: existing.id,
+                category: { restaurantId },
+              },
               data: itemData,
             });
             menuItemId = existing.id;
@@ -349,7 +352,12 @@ export class MenuImportService {
             existingOptMap.set(eo.name.toLowerCase(), eo);
           }
 
-          await tx.menuOption.deleteMany({ where: { menuItemId } });
+          await tx.menuOption.deleteMany({
+            where: {
+              menuItemId,
+              menuItem: { category: { restaurantId } },
+            },
+          });
 
           for (const opt of item.options ?? []) {
             if (!opt.choices?.length) continue;
@@ -586,15 +594,16 @@ export class MenuImportService {
   async getOrCreateApiKey(restaurantId: string, userId: string) {
     await this.checkOwnership(restaurantId, userId);
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ownerId: userId },
       select: { importApiKeyHash: true },
     });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (restaurant?.importApiKeyHash) {
       return { configured: true };
     }
     const key = this.generateKey();
     await this.prisma.restaurant.update({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ownerId: userId },
       data: { importApiKeyHash: this.hashKey(key) },
     });
     return { apiKey: key, generated: true };
@@ -604,7 +613,7 @@ export class MenuImportService {
     await this.checkOwnership(restaurantId, userId);
     const key = this.generateKey();
     await this.prisma.restaurant.update({
-      where: { id: restaurantId },
+      where: { id: restaurantId, ownerId: userId },
       data: { importApiKeyHash: this.hashKey(key) },
     });
     return { apiKey: key };

@@ -77,6 +77,12 @@ const config: Config = {
           label: "Admin",
         },
         {
+          type: "docSidebar",
+          sidebarId: "apiSidebar",
+          position: "left",
+          label: "API",
+        },
+        {
           href: "https://qr-digital-menu-ivory.vercel.app/",
           label: "Back to App",
           position: "right",

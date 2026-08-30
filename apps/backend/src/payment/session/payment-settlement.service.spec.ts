@@ -140,7 +140,7 @@ describe('PaymentSettlementService', () => {
     const { lockOrder, service, session, tx } = createHarness();
 
     await expect(
-      service.confirmCashPaymentRequest(requestId, 'manager-1'),
+      service.confirmCashPaymentRequest(requestId, 'restaurant-1', 'manager-1'),
     ).resolves.toMatchObject({
       id: requestId,
       status: CashPaymentRequestStatus.PAID,
@@ -160,7 +160,7 @@ describe('PaymentSettlementService', () => {
     const { lockOrder, service, session, tx } = createHarness('session-2');
 
     await expect(
-      service.confirmCashPaymentRequest(requestId, 'manager-1'),
+      service.confirmCashPaymentRequest(requestId, 'restaurant-1', 'manager-1'),
     ).rejects.toThrow(
       new ConflictException(
         'Cash payment request changed during confirmation. Please retry.',
@@ -327,7 +327,7 @@ describe('PaymentSettlementService', () => {
       );
 
       await expect(
-        service.cancelCashPaymentRequest('req-999', 'manager-1'),
+        service.cancelCashPaymentRequest('req-999', 'rest-1', 'manager-1'),
       ).rejects.toThrow(
         new NotFoundException('Cash payment request not found'),
       );
@@ -355,7 +355,7 @@ describe('PaymentSettlementService', () => {
       );
 
       await expect(
-        service.cancelCashPaymentRequest('req-1', 'manager-1'),
+        service.cancelCashPaymentRequest('req-1', 'rest-1', 'manager-1'),
       ).rejects.toThrow(
         new ConflictException('Cash payment request is already handled'),
       );

@@ -17,6 +17,7 @@
     "slug:backfill-verify": "npx ts-node prisma/backfill-restaurant-slugs.ts",
     "slug:verify": "npx ts-node prisma/backfill-restaurant-slugs.ts --verify-only",
     "migrate:payment-secrets": "node dist/payment/payment-secret-migration.cli.js",
+    "openapi:generate": "nest build && node dist/generate-openapi.js",
     "migrate:reset": "node scripts/prisma-migrate-guard.js --allow-reset && npx prisma migrate reset",
     "db:backup": "node scripts/db-backup.js",
     "db:restore": "node scripts/db-restore.js",

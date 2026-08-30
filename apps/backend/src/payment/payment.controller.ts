@@ -25,7 +25,11 @@ import { ResolvePaymentReconciliationDto } from './dto/resolve-payment-reconcili
 import { ReopenSessionReconciliationDto } from './dto/reopen-session-reconciliation.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
-import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
+import {
+  AuthorizedRestaurant,
+  RequireRestaurantAccess,
+} from '../auth/require-restaurant-access.decorator';
+import type { RestaurantAccessContext } from '../auth/restaurant-access.policy';
 import { PaymentService } from './payment.service';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
@@ -405,12 +409,14 @@ export class PaymentController {
   })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   resolvePaymentReconciliationIssue(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Req() req: PaymentActorRequest,
     @Param('issueId') issueId: string,
     @Body() body: ResolvePaymentReconciliationDto,
   ) {
     return this.paymentService.resolvePaymentReconciliationIssue(
       issueId,
+      access.restaurantId,
       req.user.id,
       body.status,
       body.note,
@@ -428,12 +434,14 @@ export class PaymentController {
   })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   reopenSessionForRecollection(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Req() req: PaymentActorRequest,
     @Param('issueId') issueId: string,
     @Body() body: ReopenSessionReconciliationDto,
   ) {
     return this.paymentService.reopenSessionForRecollection(
       issueId,
+      access.restaurantId,
       req.user.id,
       body.note,
     );
@@ -467,10 +475,15 @@ export class PaymentController {
     resource: 'cash-request',
   })
   confirmCashPaymentRequest(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Req() req: PaymentActorRequest,
     @Param('id') id: string,
   ) {
-    return this.paymentService.confirmCashPaymentRequest(id, req.user.id);
+    return this.paymentService.confirmCashPaymentRequest(
+      id,
+      access.restaurantId,
+      req.user.id,
+    );
   }
 
   @Post('cash-requests/:id/cancel')
@@ -482,10 +495,15 @@ export class PaymentController {
     resource: 'cash-request',
   })
   cancelCashPaymentRequest(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Req() req: PaymentActorRequest,
     @Param('id') id: string,
   ) {
-    return this.paymentService.cancelCashPaymentRequest(id, req.user.id);
+    return this.paymentService.cancelCashPaymentRequest(
+      id,
+      access.restaurantId,
+      req.user.id,
+    );
   }
 
   @Get('export/:restaurantId')
@@ -515,10 +533,15 @@ export class PaymentController {
   })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPaymentDetail(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Req() req: PaymentActorRequest,
     @Param('paymentId') paymentId: string,
   ) {
-    return this.paymentService.getPaymentDetail(paymentId, req.user.id);
+    return this.paymentService.getPaymentDetail(
+      paymentId,
+      access.restaurantId,
+      req.user.id,
+    );
   }
 
   @Post(':paymentId/refund')
@@ -532,11 +555,17 @@ export class PaymentController {
   })
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   refundPayment(
+    @AuthorizedRestaurant() access: RestaurantAccessContext,
     @Req() req: PaymentActorRequest,
     @Param('paymentId') paymentId: string,
     @Body() body: RefundPaymentDto,
   ) {
-    return this.paymentService.refundPayment(paymentId, req.user.id, body);
+    return this.paymentService.refundPayment(
+      paymentId,
+      access.restaurantId,
+      req.user.id,
+      body,
+    );
   }
 
   @Post('webhook')

@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsArray, IsString, IsInt, Min, ValidateNested } from 'class-validator';
 
-class ReorderItem {
+export class ReorderItem {
   @IsString()
   id: string;
 

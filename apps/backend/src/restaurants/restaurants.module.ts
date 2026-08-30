@@ -15,6 +15,7 @@ import {
   SlugController,
 } from './slug/slug.controller';
 import { PinSecurityModule } from '../auth/pin-security.module';
+import { SessionRevocationModule } from '../auth/session-revocation.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PinSecurityModule } from '../auth/pin-security.module';
     MenuModule,
     SlugModule,
     PinSecurityModule,
+    SessionRevocationModule,
   ],
   controllers: [
     RestaurantsController,

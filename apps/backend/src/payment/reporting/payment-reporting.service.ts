@@ -205,23 +205,28 @@ export class PaymentReportingService {
 
   async resolvePaymentReconciliationIssue(
     issueId: string,
+    restaurantId: string,
     userId: string,
     status: 'RESOLVED' | 'DISMISSED',
     note?: string,
   ) {
     const issue = await this.prisma.paymentReconciliationIssue.findUnique({
-      where: { id: issueId },
+      where: { id: issueId, restaurantId },
       select: { id: true, restaurantId: true, status: true },
     });
     if (!issue) throw new NotFoundException('Reconciliation issue not found');
 
-    await this.core.verifyRestaurantAccess(issue.restaurantId, userId);
+    await this.core.verifyRestaurantAccess(restaurantId, userId);
     if (issue.status !== PaymentReconciliationStatus.OPEN) {
       throw new ConflictException('Reconciliation issue is already closed');
     }
 
     const updated = await this.prisma.paymentReconciliationIssue.updateMany({
-      where: { id: issueId, status: PaymentReconciliationStatus.OPEN },
+      where: {
+        id: issueId,
+        restaurantId,
+        status: PaymentReconciliationStatus.OPEN,
+      },
       data: {
         status,
         resolutionNote: note?.trim() || null,
@@ -236,7 +241,7 @@ export class PaymentReportingService {
     }
 
     return this.prisma.paymentReconciliationIssue.findUnique({
-      where: { id: issueId },
+      where: { id: issueId, restaurantId },
     });
   }
 
@@ -250,11 +255,12 @@ export class PaymentReportingService {
    */
   async reopenSessionForRecollection(
     issueId: string,
+    restaurantId: string,
     userId: string,
     note?: string,
   ) {
     const issue = await this.prisma.paymentReconciliationIssue.findUnique({
-      where: { id: issueId },
+      where: { id: issueId, restaurantId },
       select: {
         id: true,
         restaurantId: true,
@@ -265,7 +271,7 @@ export class PaymentReportingService {
     });
     if (!issue) throw new NotFoundException('Reconciliation issue not found');
 
-    await this.core.verifyRestaurantAccess(issue.restaurantId, userId);
+    await this.core.verifyRestaurantAccess(restaurantId, userId);
     if (issue.status !== PaymentReconciliationStatus.OPEN) {
       throw new ConflictException('Reconciliation issue is already closed');
     }
@@ -283,7 +289,7 @@ export class PaymentReportingService {
 
     const reopenedSession = await this.prisma.$transaction(async (tx) => {
       const session = await tx.tableSession.findUnique({
-        where: { id: tableSessionId },
+        where: { id: tableSessionId, restaurantId },
         select: { id: true, tableId: true, restaurantId: true, status: true },
       });
       if (!session) {
@@ -294,6 +300,7 @@ export class PaymentReportingService {
         const conflicting = await tx.tableSession.findFirst({
           where: {
             tableId: session.tableId,
+            restaurantId,
             status: TableSessionStatus.OPEN,
             NOT: { id: session.id },
           },
@@ -305,13 +312,17 @@ export class PaymentReportingService {
           );
         }
         await tx.tableSession.update({
-          where: { id: session.id },
+          where: { id: session.id, restaurantId },
           data: { status: TableSessionStatus.OPEN, paidAt: null },
         });
       }
 
       const issueUpdate = await tx.paymentReconciliationIssue.updateMany({
-        where: { id: issueId, status: PaymentReconciliationStatus.OPEN },
+        where: {
+          id: issueId,
+          restaurantId,
+          status: PaymentReconciliationStatus.OPEN,
+        },
         data: {
           status: PaymentReconciliationStatus.RESOLVED,
           resolutionNote: note?.trim() || 'Session reopened for re-collection',
@@ -335,7 +346,7 @@ export class PaymentReportingService {
     );
 
     return this.prisma.paymentReconciliationIssue.findUnique({
-      where: { id: issueId },
+      where: { id: issueId, restaurantId },
     });
   }
 
@@ -528,9 +539,13 @@ export class PaymentReportingService {
     };
   }
 
-  async getPaymentDetail(paymentId: string, userId: string) {
+  async getPaymentDetail(
+    paymentId: string,
+    restaurantId: string,
+    userId: string,
+  ) {
     const payment = await this.prisma.payment.findUnique({
-      where: { id: paymentId },
+      where: { id: paymentId, restaurantId },
       include: {
         tableSession: {
           include: {
@@ -575,7 +590,7 @@ export class PaymentReportingService {
       throw new NotFoundException('Payment not found');
     }
 
-    await this.core.verifyRestaurantAccess(payment.restaurantId, userId);
+    await this.core.verifyRestaurantAccess(restaurantId, userId);
 
     const mapped = this.core.mapPayment(payment);
     const mapOptions = (selectedOptions: unknown) =>

@@ -889,6 +889,17 @@
       "noOrders": "لا توجد طلبات مسجّلة لهذه الزيارة."
     }
   },
+  "staff": {
+    "pinLoginHours": "ساعات تسجيل الدخول برمز PIN",
+    "pinLoginHoursDesc": "يمكنك تقييد دخول الموظفين برمز PIN بحسب التوقيت المحلي للمطعم. الفترات التي تتجاوز منتصف الليل مدعومة.",
+    "restrictPinLoginHours": "تقييد ساعات الدخول برمز PIN",
+    "pinLoginStart": "البداية",
+    "pinLoginEnd": "النهاية",
+    "pinLoginHoursSaved": "تم حفظ ساعات الدخول برمز PIN.",
+    "pinLoginHoursInvalid": "اختر وقتين مختلفين للبداية والنهاية.",
+    "failedUpdatePinLoginHours": "تعذر تحديث ساعات الدخول برمز PIN.",
+    "pinLoginTimezone": "تستخدم الأوقات المنطقة {{timezone}}."
+  },
   "deviceEnrollment": {
     "verifying": "جارٍ التحقق من رابط الجهاز...",
     "missingToken": "رمز التحقق مفقود من رابط تسجيل هذا الجهاز.",
@@ -929,6 +940,7 @@
     "emailAlreadyExists": "يوجد حساب بهذا البريد الإلكتروني بالفعل.",
     "googleEmailNotVerified": "لم يتم التحقق من البريد الإلكتروني لحساب Google الخاص بك. تحقق منه لدى Google ثم حاول مرة أخرى.",
     "smsNotConfigured": "التحقق عبر الرسائل القصيرة غير متاح حاليًا.",
+    "stepUpRequired": "سجّل الدخول مرة أخرى قبل تنفيذ هذا الإجراء الحساس.",
     "identityInUse": "تسجيل الدخول هذا مرتبط بحساب آخر بالفعل.",
     "invalidPin": "رمز PIN غير صحيح.",
     "invalidPinWithAttempts_one": "رمز PIN غير صحيح. بقيت {{count}} محاولة.",
@@ -947,6 +959,7 @@
     "deviceTrustExpired": "لم يعد هذا الجهاز موثوقًا لتسجيل الدخول برمز PIN. اطلب من المدير إعداده مرة أخرى.",
     "deviceRevoked": "تم سحب صلاحية الوصول لهذا الجهاز.",
     "sharedDeviceModeDisabled": "وضع الجهاز المشترك متوقف. اطلب من المدير تفعيله.",
+    "pinLoginOutsideHours": "تسجيل دخول الموظفين برمز PIN مغلق في هذا الوقت.",
     "restaurantSuspended": "تم تعليق هذا المطعم.",
     "staffDeviceLimitReached": "بلغ هذا المطعم الحد الأقصى لأجهزة الموظفين.",
     "posNotInPlan": "نقطة البيع غير مشمولة في هذه الخطة.",

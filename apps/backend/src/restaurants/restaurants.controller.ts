@@ -31,6 +31,7 @@ import { CreateDeviceEnrollmentDto } from './dto/create-device-enrollment.dto';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { RequireStepUp } from '../auth/step-up-auth.guard';
 
 @Controller('restaurants')
 export class RestaurantsController {
@@ -178,6 +179,7 @@ export class RestaurantsController {
     }
   }
 
+  @RequireStepUp()
   @RequireFeature(FeatureFlag.POS)
   @UseGuards(FeatureGuard)
   @RequireRestaurantAccess({
@@ -247,6 +249,7 @@ export class RestaurantsController {
   /** Revoke a specific enrolled device token so it can no longer be used for
    *  PIN login. The device will be rejected at next login attempt.
    *  DELETE /api/restaurants/:restaurantId/device-enrollments/:tokenId */
+  @RequireStepUp()
   @RequireFeature(FeatureFlag.POS)
   @UseGuards(FeatureGuard)
   @RequireRestaurantAccess({

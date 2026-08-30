@@ -9,22 +9,28 @@ import {
 } from '@nestjs/common';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ConsentService } from './consent.service';
 
 class RecordConsentDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   restaurantId?: string;
 
+  @ApiProperty()
   @IsString()
   visitorId: string;
 
+  @ApiProperty({ enum: ['ANALYTICS', 'MARKETING'] })
   @IsIn(['ANALYTICS', 'MARKETING'])
   category: 'ANALYTICS' | 'MARKETING';
 
+  @ApiProperty()
   @IsBoolean()
   granted: boolean;
 
+  @ApiProperty({ type: Number })
   @IsInt()
   policyVersion: number;
 }

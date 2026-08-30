@@ -6,10 +6,15 @@ import {
 } from './translation-provider.interface';
 import { GlossaryService } from './glossary.service';
 import { isGarbageTranslation } from './translation-validator';
+import {
+  createProviderCircuit,
+  classifyProviderError,
+} from '../common/http/provider-circuit';
 
 @Injectable()
 export class TranslationService {
   private readonly logger = new Logger(TranslationService.name);
+  private readonly providerCircuit = createProviderCircuit('translation');
 
   constructor(
     @Inject(TRANSLATION_PROVIDER)
@@ -21,33 +26,6 @@ export class TranslationService {
   // for self-hosted providers too — a shared delay between per-language
   // calls is a harmless default even when the provider has no rate limit.
   private static readonly LANG_DELAY_MS = 250;
-
-  // Circuit breaker: during a sustained provider outage, retrying every
-  // request blocks every public-menu render. After this many consecutive
-  // failures the breaker opens and translateTexts fast-fails for a cooldown
-  // window — callers fall back to original text without blocking, and
-  // nothing untranslated gets cached.
-  private static readonly CIRCUIT_THRESHOLD = 5;
-  private static readonly CIRCUIT_COOLDOWN_MS = 60_000;
-  private consecutiveFailures = 0;
-  private circuitOpenUntil = 0;
-
-  private isCircuitOpen(): boolean {
-    return Date.now() < this.circuitOpenUntil;
-  }
-
-  private recordSuccess(): void {
-    this.consecutiveFailures = 0;
-    this.circuitOpenUntil = 0;
-  }
-
-  private recordFailure(): void {
-    this.consecutiveFailures++;
-    if (this.consecutiveFailures >= TranslationService.CIRCUIT_THRESHOLD) {
-      this.circuitOpenUntil =
-        Date.now() + TranslationService.CIRCUIT_COOLDOWN_MS;
-    }
-  }
 
   private sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));
@@ -137,36 +115,23 @@ export class TranslationService {
       return texts.map((t) => bySource.get(t) ?? t);
     }
 
-    // Fast-fail while the breaker is open instead of blocking on 5× backoff per
-    // request during a sustained outage. Callers treat this like any other
-    // failure (skip DB writes, render original text).
-    if (this.isCircuitOpen()) {
-      this.logger.warn(
-        'Translation circuit open — skipping translation until cooldown elapses',
-      );
-      throw new Error('Translation circuit open (degraded mode)');
-    }
-
     const startedAt = Date.now();
     this.logger.log(
       `Calling translation provider: ${toTranslate.length} texts -> ${targetLanguage}${sourceLanguage ? ` (source=${sourceLanguage})` : ''}`,
     );
-    let translatedToTranslate: string[];
-    try {
-      translatedToTranslate = await this.provider.translateBatch(
-        toTranslate,
-        targetLanguage,
-        sourceLanguage,
-        opts,
-      );
-      this.recordSuccess();
-      this.logger.log(
-        `Provider call done: ${toTranslate.length} texts -> ${targetLanguage} in ${Date.now() - startedAt}ms`,
-      );
-    } catch (err) {
-      this.recordFailure();
-      throw err;
-    }
+    const translatedToTranslate = await this.providerCircuit.execute(
+      () =>
+        this.provider.translateBatch(
+          toTranslate,
+          targetLanguage,
+          sourceLanguage,
+          opts,
+        ),
+      { error: classifyProviderError },
+    );
+    this.logger.log(
+      `Provider call done: ${toTranslate.length} texts -> ${targetLanguage} in ${Date.now() - startedAt}ms`,
+    );
     // Garbage detection used to fall back to `translated = source` — which
     // is exactly the same poisoning shape as the removed glossary-only
     // gate: an unrecognized/failed translation silently stored as if it

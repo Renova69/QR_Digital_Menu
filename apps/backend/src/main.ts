@@ -2,16 +2,11 @@
 import './instrument';
 
 import { NestFactory } from '@nestjs/core';
-import {
-  Logger,
-  RequestMethod,
-  ValidationPipe,
-  VersioningType,
-} from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { RedisIoAdapter } from './adapters/redis-io.adapter';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
 import helmet from 'helmet';
 import * as crypto from 'crypto';
@@ -28,6 +23,10 @@ import {
   handleFatalError,
   installFatalErrorHandlers,
 } from './common/fatal-error';
+import {
+  configureApiRouting,
+  createApiDocument,
+} from './common/api-documentation';
 
 function validateFrontendUrl(logger: Logger) {
   const rawFrontendUrl = process.env.FRONTEND_URL?.trim();
@@ -318,38 +317,13 @@ async function bootstrap() {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-  app.setGlobalPrefix('api', {
-    exclude: [
-      { path: '/', method: RequestMethod.GET },
-      // Short reservation manage-link redirect: `{BACKEND_URL}/r/:token`.
-      // Excluded from the /api prefix (and version-neutral in its controller)
-      // so the SMS link stays short.
-      { path: 'r/:token', method: RequestMethod.GET },
-    ],
-  });
-
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: '1',
-  });
+  configureApiRouting(app);
 
   // Swagger exposes the full API/DTO shape and accelerates endpoint
   // probing/scanning, so it is only mounted outside production. There is
   // no authenticated production consumer of /api-docs today.
   if (process.env.NODE_ENV !== 'production') {
-    const config = new DocumentBuilder()
-      .setTitle('QR Menu API')
-      .setDescription('API for QR-based restaurant menu system')
-      .setVersion('1.0')
-      .addTag('authentication', 'Endpoints for user authentication')
-      .addTag('menu', 'Endpoints for menu management')
-      .addTag('restaurants', 'Endpoints for restaurant management')
-      .addTag('dashboard', 'Endpoints for dashboard statistics')
-      .addBearerAuth()
-      .build();
-
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api-docs', app, document);
+    SwaggerModule.setup('api-docs', app, createApiDocument(app));
   }
 
   const redisAdapter = new RedisIoAdapter(app);

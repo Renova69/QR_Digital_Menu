@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   AuthorizedRestaurant,
   RequireRestaurantAccess,
@@ -20,11 +21,13 @@ import { RestaurantAccessContext } from '../auth/restaurant-access.policy';
 import { MenuViewService } from './menu-view.service';
 
 class RecordViewDto {
+  @ApiPropertyOptional({ maxLength: 200 })
   @IsOptional()
   @IsString()
   @MaxLength(200)
   table?: string;
 
+  @ApiPropertyOptional({ maxLength: 200 })
   @IsOptional()
   @IsString()
   @MaxLength(200)

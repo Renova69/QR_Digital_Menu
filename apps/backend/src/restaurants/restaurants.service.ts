@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   ConflictException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
@@ -31,6 +32,7 @@ import {
   restaurantOwnerWhere,
 } from '../auth/restaurant-management-scope';
 import { scopedWrite } from '../common/prisma/scoped-write';
+import { DateTime } from 'luxon';
 
 // Logo fetch (getLogoBase64) hardening: bound the request so a slow/malicious
 // origin can't hang a request or exhaust memory with an oversized response.
@@ -117,6 +119,8 @@ const RESTAURANT_READ_SELECT = {
   myposPublicCert: true,
   myposCurrency: true,
   sharedDeviceModeEnabled: true,
+  pinLoginStartTime: true,
+  pinLoginEndTime: true,
   notifyAllStaffOnPayment: true,
   tipsEnabled: true,
   tipOptions: true,
@@ -368,6 +372,40 @@ export class RestaurantsService {
     // Multi-language gating: strip targetLanguages if tier lacks multi-language feature
     if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
       delete data.targetLanguages;
+    }
+
+    const nextPinLoginStart =
+      'pinLoginStartTime' in data
+        ? ((data.pinLoginStartTime as string | null | undefined) ?? null)
+        : (restaurant.pinLoginStartTime ?? null);
+    const nextPinLoginEnd =
+      'pinLoginEndTime' in data
+        ? ((data.pinLoginEndTime as string | null | undefined) ?? null)
+        : (restaurant.pinLoginEndTime ?? null);
+    if ((nextPinLoginStart === null) !== (nextPinLoginEnd === null)) {
+      throw new BadRequestException(
+        'PIN login start and end times must be configured or cleared together.',
+      );
+    }
+    if (
+      nextPinLoginStart !== null &&
+      nextPinLoginEnd !== null &&
+      nextPinLoginStart === nextPinLoginEnd
+    ) {
+      throw new BadRequestException(
+        'PIN login start and end times must be different.',
+      );
+    }
+    if (nextPinLoginStart !== null && nextPinLoginEnd !== null) {
+      const nextTimezone =
+        typeof data.timezone === 'string'
+          ? data.timezone
+          : (restaurant.timezone ?? 'Europe/Sofia');
+      if (!DateTime.now().setZone(nextTimezone).isValid) {
+        throw new BadRequestException(
+          'A valid restaurant timezone is required for PIN login hours.',
+        );
+      }
     }
 
     if ('epaySecret' in data) {

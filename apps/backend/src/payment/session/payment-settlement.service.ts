@@ -178,10 +178,11 @@ export class PaymentSettlementService {
 
   async confirmCashPaymentRequest(
     requestId: string,
+    restaurantId: string,
     userId: string,
   ): Promise<CashPaymentRequestDto> {
     const existing = await this.prisma.cashPaymentRequest.findUnique({
-      where: { id: requestId },
+      where: { id: requestId, restaurantId },
       select: {
         id: true,
         restaurantId: true,
@@ -191,10 +192,7 @@ export class PaymentSettlementService {
     });
     if (!existing)
       throw new NotFoundException('Cash payment request not found');
-    await this.core.verifyCashPaymentOperatorAccess(
-      existing.restaurantId,
-      userId,
-    );
+    await this.core.verifyCashPaymentOperatorAccess(restaurantId, userId);
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
     }
@@ -217,7 +215,7 @@ export class PaymentSettlementService {
       await this.core.lockOpenSessionForSettlement(tx, tableSessionId);
       await this.core.lockPendingCashPaymentRequest(tx, requestId);
       const request = await tx.cashPaymentRequest.findUnique({
-        where: { id: requestId },
+        where: { id: requestId, restaurantId },
         include: {
           table: { select: { name: true } },
           tableSession: true,
@@ -240,7 +238,11 @@ export class PaymentSettlementService {
       }
 
       const session = await tx.tableSession.findFirst({
-        where: { id: request.tableSessionId, status: 'OPEN' },
+        where: {
+          id: request.tableSessionId,
+          restaurantId,
+          status: 'OPEN',
+        },
       });
       if (!session) {
         throw new ConflictException('Session is no longer open');
@@ -332,7 +334,11 @@ export class PaymentSettlementService {
       }
 
       const updatedRequest = await tx.cashPaymentRequest.update({
-        where: { id: request.id },
+        where: {
+          id: request.id,
+          restaurantId,
+          status: CashPaymentRequestStatus.PENDING,
+        },
         data: {
           status: CashPaymentRequestStatus.PAID,
           requestedAmount: chargeSubtotal,
@@ -399,31 +405,44 @@ export class PaymentSettlementService {
 
   async cancelCashPaymentRequest(
     requestId: string,
+    restaurantId: string,
     userId: string,
   ): Promise<CashPaymentRequestDto> {
     const existing = await this.prisma.cashPaymentRequest.findUnique({
-      where: { id: requestId },
+      where: { id: requestId, restaurantId },
       select: { restaurantId: true, status: true },
     });
     if (!existing)
       throw new NotFoundException('Cash payment request not found');
-    await this.core.verifyCashPaymentOperatorAccess(
-      existing.restaurantId,
-      userId,
-    );
+    await this.core.verifyCashPaymentOperatorAccess(restaurantId, userId);
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
     }
 
-    const request = await this.prisma.cashPaymentRequest.update({
-      where: { id: requestId },
-      data: {
-        status: CashPaymentRequestStatus.CANCELLED,
-        resolvedById: userId,
-        resolvedAt: new Date(),
-      },
-      include: { table: { select: { name: true } } },
-    });
+    let request;
+    try {
+      request = await this.prisma.cashPaymentRequest.update({
+        where: {
+          id: requestId,
+          restaurantId,
+          status: CashPaymentRequestStatus.PENDING,
+        },
+        data: {
+          status: CashPaymentRequestStatus.CANCELLED,
+          resolvedById: userId,
+          resolvedAt: new Date(),
+        },
+        include: { table: { select: { name: true } } },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new ConflictException('Cash payment request is already handled');
+      }
+      throw error;
+    }
     this.core.emitCashPaymentRequestEvent(
       'cashPaymentRequest:updated',
       request,

@@ -359,6 +359,7 @@ describeWithDatabase(
 
       const confirm = services.settlement.confirmCashPaymentRequest(
         request.id,
+        fixture.restaurant.id,
         fixture.owner.id,
       );
       await waitForLockWaiters(1);

@@ -3310,7 +3310,7 @@ describe('PaymentService', () => {
     it('returns a detailed payment with order items and breakdown', async () => {
       mockPrisma.payment.findUnique.mockResolvedValue(paymentDetail());
 
-      const result = await service.getPaymentDetail('pay1', 'owner1');
+      const result = await service.getPaymentDetail('pay1', 'rest1', 'owner1');
 
       expect(result.table?.name).toBe('Table 3');
       expect(result.breakdown.net).toBe(23);
@@ -3342,7 +3342,7 @@ describe('PaymentService', () => {
         }),
       );
 
-      const result = await service.getPaymentDetail('pay1', 'owner1');
+      const result = await service.getPaymentDetail('pay1', 'rest1', 'owner1');
 
       expect(result.itemizationUnavailable).toBe(false);
       expect(result.orders).toHaveLength(1);
@@ -3362,7 +3362,7 @@ describe('PaymentService', () => {
         paymentDetail({ splitMode: 'EVEN' }),
       );
 
-      const result = await service.getPaymentDetail('pay1', 'owner1');
+      const result = await service.getPaymentDetail('pay1', 'rest1', 'owner1');
 
       expect(result.orders).toEqual([]);
       expect(result.itemizationUnavailable).toBe(true);
@@ -3373,7 +3373,7 @@ describe('PaymentService', () => {
         paymentDetail({ amount: 14, tipAmount: 4 }),
       );
 
-      const result = await service.getPaymentDetail('pay1', 'owner1');
+      const result = await service.getPaymentDetail('pay1', 'rest1', 'owner1');
 
       expect(result.orders).toEqual([]);
       expect(result.itemizationUnavailable).toBe(true);
@@ -3417,7 +3417,7 @@ describe('PaymentService', () => {
         status: 'succeeded',
       });
 
-      const result = await service.refundPayment('pay1', 'owner1', {
+      const result = await service.refundPayment('pay1', 'rest1', 'owner1', {
         reason: 'guest request',
       });
 
@@ -3471,7 +3471,7 @@ describe('PaymentService', () => {
         status: 'succeeded',
       });
 
-      await service.refundPayment('pay1', 'owner1', {});
+      await service.refundPayment('pay1', 'rest1', 'owner1', {});
 
       // Snapshot persisted before Stripe.
       expect(mockPrisma.refundAttempt.create).toHaveBeenCalledWith(
@@ -3517,7 +3517,7 @@ describe('PaymentService', () => {
         status: 'succeeded',
       });
 
-      await service.refundPayment('pay1', 'owner1', {});
+      await service.refundPayment('pay1', 'rest1', 'owner1', {});
 
       expect(mockPrisma.tableSession.findUnique).toHaveBeenCalledWith({
         where: { id: 'sess1' },
@@ -3558,7 +3558,7 @@ describe('PaymentService', () => {
         status: 'succeeded',
       });
 
-      await service.refundPayment('pay1', 'owner1', {});
+      await service.refundPayment('pay1', 'rest1', 'owner1', {});
 
       expect(
         mockPrisma.paymentReconciliationIssue.upsert,
@@ -3579,7 +3579,7 @@ describe('PaymentService', () => {
         status: 'succeeded',
       });
 
-      await service.refundPayment('pay1', 'owner1', {});
+      await service.refundPayment('pay1', 'rest1', 'owner1', {});
 
       expect(
         mockPrisma.paymentReconciliationIssue.upsert,
@@ -3601,9 +3601,9 @@ describe('PaymentService', () => {
         }),
       );
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        'socket hang up',
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow('socket hang up');
 
       // Snapshot persisted, but nothing reversed and nothing marked terminal.
       expect(mockPrisma.refundAttempt.create).toHaveBeenCalled();
@@ -3624,9 +3624,9 @@ describe('PaymentService', () => {
         }),
       );
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        'stripe refund failed',
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow('stripe refund failed');
 
       expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
         where: { id: 'ra1', status: 'PENDING' },
@@ -3653,9 +3653,9 @@ describe('PaymentService', () => {
         .spyOn((service as any).stripeCheckout.logger, 'error')
         .mockImplementation();
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        'stripe refund failed',
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow('stripe refund failed');
       expect(loggerError).toHaveBeenCalledWith(
         expect.stringContaining('attempt remains reconcilable'),
         expect.objectContaining({
@@ -3676,7 +3676,7 @@ describe('PaymentService', () => {
         status: 'pending',
       });
 
-      const result = await service.refundPayment('pay1', 'owner1', {});
+      const result = await service.refundPayment('pay1', 'rest1', 'owner1', {});
 
       expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
         where: { id: 'ra1', status: 'PENDING' },
@@ -3697,9 +3697,9 @@ describe('PaymentService', () => {
         refundAttempts: [{ id: 'ra1', status: 'PENDING' }],
       });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(ConflictException);
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
@@ -3708,9 +3708,9 @@ describe('PaymentService', () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
       mockPrisma.refundAttempt.create.mockRejectedValueOnce({ code: 'P2002' });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(ConflictException);
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
 
@@ -3720,9 +3720,9 @@ describe('PaymentService', () => {
         status: 'REFUNDED',
       });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(ConflictException);
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
@@ -3734,9 +3734,9 @@ describe('PaymentService', () => {
         stripePaymentIntentId: null,
       });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
     });
 
@@ -3747,9 +3747,9 @@ describe('PaymentService', () => {
         stripePaymentIntentId: null,
       });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
@@ -3761,9 +3761,9 @@ describe('PaymentService', () => {
         stripePaymentIntentId: null,
       });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
@@ -3775,7 +3775,7 @@ describe('PaymentService', () => {
       });
 
       await expect(
-        service.refundPayment('pay1', 'owner1', { amount: 10 }),
+        service.refundPayment('pay1', 'rest1', 'owner1', { amount: 10 }),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
     });
@@ -3786,9 +3786,9 @@ describe('PaymentService', () => {
         stripePaymentIntentId: null,
       });
 
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.refundPayment('pay1', 'rest1', 'owner1', {}),
+      ).rejects.toThrow(BadRequestException);
 
       // Rejected before any attempt row or Stripe call.
       expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
@@ -4559,6 +4559,7 @@ describe('PaymentService', () => {
 
       const result = await service.confirmCashPaymentRequest(
         'cash-req-1',
+        'rest1',
         'manager1',
       );
 
@@ -4632,7 +4633,7 @@ describe('PaymentService', () => {
         .mockResolvedValueOnce(movedRequest);
 
       await expect(
-        service.confirmCashPaymentRequest('cash-req-1', 'manager1'),
+        service.confirmCashPaymentRequest('cash-req-1', 'rest1', 'manager1'),
       ).rejects.toThrow(
         'Cash payment request changed during confirmation. Please retry.',
       );

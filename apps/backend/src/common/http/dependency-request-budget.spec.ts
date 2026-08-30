@@ -268,4 +268,53 @@ describe('request deadlines through real local transports (no remote services)',
     });
     await expect(stripe.paymentIntents.retrieve('pi_test')).rejects.toThrow();
   });
+
+  it('fast-fails Stripe after repeated upstream 5xx responses without hiding the first responses', async () => {
+    let received = 0;
+    handle = (_req, res) => {
+      received++;
+      res.writeHead(503, { 'content-type': 'application/json' });
+      res.end('{"error":{"message":"temporarily unavailable"}}');
+    };
+    const stripe = new Stripe('test-secret', {
+      host: '127.0.0.1',
+      port: (server.address() as AddressInfo).port,
+      protocol: 'http',
+      timeout: 5_000,
+      maxNetworkRetries: 0,
+      httpClient: createStripeHttpClient(),
+    });
+
+    for (let i = 0; i < 5; i++) {
+      await expect(stripe.paymentIntents.retrieve('pi_test')).rejects.toThrow(
+        'temporarily unavailable',
+      );
+    }
+    await expect(stripe.paymentIntents.retrieve('pi_test')).rejects.toThrow();
+    expect(received).toBe(5);
+  });
+
+  it('does not open Stripe for customer or request errors', async () => {
+    let received = 0;
+    handle = (_req, res) => {
+      received++;
+      res.writeHead(402, { 'content-type': 'application/json' });
+      res.end('{"error":{"message":"card declined"}}');
+    };
+    const stripe = new Stripe('test-secret', {
+      host: '127.0.0.1',
+      port: (server.address() as AddressInfo).port,
+      protocol: 'http',
+      timeout: 5_000,
+      maxNetworkRetries: 0,
+      httpClient: createStripeHttpClient(),
+    });
+
+    for (let i = 0; i < 6; i++) {
+      await expect(stripe.paymentIntents.retrieve('pi_test')).rejects.toThrow(
+        'card declined',
+      );
+    }
+    expect(received).toBe(6);
+  });
 });

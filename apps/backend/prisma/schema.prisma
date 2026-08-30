@@ -188,6 +188,8 @@ model Restaurant {
   myposPublicCert             String?
   myposCurrency               String                       @default("EUR")
   sharedDeviceModeEnabled     Boolean                      @default(false)
+  pinLoginStartTime          String?
+  pinLoginEndTime            String?
   notifyAllStaffOnPayment     Boolean                      @default(true)
   tipsEnabled                 Boolean                      @default(false)
   tipOptions                  Int[]                        @default([2, 4, 5])

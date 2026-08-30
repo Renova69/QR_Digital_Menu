@@ -69,12 +69,28 @@ export class PaymentService {
     );
   }
 
-  confirmCashPaymentRequest(requestId: string, userId: string) {
-    return this.settlement.confirmCashPaymentRequest(requestId, userId);
+  confirmCashPaymentRequest(
+    requestId: string,
+    restaurantId: string,
+    userId: string,
+  ) {
+    return this.settlement.confirmCashPaymentRequest(
+      requestId,
+      restaurantId,
+      userId,
+    );
   }
 
-  cancelCashPaymentRequest(requestId: string, userId: string) {
-    return this.settlement.cancelCashPaymentRequest(requestId, userId);
+  cancelCashPaymentRequest(
+    requestId: string,
+    restaurantId: string,
+    userId: string,
+  ) {
+    return this.settlement.cancelCashPaymentRequest(
+      requestId,
+      restaurantId,
+      userId,
+    );
   }
 
   abandonCheckout(token: string) {
@@ -232,20 +248,32 @@ export class PaymentService {
 
   resolvePaymentReconciliationIssue(
     issueId: string,
+    restaurantId: string,
     userId: string,
     status: 'RESOLVED' | 'DISMISSED',
     note?: string,
   ) {
     return this.reporting.resolvePaymentReconciliationIssue(
       issueId,
+      restaurantId,
       userId,
       status,
       note,
     );
   }
 
-  reopenSessionForRecollection(issueId: string, userId: string, note?: string) {
-    return this.reporting.reopenSessionForRecollection(issueId, userId, note);
+  reopenSessionForRecollection(
+    issueId: string,
+    restaurantId: string,
+    userId: string,
+    note?: string,
+  ) {
+    return this.reporting.reopenSessionForRecollection(
+      issueId,
+      restaurantId,
+      userId,
+      note,
+    );
   }
 
   exportPayments(
@@ -270,8 +298,8 @@ export class PaymentService {
     return this.reporting.getPaymentsOverview(restaurantId, userId, filters);
   }
 
-  getPaymentDetail(paymentId: string, userId: string) {
-    return this.reporting.getPaymentDetail(paymentId, userId);
+  getPaymentDetail(paymentId: string, restaurantId: string, userId: string) {
+    return this.reporting.getPaymentDetail(paymentId, restaurantId, userId);
   }
 
   getPayoutsSnapshot(restaurantId: string, userId: string) {
@@ -284,9 +312,15 @@ export class PaymentService {
 
   refundPayment(
     paymentId: string,
+    restaurantId: string,
     userId: string,
     data: { amount?: number; reason?: string },
   ) {
-    return this.stripeCheckout.refundPayment(paymentId, userId, data);
+    return this.stripeCheckout.refundPayment(
+      paymentId,
+      restaurantId,
+      userId,
+      data,
+    );
   }
 }

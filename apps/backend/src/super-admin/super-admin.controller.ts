@@ -30,6 +30,7 @@ import {
   UpdateTenantTierDto,
 } from './dto/update-tenant.dto';
 import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
+import { RequireStepUp } from '../auth/step-up-auth.guard';
 
 interface AuthenticatedRequest {
   user: { id: string };
@@ -79,6 +80,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Force-override tenant tier' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('tenants/:id/tier')
+  @RequireStepUp()
   updateTier(
     @Param('id') id: string,
     @Body() dto: UpdateTenantTierDto,
@@ -95,6 +97,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Suspend or reactivate a tenant' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('tenants/:id/status')
+  @RequireStepUp()
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateTenantStatusDto,
@@ -106,6 +109,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Reset owner password' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Patch('tenants/:id/reset-password')
+  @RequireStepUp()
   resetOwnerPassword(
     @Param('id') id: string,
     @Body() dto: ResetOwnerPasswordDto,
@@ -117,6 +121,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Enable or disable payments for a tenant' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('tenants/:id/payments')
+  @RequireStepUp()
   updatePaymentsEnabled(
     @Param('id') id: string,
     @Body() dto: UpdatePaymentsEnabledDto,
@@ -132,6 +137,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Soft-delete a restaurant' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Delete('tenants/:id')
+  @RequireStepUp()
   deleteRestaurant(
     @Param('id') id: string,
     @Body() _dto: SuperAdminConfirmationDto,
@@ -143,6 +149,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Restore a soft-deleted restaurant' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('tenants/:id/restore')
+  @RequireStepUp()
   restoreRestaurant(
     @Param('id') id: string,
     @Body() _dto: SuperAdminConfirmationDto,
@@ -154,6 +161,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Reassign a released slug after a business sale' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('slugs/:slug/reassign')
+  @RequireStepUp()
   reassignSlug(
     @Param('slug') slug: string,
     @Body() dto: ReassignSlugDto,
@@ -169,6 +177,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Delete a staff member from a restaurant' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Delete('tenants/:restaurantId/staff/:userId')
+  @RequireStepUp()
   deleteStaff(
     @Param('restaurantId') restaurantId: string,
     @Param('userId') userId: string,
@@ -181,6 +190,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Import menu JSON into a restaurant' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('tenants/:id/menu/import')
+  @RequireStepUp()
   importMenu(
     @Param('id') id: string,
     @Body() dto: SuperAdminImportMenuDto,
@@ -212,6 +222,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Force-logout all sessions for a tenant owner' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('tenants/:id/force-logout')
+  @RequireStepUp()
   forceLogout(
     @Param('id') id: string,
     @Body() _confirmation: SuperAdminConfirmationDto,
@@ -223,6 +234,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Regenerate OCR import API key for a tenant' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('tenants/:id/regenerate-api-key')
+  @RequireStepUp()
   regenerateApiKey(
     @Param('id') id: string,
     @Body() _confirmation: SuperAdminConfirmationDto,
@@ -244,6 +256,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Force-close a payment session' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Delete('tenants/:id/sessions/:sessionId')
+  @RequireStepUp()
   forceCloseSession(
     @Param('id') id: string,
     @Param('sessionId') sessionId: string,
@@ -262,6 +275,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Adjust loyalty points for an account' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('tenants/:id/loyalty/adjust')
+  @RequireStepUp()
   adjustLoyaltyPoints(
     @Param('id') id: string,
     @Body() dto: AdjustLoyaltyPointsDto,
@@ -279,6 +293,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Clear loyalty points for an account' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('tenants/:id/loyalty/clear')
+  @RequireStepUp()
   clearLoyaltyPoints(
     @Param('id') id: string,
     @Body() dto: ClearLoyaltyPointsDto,
@@ -311,6 +326,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Update a GDPR data request' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Patch('data-requests/:id')
+  @RequireStepUp()
   updateDataRequest(
     @Param('id') id: string,
     @Body() dto: UpdateDataRequestDto,
@@ -322,6 +338,7 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Create impersonation session for a tenant owner' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('tenants/:id/impersonate')
+  @RequireStepUp()
   impersonate(
     @Param('id') id: string,
     @Body() _confirmation: SuperAdminConfirmationDto,

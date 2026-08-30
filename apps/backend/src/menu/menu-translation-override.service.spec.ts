@@ -1,27 +1,21 @@
 import { NotFoundException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service';
-import type { MenuCrudService } from './menu-crud.service';
 import { MenuTranslationOverrideService } from './menu-translation-override.service';
 
 interface MockPrisma {
-  menuItem: { findUnique: jest.Mock };
+  menuItem: { findFirst: jest.Mock };
   menuTranslationState: { findMany: jest.Mock };
   $executeRaw: jest.Mock;
   $transaction: jest.Mock;
 }
 
-interface MockCrud {
-  verifyRestaurantOwnership: jest.Mock;
-}
-
 describe('MenuTranslationOverrideService', () => {
   let service: MenuTranslationOverrideService;
   let prisma: MockPrisma;
-  let crud: MockCrud;
 
   beforeEach(() => {
     prisma = {
-      menuItem: { findUnique: jest.fn() },
+      menuItem: { findFirst: jest.fn() },
       menuTranslationState: { findMany: jest.fn().mockResolvedValue([]) },
       $executeRaw: jest.fn().mockResolvedValue(1),
       $transaction: jest.fn(),
@@ -29,17 +23,13 @@ describe('MenuTranslationOverrideService', () => {
     prisma.$transaction.mockImplementation(
       (operation: (transaction: MockPrisma) => unknown) => operation(prisma),
     );
-    crud = {
-      verifyRestaurantOwnership: jest.fn().mockResolvedValue({ id: 'rest-1' }),
-    };
     service = new MenuTranslationOverrideService(
       prisma as unknown as PrismaService,
-      crud as unknown as MenuCrudService,
     );
   });
 
   it('returns independent name and description state for each target language', async () => {
-    prisma.menuItem.findUnique.mockResolvedValue({
+    prisma.menuItem.findFirst.mockResolvedValue({
       id: 'item-1',
       name: 'Джин Beefeater',
       description: 'Лондонски сух джин',
@@ -63,6 +53,27 @@ describe('MenuTranslationOverrideService', () => {
 
     const result = await service.getForItem('item-1', 'user-1');
 
+    expect(prisma.menuItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'item-1',
+          category: {
+            restaurant: {
+              OR: [
+                { ownerId: 'user-1' },
+                {
+                  staffMembers: {
+                    some: { id: 'user-1', role: 'MANAGER' },
+                  },
+                },
+              ],
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+        },
+      }),
+    );
     expect(result.sourceLang).toBe('bg');
     expect(result.source).toEqual({
       name: 'Джин Beefeater',
@@ -95,7 +106,7 @@ describe('MenuTranslationOverrideService', () => {
   });
 
   it('excludes the source language from the editable list', async () => {
-    prisma.menuItem.findUnique.mockResolvedValue({
+    prisma.menuItem.findFirst.mockResolvedValue({
       id: 'item-1',
       name: 'Боб',
       translations: {},
@@ -111,7 +122,7 @@ describe('MenuTranslationOverrideService', () => {
   });
 
   it('flags sourceChanged when a MANUAL row was written against older text', async () => {
-    prisma.menuItem.findUnique.mockResolvedValue({
+    prisma.menuItem.findFirst.mockResolvedValue({
       id: 'item-1',
       name: 'Джин Beefeater Reserve',
       translations: { en: { name: 'Beefeater Gin' } },
@@ -138,7 +149,7 @@ describe('MenuTranslationOverrideService', () => {
   });
 
   it('throws NotFoundException for a missing item', async () => {
-    prisma.menuItem.findUnique.mockResolvedValue(null);
+    prisma.menuItem.findFirst.mockResolvedValue(null);
 
     await expect(service.getForItem('nope', 'user-1')).rejects.toThrow(
       NotFoundException,
@@ -160,7 +171,7 @@ describe('MenuTranslationOverrideService', () => {
       prisma.$executeRaw.mock.calls.flatMap((call: unknown[]) => call.slice(1));
 
     beforeEach(() => {
-      prisma.menuItem.findUnique.mockResolvedValue({
+      prisma.menuItem.findFirst.mockResolvedValue({
         id: 'item-1',
         name: 'Джин Beefeater',
         translations: { en: { name: 'Джин Beefeater' } },
@@ -185,6 +196,16 @@ describe('MenuTranslationOverrideService', () => {
       expect(sql).toContain('jsonb_set');
       expect(sql).toContain('jsonb_build_object');
       expect(sql).toContain('"menu_item"');
+      expect(sql).toContain('category."restaurantId"');
+      expect(executedValues()).toContain('rest-1');
+    });
+
+    it('rolls back when the item leaves the authorized restaurant before the write', async () => {
+      prisma.$executeRaw.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+
+      await expect(
+        service.setOverride('item-1', 'NAME', 'en', 'Beefeater Gin', 'user-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('marks the queue row MANUAL so the worker leaves it alone', async () => {

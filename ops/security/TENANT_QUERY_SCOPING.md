@@ -1,9 +1,10 @@
 # P3-4 — Tenant-scoped database queries
 
-Status: **PARTIAL — orders, assistance and feedback implementation in review.**
-Based on PR #63's merged main (`32fdc9e6`), whose post-merge CI passed.
-P3-3 is complete; this is its separate database-query follow-up, not more routes.
-No deployment, schema/migration, database access, credentials or dependencies changed.
+Status (29 Aug 2026): **IMPLEMENTATION COMPLETE — review and release pending.**
+PR #64 merged the orders, assistance and feedback slice. The P3 close-out branch
+integrates the management slice and finishes payment/session, menu-import and
+translation-override query scoping. P3-3 remains complete; this work changes no
+route inventory or authorization contract. RLS is evaluated below, not enabled.
 
 ## This slice
 
@@ -54,23 +55,24 @@ they are not rewritten in this slice.
 - These are mocked service/query-contract tests, not a live PostgreSQL
   concurrency or RLS test. Predicates apply at each statement's database
   snapshot; this does not lock membership for the whole HTTP request.
-- Full backend: 215 suites / 3,561 tests; 89.83% line and 76.23% branch coverage.
-  Typecheck/build pass; lint has zero errors and 497 existing warnings (unchanged).
-  Formatting, gitleaks 8.28.0, the 14 secret-scanner tests and the static migration
-  safety gate pass. GitHub CI/review and the batched release remain separate gates.
+- Full close-out backend: 222 suites / 3,661 tests. Backend and frontend builds
+  pass; lint has zero errors within the existing warning caps.
+- The production dependency audit and all 26 database-safety policy tests pass.
+  GitHub CI/review and the batched release remain separate gates.
 
-## Remaining P3-4 scope
+## Close-out scope
 
-1. Menu and tenant-management writes: category/item/option mutation, table/zone
-   mutation and staff/settings paths. Examples found include category update/
-   delete and zone update/delete/reorder using id-only writes after access checks.
-   Preserve each module's stricter role/status rules; the service-member helper
-   must not be applied blindly to manager-only or owner-only operations.
-2. Payment/session transaction writes: retain provider claims, settlement
-   idempotency and token-vs-staff authorization while adding tenant constraints.
-3. Final query inventory/close-out across the guarded management surface.
-   These are identified work groups, not an asserted exhaustive query count.
-   P3-4 cannot be marked complete after only these three services.
+1. Menu and tenant-management writes retain their stricter owner/manager and
+   restaurant-status predicates through the final Prisma operation.
+2. Payment/session and cash-request operations carry the authorized restaurant
+   into settlement/reporting queries while preserving provider claims,
+   idempotency, webhook and token-vs-staff contracts.
+3. Menu import and translation overrides constrain source and destination rows
+   to the authorized restaurant. Public, account-owned, admin-only, provider-
+   callback and opaque-token paths keep their separate authorization contracts.
+
+No P3-4 implementation slice remains. Review, CI and release verification are
+still required before calling the work deployed.
 
 ## RLS evaluation
 

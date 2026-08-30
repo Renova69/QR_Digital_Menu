@@ -70,6 +70,8 @@ interface Restaurant {
   name: string;
   timezone?: string | null;
   sharedDeviceModeEnabled?: boolean;
+  pinLoginStartTime?: string | null;
+  pinLoginEndTime?: string | null;
 }
 
 interface StaffSettingsTabProps {
@@ -220,6 +222,19 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   const [sharedDeviceOverride, setSharedDeviceOverride] = useState<
     boolean | null
   >(null);
+  const [pinHoursEnabled, setPinHoursEnabled] = useState(
+    Boolean(
+      activeRestaurant.pinLoginStartTime && activeRestaurant.pinLoginEndTime,
+    ),
+  );
+  const [pinLoginStartTime, setPinLoginStartTime] = useState(
+    activeRestaurant.pinLoginStartTime ?? "11:00",
+  );
+  const [pinLoginEndTime, setPinLoginEndTime] = useState(
+    activeRestaurant.pinLoginEndTime ?? "23:00",
+  );
+  const [pinHoursSaving, setPinHoursSaving] = useState(false);
+  const [pinHoursMessage, setPinHoursMessage] = useState("");
 
   const [deviceEnrollmentUrl, setDeviceEnrollmentUrl] = useState("");
   const [deviceEnrollmentExpiresAt, setDeviceEnrollmentExpiresAt] =
@@ -261,6 +276,21 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   useEffect(() => {
     setSharedDeviceOverride(null);
   }, [activeRestaurant?.id, activeRestaurant?.sharedDeviceModeEnabled]);
+
+  useEffect(() => {
+    setPinHoursEnabled(
+      Boolean(
+        activeRestaurant.pinLoginStartTime && activeRestaurant.pinLoginEndTime,
+      ),
+    );
+    setPinLoginStartTime(activeRestaurant.pinLoginStartTime ?? "11:00");
+    setPinLoginEndTime(activeRestaurant.pinLoginEndTime ?? "23:00");
+    setPinHoursMessage("");
+  }, [
+    activeRestaurant.id,
+    activeRestaurant.pinLoginStartTime,
+    activeRestaurant.pinLoginEndTime,
+  ]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -751,6 +781,49 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
     }
   };
 
+  const handleSavePinLoginHours = async () => {
+    if (!activeRestaurant || pinHoursSaving) return;
+    if (
+      pinHoursEnabled &&
+      (!pinLoginStartTime ||
+        !pinLoginEndTime ||
+        pinLoginStartTime === pinLoginEndTime)
+    ) {
+      setPinHoursMessage(
+        t(
+          "staff.pinLoginHoursInvalid",
+          "Choose different start and end times.",
+        ),
+      );
+      return;
+    }
+
+    setPinHoursSaving(true);
+    setPinHoursMessage("");
+    try {
+      await updateRestaurant(activeRestaurant.id, {
+        pinLoginStartTime: pinHoursEnabled ? pinLoginStartTime : null,
+        pinLoginEndTime: pinHoursEnabled ? pinLoginEndTime : null,
+      });
+      await fetchRestaurants();
+      setPinHoursMessage(
+        t("staff.pinLoginHoursSaved", "PIN login hours saved."),
+      );
+    } catch (err: unknown) {
+      const key = getApiError(err);
+      setPinHoursMessage(
+        key === "apiErrors.unknown"
+          ? t(
+              "staff.failedUpdatePinLoginHours",
+              "Failed to update PIN login hours.",
+            )
+          : t(key),
+      );
+    } finally {
+      setPinHoursSaving(false);
+    }
+  };
+
   const copyEnrollmentLink = async () => {
     if (!deviceEnrollmentUrl) return;
     await navigator.clipboard.writeText(deviceEnrollmentUrl);
@@ -1160,6 +1233,88 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                           "Shared Device Mode is off. Staff PIN login is paused until it is enabled again.",
                         ))}
                 </p>
+                <div className="mt-4 border-t border-border pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {t("staff.pinLoginHours", "PIN login hours")}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(
+                          "staff.pinLoginHoursDesc",
+                          "Optionally limit staff PIN login to restaurant-local hours. Overnight windows are supported.",
+                        )}
+                      </p>
+                    </div>
+                    <label className="flex shrink-0 items-center gap-2 text-xs text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={pinHoursEnabled}
+                        onChange={(event) => {
+                          setPinHoursEnabled(event.target.checked);
+                          setPinHoursMessage("");
+                        }}
+                        disabled={pinHoursSaving}
+                      />
+                      {t(
+                        "staff.restrictPinLoginHours",
+                        "Restrict PIN login hours",
+                      )}
+                    </label>
+                  </div>
+                  {pinHoursEnabled && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <label className="text-xs text-muted-foreground">
+                        {t("staff.pinLoginStart", "Start")}
+                        <input
+                          type="time"
+                          className={`${inputCls} mt-1`}
+                          value={pinLoginStartTime}
+                          onChange={(event) =>
+                            setPinLoginStartTime(event.target.value)
+                          }
+                          disabled={pinHoursSaving}
+                        />
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        {t("staff.pinLoginEnd", "End")}
+                        <input
+                          type="time"
+                          className={`${inputCls} mt-1`}
+                          value={pinLoginEndTime}
+                          onChange={(event) =>
+                            setPinLoginEndTime(event.target.value)
+                          }
+                          disabled={pinHoursSaving}
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      {t("staff.pinLoginTimezone", {
+                        timezone: activeRestaurant.timezone ?? "Europe/Sofia",
+                        defaultValue: "Times use {{timezone}}.",
+                      })}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSavePinLoginHours}
+                      disabled={pinHoursSaving}
+                    >
+                      {pinHoursSaving
+                        ? t("common.saving", "Saving")
+                        : t("common.save", "Save")}
+                    </Button>
+                  </div>
+                  {pinHoursMessage && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {pinHoursMessage}
+                    </p>
+                  )}
+                </div>
               </section>
             )}
 

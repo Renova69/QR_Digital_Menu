@@ -28,6 +28,8 @@ describe('UpdateRestaurantDto validation', () => {
       happyHourStartTime: '17:30',
       happyHourEndTime: '19:00',
       happyHourDays: [1, 5, 7],
+      pinLoginStartTime: '11:00',
+      pinLoginEndTime: '23:00',
     });
     expect(errors).toHaveLength(0);
   });
@@ -162,6 +164,26 @@ describe('UpdateRestaurantDto validation', () => {
   describe('happyHourDays', () => {
     it('rejects 0 (Luxon weekday is 1-7)', () => {
       expect(keysFor({ happyHourDays: [0] }, 'happyHourDays')).toContain('min');
+    });
+  });
+
+  describe('PIN-login times', () => {
+    it('accepts valid times and explicit nulls used to disable the window', () => {
+      expect(
+        validate({ pinLoginStartTime: '11:00', pinLoginEndTime: '23:00' }),
+      ).toHaveLength(0);
+      expect(
+        validate({ pinLoginStartTime: null, pinLoginEndTime: null }),
+      ).toHaveLength(0);
+    });
+
+    it('rejects malformed times', () => {
+      expect(
+        keysFor({ pinLoginStartTime: '24:00' }, 'pinLoginStartTime'),
+      ).toContain('matches');
+      expect(
+        keysFor({ pinLoginEndTime: 'closing' }, 'pinLoginEndTime'),
+      ).toContain('matches');
     });
   });
 
