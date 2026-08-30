@@ -343,6 +343,7 @@
     "restrictPinLoginHours": "Permite conectarea cu PIN numai în aceste ore",
     "pinLoginStart": "Permis de la",
     "pinLoginEnd": "Permis până la",
+    "pinLoginOvernightSummary": "Se termină a doua zi · conectarea cu PIN este permisă timp de {{hours}} h {{minutes}} min.",
     "pinLoginHoursSaved": "Programul de conectare cu PIN a fost salvat.",
     "pinLoginHoursInvalid": "Introdu ore valide și diferite în formatul de 24 de ore HH:mm.",
     "failedUpdatePinLoginHours": "Programul de conectare cu PIN nu a putut fi actualizat.",

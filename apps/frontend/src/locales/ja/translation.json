@@ -895,6 +895,7 @@
     "restrictPinLoginHours": "この時間帯のみ PIN ログインを許可",
     "pinLoginStart": "許可開始",
     "pinLoginEnd": "許可終了",
+    "pinLoginOvernightSummary": "翌日に終了 · PIN ログインは {{hours}} 時間 {{minutes}} 分許可されます。",
     "pinLoginHoursSaved": "PIN ログイン時間を保存しました。",
     "pinLoginHoursInvalid": "有効かつ異なる時刻を24時間表記の HH:mm 形式で入力してください。",
     "failedUpdatePinLoginHours": "PIN ログイン時間を更新できませんでした。",

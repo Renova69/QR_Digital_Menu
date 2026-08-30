@@ -999,6 +999,7 @@
     "restrictPinLoginHours": "PIN-Anmeldung nur während dieser Zeiten erlauben",
     "pinLoginStart": "Erlaubt ab",
     "pinLoginEnd": "Erlaubt bis",
+    "pinLoginOvernightSummary": "Endet am nächsten Tag · PIN-Anmeldung ist für {{hours}} Std. {{minutes}} Min. erlaubt.",
     "pinLoginHoursSaved": "PIN-Anmeldezeiten gespeichert.",
     "pinLoginHoursInvalid": "Geben Sie gültige, unterschiedliche Zeiten im 24-Stunden-Format HH:mm ein.",
     "failedUpdatePinLoginHours": "PIN-Anmeldezeiten konnten nicht aktualisiert werden.",

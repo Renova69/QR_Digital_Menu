@@ -999,6 +999,7 @@
     "restrictPinLoginHours": "Consenti l'accesso con PIN solo durante queste ore",
     "pinLoginStart": "Consentito dalle",
     "pinLoginEnd": "Consentito fino alle",
+    "pinLoginOvernightSummary": "Termina il giorno successivo · accesso con PIN consentito per {{hours}} h {{minutes}} min.",
     "pinLoginHoursSaved": "Orari di accesso con PIN salvati.",
     "pinLoginHoursInvalid": "Inserisci orari validi e diversi nel formato 24 ore HH:mm.",
     "failedUpdatePinLoginHours": "Impossibile aggiornare gli orari di accesso con PIN.",
