@@ -22,6 +22,11 @@ export type DeliveryPayload = {
   text?: string;
   html?: string;
   body?: string;
+  attachments?: Array<{
+    filename: string;
+    /** Base64-encoded content, persisted with the outbox payload. */
+    content: string;
+  }>;
   ledgerBatchIds?: string[];
 };
 
@@ -46,7 +51,10 @@ function isRetryableStatus(status: number): boolean {
 export class ProductionNotificationProvider implements NotificationProvider {
   async send(delivery: NotificationDelivery): Promise<ProviderDeliveryResult> {
     const payload = delivery.payload as DeliveryPayload;
-    if (process.env.NODE_ENV !== 'production') {
+    const forceLocalSms =
+      delivery.channel === NotificationChannel.SMS &&
+      process.env.SMS_FORCE_SEND === 'true';
+    if (process.env.NODE_ENV !== 'production' && !forceLocalSms) {
       return {
         accepted: false,
         retryable: false,
@@ -95,6 +103,7 @@ export class ProductionNotificationProvider implements NotificationProvider {
             subject: payload.subject,
             text: payload.text,
             html: payload.html,
+            attachments: payload.attachments,
           }),
           signal: controller.signal,
         },

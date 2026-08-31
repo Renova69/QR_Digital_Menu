@@ -18,7 +18,10 @@ import { ReservationAllergensService } from './reservation-allergens.service';
 import { PatronService } from './patron.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
 import { RestaurantSlugService } from '../restaurants/slug/restaurant-slug.service';
-import { normalizeReservationNotificationLocale } from './reservation-notification-copy';
+import {
+  normalizeReservationNotificationLocale,
+  type ReservationNotificationKind,
+} from './reservation-notification-copy';
 import {
   ActorRole,
   resolveReservationActor,
@@ -368,44 +371,53 @@ export class ReservationsService {
       );
     }
 
-    // Guarded CAS: only a live booking can be self-cancelled; a concurrent
-    // staff action or double-submit no-ops.
-    const { count } = await this.prisma.reservation.updateMany({
-      where: {
-        id: r.id,
-        restaurantId,
-        status: { in: ['PENDING', 'CONFIRMED'] },
-        startsAt: { gt: now },
-      },
-      data: { status: 'CANCELLED' },
-    });
-    if (count === 0) {
-      throw new ConflictException(
-        'This reservation can no longer be cancelled. Please contact the restaurant.',
-      );
-    }
+    await this.prisma.$transaction(async (tx) => {
+      // Guarded CAS: only a live booking can be self-cancelled; a concurrent
+      // staff action or double-submit no-ops.
+      const { count } = await tx.reservation.updateMany({
+        where: {
+          id: r.id,
+          restaurantId,
+          status: { in: ['PENDING', 'CONFIRMED'] },
+          startsAt: { gt: now },
+        },
+        data: {
+          status: 'CANCELLED',
+          calendarSequence: { increment: 1 },
+        },
+      });
+      if (count === 0) {
+        throw new ConflictException(
+          'This reservation can no longer be cancelled. Please contact the restaurant.',
+        );
+      }
 
-    await this.prisma.reservationEvent.create({
-      data: {
-        reservationId: r.id,
-        type: 'CANCEL',
-        metadata: { source: 'GUEST' },
-      },
+      const cancelled = await tx.reservation.findUnique({
+        where: { id: r.id },
+      });
+      if (!cancelled || cancelled.restaurantId !== restaurantId) {
+        throw new ConflictException(
+          'This reservation can no longer be cancelled. Please contact the restaurant.',
+        );
+      }
+      const event = await tx.reservationEvent.create({
+        data: {
+          reservationId: r.id,
+          type: 'CANCEL',
+          metadata: { source: 'GUEST' },
+        },
+      });
+      await this.enqueueGuestLifecycle(
+        tx,
+        event.id,
+        event.createdAt,
+        'CANCELLED',
+        cancelled,
+      );
     });
     this.events.emitReservationUpdated(restaurantId, {
       id: r.id,
       status: 'CANCELLED',
-    });
-    await this.notifications.notify('CANCELLED', {
-      restaurantId,
-      guestEmail: r.guestEmail,
-      guestPhone: r.guestPhone,
-      guestName: r.guestName,
-      startsAt: r.startsAt,
-      referenceCode: r.referenceCode,
-      notifyByEmail: r.notifyByEmail,
-      notifyBySms: r.notifyBySms,
-      notificationLocale: r.notificationLocale,
     });
     return { status: 'CANCELLED' as const };
   }
@@ -513,6 +525,7 @@ export class ReservationsService {
             adultsCount: adults,
             childrenCount: children,
             durationMinutes,
+            calendarSequence: { increment: 1 },
             // A time change re-arms the 24h reminder for the new slot.
             ...(slotChanged ? { reminderSentAt: null } : {}),
           },
@@ -523,7 +536,15 @@ export class ReservationsService {
           );
         }
 
-        await tx.reservationEvent.create({
+        const updated = await tx.reservation.findUnique({
+          where: { id: r.id },
+        });
+        if (!updated || updated.restaurantId !== restaurantId) {
+          throw new ConflictException(
+            'This reservation was just updated elsewhere. Please reload.',
+          );
+        }
+        const event = await tx.reservationEvent.create({
           data: {
             reservationId: r.id,
             type: 'MODIFIED',
@@ -535,6 +556,13 @@ export class ReservationsService {
             },
           },
         });
+        await this.enqueueGuestLifecycle(
+          tx,
+          event.id,
+          event.createdAt,
+          'MODIFIED',
+          updated,
+        );
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );
@@ -543,29 +571,6 @@ export class ReservationsService {
       id: r.id,
       status: r.status,
     });
-    // Acknowledge the change with a dedicated "updated" notice that echoes the
-    // NEW details (party size / time), not the generic received/confirmed copy.
-    await this.notifications.notify('MODIFIED', {
-      restaurantId,
-      guestEmail: r.guestEmail,
-      guestPhone: r.guestPhone,
-      guestName: r.guestName,
-      startsAt,
-      referenceCode: r.referenceCode,
-      notifyByEmail: r.notifyByEmail,
-      notifyBySms: r.notifyBySms,
-      notificationLocale: r.notificationLocale,
-      manageToken: r.manageToken,
-      // New headcount from this edit; the remaining details are unchanged.
-      adultsCount: adults,
-      childrenCount: children,
-      occasion: r.occasion,
-      customerNotes: r.customerNotes,
-      customerPreferences: r.customerPreferences,
-      preferredZone: r.preferredZone,
-      allergyNotes: r.allergyNotes,
-    });
-
     return {
       status: r.status,
       startsAt,
@@ -725,8 +730,6 @@ export class ReservationsService {
       totalGuests: created.adultsCount + created.childrenCount,
     });
 
-    await this.dispatchCreateNotifications(restaurantId, created, ctx);
-
     return this.toCreateResult(created);
   }
 
@@ -809,8 +812,8 @@ export class ReservationsService {
   }
 
   // The advisory-lock transaction: idempotency recheck, slot assertion, patron
-  // matching, persistence — with a P2002 fallback that replays the winning
-  // insert instead of surfacing a raw unique-constraint 500.
+  // matching, persistence, and atomic notification-outbox writes — with a
+  // P2002 fallback that replays the winner instead of surfacing a raw 500.
   private async persistReservationTx(
     restaurantId: string,
     dto: CreateReservationDto,
@@ -911,7 +914,7 @@ export class ReservationsService {
                 createdById: ctx.createdById ?? null,
               },
             });
-            await tx.reservationEvent.create({
+            const event = await tx.reservationEvent.create({
               data: {
                 reservationId: reservation.id,
                 type: 'CREATED',
@@ -919,6 +922,38 @@ export class ReservationsService {
                 metadata: { source: ctx.source, status: fields.status },
               },
             });
+            await this.enqueueGuestLifecycle(
+              tx,
+              event.id,
+              event.createdAt,
+              fields.status === 'CONFIRMED' ? 'CONFIRMED' : 'RECEIVED',
+              reservation,
+            );
+            if (ctx.settings?.notifyEmail || ctx.settings?.notifyPhone) {
+              await this.notifications.enqueueOwner(
+                tx,
+                event.id,
+                reservation.id,
+                {
+                  restaurantId,
+                  notifyEmail: ctx.settings.notifyEmail,
+                  notifyPhone: ctx.settings.notifyPhone,
+                  guestName: reservation.guestName,
+                  guestPhone: reservation.guestPhone,
+                  startsAt: reservation.startsAt,
+                  partySize:
+                    reservation.adultsCount + reservation.childrenCount,
+                  referenceCode: reservation.referenceCode,
+                  adultsCount: reservation.adultsCount,
+                  childrenCount: reservation.childrenCount,
+                  occasion: reservation.occasion,
+                  customerNotes: reservation.customerNotes,
+                  customerPreferences: reservation.customerPreferences,
+                  preferredZone: reservation.preferredZone,
+                  allergyNotes: reservation.allergyNotes,
+                },
+              );
+            }
             return { reservation, replayed: false };
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
@@ -969,55 +1004,36 @@ export class ReservationsService {
     });
   }
 
-  // Guest notification ("received"/"confirmed" per Feature 1 channels), plus
-  // the owner/manager new-request notice (Fix 5) when configured.
-  private async dispatchCreateNotifications(
-    restaurantId: string,
-    created: Prisma.ReservationGetPayload<object>,
-    ctx: CreateReservationContext,
+  private async enqueueGuestLifecycle(
+    tx: Prisma.TransactionClient,
+    eventId: string,
+    occurredAt: Date,
+    kind: ReservationNotificationKind,
+    reservation: Prisma.ReservationGetPayload<object>,
   ): Promise<void> {
-    await this.notifications.notify(
-      created.status === 'CONFIRMED' ? 'CONFIRMED' : 'RECEIVED',
-      {
-        restaurantId,
-        guestEmail: created.guestEmail,
-        guestPhone: created.guestPhone,
-        guestName: created.guestName,
-        startsAt: created.startsAt,
-        referenceCode: created.referenceCode,
-        notifyByEmail: created.notifyByEmail,
-        notifyBySms: created.notifyBySms,
-        notificationLocale: created.notificationLocale,
-        manageToken: created.manageToken,
-        adultsCount: created.adultsCount,
-        childrenCount: created.childrenCount,
-        occasion: created.occasion,
-        customerNotes: created.customerNotes,
-        customerPreferences: created.customerPreferences,
-        preferredZone: created.preferredZone,
-        allergyNotes: created.allergyNotes,
-      },
-    );
-
-    if (ctx.settings?.notifyEmail || ctx.settings?.notifyPhone) {
-      await this.notifications.notifyOwner({
-        restaurantId,
-        notifyEmail: ctx.settings.notifyEmail,
-        notifyPhone: ctx.settings.notifyPhone,
-        guestName: created.guestName,
-        guestPhone: created.guestPhone,
-        startsAt: created.startsAt,
-        partySize: created.adultsCount + created.childrenCount,
-        referenceCode: created.referenceCode,
-        adultsCount: created.adultsCount,
-        childrenCount: created.childrenCount,
-        occasion: created.occasion,
-        customerNotes: created.customerNotes,
-        customerPreferences: created.customerPreferences,
-        preferredZone: created.preferredZone,
-        allergyNotes: created.allergyNotes,
-      });
-    }
+    await this.notifications.enqueueGuest(tx, eventId, kind, {
+      reservationId: reservation.id,
+      restaurantId: reservation.restaurantId,
+      guestEmail: reservation.guestEmail,
+      guestPhone: reservation.guestPhone,
+      guestName: reservation.guestName,
+      startsAt: reservation.startsAt,
+      referenceCode: reservation.referenceCode,
+      notifyByEmail: reservation.notifyByEmail,
+      notifyBySms: reservation.notifyBySms,
+      notificationLocale: reservation.notificationLocale,
+      manageToken: reservation.manageToken,
+      adultsCount: reservation.adultsCount,
+      childrenCount: reservation.childrenCount,
+      occasion: reservation.occasion,
+      customerNotes: reservation.customerNotes,
+      customerPreferences: reservation.customerPreferences,
+      preferredZone: reservation.preferredZone,
+      allergyNotes: reservation.allergyNotes,
+      durationMinutes: reservation.durationMinutes,
+      calendarSequence: reservation.calendarSequence,
+      notificationOccurredAt: occurredAt,
+    });
   }
 
   // ── Dashboard surface ───────────────────────────────────────────────────
@@ -1098,37 +1114,6 @@ export class ReservationsService {
       );
     }
 
-    // Guarded compare-and-swap: only the caller that finds an allowed source
-    // status wins; a concurrent double-action no-ops.
-    const { count } = await this.prisma.reservation.updateMany({
-      where: {
-        id: reservationId,
-        restaurantId,
-        status: { in: rule.from as any },
-      },
-      data: { status: rule.to as any },
-    });
-    if (count === 0) {
-      throw new ConflictException(
-        'Reservation is not in a state that allows this action',
-      );
-    }
-
-    await this.prisma.reservationEvent.create({
-      data: {
-        reservationId,
-        type: action,
-        actorUserId: userId,
-        metadata: reason ? { reason } : undefined,
-      },
-    });
-
-    this.events.emitReservationUpdated(restaurantId, {
-      id: reservationId,
-      status: rule.to,
-    });
-
-    // Guest email on the decisions that matter to them (Fix 4 adds CANCEL).
     const guestKind =
       action === 'ACCEPT'
         ? 'CONFIRMED'
@@ -1137,27 +1122,58 @@ export class ReservationsService {
           : action === 'CANCEL'
             ? 'CANCELLED'
             : null;
-    if (guestKind) {
-      await this.notifications.notify(guestKind, {
-        restaurantId,
-        guestEmail: reservation.guestEmail,
-        guestPhone: reservation.guestPhone,
-        guestName: reservation.guestName,
-        startsAt: reservation.startsAt,
-        referenceCode: reservation.referenceCode,
-        notifyByEmail: reservation.notifyByEmail,
-        notifyBySms: reservation.notifyBySms,
-        notificationLocale: reservation.notificationLocale,
-        manageToken: reservation.manageToken,
-        adultsCount: reservation.adultsCount,
-        childrenCount: reservation.childrenCount,
-        occasion: reservation.occasion,
-        customerNotes: reservation.customerNotes,
-        customerPreferences: reservation.customerPreferences,
-        preferredZone: reservation.preferredZone,
-        allergyNotes: reservation.allergyNotes,
+
+    await this.prisma.$transaction(async (tx) => {
+      // Guarded compare-and-swap: only the caller that finds an allowed source
+      // status wins; a concurrent double-action no-ops.
+      const { count } = await tx.reservation.updateMany({
+        where: {
+          id: reservationId,
+          restaurantId,
+          status: { in: rule.from as any },
+        },
+        data: {
+          status: rule.to as any,
+          ...(guestKind ? { calendarSequence: { increment: 1 } } : undefined),
+        },
       });
-    }
+      if (count === 0) {
+        throw new ConflictException(
+          'Reservation is not in a state that allows this action',
+        );
+      }
+
+      const event = await tx.reservationEvent.create({
+        data: {
+          reservationId,
+          type: action,
+          actorUserId: userId,
+          metadata: reason ? { reason } : undefined,
+        },
+      });
+      if (guestKind) {
+        const guestSnapshot = await tx.reservation.findUnique({
+          where: { id: reservationId },
+        });
+        if (!guestSnapshot || guestSnapshot.restaurantId !== restaurantId) {
+          throw new ConflictException(
+            'Reservation is not in a state that allows this action',
+          );
+        }
+        await this.enqueueGuestLifecycle(
+          tx,
+          event.id,
+          event.createdAt,
+          guestKind,
+          guestSnapshot,
+        );
+      }
+    });
+
+    this.events.emitReservationUpdated(restaurantId, {
+      id: reservationId,
+      status: rule.to,
+    });
 
     const updated = await this.prisma.reservation.findFirst({
       where: { id: reservationId, restaurantId },

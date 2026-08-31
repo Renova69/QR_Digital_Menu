@@ -23,6 +23,7 @@ import { PaymentSessionService } from '../src/payment/session/payment-session.se
 import { PatronService } from '../src/reservations/patron.service';
 import { ReservationAvailabilityService } from '../src/reservations/reservation-availability.service';
 import { ReservationsService } from '../src/reservations/reservations.service';
+import { ReservationNotificationsService } from '../src/reservations/reservation-notifications.service';
 import { FeatureService } from '../src/subscription/feature.service';
 import { SuperAdminService } from '../src/super-admin/super-admin.service';
 import { NotificationDeliveryService } from '../src/notifications/notification-delivery.service';
@@ -131,10 +132,15 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
       emitReservationCreated: jest.fn(),
       emitReservationUpdated: jest.fn(),
     };
-    const notifications = {
-      notify: jest.fn().mockResolvedValue(undefined),
-      notifyOwner: jest.fn().mockResolvedValue(undefined),
-    };
+    const notificationDeliveries = new NotificationDeliveryService(
+      prisma as never,
+      { send: jest.fn() },
+    );
+    const notifications = new ReservationNotificationsService(
+      prisma as never,
+      notificationDeliveries,
+    );
+    jest.spyOn(notifications, 'enqueueGuest');
     const service = new ReservationsService(
       prisma as never,
       new ReservationAvailabilityService(prisma as never),
@@ -1011,6 +1017,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     const request = {
       guestName: 'Idempotent Guest',
       guestPhone: '+359888000003',
+      guestEmail: `${runPrefix}-reservation-outbox@example.test`,
       startsAt: startsAt.toISOString(),
       adultsCount: 2,
       idempotencyKey: 'same-reservation-request',
@@ -1031,8 +1038,26 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         },
       }),
     ).resolves.toBe(1);
+    const stored = await prisma.reservation.findUniqueOrThrow({
+      where: {
+        restaurantId_idempotencyKey: {
+          restaurantId: restaurant.id,
+          idempotencyKey: request.idempotencyKey,
+        },
+      },
+    });
+    await expect(
+      prisma.notificationDelivery.count({
+        where: {
+          restaurantId: restaurant.id,
+          sourceType: 'RESERVATION_LIFECYCLE',
+          sourceId: stored.id,
+          channel: NotificationChannel.EMAIL,
+        },
+      }),
+    ).resolves.toBe(1);
     expect(events.emitReservationCreated).toHaveBeenCalledTimes(1);
-    expect(notifications.notify).toHaveBeenCalledTimes(1);
+    expect(notifications.enqueueGuest).toHaveBeenCalledTimes(1);
   });
 
   it('allows only one capacity-increasing write when a guest move races a public booking', async () => {

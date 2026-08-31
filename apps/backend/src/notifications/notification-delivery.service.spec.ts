@@ -50,6 +50,7 @@ function build() {
     $queryRaw: jest.fn(),
     notificationDelivery: {
       create: jest.fn(),
+      upsert: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -69,8 +70,7 @@ describe('NotificationDeliveryService', () => {
   it('deduplicates the same tenant/key/channel and rejects payload collisions', async () => {
     const { service, prisma } = build();
     const existing = delivery({ payloadHash: service.hashPayload(payload) });
-    prisma.notificationDelivery.create.mockRejectedValue({ code: 'P2002' });
-    prisma.notificationDelivery.findUnique.mockResolvedValue(existing);
+    prisma.notificationDelivery.upsert.mockResolvedValue(existing);
 
     await expect(
       service.enqueue({
@@ -93,6 +93,33 @@ describe('NotificationDeliveryService', () => {
         payload: { ...payload, subject: 'Changed' },
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('uses the supplied transaction client for atomic outbox writes', async () => {
+    const { service, prisma } = build();
+    const transactionClient = {
+      notificationDelivery: { upsert: jest.fn() },
+    };
+    transactionClient.notificationDelivery.upsert.mockResolvedValue(
+      delivery({ payloadHash: service.hashPayload(payload) }),
+    );
+
+    await service.enqueueMany(
+      [
+        {
+          restaurantId: 'restaurant-1',
+          sourceType: 'RESERVATION_LIFECYCLE',
+          sourceId: 'reservation-1',
+          deduplicationKey: 'reservation-event-1',
+          channel: NotificationChannel.EMAIL,
+          payload,
+        },
+      ],
+      transactionClient as never,
+    );
+
+    expect(transactionClient.notificationDelivery.upsert).toHaveBeenCalled();
+    expect(prisma.notificationDelivery.upsert).not.toHaveBeenCalled();
   });
 
   it('marks provider-accepted work and completes its source', async () => {
