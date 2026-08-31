@@ -1,14 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DateTime } from 'luxon';
-import { NotificationChannel } from '@prisma/client';
+import { NotificationChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { DeliveryPayload } from '../notifications/notification-provider';
-import {
-  smsProvider,
-  smsGatewayConfigured,
-  sendViaSmsGateway,
-} from '../common/sms/sms-gateway';
-import { fetchWithDependencyPool } from '../common/http/dependency-http';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 import {
   getReservationNotificationCopy,
   getReservationDetailLabels,
@@ -17,11 +12,7 @@ import {
   type ReservationNotificationKind,
   type ReservationDetailLabels,
 } from './reservation-notification-copy';
-
-// Bounds Resend/Twilio requests so a stalled provider connection can't hold
-// a reminder-sweep worker open indefinitely (mirrors the SIM SMS gateway's
-// own timeout in ../common/sms/sms-gateway.ts and the DeepL provider).
-const NOTIFICATION_HTTP_TIMEOUT_MS = 10_000;
+import { buildReservationCalendarAttachment } from './reservation-calendar';
 
 // Kinds where the private manage link is still actionable for the guest.
 const MANAGEABLE_KINDS = new Set<ReservationNotificationKind>([
@@ -70,12 +61,19 @@ export interface NotifyInput extends BookingDetailFields {
   manageToken?: string | null;
 }
 
+export interface LifecycleNotifyInput extends NotifyInput {
+  reservationId: string;
+  durationMinutes?: number | null;
+  calendarSequence: number;
+  notificationOccurredAt: Date;
+}
+
 export type PreparedReservationNotification = {
   channel: NotificationChannel;
   payload: DeliveryPayload;
 };
 
-interface OwnerNotifyInput extends BookingDetailFields {
+export interface OwnerNotifyInput extends BookingDetailFields {
   restaurantId: string;
   notifyEmail?: string | null;
   notifyPhone?: string | null;
@@ -96,58 +94,65 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Fire-and-forget guest notifications for reservation lifecycle events. Email
- * reuses the Resend transport already used for auth OTP; SMS uses Twilio
- * (Feature 1). Dev/test logs instead of sending; production reports missing
- * transport configuration without logging guest PII. Never throws into
- * the caller — a failed send must not roll back a booking or a status change.
- * Durable outbox/retry is a documented Phase-1.5 upgrade.
+ * Renders immutable reservation notification snapshots and persists them
+ * through the shared durable outbox. Provider I/O deliberately lives only in
+ * ProductionNotificationProvider so lifecycle callers cannot bypass retries.
  */
 @Injectable()
 export class ReservationNotificationsService {
-  private readonly logger = new Logger(ReservationNotificationsService.name);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deliveries: NotificationDeliveryService,
+  ) {}
 
-  constructor(private readonly prisma: PrismaService) {}
-
-  async notify(
+  /**
+   * Persist every requested guest channel in the same transaction as the
+   * reservation event. Providers are called later by NotificationDeliveryService.
+   */
+  async enqueueGuest(
+    tx: Prisma.TransactionClient,
+    eventId: string,
     kind: ReservationNotificationKind,
-    input: NotifyInput,
+    input: LifecycleNotifyInput,
   ): Promise<void> {
-    await this.send(kind, input).catch((err) =>
-      this.logger.error(
-        `Reservation ${kind} notification failed for ${input.referenceCode}`,
-        err instanceof Error ? err.message : err,
-      ),
+    const prepared = await this.prepare(kind, input, tx);
+    await this.deliveries.enqueueMany(
+      prepared.map((delivery) => ({
+        restaurantId: input.restaurantId,
+        sourceType: 'RESERVATION_LIFECYCLE',
+        sourceId: input.reservationId,
+        deduplicationKey: `reservation-event:${eventId}`,
+        channel: delivery.channel,
+        payload: delivery.payload,
+      })),
+      tx,
     );
   }
 
-  private async send(
-    kind: ReservationNotificationKind,
-    input: NotifyInput,
+  async enqueueOwner(
+    tx: Prisma.TransactionClient,
+    eventId: string,
+    reservationId: string,
+    input: OwnerNotifyInput,
   ): Promise<void> {
-    const prepared = await this.prepare(kind, input);
-    for (const delivery of prepared) {
-      if (delivery.channel === NotificationChannel.EMAIL) {
-        await this.sendEmail(
-          delivery.payload.to,
-          delivery.payload.subject!,
-          delivery.payload.html!,
-          delivery.payload.text!,
-          `guest ${kind}`,
-        );
-      } else {
-        await this.sendSms(
-          delivery.payload.to,
-          delivery.payload.body!,
-          `guest ${kind}`,
-        );
-      }
-    }
+    const prepared = await this.prepareOwner(input, tx);
+    await this.deliveries.enqueueMany(
+      prepared.map((delivery) => ({
+        restaurantId: input.restaurantId,
+        sourceType: 'RESERVATION_OWNER_NEW',
+        sourceId: reservationId,
+        deduplicationKey: `reservation-owner-event:${eventId}`,
+        channel: delivery.channel,
+        payload: delivery.payload,
+      })),
+      tx,
+    );
   }
 
   async prepare(
     kind: ReservationNotificationKind,
-    input: NotifyInput,
+    input: NotifyInput | LifecycleNotifyInput,
+    client: Pick<Prisma.TransactionClient, 'restaurant'> = this.prisma,
   ): Promise<PreparedReservationNotification[]> {
     // Default to email when the caller didn't express a preference, preserving
     // the original behaviour for staff/manual paths.
@@ -157,7 +162,7 @@ export class ReservationNotificationsService {
     const phone = input.guestPhone?.trim();
     if (!(wantEmail && to) && !(wantSms && phone)) return [];
 
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await client.restaurant.findUnique({
       where: { id: input.restaurantId },
       select: { name: true, timezone: true, contactInfo: true },
     });
@@ -258,9 +263,38 @@ export class ReservationNotificationsService {
       const text = `${introText}\n\n${when}\n${copy.reference}: ${input.referenceCode}${detailsText}${
         manageLink ? `\n\n${copy.manage}: ${manageLink}` : ''
       }`;
+      const calendar =
+        'reservationId' in input &&
+        typeof input.reservationId === 'string' &&
+        'calendarSequence' in input &&
+        typeof input.calendarSequence === 'number' &&
+        'notificationOccurredAt' in input &&
+        input.notificationOccurredAt instanceof Date
+          ? buildReservationCalendarAttachment(kind, {
+              reservationId: input.reservationId,
+              referenceCode: input.referenceCode,
+              restaurantName: restaurant.name,
+              restaurantLocation: restaurant.contactInfo,
+              startsAt: input.startsAt,
+              durationMinutes:
+                'durationMinutes' in input &&
+                typeof input.durationMinutes === 'number'
+                  ? input.durationMinutes
+                  : null,
+              calendarSequence: input.calendarSequence,
+              occurredAt: input.notificationOccurredAt,
+              manageLink,
+            })
+          : null;
       prepared.push({
         channel: NotificationChannel.EMAIL,
-        payload: { to, subject, html, text },
+        payload: {
+          to,
+          subject,
+          html,
+          text,
+          ...(calendar ? { attachments: [calendar] } : {}),
+        },
       });
     }
 
@@ -316,30 +350,20 @@ export class ReservationNotificationsService {
     return this.buildManageLink(restaurantId, token, notificationLocale);
   }
 
-  /**
-   * Fix 5: notify the owner/manager (settings.notifyEmail / notifyPhone) when a
-   * new booking arrives. The caller awaits completion so Cloud Run cannot
-   * suspend the instance before the outbound request has been accepted.
-   */
-  async notifyOwner(input: OwnerNotifyInput): Promise<void> {
-    await this.sendOwner(input).catch((err) =>
-      this.logger.error(
-        `Owner new-booking notification failed for ${input.referenceCode}`,
-        err instanceof Error ? err.message : err,
-      ),
-    );
-  }
-
-  private async sendOwner(input: OwnerNotifyInput): Promise<void> {
+  /** Render the owner/manager new-booking notice before persisting its legs. */
+  private async prepareOwner(
+    input: OwnerNotifyInput,
+    client: Pick<Prisma.TransactionClient, 'restaurant'> = this.prisma,
+  ): Promise<PreparedReservationNotification[]> {
     const email = input.notifyEmail?.trim();
     const phone = input.notifyPhone?.trim();
-    if (!email && !phone) return;
+    if (!email && !phone) return [];
 
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await client.restaurant.findUnique({
       where: { id: input.restaurantId },
       select: { name: true, timezone: true },
     });
-    if (!restaurant) return;
+    if (!restaurant) return [];
 
     const when = DateTime.fromJSDate(input.startsAt)
       .setZone(restaurant.timezone || 'Europe/Sofia')
@@ -355,6 +379,7 @@ export class ReservationNotificationsService {
         includeGuests: false,
       },
     );
+    const prepared: PreparedReservationNotification[] = [];
 
     if (email) {
       const subject = `New reservation request — ${input.guestName} (${input.partySize})`;
@@ -374,174 +399,21 @@ export class ReservationNotificationsService {
         ? `\n${details.textLines.join('\n')}`
         : '';
       const text = `New reservation: ${input.guestName} (${input.partySize})\n${when}\n${input.guestPhone}\nReference: ${input.referenceCode}${detailsText}`;
-      await this.sendEmail(email, subject, html, text, 'owner new-booking');
+      prepared.push({
+        channel: NotificationChannel.EMAIL,
+        payload: { to: email, subject, html, text },
+      });
     }
 
     if (phone) {
       const smsDetails = details.smsExtra ? `. ${details.smsExtra}` : '';
       const body = `New booking: ${input.guestName} (${input.partySize}) ${when}. ${input.guestPhone}. Ref ${input.referenceCode}${smsDetails}`;
-      await this.sendSms(phone, body, 'owner new-booking');
-    }
-  }
-
-  /** Shared Resend transport (dev logs instead of sending). Never throws. */
-  private async sendEmail(
-    to: string,
-    subject: string,
-    html: string,
-    text: string,
-    context: string,
-  ): Promise<void> {
-    const isDev = process.env.NODE_ENV !== 'production';
-    if (isDev || !process.env.RESEND_API_KEY) {
-      this.logger.log(`[dev] Reservation ${context} email suppressed`);
-      return;
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      NOTIFICATION_HTTP_TIMEOUT_MS,
-    );
-    try {
-      const res = await fetchWithDependencyPool(
-        'resend',
-        'https://api.resend.com/emails',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-            to: [to],
-            subject,
-            text,
-            html,
-          }),
-          signal: controller.signal,
-        },
-      );
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '');
-        this.logger.error(
-          `Resend reservation email failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
-        );
-      }
-    } catch (error) {
-      const detail = controller.signal.aborted
-        ? `Resend request timed out after ${NOTIFICATION_HTTP_TIMEOUT_MS}ms`
-        : error instanceof Error
-          ? error.message
-          : 'Unknown Resend network error';
-      this.logger.error(`Resend reservation email failed: ${detail}`);
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  /**
-   * Twilio SMS transport (Feature 1). Dev/test logs instead of sending.
-   * Production accepts either a Messaging Service SID or direct From number,
-   * and reports incomplete configuration without including guest PII.
-   */
-  private async sendSms(
-    to: string,
-    body: string,
-    context: string,
-  ): Promise<void> {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const token = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_FROM_NUMBER;
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-    // Dev normally dev-logs instead of sending. Set SMS_FORCE_SEND=true to
-    // actually deliver locally (for testing a real SIM-gateway send).
-    const isDev = process.env.NODE_ENV !== 'production';
-    const forceSend = process.env.SMS_FORCE_SEND === 'true';
-    if (isDev && !forceSend) {
-      this.logger.log(`[dev] Reservation ${context} SMS suppressed`);
-      return;
-    }
-
-    // SIM SMS gateway (capcom6) path — active when SMS_PROVIDER=smsgateway.
-    // Twilio config below is left untouched so switching back is a flag flip.
-    if (smsProvider() === 'smsgateway') {
-      if (!smsGatewayConfigured()) {
-        this.logger.error(
-          'Reservation SMS disabled in production: missing SMS_GATEWAY_USERNAME or SMS_GATEWAY_PASSWORD',
-        );
-        return;
-      }
-      const result = await sendViaSmsGateway(to, body, {
-        ttlSeconds: 60 * 60,
+      prepared.push({
+        channel: NotificationChannel.SMS,
+        payload: { to: phone, body },
       });
-      if (!result.ok) {
-        this.logger.error(
-          `SMS gateway reservation SMS failed (${result.status}): ${redactProviderDetail(result.detail).slice(0, 200)}`,
-        );
-      }
-      return;
     }
-
-    if (!sid || !token || (!from && !messagingServiceSid)) {
-      const missing = [
-        !sid ? 'TWILIO_ACCOUNT_SID' : null,
-        !token ? 'TWILIO_AUTH_TOKEN' : null,
-        !from && !messagingServiceSid
-          ? 'TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID'
-          : null,
-      ].filter(Boolean);
-      this.logger.error(
-        `Reservation SMS disabled in production: missing ${missing.join(', ')}`,
-      );
-      return;
-    }
-
-    const form = new URLSearchParams({
-      To: to,
-      Body: body,
-    });
-    if (messagingServiceSid) {
-      form.set('MessagingServiceSid', messagingServiceSid);
-    } else {
-      form.set('From', from!);
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      NOTIFICATION_HTTP_TIMEOUT_MS,
-    );
-    try {
-      const res = await fetchWithDependencyPool(
-        'twilio',
-        `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: form.toString(),
-          signal: controller.signal,
-        },
-      );
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '');
-        this.logger.error(
-          `Twilio reservation SMS failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
-        );
-      }
-    } catch (error) {
-      const detail = controller.signal.aborted
-        ? `Twilio request timed out after ${NOTIFICATION_HTTP_TIMEOUT_MS}ms`
-        : error instanceof Error
-          ? error.message
-          : 'Unknown Twilio network error';
-      this.logger.error(`Twilio reservation SMS failed: ${detail}`);
-    } finally {
-      clearTimeout(timeout);
-    }
+    return prepared;
   }
 
   private template(
@@ -667,20 +539,4 @@ function decodeEntities(text: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&amp;/g, '&');
-}
-
-/**
- * Strip sensitive PII or bearer tokens from raw provider error responses before
- * they land in our internal logs.
- */
-export function redactProviderDetail(text: string): string {
-  if (!text) return text;
-  // Redact phones (e.g. +359888123456 or 0888123456)
-  let redacted = text.replace(/(?:\+?\d{10,15})/g, '[REDACTED_PHONE]');
-  // Redact emails
-  redacted = redacted.replace(/[\w.-]+@[\w.-]+\.\w+/g, '[REDACTED_EMAIL]');
-  // Redact tokens in query strings or short links
-  redacted = redacted.replace(/token=[\w.-]+/g, 'token=[REDACTED]');
-  redacted = redacted.replace(/\/r\/[\w.-]+/g, '/r/[REDACTED]');
-  return redacted;
 }

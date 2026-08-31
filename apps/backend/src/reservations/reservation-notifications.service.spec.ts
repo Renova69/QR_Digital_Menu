@@ -1,3 +1,4 @@
+import { NotificationChannel } from '@prisma/client';
 import { ReservationNotificationsService } from './reservation-notifications.service';
 
 describe('ReservationNotificationsService', () => {
@@ -7,21 +8,6 @@ describe('ReservationNotificationsService', () => {
     timezone: 'Europe/Sofia',
     contactInfo: 'София',
   };
-  const productionReservationRequest = {
-    restaurantId: 'rest-1',
-    guestEmail: null,
-    guestPhone: '+359000000000',
-    guestName: 'Guest',
-    startsAt: new Date('2030-01-01T18:00:00Z'),
-    referenceCode: 'REQ789',
-    notifyByEmail: false,
-    notifyBySms: true,
-    notificationLocale: 'en',
-    manageToken: 'manage-secret',
-  };
-
-  // A booking carrying every guest-provided detail, for the enriched-content
-  // tests below.
   const detailedGuestInput = {
     restaurantId: 'rest-1',
     guestEmail: 'guest@example.com',
@@ -43,23 +29,23 @@ describe('ReservationNotificationsService', () => {
   };
 
   let service: ReservationNotificationsService;
+  let deliveries: { enqueueMany: jest.Mock };
 
   beforeEach(() => {
     process.env = { ...originalEnv, NODE_ENV: 'test' };
-    // Keep tests hermetic regardless of the developer's local .env — each test
-    // opts into a provider explicitly.
-    delete process.env.SMS_PROVIDER;
-    delete process.env.SMS_FORCE_SEND;
-    delete process.env.SMS_GATEWAY_USERNAME;
-    delete process.env.SMS_GATEWAY_PASSWORD;
-    delete process.env.SMS_GATEWAY_URL;
-    service = new ReservationNotificationsService({
-      restaurant: {
-        findUnique: jest.fn().mockResolvedValue(restaurant),
-      },
-    } as unknown as ConstructorParameters<
-      typeof ReservationNotificationsService
-    >[0]);
+    deliveries = { enqueueMany: jest.fn().mockResolvedValue([]) };
+    service = new ReservationNotificationsService(
+      {
+        restaurant: {
+          findUnique: jest.fn().mockResolvedValue(restaurant),
+        },
+      } as unknown as ConstructorParameters<
+        typeof ReservationNotificationsService
+      >[0],
+      deliveries as unknown as ConstructorParameters<
+        typeof ReservationNotificationsService
+      >[1],
+    );
   });
 
   afterEach(() => {
@@ -71,10 +57,7 @@ describe('ReservationNotificationsService', () => {
   });
 
   it('renders the guest confirmation in the persisted Bulgarian locale', async () => {
-    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
-    const sendEmail = service['sendEmail'] as jest.Mock;
-
-    await service['send']('CONFIRMED', {
+    const [email] = await service.prepare('CONFIRMED', {
       restaurantId: 'rest-1',
       guestEmail: 'guest@example.com',
       guestName: 'Мария',
@@ -86,152 +69,80 @@ describe('ReservationNotificationsService', () => {
       manageToken: 'manage-secret',
     });
 
-    expect(sendEmail).toHaveBeenCalledWith(
-      'guest@example.com',
+    expect(email.payload.subject).toBe(
       'Резервацията е потвърдена — Ресторант Тест',
-      expect.stringContaining('Вашата резервация е потвърдена'),
-      expect.stringMatching(/понеделник, 06 юли 2026.*19:00/),
-      'guest CONFIRMED',
     );
-    expect(sendEmail.mock.calls[0][2]).toContain('Управление на резервацията');
+    expect(email.payload.html).toContain('Вашата резервация е потвърдена');
+    expect(email.payload.text).toMatch(/понеделник, 06 юли 2026.*19:00/);
+    expect(email.payload.html).toContain('Управление на резервацията');
   });
 
-  it('uses a Twilio Messaging Service when no direct From number is configured', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.TWILIO_ACCOUNT_SID = 'AC-test';
-    process.env.TWILIO_AUTH_TOKEN = 'secret';
-    process.env.TWILIO_MESSAGING_SERVICE_SID = 'MG-test';
-    delete process.env.TWILIO_FROM_NUMBER;
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true } as Response);
+  it('persists lifecycle email and SMS legs with one event identity', async () => {
+    const tx = {
+      restaurant: { findUnique: jest.fn().mockResolvedValue(restaurant) },
+      notificationDelivery: {},
+    };
 
-    await service['sendSms'](
-      '+359000000000',
-      'Потвърдена резервация',
-      'guest CONFIRMED',
-    );
+    await service.enqueueGuest(tx as never, 'event-1', 'CONFIRMED', {
+      ...detailedGuestInput,
+      reservationId: 'reservation-1',
+      durationMinutes: 120,
+      calendarSequence: 2,
+      notificationOccurredAt: new Date('2029-12-01T10:00:00.000Z'),
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, request] = fetchMock.mock.calls[0];
-    const body = new URLSearchParams(request?.body as string);
-    expect(body.get('MessagingServiceSid')).toBe('MG-test');
-    expect(body.get('From')).toBeNull();
-  });
-
-  it('actually sends in dev when SMS_FORCE_SEND=true (local gateway testing)', async () => {
-    process.env.NODE_ENV = 'test';
-    process.env.SMS_FORCE_SEND = 'true';
-    process.env.SMS_PROVIDER = 'smsgateway';
-    process.env.SMS_GATEWAY_USERNAME = 'device-user';
-    process.env.SMS_GATEWAY_PASSWORD = 'device-pass';
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, status: 202 } as Response);
-
-    await service.notify('RECEIVED', productionReservationRequest);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      'https://api.sms-gate.app/3rdparty/v1/message',
+    expect(deliveries.enqueueMany).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          sourceType: 'RESERVATION_LIFECYCLE',
+          sourceId: 'reservation-1',
+          deduplicationKey: 'reservation-event:event-1',
+          channel: NotificationChannel.EMAIL,
+          payload: expect.objectContaining({
+            attachments: [
+              expect.objectContaining({
+                filename: 'reservation-REQ789.ics',
+              }),
+            ],
+          }),
+        }),
+        expect.objectContaining({
+          sourceType: 'RESERVATION_LIFECYCLE',
+          sourceId: 'reservation-1',
+          deduplicationKey: 'reservation-event:event-1',
+          channel: NotificationChannel.SMS,
+        }),
+      ],
+      tx,
     );
   });
 
-  it('returns a promise that completes the guest notification', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.SMS_PROVIDER = 'smsgateway';
-    process.env.SMS_GATEWAY_USERNAME = 'device-user';
-    process.env.SMS_GATEWAY_PASSWORD = 'device-pass';
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, status: 202 } as Response);
+  it('propagates an outbox write failure so the reservation transaction rolls back', async () => {
+    deliveries.enqueueMany.mockRejectedValueOnce(new Error('database down'));
 
-    const completion = service.notify('RECEIVED', productionReservationRequest);
-
-    expect(completion).toBeInstanceOf(Promise);
-    await completion;
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('dev-logs instead of sending when SMS_FORCE_SEND is not set', async () => {
-    process.env.NODE_ENV = 'test';
-    delete process.env.SMS_FORCE_SEND;
-    process.env.SMS_PROVIDER = 'smsgateway';
-    const fetchMock = jest.spyOn(global, 'fetch');
-
-    await service.notify('RECEIVED', productionReservationRequest);
-
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('does not write guest contact details or manage tokens to development logs', async () => {
-    process.env.NODE_ENV = 'test';
-    delete process.env.SMS_FORCE_SEND;
-    const log = jest
-      .spyOn(service['logger'], 'log')
-      .mockImplementation(() => undefined);
-
-    await service.notify('RECEIVED', detailedGuestInput);
-
-    const output = JSON.stringify(log.mock.calls);
-    expect(output).not.toContain('guest@example.com');
-    expect(output).not.toContain('+359000000000');
-    expect(output).not.toContain('REQ789');
-    expect(output).not.toContain('manage-secret');
-  });
-
-  it('sends via the SIM SMS gateway when SMS_PROVIDER=smsgateway', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.SMS_PROVIDER = 'smsgateway';
-    process.env.SMS_GATEWAY_USERNAME = 'device-user';
-    process.env.SMS_GATEWAY_PASSWORD = 'device-pass';
-    delete process.env.SMS_GATEWAY_URL;
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, status: 202 } as Response);
-
-    await service.notify('RECEIVED', productionReservationRequest);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, request] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://api.sms-gate.app/3rdparty/v1/message');
-    const body = JSON.parse(request?.body as string);
-    expect(body.phoneNumbers).toEqual(['+359000000000']);
-    // Terse SMS status line (not the long email prose).
-    expect(body.textMessage.text).toContain('Booking request received');
-    expect(body.textMessage.text).toContain('REQ789');
-  });
-
-  it('reports missing gateway credentials without logging guest PII', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.SMS_PROVIDER = 'smsgateway';
-    delete process.env.SMS_GATEWAY_USERNAME;
-    delete process.env.SMS_GATEWAY_PASSWORD;
-    const error = jest
-      .spyOn(service['logger'], 'error')
-      .mockImplementation(() => undefined);
-    const fetchMock = jest.spyOn(global, 'fetch');
-
-    await service.notify('RECEIVED', productionReservationRequest);
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith(
-      expect.stringContaining('SMS_GATEWAY_USERNAME'),
-    );
-    expect(JSON.stringify(error.mock.calls)).not.toContain('+359000000000');
-    expect(JSON.stringify(error.mock.calls)).not.toContain('REQ789');
+    await expect(
+      service.enqueueGuest(
+        {
+          restaurant: { findUnique: jest.fn().mockResolvedValue(restaurant) },
+        } as never,
+        'event-1',
+        'CONFIRMED',
+        {
+          ...detailedGuestInput,
+          reservationId: 'reservation-1',
+          calendarSequence: 1,
+          notificationOccurredAt: new Date(),
+        },
+      ),
+    ).rejects.toThrow('database down');
   });
 
   it('includes all guest-provided details in the guest email', async () => {
-    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
-    const sendEmail = service['sendEmail'] as jest.Mock;
-
-    await service['send']('CONFIRMED', {
+    const [email] = await service.prepare('CONFIRMED', {
       ...detailedGuestInput,
       notifyBySms: false,
     });
 
-    const [, , html, text] = sendEmail.mock.calls[0];
     for (const needle of [
       'Guests',
       '4',
@@ -245,55 +156,47 @@ describe('ReservationNotificationsService', () => {
       'High chair please',
       'Peanut allergy',
     ]) {
-      expect(text).toContain(needle);
-      expect(html).toContain(needle);
+      expect(email.payload.text).toContain(needle);
+      expect(email.payload.html).toContain(needle);
     }
   });
 
   it('keeps the guest SMS terse: status + party size, no allergy or prose', async () => {
     process.env.BACKEND_URL = 'https://api.example.com';
-    service['sendSms'] = jest.fn().mockResolvedValue(undefined);
-    const sendSms = service['sendSms'] as jest.Mock;
-
-    await service['send']('CONFIRMED', {
+    const [sms] = await service.prepare('CONFIRMED', {
       ...detailedGuestInput,
       notifyByEmail: false,
     });
 
-    const [, body] = sendSms.mock.calls[0];
-    expect(body).toContain('Booking confirmed');
-    expect(body).toContain('Guests: 4');
-    // Uses the short in-house redirect, not the long frontend query URL.
-    expect(body).toContain('https://api.example.com/r/manage-secret');
-    expect(body).not.toContain('/booking/manage?');
-    // Health data and non-critical prose stay out of the SMS.
-    expect(body).not.toContain('Peanut allergy');
-    expect(body).not.toContain('Birthday');
-    expect(body).not.toContain('Window seat');
+    expect(sms.payload.body).toContain('Booking confirmed');
+    expect(sms.payload.body).toContain('Guests: 4');
+    expect(sms.payload.body).toContain(
+      'https://api.example.com/r/manage-secret',
+    );
+    expect(sms.payload.body).not.toContain('/booking/manage?');
+    expect(sms.payload.body).not.toContain('Peanut allergy');
+    expect(sms.payload.body).not.toContain('Birthday');
+    expect(sms.payload.body).not.toContain('Window seat');
   });
 
-  it('renders a distinct "updated" notice for a guest modification', async () => {
-    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
-    const sendEmail = service['sendEmail'] as jest.Mock;
-
-    await service['send']('MODIFIED', {
+  it('renders a distinct updated notice with the new booking details', async () => {
+    const [email] = await service.prepare('MODIFIED', {
       ...detailedGuestInput,
       notifyBySms: false,
     });
 
-    const [, subject, html, text] = sendEmail.mock.calls[0];
-    expect(subject).toBe('Reservation updated — Ресторант Тест');
-    expect(html).toContain('has been <strong>updated</strong>');
-    expect(text).toContain('Guests: 4');
+    expect(email.payload.subject).toBe('Reservation updated — Ресторант Тест');
+    expect(email.payload.html).toContain('has been <strong>updated</strong>');
+    expect(email.payload.text).toContain('Guests: 4');
   });
 
-  it('adds full details to the owner email but keeps allergy out of owner SMS', async () => {
-    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
-    const sendEmail = service['sendEmail'] as jest.Mock;
-    service['sendSms'] = jest.fn().mockResolvedValue(undefined);
-    const sendSms = service['sendSms'] as jest.Mock;
+  it('persists full owner email details but keeps allergy data out of owner SMS', async () => {
+    const tx = {
+      restaurant: { findUnique: jest.fn().mockResolvedValue(restaurant) },
+      notificationDelivery: {},
+    };
 
-    await service['sendOwner']({
+    await service.enqueueOwner(tx as never, 'event-1', 'reservation-1', {
       restaurantId: 'rest-1',
       notifyEmail: 'owner@example.com',
       notifyPhone: '+359111111111',
@@ -311,31 +214,31 @@ describe('ReservationNotificationsService', () => {
       allergyNotes: 'Peanut allergy',
     });
 
-    // Email carries the full picture, including allergy.
-    const ownerHtml = sendEmail.mock.calls[0][2];
-    expect(ownerHtml).toContain('Birthday');
-    expect(ownerHtml).toContain('Peanut allergy');
-    // SMS must not carry health data.
-    const ownerSms = sendSms.mock.calls[0][1];
-    expect(ownerSms).not.toContain('Peanut allergy');
+    const [email, sms] = deliveries.enqueueMany.mock.calls[0][0];
+    expect(email.payload.html).toContain('Birthday');
+    expect(email.payload.html).toContain('Peanut allergy');
+    expect(sms.payload.body).not.toContain('Peanut allergy');
+    expect(email.deduplicationKey).toBe('reservation-owner-event:event-1');
+    expect(sms.deduplicationKey).toBe('reservation-owner-event:event-1');
   });
 
-  it('reports missing production sender configuration without logging guest PII', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.TWILIO_ACCOUNT_SID = 'AC-test';
-    process.env.TWILIO_AUTH_TOKEN = 'secret';
-    delete process.env.TWILIO_MESSAGING_SERVICE_SID;
-    delete process.env.TWILIO_FROM_NUMBER;
-    const error = jest
-      .spyOn(service['logger'], 'error')
-      .mockImplementation(() => undefined);
+  it('uses a calendar cancellation with the same reservation UID', async () => {
+    const [email] = await service.prepare('CANCELLED', {
+      ...detailedGuestInput,
+      notifyBySms: false,
+      reservationId: 'reservation-1',
+      calendarSequence: 4,
+      notificationOccurredAt: new Date('2029-12-02T10:00:00.000Z'),
+    });
 
-    await service.notify('RECEIVED', productionReservationRequest);
-
-    expect(error).toHaveBeenCalledWith(
-      expect.stringContaining('TWILIO_MESSAGING_SERVICE_SID'),
+    const calendar = Buffer.from(
+      email.payload.attachments![0].content,
+      'base64',
+    ).toString('utf8');
+    expect(calendar).toContain(
+      'UID:reservation-reservation-1@qr-digital-menu.app',
     );
-    expect(JSON.stringify(error.mock.calls)).not.toContain('+359000000000');
-    expect(JSON.stringify(error.mock.calls)).not.toContain('REQ789');
+    expect(calendar).toContain('METHOD:CANCEL');
+    expect(calendar).toContain('SEQUENCE:4');
   });
 });

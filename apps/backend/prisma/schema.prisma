@@ -1162,6 +1162,10 @@ model Reservation {
   notifyByEmail       Boolean             @default(true)
   notifyBySms         Boolean             @default(false)
   notificationLocale  String              @default("en")
+  // Monotonic iCalendar sequence. Increment only for guest-visible lifecycle
+  // changes so email clients replace the existing event instead of creating
+  // duplicate calendar entries.
+  calendarSequence    Int                 @default(0)
   reminderSentAt      DateTime? // set once the 24h reminder has gone out (dedup)
   // Feature 3: guest's preferred seating zone (soft hint). Stored as the zone
   // NAME, not an FK, so a later zone rename/delete never orphans the booking.

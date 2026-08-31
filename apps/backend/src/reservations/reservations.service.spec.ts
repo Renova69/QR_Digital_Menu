@@ -14,6 +14,10 @@ function build() {
   const reservationFindMany = jest.fn().mockResolvedValue([]);
   const reservationUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
   const reservationUpdate = jest.fn();
+  const reservationEventCreate = jest.fn().mockResolvedValue({
+    id: 'event-1',
+    createdAt: new Date('2030-01-01T00:00:00.000Z'),
+  });
   const txReservationCreate = jest.fn().mockResolvedValue({
     id: 'r1',
     referenceCode: 'ABC234',
@@ -31,7 +35,7 @@ function build() {
       updateMany: reservationUpdateMany,
       update: reservationUpdate,
     },
-    reservationEvent: { create: jest.fn() },
+    reservationEvent: { create: reservationEventCreate },
     patron: { update: jest.fn() },
     $executeRaw: jest.fn().mockResolvedValue(1),
   };
@@ -49,7 +53,7 @@ function build() {
       updateMany: reservationUpdateMany,
       update: reservationUpdate,
     },
-    reservationEvent: { create: jest.fn() },
+    reservationEvent: { create: reservationEventCreate },
     reservationSettings: { findUnique: jest.fn() },
     reservationServiceHours: { count: jest.fn(), findMany: jest.fn() },
     tableZone: { findMany: jest.fn().mockResolvedValue([]) },
@@ -75,7 +79,10 @@ function build() {
     emitReservationCreated: jest.fn(),
     emitReservationUpdated: jest.fn(),
   };
-  const notifications = { notify: jest.fn() };
+  const notifications = {
+    enqueueGuest: jest.fn().mockResolvedValue(undefined),
+    enqueueOwner: jest.fn().mockResolvedValue(undefined),
+  };
   const slugs = { commitOnActivity: jest.fn().mockResolvedValue(undefined) };
   const service = new ReservationsService(
     prisma,
@@ -133,7 +140,7 @@ describe('ReservationsService access control', () => {
       expect(prisma.reservationEvent.create).not.toHaveBeenCalled();
       expect(prisma.patron.update).not.toHaveBeenCalled();
       expect(events.emitReservationUpdated).not.toHaveBeenCalled();
-      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(notifications.enqueueGuest).not.toHaveBeenCalled();
     },
   );
 
@@ -154,6 +161,23 @@ describe('ReservationsService access control', () => {
     prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner' });
     prisma.reservation.findMany.mockResolvedValue([]);
     await expect(service.list('rest1', 'owner', {})).resolves.toEqual([]);
+  });
+
+  it('does not notify guests for internal notes or staff tags', async () => {
+    const { service, prisma, notifications } = build();
+    prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner' });
+    prisma.reservation.findFirst.mockResolvedValue({
+      id: 'r1',
+      patronId: null,
+    });
+    prisma.reservation.update.mockResolvedValue({ id: 'r1' });
+
+    await service.updateInternal('r1', 'owner', 'rest1', {
+      internalNotes: 'Window table requested',
+      staffTags: ['VIP'],
+    });
+
+    expect(notifications.enqueueGuest).not.toHaveBeenCalled();
   });
 
   it('denies operational access when the restaurant is suspended', async () => {
@@ -307,6 +331,14 @@ describe('ReservationsService.executeAction (state machine)', () => {
         patron: { staffTags: [] },
       });
     prisma.reservation.updateMany.mockResolvedValue({ count: 1 });
+    prisma.reservation.findUnique.mockResolvedValue({
+      id: 'r1',
+      restaurantId: 'rest1',
+      status: 'CONFIRMED',
+      startsAt: FUTURE,
+      notificationLocale: 'bg',
+      calendarSequence: 1,
+    });
 
     await service.executeAction('r1', 'owner', 'rest1', 'ACCEPT');
 
@@ -316,15 +348,24 @@ describe('ReservationsService.executeAction (state machine)', () => {
         restaurantId: 'rest1',
         status: { in: ['PENDING'] },
       },
-      data: { status: 'CONFIRMED' },
+      data: {
+        status: 'CONFIRMED',
+        calendarSequence: { increment: 1 },
+      },
     });
     expect(events.emitReservationUpdated).toHaveBeenCalledWith('rest1', {
       id: 'r1',
       status: 'CONFIRMED',
     });
-    expect(notifications.notify).toHaveBeenCalledWith(
+    expect(notifications.enqueueGuest).toHaveBeenCalledWith(
+      expect.anything(),
+      'event-1',
       'CONFIRMED',
-      expect.objectContaining({ notificationLocale: 'bg' }),
+      expect.objectContaining({
+        reservationId: 'r1',
+        notificationLocale: 'bg',
+        calendarSequence: 1,
+      }),
     );
   });
 
@@ -658,11 +699,16 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
           id: 'r1',
           status: { in: ['PENDING', 'CONFIRMED'] },
         }),
-        data: { status: 'CANCELLED' },
+        data: {
+          status: 'CANCELLED',
+          calendarSequence: { increment: 1 },
+        },
       }),
     );
     expect(events.emitReservationUpdated).toHaveBeenCalled();
-    expect(notifications.notify).toHaveBeenCalledWith(
+    expect(notifications.enqueueGuest).toHaveBeenCalledWith(
+      expect.anything(),
+      'event-1',
       'CANCELLED',
       expect.objectContaining({
         referenceCode: 'ABC234',
@@ -960,10 +1006,27 @@ describe('ReservationsService createReservation hardening', () => {
     expect(txReservationCreate.mock.calls[0][0].data.notificationLocale).toBe(
       'bg',
     );
-    expect(notifications.notify).toHaveBeenCalledWith(
+    expect(notifications.enqueueGuest).toHaveBeenCalledWith(
+      expect.anything(),
+      'event-1',
       'RECEIVED',
       expect.objectContaining({ notificationLocale: 'bg' }),
     );
+  });
+
+  it('propagates an outbox failure before post-commit effects run', async () => {
+    const { service, prisma, notifications, events, slugs } = build();
+    prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
+    notifications.enqueueGuest.mockRejectedValueOnce(
+      new Error('outbox unavailable'),
+    );
+
+    await expect(service.createPublic('rest1', dto)).rejects.toThrow(
+      'outbox unavailable',
+    );
+
+    expect(events.emitReservationCreated).not.toHaveBeenCalled();
+    expect(slugs.commitOnActivity).not.toHaveBeenCalled();
   });
 
   it('replays the idempotent result instead of 500 on a concurrent key collision (C-MED-5)', async () => {
@@ -1031,6 +1094,6 @@ describe('ReservationsService createReservation hardening', () => {
     expect(availability.assertSlotBookable).not.toHaveBeenCalled();
     expect(txReservationCreate).not.toHaveBeenCalled();
     expect(events.emitReservationCreated).not.toHaveBeenCalled();
-    expect(notifications.notify).not.toHaveBeenCalled();
+    expect(notifications.enqueueGuest).not.toHaveBeenCalled();
   });
 });

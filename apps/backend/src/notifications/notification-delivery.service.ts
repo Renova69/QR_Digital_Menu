@@ -57,6 +57,11 @@ export type EnqueueDeliveryInput = {
   maxAttempts?: number;
 };
 
+type NotificationDeliveryClient = Pick<
+  Prisma.TransactionClient,
+  'notificationDelivery'
+>;
+
 @Injectable()
 export class NotificationDeliveryService {
   private readonly logger = new Logger(NotificationDeliveryService.name);
@@ -71,48 +76,55 @@ export class NotificationDeliveryService {
     return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
   }
 
-  async enqueue(input: EnqueueDeliveryInput): Promise<NotificationDelivery> {
+  async enqueue(
+    input: EnqueueDeliveryInput,
+    client: NotificationDeliveryClient = this.prisma,
+  ): Promise<NotificationDelivery> {
     const payloadHash = this.hashPayload(input.payload);
-    try {
-      return await this.prisma.notificationDelivery.create({
-        data: {
+    const existing = await client.notificationDelivery.upsert({
+      where: {
+        restaurantId_deduplicationKey_channel: {
           restaurantId: input.restaurantId,
-          sourceType: input.sourceType,
-          sourceId: input.sourceId,
           deduplicationKey: input.deduplicationKey,
           channel: input.channel,
-          payload: input.payload,
-          payloadHash,
-          maxAttempts: input.maxAttempts ?? 5,
         },
+      },
+      create: {
+        restaurantId: input.restaurantId,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        deduplicationKey: input.deduplicationKey,
+        channel: input.channel,
+        payload: input.payload,
+        payloadHash,
+        maxAttempts: input.maxAttempts ?? 5,
+      },
+      // Upsert avoids catching P2002 inside an interactive transaction. In
+      // PostgreSQL a unique violation aborts the whole transaction, so the old
+      // create-then-find pattern could not safely support atomic outbox writes.
+      update: {},
+    });
+    if (existing.payloadHash !== payloadHash) {
+      throw new ConflictException({
+        code: 'NOTIFICATION_IDEMPOTENCY_MISMATCH',
+        message:
+          'This notification identity was already used for a different payload.',
       });
-    } catch (error) {
-      if ((error as { code?: string }).code !== 'P2002') throw error;
-      const existing = await this.prisma.notificationDelivery.findUnique({
-        where: {
-          restaurantId_deduplicationKey_channel: {
-            restaurantId: input.restaurantId,
-            deduplicationKey: input.deduplicationKey,
-            channel: input.channel,
-          },
-        },
-      });
-      if (!existing) throw error;
-      if (existing.payloadHash !== payloadHash) {
-        throw new ConflictException({
-          code: 'NOTIFICATION_IDEMPOTENCY_MISMATCH',
-          message:
-            'This notification identity was already used for a different payload.',
-        });
-      }
-      return existing;
     }
+    return existing;
   }
 
   async enqueueMany(
     inputs: EnqueueDeliveryInput[],
+    client: NotificationDeliveryClient = this.prisma,
   ): Promise<NotificationDelivery[]> {
-    return Promise.all(inputs.map((input) => this.enqueue(input)));
+    const deliveries: NotificationDelivery[] = [];
+    // Sequential writes are intentional when `client` is a transaction: one
+    // failed leg must roll back the reservation change and every outbox leg.
+    for (const input of inputs) {
+      deliveries.push(await this.enqueue(input, client));
+    }
+    return deliveries;
   }
 
   // waitForCompletion matters more here than anywhere else: a drain can make
