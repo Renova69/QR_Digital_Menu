@@ -79,6 +79,37 @@
         ]
       }
     },
+    "/api/v1/restaurants/{restaurantId}/notification-deliveries/sms-usage": {
+      "get": {
+        "operationId": "NotificationDeliveryController_smsUsage_v1",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodMonth",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "NotificationDelivery"
+        ]
+      }
+    },
     "/api/v1/restaurants/{restaurantId}/notification-deliveries/{deliveryId}/retry": {
       "post": {
         "operationId": "NotificationDeliveryController_retry_v1",
@@ -107,6 +138,60 @@
         },
         "tags": [
           "NotificationDelivery"
+        ]
+      }
+    },
+    "/api/v1/notifications/sms/twilio/status": {
+      "post": {
+        "operationId": "SmsReceiptController_twilio_v1",
+        "parameters": [
+          {
+            "name": "x-twilio-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SmsReceipt"
+        ]
+      }
+    },
+    "/api/v1/notifications/sms/smsgateway/status": {
+      "post": {
+        "operationId": "SmsReceiptController_smsGateway_v1",
+        "parameters": [
+          {
+            "name": "x-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-timestamp",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SmsReceipt"
         ]
       }
     },
