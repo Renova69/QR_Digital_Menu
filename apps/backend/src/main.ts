@@ -27,6 +27,10 @@ import {
   configureApiRouting,
   createApiDocument,
 } from './common/api-documentation';
+import {
+  SMS_GATEWAY_STATUS_PATH,
+  TWILIO_SMS_STATUS_PATH,
+} from './notifications/sms-receipt-security';
 
 function validateFrontendUrl(logger: Logger) {
   const rawFrontendUrl = process.env.FRONTEND_URL?.trim();
@@ -239,7 +243,9 @@ async function bootstrap() {
       req.path === '/api/v1/payments/epay/notify' ||
       req.path === '/api/v1/payments/mypos/notify' ||
       req.path === '/api/v1/payments/borica/callback' ||
-      req.path === '/api/v1/subscription/webhook';
+      req.path === '/api/v1/subscription/webhook' ||
+      req.path === TWILIO_SMS_STATUS_PATH ||
+      req.path === SMS_GATEWAY_STATUS_PATH;
     // H3: POST /orders uses OptionalJwtAuthGuard, so when the caller presents
     // an auth cookie the request IS cookie-authenticated (POS staff, or a
     // logged-in customer redeeming loyalty points) and must NOT skip CSRF —
@@ -289,6 +295,14 @@ async function bootstrap() {
   app.use(
     '/api/v1/subscription/webhook',
     express.raw({ type: 'application/json', limit: '5mb' }),
+  );
+  app.use(
+    SMS_GATEWAY_STATUS_PATH,
+    express.raw({ type: 'application/json', limit: '32kb' }),
+  );
+  app.use(
+    TWILIO_SMS_STATUS_PATH,
+    express.urlencoded({ extended: false, limit: '32kb' }),
   );
   // Browsers use these non-standard JSON media types for legacy report-uri
   // and the Reporting API. Parse only this bounded endpoint before the

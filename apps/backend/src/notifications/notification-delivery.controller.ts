@@ -43,6 +43,20 @@ export class NotificationDeliveryController {
     );
   }
 
+  @Get('sms-usage')
+  smsUsage(
+    @Param('restaurantId') restaurantId: string,
+    @Request() request: NotificationDeliveryRequest,
+    @Query('periodMonth') periodMonth?: string,
+  ) {
+    this.assertManagerRole(request);
+    return this.deliveries.getSmsUsage(
+      restaurantId,
+      request.user.id,
+      periodMonth,
+    );
+  }
+
   @Post(':deliveryId/retry')
   retry(
     @Param('restaurantId') restaurantId: string,

@@ -129,6 +129,13 @@ export const SEPARATE_AUTHORIZATION_ROUTES = [
       'Public view recording; getScanStats is migrated and must not be exempted.',
   },
   {
+    file: 'notifications/sms-receipt.controller.ts',
+    controller: 'SmsReceiptController',
+    routes: ['twilio', 'smsGateway'],
+    reason:
+      'Public provider callbacks authenticate with Twilio or SMS Gateway signatures and carry no dashboard session authority.',
+  },
+  {
     file: 'orders/orders.controller.ts',
     controller: 'OrdersController',
     routes: ['create'],

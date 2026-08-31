@@ -11,6 +11,7 @@ import {
   type NotificationDelivery,
   NotificationDeliveryStatus,
   Prisma,
+  SubscriptionTier,
 } from '@prisma/client';
 import { SentryCron } from '@sentry/nestjs';
 import { createHash, randomUUID } from 'node:crypto';
@@ -23,6 +24,7 @@ import {
   type NotificationProvider,
   type ProviderDeliveryResult,
 } from './notification-provider';
+import { SmsUsageService, type SmsPolicySnapshot } from './sms-usage.service';
 
 const LEASE_DURATION_MS = 60_000;
 const MAX_DRAIN_BATCH = 50;
@@ -45,6 +47,8 @@ const SETTLE_TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 } as const;
 
 type ClaimedDelivery = NotificationDelivery & {
   previousStatus: NotificationDeliveryStatus;
+  restaurantTier: SubscriptionTier;
+  restaurantForceTier: SubscriptionTier | null;
 };
 
 export type EnqueueDeliveryInput = {
@@ -70,6 +74,7 @@ export class NotificationDeliveryService {
     private readonly prisma: PrismaService,
     @Inject(NOTIFICATION_PROVIDER)
     private readonly provider: NotificationProvider,
+    private readonly smsUsage: SmsUsageService,
   ) {}
 
   hashPayload(payload: DeliveryPayload): string {
@@ -168,16 +173,22 @@ export class NotificationDeliveryService {
     const leaseExpiresAt = new Date(now.getTime() + LEASE_DURATION_MS);
     const rows = await this.prisma.$queryRaw<ClaimedDelivery[]>(Prisma.sql`
       WITH candidate AS (
-        SELECT "id", "status" AS "previousStatus"
-        FROM "notification_delivery"
+        SELECT
+          delivery."id",
+          delivery."status" AS "previousStatus",
+          restaurant."tier" AS "restaurantTier",
+          restaurant."forceTier" AS "restaurantForceTier"
+        FROM "notification_delivery" AS delivery
+        INNER JOIN "restaurant" AS restaurant
+          ON restaurant."id" = delivery."restaurantId"
         WHERE (
-          "status" IN ('PENDING', 'RETRY_SCHEDULED')
-          AND "nextAttemptAt" <= ${now}
+          delivery."status" IN ('PENDING', 'RETRY_SCHEDULED')
+          AND delivery."nextAttemptAt" <= ${now}
         ) OR (
-          "status" = 'PROCESSING'
-          AND "leaseExpiresAt" <= ${now}
+          delivery."status" = 'PROCESSING'
+          AND delivery."leaseExpiresAt" <= ${now}
         )
-        ORDER BY "nextAttemptAt" ASC, "createdAt" ASC
+        ORDER BY delivery."nextAttemptAt" ASC, delivery."createdAt" ASC
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       )
@@ -190,10 +201,22 @@ export class NotificationDeliveryService {
         "updatedAt" = ${now}
       FROM candidate
       WHERE delivery."id" = candidate."id"
-      RETURNING delivery.*, candidate."previousStatus"
+      RETURNING
+        delivery.*,
+        candidate."previousStatus",
+        candidate."restaurantTier",
+        candidate."restaurantForceTier"
     `);
     const claimed = rows[0];
     if (!claimed) return false;
+
+    const smsPolicy: SmsPolicySnapshot | null =
+      claimed.channel === NotificationChannel.SMS
+        ? this.smsUsage.getPolicySnapshot(
+            claimed.restaurantTier,
+            claimed.restaurantForceTier,
+          )
+        : null;
 
     if (
       claimed.channel === NotificationChannel.SMS &&
@@ -233,6 +256,9 @@ export class NotificationDeliveryService {
             lastError: null,
             leaseToken: null,
             leaseExpiresAt: null,
+            ...(result.sms && smsPolicy
+              ? this.smsUsage.acceptanceData(smsPolicy, result.sms)
+              : {}),
           },
         });
         if (updated.count === 1) {
@@ -370,6 +396,22 @@ export class NotificationDeliveryService {
         maxAttempts: true,
         nextAttemptAt: true,
         providerMessageId: true,
+        smsProvider: true,
+        smsDeliveryStatus: true,
+        smsProviderStatus: true,
+        smsSegmentCount: true,
+        smsEstimatedCostMicros: true,
+        smsProviderCostMicros: true,
+        smsEstimatedCostCurrency: true,
+        smsProviderCostCurrency: true,
+        smsEffectiveTier: true,
+        smsAllowanceAtSend: true,
+        smsDeliveredPartCount: true,
+        smsSentAt: true,
+        smsDeliveredAt: true,
+        smsFailedAt: true,
+        smsLastReceiptAt: true,
+        smsFailureCode: true,
         outcomeUncertain: true,
         lastError: true,
         acceptedAt: true,
@@ -379,6 +421,15 @@ export class NotificationDeliveryService {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+  }
+
+  async getSmsUsage(
+    restaurantId: string,
+    userId: string,
+    periodMonth?: string,
+  ) {
+    await this.assertManagementAccess(restaurantId, userId);
+    return this.smsUsage.getSummary(restaurantId, periodMonth);
   }
 
   async retryFailed(

@@ -73,6 +73,7 @@ describe('Service-management restaurant access', () => {
   const notifications = {
     listForRestaurant: jest.fn(),
     retryFailed: jest.fn(),
+    getSmsUsage: jest.fn(),
   };
   const calls = [assistance, orders, feedback, loyalty, notifications].flatMap(
     Object.values,
@@ -146,6 +147,12 @@ describe('Service-management restaurant access', () => {
       '/restaurants/r1/notification-deliveries/delivery1/retry',
       {},
       notifications.retryFailed,
+    ],
+    [
+      'get',
+      '/restaurants/r1/notification-deliveries/sms-usage?periodMonth=2026-08',
+      undefined,
+      notifications.getSmsUsage,
     ],
   ];
   function send(verb: Verb, url: string, body?: Record<string, unknown>) {

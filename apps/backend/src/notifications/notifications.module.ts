@@ -5,13 +5,18 @@ import {
   NOTIFICATION_PROVIDER,
   ProductionNotificationProvider,
 } from './notification-provider';
+import { SmsReceiptController } from './sms-receipt.controller';
+import { SmsReceiptService } from './sms-receipt.service';
+import { SmsUsageService } from './sms-usage.service';
 
 @Global()
 @Module({
-  controllers: [NotificationDeliveryController],
+  controllers: [NotificationDeliveryController, SmsReceiptController],
   providers: [
     NotificationDeliveryService,
     ProductionNotificationProvider,
+    SmsReceiptService,
+    SmsUsageService,
     {
       provide: NOTIFICATION_PROVIDER,
       useExisting: ProductionNotificationProvider,

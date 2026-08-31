@@ -23,7 +23,7 @@
  */
 import { fetchWithDependencyPool } from '../http/dependency-http';
 
-const DEFAULT_SMS_GATEWAY_URL = 'https://api.sms-gate.app/3rdparty/v1/message';
+const DEFAULT_SMS_GATEWAY_URL = 'https://api.sms-gate.app/3rdparty/v1/messages';
 const DEFAULT_SMS_TTL_SECONDS = 60 * 60;
 const DEFAULT_SMS_TIMEOUT_MS = 10_000;
 
@@ -45,6 +45,7 @@ export interface SmsSendResult {
   ok: boolean;
   status: number;
   detail: string;
+  messageId?: string;
 }
 
 export interface SmsSendOptions {
@@ -52,6 +53,10 @@ export interface SmsSendOptions {
   ttlSeconds?: number;
   /** Bounds both Cloud Run request latency and a stalled gateway connection. */
   timeoutMs?: number;
+  /** Stable provider identity used to make outbox retries reconcilable. */
+  messageId?: string;
+  /** Ask the Android gateway to emit delivered/failed receipt webhooks. */
+  withDeliveryReport?: boolean;
 }
 
 function blockedResult(detail: string): SmsSendResult {
@@ -101,15 +106,26 @@ export async function sendViaSmsGateway(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        ...(options.messageId ? { id: options.messageId } : {}),
         textMessage: { text: body },
         phoneNumbers: [to],
         ttl: ttlSeconds,
+        withDeliveryReport: options.withDeliveryReport ?? false,
       }),
       signal: controller.signal,
     });
 
     const detail = res.ok ? '' : await res.text().catch(() => '');
-    return { ok: res.ok, status: res.status, detail };
+    const responseBody =
+      res.ok && typeof res.json === 'function'
+        ? ((await res.json().catch(() => null)) as { id?: string } | null)
+        : null;
+    return {
+      ok: res.ok,
+      status: res.status,
+      detail,
+      ...(responseBody?.id ? { messageId: responseBody.id } : {}),
+    };
   } catch (error) {
     const detail = controller.signal.aborted
       ? `SMS gateway request timed out after ${timeoutMs}ms`
