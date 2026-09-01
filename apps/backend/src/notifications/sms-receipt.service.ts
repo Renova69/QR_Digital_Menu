@@ -17,6 +17,8 @@ export type SmsReceipt = {
   receivedAt: Date;
   segmentCount?: number;
   failureCode?: string;
+  /** Provider API snapshot, not one multipart webhook event. */
+  aggregateSnapshot?: boolean;
 };
 
 @Injectable()
@@ -33,7 +35,7 @@ export class SmsReceiptService {
           providerMessageId: receipt.providerMessageId,
           smsProvider: receipt.provider,
         },
-        select: { id: true },
+        select: { id: true, smsSegmentCount: true },
       });
       if (!delivery) {
         // Direct OTP sends intentionally bypass the reservation outbox but a
@@ -57,6 +59,71 @@ export class SmsReceiptService {
         skipDuplicates: true,
       });
       if (inserted.count === 0) return false;
+
+      if (
+        receipt.provider === SmsProvider.SMS_GATEWAY &&
+        receipt.aggregateSnapshot
+      ) {
+        const data: Prisma.NotificationDeliveryUpdateManyMutationInput = {
+          smsDeliveryStatus: receipt.status,
+          smsProviderStatus: receipt.providerStatus.slice(0, 80),
+          smsLastReceiptAt: receipt.receivedAt,
+          ...(receipt.status === SmsDeliveryStatus.SENT
+            ? { smsSentAt: receipt.eventAt }
+            : {}),
+          ...(receipt.status === SmsDeliveryStatus.DELIVERED
+            ? {
+                // GET /messages/:id is an aggregate message snapshot, unlike
+                // the part-level delivered webhook handled below.
+                smsDeliveredPartCount: Math.max(
+                  1,
+                  delivery.smsSegmentCount ?? receipt.segmentCount ?? 1,
+                ),
+                smsDeliveredAt: receipt.eventAt,
+              }
+            : {}),
+          ...(receipt.status === SmsDeliveryStatus.FAILED
+            ? {
+                smsFailedAt: receipt.eventAt,
+                smsFailureCode: receipt.failureCode?.slice(0, 120) ?? null,
+              }
+            : {}),
+        };
+        const where: Prisma.NotificationDeliveryWhereInput = {
+          id: delivery.id,
+          // Non-terminal snapshots must never move a delivered/failed row
+          // backwards. A provider can still move Delivered -> Failed later.
+          ...(receipt.status === SmsDeliveryStatus.ACCEPTED
+            ? {
+                OR: [
+                  { smsDeliveryStatus: null },
+                  { smsDeliveryStatus: SmsDeliveryStatus.ACCEPTED },
+                ],
+              }
+            : receipt.status === SmsDeliveryStatus.SENT
+              ? {
+                  OR: [
+                    { smsDeliveryStatus: null },
+                    {
+                      smsDeliveryStatus: {
+                        in: [
+                          SmsDeliveryStatus.ACCEPTED,
+                          SmsDeliveryStatus.SENT,
+                        ],
+                      },
+                    },
+                  ],
+                }
+              : receipt.status === SmsDeliveryStatus.DELIVERED
+                ? { smsDeliveryStatus: { not: SmsDeliveryStatus.FAILED } }
+                : {}),
+        };
+        const updated = await tx.notificationDelivery.updateMany({
+          where,
+          data,
+        });
+        return updated.count === 1;
+      }
 
       if (
         receipt.provider === SmsProvider.SMS_GATEWAY &&

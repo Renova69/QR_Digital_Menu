@@ -185,4 +185,76 @@ describe('SmsReceiptService', () => {
       ]),
     );
   });
+
+  it('applies an aggregate delivered snapshot without incrementing one part', async () => {
+    const { service, prisma } = build();
+    prisma.notificationDelivery.findFirst.mockResolvedValue({
+      id: 'delivery-1',
+      smsSegmentCount: 3,
+    });
+    const at = new Date('2030-01-01T12:01:00Z');
+
+    await expect(
+      service.apply({
+        provider: SmsProvider.SMS_GATEWAY,
+        providerEventId: 'poll-delivered-1',
+        providerMessageId: 'message-1',
+        providerStatus: 'Delivered',
+        status: SmsDeliveryStatus.DELIVERED,
+        eventAt: at,
+        receivedAt: at,
+        aggregateSnapshot: true,
+      }),
+    ).resolves.toBe(true);
+
+    expect(prisma.notificationDelivery.update).not.toHaveBeenCalled();
+    expect(prisma.notificationDelivery.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'delivery-1',
+        smsDeliveryStatus: {
+          not: SmsDeliveryStatus.FAILED,
+        },
+      },
+      data: expect.objectContaining({
+        smsDeliveryStatus: SmsDeliveryStatus.DELIVERED,
+        smsDeliveredPartCount: 3,
+        smsDeliveredAt: at,
+        smsLastReceiptAt: at,
+      }),
+    });
+  });
+
+  it('does not regress a terminal delivery from an aggregate sent snapshot', async () => {
+    const { service, prisma } = build();
+    prisma.notificationDelivery.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.apply({
+        provider: SmsProvider.SMS_GATEWAY,
+        providerEventId: 'poll-sent-late',
+        providerMessageId: 'message-1',
+        providerStatus: 'Sent',
+        status: SmsDeliveryStatus.SENT,
+        eventAt: new Date('2030-01-01T12:00:00Z'),
+        receivedAt: new Date('2030-01-01T12:02:00Z'),
+        aggregateSnapshot: true,
+      }),
+    ).resolves.toBe(false);
+
+    expect(prisma.notificationDelivery.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'delivery-1',
+          OR: [
+            { smsDeliveryStatus: null },
+            {
+              smsDeliveryStatus: {
+                in: [SmsDeliveryStatus.ACCEPTED, SmsDeliveryStatus.SENT],
+              },
+            },
+          ],
+        },
+      }),
+    );
+  });
 });

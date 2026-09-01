@@ -6,6 +6,7 @@ import {
   ProductionNotificationProvider,
 } from './notification-provider';
 import { SmsReceiptController } from './sms-receipt.controller';
+import { SmsGatewayReconciliationService } from './sms-gateway-reconciliation.service';
 import { SmsReceiptService } from './sms-receipt.service';
 import { SmsUsageService } from './sms-usage.service';
 
@@ -15,6 +16,7 @@ import { SmsUsageService } from './sms-usage.service';
   providers: [
     NotificationDeliveryService,
     ProductionNotificationProvider,
+    SmsGatewayReconciliationService,
     SmsReceiptService,
     SmsUsageService,
     {

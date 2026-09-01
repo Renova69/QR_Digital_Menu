@@ -44,6 +44,7 @@ function delivery(channel: NotificationChannel = NotificationChannel.EMAIL) {
     smsDeliveredAt: null,
     smsFailedAt: null,
     smsLastReceiptAt: null,
+    smsLastReconciledAt: null,
     smsFailureCode: null,
     outcomeUncertain: false,
     lastError: null,

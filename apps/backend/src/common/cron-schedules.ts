@@ -11,7 +11,7 @@
  * by a two-statement transaction (Sentry QR-MENU-BACKEND-2/3/4/5/6/7/8).
  *
  * Giving each job its own second keeps them from contending on startup. The
- * per-minute slots take 0/10/20/30/40 and the ten-minute slots take 5/15/25/35
+ * per-minute slots take 0/10/20/30/40/50 and the ten-minute slots take 5/15/25/35
  * so the two families never land on the same second either.
  *
  * Staggering alone is not enough for a job that can outrun its own interval —
@@ -24,6 +24,7 @@ export const CRON_EVERY_MINUTE = {
   PRINT_RETRY_STUCK_JOBS: '20 * * * * *',
   NOTIFICATION_DRAIN_DUE: '30 * * * * *',
   TABLES_AUTO_CLOSE_PAID: '40 * * * * *',
+  SMS_GATEWAY_STATUS_RECONCILIATION: '50 * * * * *',
 } as const;
 
 export const CRON_EVERY_10_MINUTES = {

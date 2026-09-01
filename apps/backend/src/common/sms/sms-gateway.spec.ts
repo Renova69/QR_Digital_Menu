@@ -1,4 +1,5 @@
 import {
+  getSmsGatewayMessageStatus,
   smsProvider,
   smsGatewayConfigured,
   sendViaSmsGateway,
@@ -167,10 +168,10 @@ describe('sms-gateway', () => {
       process.env.SMS_GATEWAY_PASSWORD = 'pass';
       const originalFetch = global.fetch;
       let called = false;
-      global.fetch = (async () => {
+      global.fetch = async () => {
         called = true;
         throw new Error('must not reach the network');
-      }) as typeof fetch;
+      };
 
       try {
         const result = await sendViaSmsGateway('+359000000000', 'blocked');
@@ -200,6 +201,93 @@ describe('sms-gateway', () => {
         ok: false,
         status: 0,
         detail: 'network down',
+      });
+    });
+  });
+
+  describe('getSmsGatewayMessageStatus', () => {
+    it('GETs one message with basic auth and returns only status metadata', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      delete process.env.SMS_GATEWAY_URL;
+      const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'message/id',
+            state: 'Delivered',
+            states: {
+              Pending: '2030-01-01T12:00:00Z',
+              Delivered: '2030-01-01T12:01:00Z',
+            },
+            recipients: [{ phoneNumber: '+359000000000' }],
+            textMessage: { text: 'private message body' },
+            reason: 'private provider detail',
+          }),
+      } as Response);
+
+      await expect(getSmsGatewayMessageStatus('message/id')).resolves.toEqual({
+        ok: true,
+        status: 200,
+        detail: '',
+        message: {
+          id: 'message/id',
+          state: 'Delivered',
+          states: {
+            Pending: '2030-01-01T12:00:00Z',
+            Delivered: '2030-01-01T12:01:00Z',
+          },
+        },
+      });
+
+      const [url, request] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        'https://api.sms-gate.app/3rdparty/v1/messages/message%2Fid',
+      );
+      expect(request?.method).toBe('GET');
+      expect((request?.headers as Record<string, string>).Authorization).toBe(
+        `Basic ${Buffer.from('user:pass').toString('base64')}`,
+      );
+    });
+
+    it('does not copy a provider error body into the result', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('recipient +359000000000 failed'),
+      } as Response);
+
+      await expect(getSmsGatewayMessageStatus('message-1')).resolves.toEqual({
+        ok: false,
+        status: 500,
+        detail: 'SMS gateway status request failed with HTTP 500',
+      });
+    });
+
+    it('rejects an unsupported provider state without returning the payload', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'message-1',
+            state: 'Unexpected',
+            phoneNumbers: ['+359000000000'],
+          }),
+      } as Response);
+
+      await expect(getSmsGatewayMessageStatus('message-1')).resolves.toEqual({
+        ok: false,
+        status: 502,
+        detail: 'SMS gateway returned an invalid status response',
       });
     });
   });
