@@ -407,6 +407,7 @@ model NotificationDelivery {
   smsDeliveredAt           DateTime?
   smsFailedAt              DateTime?
   smsLastReceiptAt         DateTime?
+  smsLastReconciledAt      DateTime?
   smsFailureCode           String?
   outcomeUncertain         Boolean                    @default(false)
   lastError                String?
@@ -422,6 +423,7 @@ model NotificationDelivery {
   @@index([restaurantId, status, createdAt])
   @@index([restaurantId, channel, acceptedAt])
   @@index([channel, providerMessageId])
+  @@index([channel, status, smsProvider, smsDeliveryStatus, smsLastReconciledAt], map: "notification_delivery_sms_reconcile_idx")
   @@index([sourceType, sourceId])
   @@map("notification_delivery")
 }

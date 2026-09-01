@@ -59,8 +59,51 @@ export interface SmsSendOptions {
   withDeliveryReport?: boolean;
 }
 
+const SMS_GATEWAY_MESSAGE_STATES = [
+  'Pending',
+  'Cancelling',
+  'Cancelled',
+  'Processed',
+  'Sent',
+  'Delivered',
+  'Failed',
+] as const;
+
+export type SmsGatewayMessageState =
+  (typeof SMS_GATEWAY_MESSAGE_STATES)[number];
+
+export type SmsGatewayMessageStatus = {
+  id: string;
+  state: SmsGatewayMessageState;
+  states: Partial<Record<SmsGatewayMessageState, string>>;
+};
+
+export type SmsGatewayStatusResult =
+  | {
+      ok: true;
+      status: number;
+      detail: '';
+      message: SmsGatewayMessageStatus;
+    }
+  | {
+      ok: false;
+      status: number;
+      detail: string;
+    };
+
 function blockedResult(detail: string): SmsSendResult {
   return { ok: false, status: 0, detail };
+}
+
+function statusFailure(status: number, detail: string): SmsGatewayStatusResult {
+  return { ok: false, status, detail };
+}
+
+function fetchIsMocked(): boolean {
+  return Boolean(
+    (globalThis.fetch as typeof fetch & { _isMockFunction?: boolean })
+      ?._isMockFunction,
+  );
 }
 
 /**
@@ -72,11 +115,7 @@ export async function sendViaSmsGateway(
   body: string,
   options: SmsSendOptions = {},
 ): Promise<SmsSendResult> {
-  const fetchIsMocked = Boolean(
-    (globalThis.fetch as typeof fetch & { _isMockFunction?: boolean })
-      ?._isMockFunction,
-  );
-  if (process.env.NODE_ENV === 'test' && !fetchIsMocked) {
+  if (process.env.NODE_ENV === 'test' && !fetchIsMocked()) {
     return blockedResult('Live SMS network access blocked under NODE_ENV=test');
   }
   if (
@@ -133,6 +172,105 @@ export async function sendViaSmsGateway(
         ? error.message
         : 'Unknown SMS gateway network error';
     return blockedResult(detail);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Read one cloud message's provider-owned state. The response is deliberately
+ * reduced to opaque identity and lifecycle timestamps: SMS Gate also returns
+ * recipients, message text, and failure reasons, none of which belong in the
+ * reconciliation or error-reporting path.
+ */
+export async function getSmsGatewayMessageStatus(
+  messageId: string,
+  timeoutMs = DEFAULT_SMS_TIMEOUT_MS,
+): Promise<SmsGatewayStatusResult> {
+  if (process.env.NODE_ENV === 'test' && !fetchIsMocked()) {
+    return statusFailure(
+      0,
+      'Live SMS network access blocked under NODE_ENV=test',
+    );
+  }
+  if (!smsGatewayConfigured()) {
+    return statusFailure(0, 'SMS gateway credentials are not configured');
+  }
+
+  const baseUrl = process.env.SMS_GATEWAY_URL || DEFAULT_SMS_GATEWAY_URL;
+  const url = `${baseUrl.replace(/\/+$/, '')}/${encodeURIComponent(messageId)}`;
+  const auth = Buffer.from(
+    `${process.env.SMS_GATEWAY_USERNAME}:${process.env.SMS_GATEWAY_PASSWORD}`,
+  ).toString('base64');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetchWithDependencyPool('sms-gateway', url, {
+      method: 'GET',
+      headers: { Authorization: `Basic ${auth}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      // Provider response bodies can contain recipients and failure details.
+      // Keep the observable error useful without copying that data to Sentry.
+      return statusFailure(
+        res.status,
+        `SMS gateway status request failed with HTTP ${res.status}`,
+      );
+    }
+
+    const raw = (await res.json().catch(() => null)) as unknown;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return statusFailure(
+        502,
+        'SMS gateway returned an invalid status response',
+      );
+    }
+    const body = raw as Record<string, unknown>;
+    const state = body.state;
+    if (
+      body.id !== messageId ||
+      typeof state !== 'string' ||
+      !SMS_GATEWAY_MESSAGE_STATES.includes(state as SmsGatewayMessageState)
+    ) {
+      return statusFailure(
+        502,
+        'SMS gateway returned an invalid status response',
+      );
+    }
+
+    const sourceStates =
+      body.states &&
+      typeof body.states === 'object' &&
+      !Array.isArray(body.states)
+        ? (body.states as Record<string, unknown>)
+        : {};
+    const states: Partial<Record<SmsGatewayMessageState, string>> = {};
+    for (const allowedState of SMS_GATEWAY_MESSAGE_STATES) {
+      const value = sourceStates[allowedState];
+      if (typeof value === 'string') states[allowedState] = value;
+    }
+
+    return {
+      ok: true,
+      status: res.status,
+      detail: '',
+      message: {
+        id: messageId,
+        state: state as SmsGatewayMessageState,
+        states,
+      },
+    };
+  } catch (error) {
+    return statusFailure(
+      0,
+      controller.signal.aborted
+        ? `SMS gateway status request timed out after ${timeoutMs}ms`
+        : error instanceof Error
+          ? `SMS gateway status request failed: ${error.message}`
+          : 'SMS gateway status request failed with an unknown network error',
+    );
   } finally {
     clearTimeout(timeout);
   }

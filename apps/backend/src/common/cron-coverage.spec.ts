@@ -131,7 +131,7 @@ describe('scheduled-job monitoring coverage', () => {
   const jobs = discoverCronJobs();
 
   it('keeps the reviewed cron inventory explicit', () => {
-    expect(jobs).toHaveLength(20);
+    expect(jobs).toHaveLength(21);
   });
 
   it('names every cron and prevents overlapping executions', () => {
