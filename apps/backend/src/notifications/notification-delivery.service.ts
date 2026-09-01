@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import {
+  EmailDeliveryStatus,
   NotificationChannel,
   type NotificationDelivery,
   NotificationDeliveryStatus,
@@ -262,6 +263,18 @@ export class NotificationDeliveryService {
           },
         });
         if (updated.count === 1) {
+          if (claimed.channel === NotificationChannel.EMAIL) {
+            // A signed Resend receipt can win the race with this settlement.
+            // Only fill the initial state when no receipt has already moved
+            // the delivery forward (or into a terminal failure state).
+            await tx.notificationDelivery.updateMany({
+              where: {
+                id: claimed.id,
+                emailDeliveryStatus: null,
+              },
+              data: { emailDeliveryStatus: EmailDeliveryStatus.ACCEPTED },
+            });
+          }
           await this.completeSource(tx, claimed, now, 'accepted');
         }
       }, SETTLE_TX_OPTIONS);
@@ -396,6 +409,15 @@ export class NotificationDeliveryService {
         maxAttempts: true,
         nextAttemptAt: true,
         providerMessageId: true,
+        emailDeliveryStatus: true,
+        emailProviderStatus: true,
+        emailSentAt: true,
+        emailDeliveredAt: true,
+        emailFailedAt: true,
+        emailComplainedAt: true,
+        emailLastReceiptAt: true,
+        emailLastEventAt: true,
+        emailFailureCode: true,
         smsProvider: true,
         smsDeliveryStatus: true,
         smsProviderStatus: true,

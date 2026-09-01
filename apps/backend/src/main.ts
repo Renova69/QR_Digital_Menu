@@ -31,6 +31,7 @@ import {
   SMS_GATEWAY_STATUS_PATH,
   TWILIO_SMS_STATUS_PATH,
 } from './notifications/sms-receipt-security';
+import { RESEND_EMAIL_STATUS_PATH } from './notifications/resend-receipt-security';
 
 function validateFrontendUrl(logger: Logger) {
   const rawFrontendUrl = process.env.FRONTEND_URL?.trim();
@@ -244,6 +245,7 @@ async function bootstrap() {
       req.path === '/api/v1/payments/mypos/notify' ||
       req.path === '/api/v1/payments/borica/callback' ||
       req.path === '/api/v1/subscription/webhook' ||
+      req.path === RESEND_EMAIL_STATUS_PATH ||
       req.path === TWILIO_SMS_STATUS_PATH ||
       req.path === SMS_GATEWAY_STATUS_PATH;
     // H3: POST /orders uses OptionalJwtAuthGuard, so when the caller presents
@@ -295,6 +297,10 @@ async function bootstrap() {
   app.use(
     '/api/v1/subscription/webhook',
     express.raw({ type: 'application/json', limit: '5mb' }),
+  );
+  app.use(
+    RESEND_EMAIL_STATUS_PATH,
+    express.raw({ type: 'application/json', limit: '64kb' }),
   );
   app.use(
     SMS_GATEWAY_STATUS_PATH,

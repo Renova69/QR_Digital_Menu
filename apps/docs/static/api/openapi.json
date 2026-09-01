@@ -48,6 +48,45 @@
         ]
       }
     },
+    "/api/v1/notifications/email/resend/status": {
+      "post": {
+        "operationId": "EmailReceiptController_resend_v1",
+        "parameters": [
+          {
+            "name": "svix-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "svix-timestamp",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "svix-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "EmailReceipt"
+        ]
+      }
+    },
     "/api/v1/restaurants/{restaurantId}/notification-deliveries": {
       "get": {
         "operationId": "NotificationDeliveryController_list_v1",

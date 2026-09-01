@@ -1,6 +1,8 @@
 import { Global, Module } from '@nestjs/common';
 import { NotificationDeliveryController } from './notification-delivery.controller';
 import { NotificationDeliveryService } from './notification-delivery.service';
+import { EmailReceiptController } from './email-receipt.controller';
+import { EmailReceiptService } from './email-receipt.service';
 import {
   NOTIFICATION_PROVIDER,
   ProductionNotificationProvider,
@@ -12,8 +14,13 @@ import { SmsUsageService } from './sms-usage.service';
 
 @Global()
 @Module({
-  controllers: [NotificationDeliveryController, SmsReceiptController],
+  controllers: [
+    EmailReceiptController,
+    NotificationDeliveryController,
+    SmsReceiptController,
+  ],
   providers: [
+    EmailReceiptService,
     NotificationDeliveryService,
     ProductionNotificationProvider,
     SmsGatewayReconciliationService,

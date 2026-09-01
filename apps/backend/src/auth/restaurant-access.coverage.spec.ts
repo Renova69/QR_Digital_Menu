@@ -140,7 +140,7 @@ describe('Restaurant access route coverage (explicit rollout inventory)', () => 
     }
     for (const id of separate.keys())
       if (!seen.has(id)) errors.push(`${id}: stale/renamed separate entry`);
-    expect(separate.size).toBeLessThanOrEqual(115);
+    expect(separate.size).toBeLessThanOrEqual(116);
     expect(migrated).toBeGreaterThanOrEqual(132);
     expect(routes.length).toBeGreaterThanOrEqual(245);
     expect(errors).toEqual([]);

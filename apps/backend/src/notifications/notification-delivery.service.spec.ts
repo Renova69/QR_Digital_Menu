@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import {
+  EmailDeliveryStatus,
   NotificationChannel,
   NotificationDeliveryStatus,
   SmsDeliveryStatus,
@@ -32,6 +33,15 @@ function delivery(overrides: Record<string, unknown> = {}) {
     leaseToken: 'lease-1',
     leaseExpiresAt: new Date(Date.now() + 60_000),
     providerMessageId: null,
+    emailDeliveryStatus: null,
+    emailProviderStatus: null,
+    emailSentAt: null,
+    emailDeliveredAt: null,
+    emailFailedAt: null,
+    emailComplainedAt: null,
+    emailLastReceiptAt: null,
+    emailLastEventAt: null,
+    emailFailureCode: null,
     smsProvider: null,
     smsDeliveryStatus: null,
     smsProviderStatus: null,
@@ -179,6 +189,13 @@ describe('NotificationDeliveryService', () => {
         providerMessageId: 'email-123',
         acceptedAt: expect.any(Date),
       }),
+    });
+    expect(prisma.notificationDelivery.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'delivery-1',
+        emailDeliveryStatus: null,
+      },
+      data: { emailDeliveryStatus: EmailDeliveryStatus.ACCEPTED },
     });
     expect(prisma.reservation.updateMany).toHaveBeenCalledWith({
       where: {

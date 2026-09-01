@@ -392,6 +392,15 @@ model NotificationDelivery {
   leaseToken               String?
   leaseExpiresAt           DateTime?
   providerMessageId        String?
+  emailDeliveryStatus      EmailDeliveryStatus?
+  emailProviderStatus      String?
+  emailSentAt              DateTime?
+  emailDeliveredAt         DateTime?
+  emailFailedAt            DateTime?
+  emailComplainedAt        DateTime?
+  emailLastReceiptAt       DateTime?
+  emailLastEventAt         DateTime?
+  emailFailureCode         String?
   smsProvider              SmsProvider?
   smsDeliveryStatus        SmsDeliveryStatus?
   smsProviderStatus        String?
@@ -415,6 +424,7 @@ model NotificationDelivery {
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
   restaurant               Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  emailReceipts            EmailProviderReceipt[]
   smsReceipts              SmsProviderReceipt[]
 
   @@unique([restaurantId, deduplicationKey, channel])
@@ -426,6 +436,20 @@ model NotificationDelivery {
   @@index([channel, status, smsProvider, smsDeliveryStatus, smsLastReconciledAt], map: "notification_delivery_sms_reconcile_idx")
   @@index([sourceType, sourceId])
   @@map("notification_delivery")
+}
+
+model EmailProviderReceipt {
+  id              String               @id @default(cuid())
+  deliveryId      String
+  providerEventId String               @unique
+  providerStatus  String
+  eventAt         DateTime
+  receivedAt      DateTime
+  createdAt       DateTime             @default(now())
+  delivery        NotificationDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId, eventAt])
+  @@map("email_provider_receipt")
 }
 
 model SmsProviderReceipt {
@@ -1359,6 +1383,16 @@ enum NotificationDeliveryStatus {
   PROCESSING
   RETRY_SCHEDULED
   ACCEPTED
+  FAILED
+}
+
+enum EmailDeliveryStatus {
+  ACCEPTED
+  SENT
+  DELAYED
+  DELIVERED
+  BOUNCED
+  COMPLAINED
   FAILED
 }
 
