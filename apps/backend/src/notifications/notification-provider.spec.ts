@@ -29,6 +29,15 @@ function delivery(channel: NotificationChannel = NotificationChannel.EMAIL) {
     leaseToken: 'lease',
     leaseExpiresAt: new Date(),
     providerMessageId: null,
+    emailDeliveryStatus: null,
+    emailProviderStatus: null,
+    emailSentAt: null,
+    emailDeliveredAt: null,
+    emailFailedAt: null,
+    emailComplainedAt: null,
+    emailLastReceiptAt: null,
+    emailLastEventAt: null,
+    emailFailureCode: null,
     smsProvider: null,
     smsDeliveryStatus: null,
     smsProviderStatus: null,
@@ -107,6 +116,10 @@ describe('ProductionNotificationProvider', () => {
         }),
       }),
     );
+    const request = fetchMock.mock.calls[0][1];
+    expect(JSON.parse(request?.body as string).tags).toEqual([
+      { name: 'delivery_id', value: 'delivery-123' },
+    ]);
   });
 
   it('passes persisted calendar attachments to Resend unchanged', async () => {
@@ -129,6 +142,22 @@ describe('ProductionNotificationProvider', () => {
     expect(JSON.parse(request?.body as string).attachments).toEqual([
       { filename: 'reservation-ABC234.ics', content: 'QkVHSU4=' },
     ]);
+  });
+
+  it('retries an accepted Resend response that has no reconcilable message id', async () => {
+    process.env.RESEND_API_KEY = 'test-secret';
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({}),
+    } as unknown as Response);
+
+    await expect(provider.send(delivery())).resolves.toEqual({
+      accepted: false,
+      retryable: true,
+      outcomeUncertain: true,
+      error: 'Resend response did not include a message id',
+    });
   });
 
   it('does not report acceptance when email credentials are absent', async () => {

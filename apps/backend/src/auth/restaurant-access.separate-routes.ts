@@ -129,6 +129,13 @@ export const SEPARATE_AUTHORIZATION_ROUTES = [
       'Public view recording; getScanStats is migrated and must not be exempted.',
   },
   {
+    file: 'notifications/email-receipt.controller.ts',
+    controller: 'EmailReceiptController',
+    routes: ['resend'],
+    reason:
+      'Public Resend callback authenticates the exact raw body with a timestamped provider signature and carries no dashboard session authority.',
+  },
+  {
     file: 'notifications/sms-receipt.controller.ts',
     controller: 'SmsReceiptController',
     routes: ['twilio', 'smsGateway'],

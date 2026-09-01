@@ -129,6 +129,10 @@ export class ProductionNotificationProvider implements NotificationProvider {
             text: payload.text,
             html: payload.html,
             attachments: payload.attachments,
+            // Resend can deliver a webhook before this request returns and
+            // providerMessageId is persisted. The durable outbox id lets the
+            // signed receipt find its row during that window.
+            tags: [{ name: 'delivery_id', value: deliveryId }],
           }),
           signal: controller.signal,
         },
@@ -144,9 +148,19 @@ export class ProductionNotificationProvider implements NotificationProvider {
       const responseBody = (await response.json().catch(() => null)) as {
         id?: string;
       } | null;
+      if (!responseBody?.id) {
+        // The request may already have been accepted. Retrying is safe because
+        // Resend receives the durable delivery id as its idempotency key.
+        return {
+          accepted: false,
+          retryable: true,
+          outcomeUncertain: true,
+          error: 'Resend response did not include a message id',
+        };
+      }
       return {
         accepted: true,
-        providerMessageId: responseBody?.id ?? null,
+        providerMessageId: responseBody.id,
       };
     } catch {
       return {
