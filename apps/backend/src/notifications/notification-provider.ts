@@ -1,11 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { NotificationChannel, type NotificationDelivery } from '@prisma/client';
+import {
+  NotificationChannel,
+  type NotificationDelivery,
+  SmsProvider,
+} from '@prisma/client';
 import {
   sendViaSmsGateway,
   smsGatewayConfigured,
   smsProvider,
 } from '../common/sms/sms-gateway';
 import { fetchWithDependencyPool } from '../common/http/dependency-http';
+import {
+  buildPublicCallbackUrl,
+  TWILIO_SMS_STATUS_PATH,
+} from './sms-receipt-security';
+import { estimateSmsSegments } from './sms-segments';
 
 export const NOTIFICATION_PROVIDER = Symbol('NOTIFICATION_PROVIDER');
 
@@ -31,7 +40,11 @@ export type DeliveryPayload = {
 };
 
 export type ProviderDeliveryResult =
-  | { accepted: true; providerMessageId: string | null }
+  | {
+      accepted: true;
+      providerMessageId: string | null;
+      sms?: SmsProviderAcceptance;
+    }
   | {
       accepted: false;
       retryable: boolean;
@@ -39,8 +52,20 @@ export type ProviderDeliveryResult =
       error: string;
     };
 
+export type SmsProviderAcceptance = {
+  provider: SmsProvider;
+  segmentCount: number;
+  providerCostMicros: number | null;
+  currency: string | null;
+};
+
 export interface NotificationProvider {
   send(delivery: NotificationDelivery): Promise<ProviderDeliveryResult>;
+}
+
+function providerCurrency(value: string | null | undefined): string | null {
+  const currency = value?.trim().toUpperCase();
+  return currency && /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
 
 function isRetryableStatus(status: number): boolean {
@@ -64,7 +89,7 @@ export class ProductionNotificationProvider implements NotificationProvider {
     }
     return delivery.channel === NotificationChannel.EMAIL
       ? this.sendEmail(delivery.id, payload)
-      : this.sendSms(payload);
+      : this.sendSms(delivery.id, payload);
   }
 
   private async sendEmail(
@@ -136,6 +161,7 @@ export class ProductionNotificationProvider implements NotificationProvider {
   }
 
   private async sendSms(
+    deliveryId: string,
     payload: DeliveryPayload,
   ): Promise<ProviderDeliveryResult> {
     const body = payload.body ?? payload.text;
@@ -147,6 +173,7 @@ export class ProductionNotificationProvider implements NotificationProvider {
         error: 'SMS payload is empty',
       };
     }
+    const estimatedSegments = estimateSmsSegments(body).segments;
 
     if (smsProvider() === 'smsgateway') {
       if (!smsGatewayConfigured()) {
@@ -160,9 +187,20 @@ export class ProductionNotificationProvider implements NotificationProvider {
       try {
         const result = await sendViaSmsGateway(payload.to, body, {
           ttlSeconds: 60 * 60,
+          messageId: deliveryId,
+          withDeliveryReport: true,
         });
         return result.ok
-          ? { accepted: true, providerMessageId: null }
+          ? {
+              accepted: true,
+              providerMessageId: result.messageId ?? deliveryId,
+              sms: {
+                provider: SmsProvider.SMS_GATEWAY,
+                segmentCount: estimatedSegments,
+                providerCostMicros: null,
+                currency: null,
+              },
+            }
           : {
               accepted: false,
               retryable: isRetryableStatus(result.status),
@@ -193,6 +231,8 @@ export class ProductionNotificationProvider implements NotificationProvider {
     }
 
     const form = new URLSearchParams({ To: payload.to, Body: body });
+    const statusCallback = buildPublicCallbackUrl(TWILIO_SMS_STATUS_PATH);
+    if (statusCallback) form.set('StatusCallback', statusCallback);
     if (messagingServiceSid)
       form.set('MessagingServiceSid', messagingServiceSid);
     else form.set('From', from!);
@@ -225,10 +265,34 @@ export class ProductionNotificationProvider implements NotificationProvider {
       }
       const responseBody = (await response.json().catch(() => null)) as {
         sid?: string;
+        num_segments?: string;
+        price?: string | null;
+        price_unit?: string | null;
       } | null;
+      const providerSegments = Number(responseBody?.num_segments);
+      const segmentCount =
+        Number.isSafeInteger(providerSegments) && providerSegments > 0
+          ? providerSegments
+          : estimatedSegments;
+      const providerPrice =
+        responseBody?.price === null || responseBody?.price === undefined
+          ? null
+          : Number(responseBody.price);
+      const providerCostMicros =
+        providerPrice !== null &&
+        Number.isFinite(providerPrice) &&
+        Math.abs(providerPrice) * 1_000_000 <= 2_147_483_647
+          ? Math.round(Math.abs(providerPrice) * 1_000_000)
+          : null;
       return {
         accepted: true,
         providerMessageId: responseBody?.sid ?? null,
+        sms: {
+          provider: SmsProvider.TWILIO,
+          segmentCount,
+          providerCostMicros,
+          currency: providerCurrency(responseBody?.price_unit),
+        },
       };
     } catch {
       return {

@@ -6,6 +6,7 @@ describe('NotificationDeliveryController', () => {
   let deliveries: {
     listForRestaurant: jest.Mock;
     retryFailed: jest.Mock;
+    getSmsUsage: jest.Mock;
   };
   let controller: NotificationDeliveryController;
 
@@ -18,6 +19,7 @@ describe('NotificationDeliveryController', () => {
     deliveries = {
       listForRestaurant: jest.fn(),
       retryFailed: jest.fn(),
+      getSmsUsage: jest.fn(),
     };
     controller = new NotificationDeliveryController(deliveries as any);
   });
@@ -62,6 +64,15 @@ describe('NotificationDeliveryController', () => {
   it('forbids non-manager roles from listing', () => {
     expect(() => controller.list('r1', waiterReq)).toThrow(ForbiddenException);
     expect(deliveries.listForRestaurant).not.toHaveBeenCalled();
+  });
+
+  it('returns the track-only SMS usage summary for a manager', async () => {
+    deliveries.getSmsUsage.mockResolvedValue({ usedSegments: 12 });
+
+    const result = controller.smsUsage('r1', managerReq, '2026-08');
+
+    expect(deliveries.getSmsUsage).toHaveBeenCalledWith('r1', 'u2', '2026-08');
+    await expect(result).resolves.toEqual({ usedSegments: 12 });
   });
 
   it('forbids requests without a user', () => {

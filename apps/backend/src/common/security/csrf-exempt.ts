@@ -11,8 +11,9 @@
  *
  * NOT in this list, handled separately in main.ts: provider webhooks
  * (`/payments/webhook`, `/payments/epay/notify`, `/payments/borica/callback`,
- * `/subscription/webhook`) — those use a raw body + provider signature instead
- * of the double-submit cookie.
+ * `/subscription/webhook`, `/notifications/sms/{provider}/status`) — those use a raw
+ * body or form payload plus provider signature instead of the double-submit
+ * cookie.
  *
  * SECURITY: adding an entry here removes CSRF protection from that route. Do
  * not add one without a documented reason AND a matching update to

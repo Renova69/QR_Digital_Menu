@@ -29,6 +29,22 @@ function delivery(channel: NotificationChannel = NotificationChannel.EMAIL) {
     leaseToken: 'lease',
     leaseExpiresAt: new Date(),
     providerMessageId: null,
+    smsProvider: null,
+    smsDeliveryStatus: null,
+    smsProviderStatus: null,
+    smsSegmentCount: null,
+    smsEstimatedCostMicros: null,
+    smsProviderCostMicros: null,
+    smsEstimatedCostCurrency: null,
+    smsProviderCostCurrency: null,
+    smsEffectiveTier: null,
+    smsAllowanceAtSend: null,
+    smsDeliveredPartCount: 0,
+    smsSentAt: null,
+    smsDeliveredAt: null,
+    smsFailedAt: null,
+    smsLastReceiptAt: null,
+    smsFailureCode: null,
     outcomeUncertain: false,
     lastError: null,
     acceptedAt: null,
@@ -53,6 +69,7 @@ describe('ProductionNotificationProvider', () => {
     delete process.env.SMS_FORCE_SEND;
     delete process.env.SMS_GATEWAY_USERNAME;
     delete process.env.SMS_GATEWAY_PASSWORD;
+    delete process.env.BACKEND_URL;
   });
 
   afterAll(() => {
@@ -168,6 +185,42 @@ describe('ProductionNotificationProvider', () => {
     expect(body.get('From')).toBeNull();
   });
 
+  it('asks Twilio to send signed status callbacks to the public backend URL', async () => {
+    process.env.TWILIO_ACCOUNT_SID = 'AC-test';
+    process.env.TWILIO_AUTH_TOKEN = 'test-secret';
+    process.env.TWILIO_FROM_NUMBER = '+359111111111';
+    process.env.BACKEND_URL = 'https://backend.example.test/';
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: jest.fn().mockResolvedValue({
+        sid: 'SM-test',
+        num_segments: '2',
+        price: '-0.13',
+        price_unit: 'eur',
+      }),
+    } as unknown as Response);
+
+    await expect(
+      provider.send(delivery(NotificationChannel.SMS)),
+    ).resolves.toMatchObject({
+      accepted: true,
+      providerMessageId: 'SM-test',
+      sms: {
+        segmentCount: 2,
+        providerCostMicros: 130000,
+        currency: 'EUR',
+      },
+    });
+
+    const form = new URLSearchParams(
+      fetchMock.mock.calls[0][1]?.body as string,
+    );
+    expect(form.get('StatusCallback')).toBe(
+      'https://backend.example.test/api/v1/notifications/sms/twilio/status',
+    );
+  });
+
   it('preserves explicit local SIM-gateway testing through the provider adapter', async () => {
     process.env.NODE_ENV = 'test';
     process.env.SMS_FORCE_SEND = 'true';
@@ -183,7 +236,7 @@ describe('ProductionNotificationProvider', () => {
       provider.send(delivery(NotificationChannel.SMS)),
     ).resolves.toMatchObject({ accepted: true });
     expect(fetchMock.mock.calls[0][0]).toBe(
-      'https://api.sms-gate.app/3rdparty/v1/message',
+      'https://api.sms-gate.app/3rdparty/v1/messages',
     );
   });
 });

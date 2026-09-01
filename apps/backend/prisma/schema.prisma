@@ -377,34 +377,69 @@ model PrintJob {
 }
 
 model NotificationDelivery {
-  id                String                     @id @default(cuid())
-  restaurantId      String
-  sourceType        String
-  sourceId          String
-  deduplicationKey  String
-  channel           NotificationChannel
-  payload           Json
-  payloadHash       String
-  status            NotificationDeliveryStatus @default(PENDING)
-  attempts          Int                        @default(0)
-  maxAttempts       Int                        @default(5)
-  nextAttemptAt     DateTime                   @default(now())
-  leaseToken        String?
-  leaseExpiresAt    DateTime?
-  providerMessageId String?
-  outcomeUncertain  Boolean                    @default(false)
-  lastError         String?
-  acceptedAt        DateTime?
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  restaurant        Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                       String                     @id @default(cuid())
+  restaurantId             String
+  sourceType               String
+  sourceId                 String
+  deduplicationKey         String
+  channel                  NotificationChannel
+  payload                  Json
+  payloadHash              String
+  status                   NotificationDeliveryStatus @default(PENDING)
+  attempts                 Int                        @default(0)
+  maxAttempts              Int                        @default(5)
+  nextAttemptAt            DateTime                   @default(now())
+  leaseToken               String?
+  leaseExpiresAt           DateTime?
+  providerMessageId        String?
+  smsProvider              SmsProvider?
+  smsDeliveryStatus        SmsDeliveryStatus?
+  smsProviderStatus        String?
+  smsSegmentCount          Int?
+  smsEstimatedCostMicros   Int?
+  smsProviderCostMicros    Int?
+  smsEstimatedCostCurrency String?
+  smsProviderCostCurrency  String?
+  smsEffectiveTier         SubscriptionTier?
+  smsAllowanceAtSend       Int?
+  smsDeliveredPartCount    Int                        @default(0)
+  smsSentAt                DateTime?
+  smsDeliveredAt           DateTime?
+  smsFailedAt              DateTime?
+  smsLastReceiptAt         DateTime?
+  smsFailureCode           String?
+  outcomeUncertain         Boolean                    @default(false)
+  lastError                String?
+  acceptedAt               DateTime?
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  restaurant               Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  smsReceipts              SmsProviderReceipt[]
 
   @@unique([restaurantId, deduplicationKey, channel])
   @@index([status, nextAttemptAt])
   @@index([status, leaseExpiresAt])
   @@index([restaurantId, status, createdAt])
+  @@index([restaurantId, channel, acceptedAt])
+  @@index([channel, providerMessageId])
   @@index([sourceType, sourceId])
   @@map("notification_delivery")
+}
+
+model SmsProviderReceipt {
+  id                String               @id @default(cuid())
+  deliveryId        String
+  provider          SmsProvider
+  providerEventId   String
+  providerStatus    String
+  eventAt           DateTime
+  receivedAt        DateTime
+  createdAt         DateTime             @default(now())
+  delivery          NotificationDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerEventId])
+  @@index([deliveryId, eventAt])
+  @@map("sms_provider_receipt")
 }
 
 model RestaurantTable {
@@ -1322,6 +1357,18 @@ enum NotificationDeliveryStatus {
   PROCESSING
   RETRY_SCHEDULED
   ACCEPTED
+  FAILED
+}
+
+enum SmsProvider {
+  TWILIO
+  SMS_GATEWAY
+}
+
+enum SmsDeliveryStatus {
+  ACCEPTED
+  SENT
+  DELIVERED
   FAILED
 }
 

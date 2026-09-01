@@ -27,6 +27,7 @@ import { ReservationNotificationsService } from '../src/reservations/reservation
 import { FeatureService } from '../src/subscription/feature.service';
 import { SuperAdminService } from '../src/super-admin/super-admin.service';
 import { NotificationDeliveryService } from '../src/notifications/notification-delivery.service';
+import { SmsUsageService } from '../src/notifications/sms-usage.service';
 import { PrintStationService } from '../src/print-station/print-station.service';
 
 const concurrencyDatabaseUrl = process.env.CONCURRENCY_DATABASE_URL;
@@ -135,6 +136,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     const notificationDeliveries = new NotificationDeliveryService(
       prisma as never,
       { send: jest.fn() },
+      new SmsUsageService(prisma as never, new FeatureService()),
     );
     const notifications = new ReservationNotificationsService(
       prisma as never,
@@ -471,6 +473,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     const enqueueService = new NotificationDeliveryService(
       prisma as never,
       provider,
+      new SmsUsageService(prisma as never, new FeatureService()),
     );
     const queued = await enqueueService.enqueue({
       restaurantId: restaurant.id,
@@ -491,10 +494,12 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         new NotificationDeliveryService(
           firstClient as never,
           provider as never,
+          new SmsUsageService(firstClient as never, new FeatureService()),
         ).processNext(),
         new NotificationDeliveryService(
           secondClient as never,
           provider as never,
+          new SmsUsageService(secondClient as never, new FeatureService()),
         ).processNext(),
       ]);
 
@@ -539,6 +544,7 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     await new NotificationDeliveryService(
       prisma as never,
       provider,
+      new SmsUsageService(prisma as never, new FeatureService()),
     ).processNext();
 
     expect(provider.send).not.toHaveBeenCalled();

@@ -64,7 +64,7 @@ describe('sms-gateway', () => {
 
       expect(result).toEqual({ ok: true, status: 202, detail: '' });
       const [url, request] = fetchMock.mock.calls[0];
-      expect(url).toBe('https://api.sms-gate.app/3rdparty/v1/message');
+      expect(url).toBe('https://api.sms-gate.app/3rdparty/v1/messages');
       expect((request?.headers as Record<string, string>).Authorization).toBe(
         `Basic ${Buffer.from('user:pass').toString('base64')}`,
       );
@@ -73,6 +73,7 @@ describe('sms-gateway', () => {
         textMessage: { text: 'hello' },
         phoneNumbers: ['+359000000000'],
         ttl: 3600,
+        withDeliveryReport: false,
       });
     });
 
@@ -126,6 +127,37 @@ describe('sms-gateway', () => {
 
       const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
       expect(body.ttl).toBe(600);
+    });
+
+    it('sends a stable message id and explicitly requests delivery reports', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_FORCE_SEND = 'true';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 202,
+        json: () => Promise.resolve({ id: 'delivery-123' }),
+      } as Response);
+
+      await expect(
+        sendViaSmsGateway('+359000000000', 'hello', {
+          messageId: 'delivery-123',
+          withDeliveryReport: true,
+        }),
+      ).resolves.toEqual({
+        ok: true,
+        status: 202,
+        detail: '',
+        messageId: 'delivery-123',
+      });
+
+      expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual(
+        expect.objectContaining({
+          id: 'delivery-123',
+          withDeliveryReport: true,
+        }),
+      );
     });
 
     it('blocks a real network call under NODE_ENV=test', async () => {

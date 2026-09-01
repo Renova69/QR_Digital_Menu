@@ -27,6 +27,8 @@ describe('CSRF exemptions (L-AUTH-1)', () => {
       '/api/v1/payments/epay/notify',
       '/api/v1/payments/borica/callback',
       '/api/v1/subscription/webhook',
+      '/api/v1/notifications/sms/twilio/status',
+      '/api/v1/notifications/sms/smsgateway/status',
     ]) {
       expect(CSRF_EXEMPT_PATHS).not.toContain(webhook);
     }

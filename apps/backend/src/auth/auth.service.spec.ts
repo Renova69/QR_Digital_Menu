@@ -1545,7 +1545,7 @@ describe('AuthService', () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock.mock.calls[0][0]).toBe(
-        'https://api.sms-gate.app/3rdparty/v1/message',
+        'https://api.sms-gate.app/3rdparty/v1/messages',
       );
       expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
         expect.objectContaining({

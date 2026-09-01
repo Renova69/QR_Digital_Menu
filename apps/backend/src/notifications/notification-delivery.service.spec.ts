@@ -2,6 +2,9 @@ import { ConflictException } from '@nestjs/common';
 import {
   NotificationChannel,
   NotificationDeliveryStatus,
+  SmsDeliveryStatus,
+  SmsProvider,
+  SubscriptionTier,
 } from '@prisma/client';
 import { NotificationDeliveryService } from './notification-delivery.service';
 
@@ -29,12 +32,30 @@ function delivery(overrides: Record<string, unknown> = {}) {
     leaseToken: 'lease-1',
     leaseExpiresAt: new Date(Date.now() + 60_000),
     providerMessageId: null,
+    smsProvider: null,
+    smsDeliveryStatus: null,
+    smsProviderStatus: null,
+    smsSegmentCount: null,
+    smsEstimatedCostMicros: null,
+    smsProviderCostMicros: null,
+    smsEstimatedCostCurrency: null,
+    smsProviderCostCurrency: null,
+    smsEffectiveTier: null,
+    smsAllowanceAtSend: null,
+    smsDeliveredPartCount: 0,
+    smsSentAt: null,
+    smsDeliveredAt: null,
+    smsFailedAt: null,
+    smsLastReceiptAt: null,
+    smsFailureCode: null,
     outcomeUncertain: false,
     lastError: null,
     acceptedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     previousStatus: NotificationDeliveryStatus.PENDING,
+    restaurantTier: SubscriptionTier.PROFESSIONAL,
+    restaurantForceTier: null,
     ...overrides,
   };
 }
@@ -62,8 +83,26 @@ function build() {
     restaurant: { findFirst: jest.fn() },
   };
   const provider = { send: jest.fn() };
-  const service = new NotificationDeliveryService(prisma as never, provider);
-  return { service, prisma, provider };
+  const smsUsage = {
+    getPolicySnapshot: jest.fn().mockReturnValue({
+      effectiveTier: SubscriptionTier.PROFESSIONAL,
+      includedSegments: 50,
+    }),
+    acceptanceData: jest.fn().mockReturnValue({
+      smsProvider: SmsProvider.TWILIO,
+      smsDeliveryStatus: SmsDeliveryStatus.ACCEPTED,
+      smsSegmentCount: 1,
+      smsEffectiveTier: SubscriptionTier.PROFESSIONAL,
+      smsAllowanceAtSend: 50,
+    }),
+    getSummary: jest.fn(),
+  };
+  const service = new NotificationDeliveryService(
+    prisma as never,
+    provider,
+    smsUsage as never,
+  );
+  return { service, prisma, provider, smsUsage };
 }
 
 describe('NotificationDeliveryService', () => {
@@ -148,6 +187,48 @@ describe('NotificationDeliveryService', () => {
         reminderSentAt: null,
       },
       data: { reminderSentAt: expect.any(Date) },
+    });
+  });
+
+  it('settles SMS usage metadata atomically with provider acceptance', async () => {
+    const { service, prisma, provider, smsUsage } = build();
+    prisma.$queryRaw.mockResolvedValue([
+      delivery({ channel: NotificationChannel.SMS }),
+    ]);
+    provider.send.mockResolvedValue({
+      accepted: true,
+      providerMessageId: 'SM-123',
+      sms: {
+        provider: SmsProvider.TWILIO,
+        segmentCount: 1,
+        providerCostMicros: null,
+        currency: null,
+      },
+    });
+
+    await service.processNext();
+
+    const claimSql = prisma.$queryRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+    };
+    expect(claimSql.strings.join(' ')).toContain('candidate."restaurantTier"');
+    expect(claimSql.strings.join(' ')).toContain(
+      'candidate."restaurantForceTier"',
+    );
+    expect(smsUsage.getPolicySnapshot).toHaveBeenCalledWith(
+      SubscriptionTier.PROFESSIONAL,
+      null,
+    );
+    expect(prisma.notificationDelivery.updateMany).toHaveBeenCalledWith({
+      where: { id: 'delivery-1', leaseToken: 'lease-1' },
+      data: expect.objectContaining({
+        status: NotificationDeliveryStatus.ACCEPTED,
+        providerMessageId: 'SM-123',
+        smsProvider: SmsProvider.TWILIO,
+        smsDeliveryStatus: SmsDeliveryStatus.ACCEPTED,
+        smsSegmentCount: 1,
+        smsAllowanceAtSend: 50,
+      }),
     });
   });
 
