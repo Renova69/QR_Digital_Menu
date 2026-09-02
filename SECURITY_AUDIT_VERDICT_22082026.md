@@ -2,19 +2,19 @@
 
 Verification of every claim in `FULL_SECURITY_AUDIT_22082026.md` against the actual codebase and live infrastructure, plus a remediation plan.
 
-**Remediation update — 29 Aug 2026:** the historical findings below are retained
-as the 22 Aug evidence snapshot. The P2 ledger near the end is the current
-status: all active P2 engineering work is complete, with only explicit
-pre-launch operational gates deferred. P3-1 is merged/deployed at `e7500785`;
-manual product verification remains pending. P3-2 is merged via PR #58 at
-`f4ec9a61`; backend deployment is deliberately batched with later P3 work.
-P3-3 is MERGED/COMPLETE through PR #63 (`32fdc9e6`), with green PR and
-post-merge CI. All 132 management routes
-are guarded; the other 113 have explicit separate authorization classifications.
-No temporary migration entries remain. P3-4 through P3-10 are implemented on
-the consolidated P3 close-out branch. Review/CI, deployment of the batched P3
-backend/frontend changes, and the listed manual production checks remain; they
-are release gates, not additional P3 engineering scope.
+**Remediation update — 2 Sep 2026:** the historical findings below are retained
+as the 22 Aug evidence snapshot. P0, P1, all active P2 engineering, and P3-1
+through P3-10 are implemented, reviewed, merged and deployed. PR #68 merged the
+P3 close-out, and the production image for merge commit `445afc6d` contains the
+complete P3 batch. The subsequent configuration-only revision
+`qr-menu-backend-00218-piw` serves that same image with 100% traffic and
+readiness 200. P2-4's signed Resend delivery webhook shipped in PR #75 and is
+configured in production; Bulgarian and English reservation confirmation and
+update emails were verified end to end. DMARC remains deliberately deferred
+until the final product domain exists. A disposable-local restore drill passed
+on 2 Sep against the newest verified GCS archive. Remaining work is operational
+release evidence: the unfinished P3-1/P3-6 manual matrix and the explicit
+pre-launch gates listed below.
 
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
@@ -236,9 +236,9 @@ Task IDs are stable; tick them off in place.
 **Status as of 22 Aug 2026: all P0 code shipped** on branch `fix/p0-security-audit-22082026` (6 commits, 2448 backend + 687 frontend tests green, both apps lint-clean).
 
 - **P0-1 — superseded by P0-2.** Once the table token gates session access, holding that token _is_ the proof of being at the table, so returning the shared session token to a token-bearing caller is the intended shared-bill behaviour — the same trust model service points already use. Withholding it would have broken bill access for the second diner at a table without closing anything P0-2 does not already close.
-- **P0-2 — done.** Backend enforcement, QR generation, customer-side plumbing and the backfill script. **The backfill has NOT been run yet: it must not outrun the deploy**, or existing QR links break before the frontend can emit `?t=`.
+- **P0-2 — done.** Backend enforcement, QR generation, customer-side plumbing and the backfill script. Production verification on 2 Sep reported 67 physical tables and zero missing `publicToken` values.
 - **P0-3, P0-4, P0-5, P0-6 — done.**
-- **P0-7 — partially done.** The silent-failure defect is fixed and verified, and a fresh verified backup closed the 7-day gap. Still outstanding and needing your involvement: registering the scheduled task (needs admin), an offsite copy (infrastructure decision), and a restore drill.
+- **P0-7 — complete and restore-verified.** Cloud Scheduler runs the read-only backup job twice daily, archives and manifests are stored off-host in a versioned GCS bucket, deployment requires a fresh verified backup, and current executions are green. On 2 Sep the newest archive (`2026-09-02T02-15-43Z`) was restored into a newly created empty local database: its SHA-256 and all protected counts matched the manifest, all 58 public tables and three materialized views restored, the 76-row migration ledger had zero unresolved migrations, constraints validated, and the database-wide event guards were reinstalled and verified without changing restored row counts.
 
 | ID   | Task                                                                                                                                                                                                     | Files                                                                        | Effort | Done when                                                                                 |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------- |
@@ -315,7 +315,7 @@ Note: DNS for `craftedminds.shop` already runs on Cloudflare nameservers (`neil.
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PD-1 | Restrict Cloud Run ingress to `internal-and-cloud-load-balancing` behind a Google HTTPS load balancer with a serverless NEG, and repoint the Vercel rewrite at the LB. Closes H8.         | L      | Needs a domain for a managed certificate. This supersedes the earlier "restrict ingress" framing.                                                                                                                                                           |
 | PD-2 | Cloud Armor policy on that load balancer: per-IP rate limiting on auth routes, preconfigured OWASP rulesets, bot management.                                                              | M      | This — not Cloudflare — is the correct answer to the advisory's Scenario 1, because it sits at the real origin and therefore also closes the bypass. Cloudflare in front of Vercel would not cover WebSocket traffic, which connects to Cloud Run directly. |
-| PD-3 | Attach a custom domain to the R2 bucket, replacing the `pub-*.r2.dev` public development URL in `R2_PUBLIC_URL`.                                                                          | S      | Cloudflare documents `r2.dev` as rate-limited and development-only; a custom domain is required for CDN caching, cache rules, WAF and bot management on images. Free, uses the existing zone, no code change beyond the env var.                            |
+| PD-3 | Attach a custom domain to the R2 bucket, replacing the `pub-*.r2.dev` public development URL in `R2_PUBLIC_URL`.                                                                          | S      | Deferred until the final product domain exists. The test `r2.dev` value remains intentional during development; its BOM-corrupted Secret Manager value was corrected and canary-verified on 2 Sep without changing the URL.                                 |
 | PD-4 | Vercel Firewall custom rules on the frontend hostname; keep the Cloudflare record grey-cloud (DNS-only) to avoid double-CDN and to stop Vercel's own firewall seeing only Cloudflare IPs. | S      |                                                                                                                                                                                                                                                             |
 
 ### Concurrency hardening — PIN lockout reset (resolved in PR #43)
@@ -348,23 +348,24 @@ real tenant:
 - [ ] Quarantined-token reactivation
 - [ ] Already-reactivated 409 behaviour (refetches, shows no error)
 - [ ] Device trust states: 30-day warning, 7-day urgent, expired, and NULL
-- [ ] Redis-backed production startup (and that boot fails without `REDIS_URL`)
+- [x] Redis-backed production startup; the absent-binding rejection remains pinned by automated tests rather than deliberately breaking the live service
 
 Mark **production verified** only once those pass on the deployed environment.
 
 ### P2 — Development close-out
 
-All current P2 engineering lanes are complete. P2-4 is parked until a custom
-domain and real outbound email exist. P2-8 activation and P2-10 manual checks
-are explicit pre-launch gates, not active development blockers. Do not reopen
-completed P2 work unless a regression or new evidence appears; proceed to P3-1.
+All current P2 engineering lanes are complete. P2-4 delivery tracking is live;
+only DMARC reporting/enforcement is parked until the final domain exists. P2-8
+activation and the remaining P2-10 product checks are explicit pre-launch
+gates, not active development blockers. Do not reopen completed P2 work unless
+a regression or new evidence appears.
 
 | ID    | Task                                                                                                                                                                                              | Effort |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | P2-1  | **COMPLETE in PR #47:** fatal rejection handling, non-HTTP filter guard, awaited critical promises, and `no-floating-promises` as an error                                                        | M      |
 | P2-2  | **COMPLETE in PR #51:** every scheduled job is Sentry-monitored and a coverage test rejects an unwrapped cron                                                                                     | M      |
 | P2-3  | **COMPLETE in PRs #46/#50:** release SHA, structural Sentry scrubbing, user context, and request ID tags                                                                                          | S      |
-| P2-4  | **DEFERRED PRE-LAUNCH:** add the Resend delivery webhook and DMARC reporting/enforcement when a custom domain and real outbound email exist                                                       | M      |
+| P2-4  | **WEBHOOK COMPLETE in PR #75 and production-verified; DMARC DEFERRED:** signed, deduplicated Resend receipts are live; publish reporting/enforcement only when the final product domain exists    | M      |
 | P2-5  | **COMPLETE in PRs #41/#44/#55:** readiness/liveness split, uptime monitoring, and corrected readiness-failure alert semantics                                                                     | M      |
 | P2-6  | **COMPLETE in PR #43:** tenant R2 namespace, owner-scoped deletion, and explicit hard-purge capability                                                                                            | M      |
 | P2-7  | **COMPLETE in PR #49:** tenant cache regressions, logout cache clearing, and browser account-switch coverage                                                                                      | S–M    |
@@ -378,49 +379,42 @@ completed P2 work unless a regression or new evidence appears; proceed to P3-1.
 
 ### P3 — Strategic
 
-| ID    | Task                                                                                                                                                                                                                                               | Effort |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| P3-1  | **MERGED/DEPLOYED (PR #57, `e7500785`); MANUAL VERIFICATION PENDING:** durable sessions, session inventory, per-session/global revocation; [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md)                                                 | M      |
-| P3-2  | **MERGED (PR #58, `f4ec9a61`); BATCH DEPLOY PENDING:** shared HTTP budget, cancellation, retry-budget accounting and detached background work; [contract and verification](ops/runtime/REQUEST_BUDGETS.md)                                         | M      |
-| P3-3  | **MERGED/COMPLETE (PR #63, `32fdc9e6`), GREEN POST-MERGE CI:** 132 guarded; 113 separate contracts; zero temporary entries. Batch release pending; [evidence](ops/security/RESTAURANT_ACCESS.md)                                                   | M      |
-| P3-4  | **IMPLEMENTATION COMPLETE; REVIEW/RELEASE PENDING:** tenant predicates cover reviewed operational, management, payment/session, import and translation-override queries; RLS evaluated and deferred; [scope](ops/security/TENANT_QUERY_SCOPING.md) | M–L    |
-| P3-5  | **IMPLEMENTATION COMPLETE; REVIEW/RELEASE PENDING:** reusable per-process circuit breaker on DeepL, Stripe and R2 with five-failure/60-second policy and one half-open probe; [close-out](ops/security/P3_CLOSEOUT.md)                             | M–L    |
-| P3-6  | **IMPLEMENTATION COMPLETE; REVIEW/RELEASE PENDING:** five-minute strong-session step-up on super-admin mutations, PIN reset and device enrolment/revocation. Payout is read-only, so no payout mutation exists to guard                            | M      |
-| P3-7  | **IMPLEMENTATION COMPLETE; REVIEW/RELEASE PENDING:** optional restaurant-local PIN-login windows, including overnight schedules; [migration evidence](ops/db-safety/P3_PIN_LOGIN_HOURS_ROLLOUT.md)                                                 | S      |
-| P3-8  | **IMPLEMENTATION COMPLETE; REVIEW PENDING:** required five-item self-review checklist enforced by CI instead of a one-approval rule                                                                                                                | S      |
-| P3-9  | **IMPLEMENTATION COMPLETE; REVIEW PENDING:** GitHub Dependabot security fixes enabled and unpaused; production dependency audit enforced in CI                                                                                                     | S      |
-| P3-10 | **IMPLEMENTATION COMPLETE; REVIEW PENDING:** generated OpenAPI artifact and changelog published by Docusaurus with compile-time DTO metadata, CI drift/empty-schema detection; live production Swagger remains disabled                            | S–M    |
+| ID    | Task                                                                                                                                                                                                                                                                                                 | Effort |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| P3-1  | **COMPLETE/MERGED/DEPLOYED; MANUAL VERIFICATION PARTIAL:** durable sessions, inventory and revocation shipped in PR #57; two simultaneous browser sessions were confirmed, with the remaining revocation/socket/legacy matrix tracked in the [rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md) | M      |
+| P3-2  | **COMPLETE/MERGED/DEPLOYED:** shared HTTP budget, cancellation, retry-budget accounting and detached background work shipped in PR #58 and now serve in production; [contract and verification](ops/runtime/REQUEST_BUDGETS.md)                                                                      | M      |
+| P3-3  | **COMPLETE/MERGED/DEPLOYED:** PRs #59–#63 guard 132 management routes and permanently classify the other 113 authorization contracts; zero temporary entries remain; [evidence](ops/security/RESTAURANT_ACCESS.md)                                                                                   | M      |
+| P3-4  | **COMPLETE/MERGED/DEPLOYED in PRs #64/#65/#68:** reviewed operational, management, payment/session, import and translation-override queries carry tenant predicates at the authoritative boundary; [scope](ops/security/TENANT_QUERY_SCOPING.md)                                                     | M–L    |
+| P3-5  | **COMPLETE/MERGED/DEPLOYED in PR #68:** reusable per-process circuit breaker on DeepL, Stripe and R2 with five-failure/60-second policy and one half-open probe; [close-out](ops/security/P3_CLOSEOUT.md)                                                                                            | M–L    |
+| P3-6  | **COMPLETE/MERGED/DEPLOYED in PR #68; MANUAL STEP-UP MATRIX PENDING:** five-minute strong-session step-up protects super-admin mutations, PIN reset and device enrolment/revocation                                                                                                                  | M      |
+| P3-7  | **COMPLETE/MERGED/DEPLOYED and manually verified:** restaurant-local PIN-login windows, timezone handling, disabled-state behavior and overnight summaries shipped through PRs #68/#70/#71; [migration evidence](ops/db-safety/P3_PIN_LOGIN_HOURS_ROLLOUT.md)                                        | S      |
+| P3-8  | **COMPLETE/MERGED in PR #68:** CI enforces the required five-item self-review checklist; later PRs demonstrated both rejection and green completion                                                                                                                                                  | S      |
+| P3-9  | **COMPLETE/MERGED in PR #68:** Dependabot security fixes are enabled and the production dependency audit is enforced in CI                                                                                                                                                                           | S      |
+| P3-10 | **COMPLETE/MERGED in PR #68:** generated OpenAPI and changelog are published with CI drift/empty-schema detection; PR #75 additionally demonstrated the drift gate; production Swagger remains disabled                                                                                              | S–M    |
 
 ---
 
 ## P3 close-out — 29 Aug 2026
 
-**Implementation complete; review/CI and release verification pending.** PR #64
-merged the operational query slice. The close-out branch integrates the reviewed
-management slice and constrains payment/session, menu import and translation-
-override writes without changing their provider, idempotency or authorization
-contracts. P3-5 through P3-10 are implemented on that same branch to avoid more
-small deploys. See [the consolidated evidence](ops/security/P3_CLOSEOUT.md).
+**Engineering close-out complete.** PRs #64/#65 merged the tenant-query slices;
+PR #68 merged P3-5 through P3-10 with green CI. The full batch is present in the
+production image for `445afc6d`. Remaining P3 work is manual release evidence,
+not another engineering slice. See [the consolidated evidence](ops/security/P3_CLOSEOUT.md).
 
 ## Answering the question directly
 
-**Are we good?** For the current development phase, yes: P0, P1, and all active
-P2 engineering work are closed. The remaining P2 entries are explicit
-pre-launch operations: email/DMARC when a real domain is used, staging
-activation before real traffic, and the five credential-retirement product
-checks. That completed work should not be reopened without a regression or new
-evidence.
+**Are we good?** For the current development phase, yes: P0, P1, P2 and P3
+engineering work are closed. The remaining P2 entries are explicit pre-launch
+operations: DMARC when the final domain is used, staging activation before real
+traffic, and the unfinished credential-retirement product checks. That
+completed work should not be reopened without a regression or new evidence.
 
-**What remains structurally?** Edge protection still depends on the custom
-domain work in PD-1/PD-2. P3-1 durable session inventory and per-session/global
-revocation are merged/deployed; manual product checks remain pending. P3-2
-cross-call request budgets are merged, awaiting the deliberately batched deployment;
-they are cooperative HTTP/provider cancellation, not database rollback or a
-CPU execution limit. P3-3 is merged/complete through PR #63 with green post-merge
-CI; the management inventory is empty. The batch release remains pending.
-Public/account/admin/token routes are not unfinished tenant migrations. P3-4
-through P3-10 are implemented on the close-out branch. Review/CI, the batched
-release and manual verification remain; the original H2, H5, and bounded-
-dependency portions of H7 have been remediated.
+**What remains structurally?** Final-domain edge protection remains deferred to
+PD-1/PD-2, and the test R2 hostname remains accepted until PD-3. Engineering and
+the batched release are complete. The active checklist is now the remaining
+P3-1 session-revocation/socket checks and the P3-6 step-up matrix.
+Public/account/admin/token routes are separate
+authorization models, not unfinished tenant migrations. The original H2, H5,
+and bounded-dependency portions of H7 have been remediated.
 
 **Is that the whole picture?** No — and this is the important part. The most serious defect in the system, C1, appears nowhere in the advisory. A generic checklist found the categories but missed the actual hole, because the actual hole required reading how `POST /orders` resolves a table. Treat the document as a prompt for inspection, not as the inspection.
