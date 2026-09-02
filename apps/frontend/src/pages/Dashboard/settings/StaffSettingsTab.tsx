@@ -1009,9 +1009,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                 {t("staff.noStaffMatchFilter")}
               </div>
             ) : (
-              <div className="overflow-visible md:overflow-x-auto">
-                <table className="block w-full text-sm md:table md:min-w-[760px]">
-                  <thead className="hidden bg-muted/40 text-xs uppercase text-muted-foreground md:table-header-group">
+              <div className="overflow-visible">
+                <table className="block w-full text-sm">
+                  <thead className="hidden">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold">
                         {t("staff.nameColumn")}
@@ -1031,7 +1031,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       <th className="w-14 px-4 py-3" />
                     </tr>
                   </thead>
-                  <tbody className="block space-y-3 p-3 md:table-row-group md:space-y-0 md:p-0">
+                  <tbody className="block space-y-3 p-3">
                     {filteredStaff.map((member) => {
                       const isInactive = member.isActive === false;
                       const isBusy = busyStaffId === member.id;
@@ -1046,9 +1046,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       return (
                         <tr
                           key={member.id}
-                          className="relative block rounded-lg border border-border bg-muted/20 p-3 md:table-row md:rounded-none md:border-x-0 md:border-b-0 md:bg-transparent md:p-0"
+                          className="relative block rounded-lg border border-border bg-muted/20 p-3"
                         >
-                          <td className="block min-w-0 pr-12 md:table-cell md:px-4 md:py-3 md:pr-4">
+                          <td className="block min-w-0 pr-12">
                             <p className="break-words font-medium text-foreground">
                               {member.name || t("staff.unnamedStaff")}
                             </p>
@@ -1058,16 +1058,16 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               })}
                             </p>
                           </td>
-                          <td className="mt-3 flex min-w-0 flex-col gap-1 border-t border-border pt-3 text-muted-foreground sm:flex-row sm:items-start sm:justify-between sm:gap-3 md:table-cell md:border-0 md:px-4 md:py-3">
-                            <span className="text-xs font-semibold text-foreground md:hidden">
+                          <td className="mt-3 flex min-w-0 flex-col gap-1 border-t border-border pt-3 text-muted-foreground sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <span className="text-xs font-semibold text-foreground">
                               {t("staff.emailColumn")}
                             </span>
-                            <span className="min-w-0 break-all sm:text-right md:text-left">
+                            <span className="min-w-0 break-all sm:text-right">
                               {displayEmail(member.email)}
                             </span>
                           </td>
-                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 md:table-cell md:border-0 md:px-4 md:py-3">
-                            <span className="text-xs font-semibold text-foreground md:hidden">
+                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                            <span className="text-xs font-semibold text-foreground">
                               {t("staff.roleColumn")}
                             </span>
                             <select
@@ -1076,7 +1076,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               onChange={(event) =>
                                 handleRoleChange(member, event.target.value)
                               }
-                              className="min-w-0 max-w-[65%] rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground disabled:opacity-60 md:max-w-none"
+                              className="min-w-0 max-w-[65%] rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground disabled:opacity-60"
                             >
                               {roleOptions.map((role) => (
                                 <option key={role.value} value={role.value}>
@@ -1085,8 +1085,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               ))}
                             </select>
                           </td>
-                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 md:table-cell md:border-0 md:px-4 md:py-3">
-                            <span className="text-xs font-semibold text-foreground md:hidden">
+                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                            <span className="text-xs font-semibold text-foreground">
                               {t("staff.colStatus")}
                             </span>
                             <span
@@ -1101,15 +1101,15 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                                 : t("staff.statusActive")}
                             </span>
                           </td>
-                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 text-muted-foreground md:table-cell md:border-0 md:px-4 md:py-3">
-                            <span className="text-xs font-semibold text-foreground md:hidden">
+                          <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 text-muted-foreground">
+                            <span className="text-xs font-semibold text-foreground">
                               {t("staff.colLastUpdate")}
                             </span>
-                            <span className="text-right md:text-left">
+                            <span className="text-right">
                               {formatLocalDateTime(member.updatedAt)}
                             </span>
                           </td>
-                          <td className="absolute right-2 top-2 text-right md:relative md:right-auto md:top-auto md:table-cell md:px-4 md:py-3">
+                          <td className="absolute right-2 top-2 text-right">
                             <button
                               type="button"
                               data-kebab
