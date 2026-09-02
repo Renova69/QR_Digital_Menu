@@ -97,31 +97,41 @@ const roleBadgeClasses: Record<string, string> = {
   KITCHEN: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
 };
 
-// i18n key + English fallback per permission, resolved with t() at render.
-const rolePermissions: Record<string, { key: string; label: string }[]> = {
+const roleTranslationKeys: Record<string, string> = {
+  STAFF: "staff.roleStaff",
+  MANAGER: "staff.roleManager",
+  WAITER: "staff.roleWaiter",
+  KITCHEN: "staff.roleKitchen",
+};
+
+const rolePermissions: Record<string, string[]> = {
   STAFF: [
-    { key: "staff.perm.orderManagement", label: "Order management" },
-    { key: "staff.perm.callWaiterAlerts", label: "Call Waiter alerts" },
-    { key: "staff.perm.tableStatus", label: "Table status" },
+    "staff.perm.orderManagement",
+    "staff.perm.callWaiterAlerts",
+    "staff.perm.tableStatus",
   ],
   MANAGER: [
-    { key: "staff.perm.settingsAccess", label: "Settings access" },
-    { key: "staff.perm.staffDevices", label: "Staff devices" },
-    { key: "staff.perm.menuOperations", label: "Menu operations" },
+    "staff.perm.settingsAccess",
+    "staff.perm.staffDevices",
+    "staff.perm.menuOperations",
   ],
   WAITER: [
-    { key: "staff.perm.tablePos", label: "Table POS" },
-    { key: "staff.perm.orderEntry", label: "Order entry" },
-    { key: "staff.perm.paymentNotifications", label: "Payment notifications" },
+    "staff.perm.tablePos",
+    "staff.perm.orderEntry",
+    "staff.perm.paymentNotifications",
   ],
   KITCHEN: [
-    { key: "staff.perm.kitchenDisplay", label: "Kitchen display" },
-    { key: "staff.perm.ticketProgress", label: "Ticket progress" },
-    { key: "staff.perm.orderAlerts", label: "Order alerts" },
+    "staff.perm.kitchenDisplay",
+    "staff.perm.ticketProgress",
+    "staff.perm.orderAlerts",
   ],
 };
 
-const formatDateTime = (value?: string | null, timeZone?: string | null) => {
+const formatDateTime = (
+  value?: string | null,
+  timeZone?: string | null,
+  locale?: string,
+) => {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
@@ -134,10 +144,32 @@ const formatDateTime = (value?: string | null, timeZone?: string | null) => {
     ...(timeZone ? { timeZone } : {}),
   };
   try {
-    return date.toLocaleString([], options);
+    return date.toLocaleString(locale, options);
   } catch {
     const { timeZone: _timeZone, ...fallbackOptions } = options;
-    return date.toLocaleString([], fallbackOptions);
+    return date.toLocaleString(locale, fallbackOptions);
+  }
+};
+
+const formatTime = (
+  value?: string | null,
+  timeZone?: string | null,
+  locale?: string,
+) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    ...(timeZone ? { timeZone } : {}),
+  };
+  try {
+    return date.toLocaleTimeString(locale, options);
+  } catch {
+    const { timeZone: _timeZone, ...fallbackOptions } = options;
+    return date.toLocaleTimeString(locale, fallbackOptions);
   }
 };
 
@@ -168,26 +200,27 @@ const enrollmentStatusClasses: Record<DeviceEnrollmentStatus, string> = {
 const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   activeRestaurant,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const now = useMinuteTicker();
   const { fetchRestaurants } = useRestaurantContext();
   const canPos = useFeature("pos");
   const { staffLimit, allowedStaffRoles } = useTier();
 
+  const locale = i18n.resolvedLanguage || i18n.language || "en";
+  const translateRole = (role: string) => {
+    const key = roleTranslationKeys[role];
+    return key ? t(key) : role;
+  };
+  const formatLocalDateTime = (value?: string | null) =>
+    formatDateTime(value, activeRestaurant.timezone, locale);
+  const formatLocalTime = (value?: string | null) =>
+    formatTime(value, activeRestaurant.timezone, locale);
+
   const allowedRoles = useMemo(
     () =>
       allowedStaffRoles.map((role) => ({
         value: role,
-        label:
-          role === "STAFF"
-            ? t("staff.roleStaff", "Staff")
-            : role === "MANAGER"
-              ? t("staff.roleManager", "Manager")
-              : role === "WAITER"
-                ? t("staff.roleWaiter", "Waiter")
-                : role === "KITCHEN"
-                  ? t("staff.roleKitchen", "Kitchen")
-                  : role,
+        label: roleTranslationKeys[role] ? t(roleTranslationKeys[role]) : role,
       })),
     [allowedStaffRoles, t],
   );
@@ -322,10 +355,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
   const thisDeviceBonded =
     !!activeRestaurant &&
     sharedDeviceConfig?.restaurantId === activeRestaurant.id;
-  const sharedDeviceModeOffMessage = t(
-    "staff.sharedDeviceModeOffEnrollment",
-    "Shared Device Mode is off. Enable it before generating staff device QR links or staff PIN login.",
-  );
+  const sharedDeviceModeOffMessage = t("staff.sharedDeviceModeOffEnrollment");
   const inviteRequiresSharedDeviceMode = canPos && isPinRole(inviteRole);
   const inviteBlockedBySharedDeviceMode =
     inviteRequiresSharedDeviceMode && !sharedDeviceEnabled;
@@ -484,11 +514,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             );
             enrollmentUrl = enrollment.enrollmentUrl;
             expiresAt = enrollment.expiresAt;
-          } catch (err: any) {
-            enrollmentError =
-              err.response?.data?.message ||
-              err.message ||
-              t("staff.failedGenerateQr");
+          } catch (err: unknown) {
+            enrollmentError = t(getApiError(err));
           }
         }
       }
@@ -543,11 +570,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             );
             enrollmentUrl = enrollment.enrollmentUrl;
             expiresAt = enrollment.expiresAt;
-          } catch (err: any) {
-            enrollmentError =
-              err.response?.data?.message ||
-              err.message ||
-              t("staff.failedGenerateQr");
+          } catch (err: unknown) {
+            enrollmentError = t(getApiError(err));
           }
         }
       }
@@ -555,7 +579,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       if (updated.rawPin) {
         setStaffCreatedModal({
           open: true,
-          staffName: updated.name || member.name || "Staff",
+          staffName: updated.name || member.name || t("staff.unnamedStaff"),
           staffEmail: updated.email || member.email || "",
           rawPin: updated.rawPin,
           enrollmentUrl,
@@ -613,17 +637,14 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             );
             enrollmentUrl = enrollment.enrollmentUrl;
             expiresAt = enrollment.expiresAt;
-          } catch (err: any) {
-            enrollmentError =
-              err.response?.data?.message ||
-              err.message ||
-              t("staff.failedGenerateQr");
+          } catch (err: unknown) {
+            enrollmentError = t(getApiError(err));
           }
         }
       }
       setStaffCreatedModal({
         open: true,
-        staffName: result.user.name || member.name || "Staff",
+        staffName: result.user.name || member.name || t("staff.unnamedStaff"),
         staffEmail: result.user.email,
         rawPin: result.rawPin,
         enrollmentUrl,
@@ -676,15 +697,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
         const enrollment = await createDeviceEnrollment(activeRestaurant.id);
         enrollmentUrl = enrollment.enrollmentUrl;
         expiresAt = enrollment.expiresAt;
-      } catch (enrollmentFailure: any) {
-        enrollmentError =
-          enrollmentFailure.response?.data?.message ||
-          enrollmentFailure.message ||
-          t("staff.failedGenerateQr");
+      } catch (enrollmentFailure: unknown) {
+        enrollmentError = t(getApiError(enrollmentFailure));
       }
       setStaffCreatedModal({
         open: true,
-        staffName: reset.user.name || member.name || t("roles.staff", "Staff"),
+        staffName: reset.user.name || member.name || t("staff.unnamedStaff"),
         staffEmail: reset.user.email || member.email,
         rawPin: reset.rawPin,
         enrollmentUrl,
@@ -732,10 +750,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
     try {
       await revokeDeviceEnrollment(activeRestaurant.id, enrollment.id);
       await fetchDeviceEnrollments();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const key = getApiError(err);
       setDeviceEnrollmentError(
-        err.response?.data?.message ||
-          t("staff.failedRevokeDevice", "Failed to revoke device session."),
+        key === "apiErrors.unknown" ? t("staff.failedRevokeDevice") : t(key),
       );
     } finally {
       setRevokingEnrollmentId(null);
@@ -755,19 +773,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
       setSharedDeviceOverride(nextEnabled);
 
       if (nextEnabled) {
-        setSharedDeviceMessage(
-          t(
-            "staff.sharedDeviceModeEnabledMessage",
-            "Shared Device Mode is on. Generate a fresh Staff Device QR to enroll a phone.",
-          ),
-        );
+        setSharedDeviceMessage(t("staff.sharedDeviceModeEnabledMessage"));
       } else {
-        setSharedDeviceMessage(
-          t(
-            "staff.sharedDeviceModeDisabledMessage",
-            "Shared Device Mode is off. Staff PIN login is paused until it is enabled again.",
-          ),
-        );
+        setSharedDeviceMessage(t("staff.sharedDeviceModeDisabledMessage"));
         setDeviceEnrollmentUrl("");
         setDeviceEnrollmentExpiresAt("");
       }
@@ -776,14 +784,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
         fetchRestaurants(),
         ...(canPos ? [fetchDeviceEnrollments()] : []),
       ]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const key = getApiError(err);
       setDeviceEnrollmentError(
-        err.response?.data?.message ||
-          err.message ||
-          t(
-            "staff.failedUpdateSharedDeviceMode",
-            "Failed to update Shared Device Mode.",
-          ),
+        key === "apiErrors.unknown"
+          ? t("staff.failedUpdateSharedDeviceMode")
+          : t(key),
       );
     } finally {
       setSharedDeviceUpdating(false);
@@ -817,17 +823,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
         pinLoginEndTime: pinHoursEnabled ? pinLoginEndTime : null,
       });
       await fetchRestaurants();
-      setPinHoursMessage(
-        t("staff.pinLoginHoursSaved", "PIN login hours saved."),
-      );
+      setPinHoursMessage(t("staff.pinLoginHoursSaved"));
     } catch (err: unknown) {
       const key = getApiError(err);
       setPinHoursMessage(
         key === "apiErrors.unknown"
-          ? t(
-              "staff.failedUpdatePinLoginHours",
-              "Failed to update PIN login hours.",
-            )
+          ? t("staff.failedUpdatePinLoginHours")
           : t(key),
       );
     } finally {
@@ -906,7 +907,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             <p className="mt-2 text-sm font-semibold text-foreground">
               {sharedDeviceEnabled
                 ? t("staff.statsSharedEnabled")
-                : t("staff.statsSharedDisabled", "Disabled")}
+                : t("staff.statsSharedDisabled")}
             </p>
             <p className="text-xs text-muted-foreground">
               {t("staff.statsSharedPinSupport")}
@@ -1053,10 +1054,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {t("staff.createdAt", {
-                                date: formatDateTime(
-                                  member.createdAt,
-                                  activeRestaurant.timezone,
-                                ),
+                                date: formatLocalDateTime(member.createdAt),
                               })}
                             </p>
                           </td>
@@ -1098,7 +1096,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                                   : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                               }`}
                             >
-                              {isInactive ? "Inactive" : "Active"}
+                              {isInactive
+                                ? t("staff.statusInactive")
+                                : t("staff.statusActive")}
                             </span>
                           </td>
                           <td className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3 text-muted-foreground md:table-cell md:border-0 md:px-4 md:py-3">
@@ -1106,10 +1106,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               {t("staff.colLastUpdate")}
                             </span>
                             <span className="text-right md:text-left">
-                              {formatDateTime(
-                                member.updatedAt,
-                                activeRestaurant.timezone,
-                              )}
+                              {formatLocalDateTime(member.updatedAt)}
                             </span>
                           </td>
                           <td className="absolute right-2 top-2 text-right md:relative md:right-auto md:top-auto md:table-cell md:px-4 md:py-3">
@@ -1120,7 +1117,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                                 toggleActionMenu(event, member.id)
                               }
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                              aria-label="Open staff actions"
+                              aria-label={t("staff.openActions")}
                             >
                               <MoreVertical className="h-4 w-4" />
                             </button>
@@ -1242,7 +1239,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                   >
                     <Smartphone className="mr-2 h-4 w-4" />
                     {sharedDeviceUpdating
-                      ? t("common.saving", "Saving")
+                      ? t("staff.saving")
                       : sharedDeviceEnabled
                         ? t("common.disable", "Disable")
                         : t("common.enable", "Enable")}
@@ -1255,26 +1252,17 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         ? t("staff.sharedDeviceBonded", {
                             name: activeRestaurant?.name,
                           })
-                        : t(
-                            "staff.sharedDeviceModeEnabledMessage",
-                            "Shared Device Mode is on. Generate a fresh Staff Device QR to enroll a phone.",
-                          )
-                      : t(
-                          "staff.sharedDeviceModeDisabledMessage",
-                          "Shared Device Mode is off. Staff PIN login is paused until it is enabled again.",
-                        ))}
+                        : t("staff.sharedDeviceModeEnabledMessage")
+                      : t("staff.sharedDeviceModeDisabledMessage"))}
                 </p>
                 <div className="mt-4 border-t border-border pt-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">
-                        {t("staff.pinLoginHours", "PIN login hours")}
+                        {t("staff.pinLoginHours")}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {t(
-                          "staff.pinLoginHoursDesc",
-                          "PIN login is allowed only within the configured restaurant-local time window. Overnight windows are supported.",
-                        )}
+                        {t("staff.pinLoginHoursDesc")}
                       </p>
                     </div>
                     <label className="flex items-center gap-2 text-xs text-foreground sm:shrink-0">
@@ -1287,16 +1275,13 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         }}
                         disabled={pinHoursSaving}
                       />
-                      {t(
-                        "staff.restrictPinLoginHours",
-                        "Allow PIN login only during these hours",
-                      )}
+                      {t("staff.restrictPinLoginHours")}
                     </label>
                   </div>
                   {pinHoursEnabled && (
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <label className="text-xs text-muted-foreground">
-                        {t("staff.pinLoginStart", "Allowed from")}
+                        {t("staff.pinLoginStart")}
                         <TwentyFourHourTimeInput
                           className={`${inputCls} mt-1`}
                           value={pinLoginStartTime}
@@ -1305,7 +1290,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         />
                       </label>
                       <label className="text-xs text-muted-foreground">
-                        {t("staff.pinLoginEnd", "Allowed until")}
+                        {t("staff.pinLoginEnd")}
                         <TwentyFourHourTimeInput
                           className={`${inputCls} mt-1`}
                           value={pinLoginEndTime}
@@ -1323,8 +1308,6 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               pinLoginWindow.durationMinutes / 60,
                             ),
                             minutes: pinLoginWindow.durationMinutes % 60,
-                            defaultValue:
-                              "Ends next day · PIN login allowed for {{hours}} h {{minutes}} min.",
                           })}
                         </p>
                       )}
@@ -1334,7 +1317,6 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                     <p className="text-xs text-muted-foreground">
                       {t("staff.pinLoginTimezone", {
                         timezone: activeRestaurant.timezone ?? "Europe/Sofia",
-                        defaultValue: "Times use {{timezone}}.",
                       })}
                     </p>
                     <Button
@@ -1346,8 +1328,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       className="w-full sm:w-auto"
                     >
                       {pinHoursSaving
-                        ? t("common.saving", "Saving")
-                        : t("common.save", "Save")}
+                        ? t("staff.savingPinLoginHours")
+                        : t("staff.savePinLoginHours")}
                     </Button>
                   </div>
                   {pinHoursMessage && (
@@ -1383,7 +1365,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                     className="w-full sm:w-auto"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    {deviceEnrollmentLoading ? t("staff.generating") : "New"}
+                    {deviceEnrollmentLoading
+                      ? t("staff.generating")
+                      : t("staff.newDeviceEnrollment")}
                   </Button>
                 </div>
 
@@ -1404,13 +1388,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {t("staff.expiresAt", {
-                          time: new Date(
-                            deviceEnrollmentExpiresAt,
-                          ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                          }),
+                          time: formatLocalTime(deviceEnrollmentExpiresAt),
                         })}
                       </p>
                       <Button
@@ -1493,9 +1471,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                         .slice(0, 2);
                       const statusLabel =
                         status === "revoked"
-                          ? t("staff.deviceStatusRevoked", "Revoked")
+                          ? t("staff.deviceStatusRevoked")
                           : status === "expired"
-                            ? t("staff.deviceStatusExpired", "Expired")
+                            ? t("staff.deviceStatusExpired")
                             : status === "used"
                               ? t("staff.deviceStatusUsed")
                               : t("staff.deviceStatusPending");
@@ -1517,11 +1495,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               {statusLabel}
                             </span>
                             <p className="text-xs text-muted-foreground">
-                              {formatDateTime(
+                              {formatLocalDateTime(
                                 enrollment.revokedAt ||
                                   enrollment.usedAt ||
                                   enrollment.createdAt,
-                                activeRestaurant.timezone,
                               )}
                             </p>
                           </div>
@@ -1531,9 +1508,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               className="mt-2 inline-flex rounded-full bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive"
                             >
                               {t("staff.devicePinLockedUntil", {
-                                time: formatDateTime(
+                                time: formatLocalDateTime(
                                   enrollment.pinLockedUntil!,
-                                  activeRestaurant.timezone,
                                 ),
                               })}
                             </span>
@@ -1573,7 +1549,6 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               name:
                                 enrollment.createdBy.name ||
                                 displayEmail(enrollment.createdBy.email),
-                              defaultValue: "QR created by {{name}}",
                             })}
                           </p>
                           {lastStaffBinding ? (
@@ -1581,18 +1556,16 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                               <p className="truncate text-foreground">
                                 {t("staff.deviceSessionLastUsedBy", {
                                   name: lastStaffName,
-                                  role: lastStaffBinding.user.role,
-                                  defaultValue:
-                                    "Last used by {{name}} ({{role}})",
+                                  role: translateRole(
+                                    lastStaffBinding.user.role,
+                                  ),
                                 })}
                               </p>
                               <p>
                                 {t("staff.deviceSessionLastSeen", {
-                                  time: formatDateTime(
+                                  time: formatLocalDateTime(
                                     lastStaffBinding.lastSeenAt,
-                                    activeRestaurant.timezone,
                                   ),
-                                  defaultValue: "Last PIN login {{time}}",
                                 })}
                               </p>
                               {otherStaffNames.length > 0 && (
@@ -1600,17 +1573,13 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                                   {t("staff.deviceSessionAlsoUsedBy", {
                                     names: otherStaffNames.join(", "),
                                     count: otherStaffBindings.length,
-                                    defaultValue: "Also used by {{names}}",
                                   })}
                                 </p>
                               )}
                             </div>
                           ) : (
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {t(
-                                "staff.deviceSessionNoStaffLogin",
-                                "No staff PIN login recorded yet",
-                              )}
+                              {t("staff.deviceSessionNoStaffLogin")}
                             </p>
                           )}
                           {!enrollment.revokedAt && (
@@ -1624,8 +1593,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                             >
                               <UserX className="h-3.5 w-3.5" />
                               {revokingEnrollmentId === enrollment.id
-                                ? t("common.saving", "Saving")
-                                : t("staff.actionRevokeDevice", "Revoke")}
+                                ? t("staff.revokingDevice")
+                                : t("staff.actionRevokeDevice")}
                             </button>
                           )}
                         </div>
@@ -1646,13 +1615,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                     <Lock className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {t("staff.noRolesAvailable", "Staff roles locked")}
+                        {t("staff.noRolesAvailable")}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {t(
-                          "staff.noRolesDesc",
-                          "Upgrade to unlock staff roles.",
-                        )}
+                        {t("staff.noRolesDesc")}
                       </p>
                     </div>
                   </div>
@@ -1675,10 +1641,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       </div>
                       <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                         {(rolePermissions[role.value] || []).map(
-                          (permission) => (
-                            <li key={permission.key}>
-                              {t(permission.key, permission.label)}
-                            </li>
+                          (permissionKey) => (
+                            <li key={permissionKey}>{t(permissionKey)}</li>
                           ),
                         )}
                       </ul>
@@ -1738,16 +1702,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                 <Smartphone className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-300" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-amber-800 dark:text-amber-100">
-                    {t(
-                      "staff.enableSharedDeviceBeforePinStaff",
-                      "Enable Staff PIN Login first",
-                    )}
+                    {t("staff.enableSharedDeviceBeforePinStaff")}
                   </p>
                   <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
-                    {t(
-                      "staff.enableSharedDeviceBeforePinStaffDesc",
-                      "Waiter and kitchen accounts need Staff Device Mode so the PIN and QR can be issued together.",
-                    )}
+                    {t("staff.enableSharedDeviceBeforePinStaffDesc")}
                   </p>
                   <Button
                     type="button"
@@ -1759,11 +1717,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                   >
                     <Smartphone className="mr-2 h-4 w-4" />
                     {sharedDeviceUpdating
-                      ? t("common.saving", "Saving")
-                      : t(
-                          "staff.enableStaffPinLogin",
-                          "Enable Staff PIN Login",
-                        )}
+                      ? t("staff.saving")
+                      : t("staff.enableStaffPinLogin")}
                   </Button>
                 </div>
               </div>
