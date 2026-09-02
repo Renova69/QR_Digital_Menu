@@ -1,9 +1,11 @@
 # P3-1 — Durable login sessions
 
-Implementation/review/merge: complete via PR #57. Backend deployment checkpoint:
-28 Aug 2026, commit `e75007853d333186cdbc76db1dd20551b2b6e2ad`.
-Manual release verification: still pending; deployment alone does not prove the
-two-browser and live-socket product checks below.
+Implementation/review/merge: complete via PR #57. The original backend
+deployment checkpoint was 28 Aug 2026 at
+`e75007853d333186cdbc76db1dd20551b2b6e2ad`; the current production image for
+`445afc6d` still contains the session controls. Manual verification is partial:
+two simultaneous browser sessions were confirmed, but the complete
+revocation/socket/legacy/cross-account matrix below is not yet signed off.
 
 ## Verified deployment checkpoint — 28 Aug 2026
 

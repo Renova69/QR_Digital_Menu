@@ -1,19 +1,19 @@
 # P3 security close-out
 
-**Status (29 Aug 2026): implementation complete on `codex/p3-closeout`; review,
-CI, batched deployment and manual release verification pending.**
+**Status (2 Sep 2026): COMPLETE. PR #68 merged the close-out with green CI, and
+the production image for `445afc6d` contains P3-4 through P3-10. Remaining
+P3-1/P3-6 manual checks are release evidence, not open engineering scope.**
 
-This document closes the engineering scope in P3-4 through P3-10 without
-claiming that an open branch is merged or serving production.
+This document closes the engineering scope in P3-4 through P3-10 and records
+the subsequent merge and production rollout.
 
 ## P3-4 — tenant query scoping
 
-PR #64 merged the operational order, assistance and feedback slice. The
-close-out branch integrates menu/table/zone/restaurant/staff management and
-finishes payment/session, cash-request, menu-import and translation-override
-queries. The authorized restaurant is carried into the authoritative Prisma
-operation while existing role, provider callback, token, idempotency and
-transaction contracts remain intact.
+PR #64 merged the operational order, assistance and feedback slice; PR #65
+merged the management slice; PR #68 finished payment/session, cash-request,
+menu-import and translation-override queries. The authorized restaurant is
+carried into the authoritative Prisma operation while existing role, provider
+callback, token, idempotency and transaction contracts remain intact.
 
 Public, account-owned, admin-only, provider-callback and opaque-token routes are
 separate authorization models, not unscoped management queries. RLS was
@@ -95,5 +95,8 @@ route.
 - Database-safety policy: 26/26 tests pass; migration chain remains
   forward-only.
 
-GitHub PR CI, post-merge CI, deployment and production smoke/manual checks are
-not included in this snapshot and remain explicit release gates.
+PR #68 and its post-merge CI passed. The batch is present in the production
+image for `445afc6d`; the current configuration-only revision serves that image
+with readiness 200. PIN-login hours were manually verified after the follow-up
+fixes in PRs #70/#71. The unfinished release evidence is the P3-1
+revocation/socket/legacy matrix and the P3-6 step-up matrix.

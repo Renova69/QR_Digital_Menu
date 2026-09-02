@@ -30,3 +30,12 @@ Deployment order is backend preflight and verified backup, migration safety
 checks, `prisma migrate deploy`, post-migration verification, no-traffic backend
 canary, traffic shift, then frontend. No migration or live database command was
 run while preparing this branch.
+
+## Production verification — 30 Aug 2026
+
+- The migration and backend/frontend changes are deployed.
+- Restaurant-local timezone display and 24-hour input behavior were verified.
+- A restriction covering the current Europe/Sofia time blocked PIN login with
+  the intended message; disabling the restriction restored PIN login.
+- The original allow/deny interpretation and overnight-summary defects were
+  corrected in PRs #70/#71 and verified after merge.
