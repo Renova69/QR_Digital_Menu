@@ -1256,7 +1256,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
                       : t("staff.sharedDeviceModeDisabledMessage"))}
                 </p>
                 <div className="mt-4 border-t border-border pt-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">
                         {t("staff.pinLoginHours")}
