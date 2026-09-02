@@ -1,9 +1,11 @@
 # P3-2 — Cross-call request budgets
 
-Implementation: merged via PR #58 at `f4ec9a61` with green CI. Backend deployment
-and manual release verification: pending, deliberately batched with later P3 work
-at the user's request on 28 Aug 2026. No migration, environment change, or live
-database operation is required by this change.
+Implementation: merged via PR #58 at `f4ec9a61` with green CI and deployed in
+the completed P3 batch. The production image for `445afc6d` contains this
+contract and passed the normal canary/readiness rollout. No migration or
+environment change was required by this change. Dependency-failure behavior
+remains observable through automated coverage and Sentry; production failure
+injection is not an engineering blocker.
 
 ## Contract
 

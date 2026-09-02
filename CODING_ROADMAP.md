@@ -1,57 +1,58 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** August 28, 2026
+> **Last Updated:** September 2, 2026
 > **MVP Status:** ✅ Complete
 > **V2 Status:** ✅ Phases 9–14 Complete
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
-> **Security Hardening:** ✅ P0/P1 and active P2 engineering complete
+> **Security Hardening:** ✅ P0–P3 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** P3 engineering is implemented through P3-10. P3-4's
-> remaining tenant-query slices and P3-5 through P3-10 are consolidated on the
-> P3 close-out branch; review/CI and the deliberately batched release remain.
+> **Current Focus:** operational close-out: disposable local restore proof and
+> the remaining P3-1/P3-6 manual checks. Final-domain, isolated-staging and
+> credential-retirement gates remain deliberately deferred pre-launch.
 
 ---
 
 ## Current security track
 
-- **P3 close-out (29 Aug):** P3-4 query scoping is complete across the reviewed
-  operational, management, payment/session, import and translation-override
-  surfaces. P3-5 provider circuit breakers, P3-6 step-up authentication, P3-7
-  PIN-login hours, P3-8 self-review enforcement, P3-9 dependency security gates
-  and P3-10 static API documentation are implemented on one review branch.
+- **P3 engineering close-out:** PR #68 merged P3-4 through P3-10 with green CI.
+  The production image for `445afc6d` contains the complete P3 batch.
   [Close-out evidence](ops/security/P3_CLOSEOUT.md).
 - **P2 development close-out:** complete. Do not cycle back through completed
   P2 items without a regression or new evidence.
-- **Pre-launch gates:** P2-4 email delivery/DMARC after a real domain is active;
-  P2-8 isolated staging activation before real traffic; P2-10 manual
-  credential-retirement checks before the first real tenant.
-- **P3-1:** merged via PR #57 and backend deployed at `e7500785` on 28 Aug.
-  Manual two-browser/session-revocation checks remain pending; see
+- **P2-4:** signed Resend delivery receipts shipped in PR #75 and are configured
+  in production. Bulgarian/English confirmation and update emails passed manual
+  checks. DMARC remains deferred until the final product domain is active.
+- **Pre-launch gates:** P2-8 isolated staging activation, remaining P2-10
+  credential-retirement checks, DMARC, and final-domain edge controls.
+- **P3-1:** merged and deployed. Two simultaneous browser sessions were manually
+  confirmed; the revocation/socket/legacy remainder stays on
   [the rollout checklist](ops/db-safety/P3_SESSION_ROLLOUT.md).
 - **P3-2:** shared 25-second HTTP deadline, cancellation propagated to foreground
-  provider calls/retries, explicit background-work separation. Implementation
-  merged via PR #58 at `f4ec9a61` with green CI; backend deployment pending. See
-  [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
+  provider calls/retries, and explicit background-work separation are merged
+  and deployed. See [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
 - **P3-3 MERGED/COMPLETE:** PR #59–#63, ending at `32fdc9e6`, with green
   PR and post-merge CI. The final 16 service-management and 25 payment/subscription
   routes merged together in PR #63: 132 guarded of 245.
   The 113 public/account/admin/token routes are permanently classified separately;
   no temporary management-migration entries remain. No new URLs, schema or
-  business workflow; existing service/child checks remain. Batch deployment and
-  release verification are still pending. See
+  business workflow; existing service/child checks remain. The batch is
+  deployed; only the shared manual release checklist remains. See
   [the policy and close-out evidence](ops/security/RESTAURANT_ACCESS.md).
-- **P3-4 implementation complete:** member-scoped operational queries,
+- **P3-4 complete/merged/deployed:** member-scoped operational queries,
   tenant-management writes, payment/session transactions, imports and
   translation overrides are constrained at their authoritative query boundary.
   Existing role/provider/idempotency contracts are preserved. RLS was evaluated
   and remains a separate future architecture decision.
   [Scope and evidence](ops/security/TENANT_QUERY_SCOPING.md).
-- **Deployment decision (28 Aug):** batch the backend deployment after additional
-  P3 merges; do not deploy after each PR. Last confirmed backend: `e7500785`.
-- **Next gate:** review and merge the consolidated P3 close-out PR, then run the
-  already-planned batched backend/frontend release and manual verification. No
-  production database was connected to or modified during implementation.
+- **P3-7 manual verification:** timezone-aware restricted hours, disabled-state
+  login and overnight summaries passed after PRs #70/#71.
+- **Backup operations:** the read-only Cloud Run job runs twice daily to a
+  versioned off-host GCS bucket and deployment requires a fresh verified
+  archive. The remaining recovery evidence is a disposable local restore drill.
+- **Next gate:** finish the local restore drill and the remaining P3-1/P3-6
+  manual checks, then choose the next product slice. Phase 20 multi-location /
+  franchise management remains the named unbuilt product phase.
 
 The detailed evidence and per-item status live in
 [`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).
