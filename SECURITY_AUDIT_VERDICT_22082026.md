@@ -11,9 +11,10 @@ complete P3 batch. The subsequent configuration-only revision
 readiness 200. P2-4's signed Resend delivery webhook shipped in PR #75 and is
 configured in production; Bulgarian and English reservation confirmation and
 update emails were verified end to end. DMARC remains deliberately deferred
-until the final product domain exists. Remaining work is operational release
-evidence: a disposable local restore drill, the unfinished P3-1/P3-6 manual
-matrix, and the explicit pre-launch gates listed below.
+until the final product domain exists. A disposable-local restore drill passed
+on 2 Sep against the newest verified GCS archive. Remaining work is operational
+release evidence: the unfinished P3-1/P3-6 manual matrix and the explicit
+pre-launch gates listed below.
 
 **Method:** 6 parallel code-audit agents (session/auth, multi-tenant isolation, error handling, API surface, secrets, resilience) plus direct verification of GitHub rulesets, Cloud Run configuration, Neon settings, DNS records, git history and backup artifacts. Every finding below carries a `file:line` or a live-infrastructure query as evidence. All CRITICAL and HIGH findings were re-verified by hand, not accepted on an agent's word.
 
@@ -237,7 +238,7 @@ Task IDs are stable; tick them off in place.
 - **P0-1 — superseded by P0-2.** Once the table token gates session access, holding that token _is_ the proof of being at the table, so returning the shared session token to a token-bearing caller is the intended shared-bill behaviour — the same trust model service points already use. Withholding it would have broken bill access for the second diner at a table without closing anything P0-2 does not already close.
 - **P0-2 — done.** Backend enforcement, QR generation, customer-side plumbing and the backfill script. Production verification on 2 Sep reported 67 physical tables and zero missing `publicToken` values.
 - **P0-3, P0-4, P0-5, P0-6 — done.**
-- **P0-7 — operational path complete; restore drill pending.** Cloud Scheduler runs the read-only backup job twice daily, archives and manifests are stored off-host in a versioned GCS bucket, deployment requires a fresh verified backup, and current executions are green. The remaining evidence item is a restore into a newly created disposable local database.
+- **P0-7 — complete and restore-verified.** Cloud Scheduler runs the read-only backup job twice daily, archives and manifests are stored off-host in a versioned GCS bucket, deployment requires a fresh verified backup, and current executions are green. On 2 Sep the newest archive (`2026-09-02T02-15-43Z`) was restored into a newly created empty local database: its SHA-256 and all protected counts matched the manifest, all 58 public tables and three materialized views restored, the 76-row migration ledger had zero unresolved migrations, constraints validated, and the database-wide event guards were reinstalled and verified without changing restored row counts.
 
 | ID   | Task                                                                                                                                                                                                     | Files                                                                        | Effort | Done when                                                                                 |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------- |
@@ -410,9 +411,9 @@ completed work should not be reopened without a regression or new evidence.
 
 **What remains structurally?** Final-domain edge protection remains deferred to
 PD-1/PD-2, and the test R2 hostname remains accepted until PD-3. Engineering and
-the batched release are complete. The active checklist is now a disposable
-local restore drill, the remaining P3-1 session-revocation/socket checks, and
-the P3-6 step-up matrix. Public/account/admin/token routes are separate
+the batched release are complete. The active checklist is now the remaining
+P3-1 session-revocation/socket checks and the P3-6 step-up matrix.
+Public/account/admin/token routes are separate
 authorization models, not unfinished tenant migrations. The original H2, H5,
 and bounded-dependency portions of H7 have been remediated.
 

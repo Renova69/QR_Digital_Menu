@@ -7,9 +7,9 @@
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
 > **Security Hardening:** ✅ P0–P3 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** operational close-out: disposable local restore proof and
-> the remaining P3-1/P3-6 manual checks. Final-domain, isolated-staging and
-> credential-retirement gates remain deliberately deferred pre-launch.
+> **Current Focus:** operational close-out: the remaining P3-1/P3-6 manual
+> checks. Final-domain, isolated-staging and credential-retirement gates remain
+> deliberately deferred pre-launch.
 
 ---
 
@@ -49,10 +49,12 @@
   login and overnight summaries passed after PRs #70/#71.
 - **Backup operations:** the read-only Cloud Run job runs twice daily to a
   versioned off-host GCS bucket and deployment requires a fresh verified
-  archive. The remaining recovery evidence is a disposable local restore drill.
-- **Next gate:** finish the local restore drill and the remaining P3-1/P3-6
-  manual checks, then choose the next product slice. Phase 20 multi-location /
-  franchise management remains the named unbuilt product phase.
+  archive. A 2 Sep disposable-local restore drill verified the newest archive's
+  SHA-256, all manifest counts, 76 migration ledger rows with zero unresolved
+  migrations, constraints, materialized views and all database-loss guards.
+- **Next gate:** finish the remaining P3-1/P3-6 manual checks, then choose the
+  next product slice. Phase 20 multi-location / franchise management remains
+  the named unbuilt product phase.
 
 The detailed evidence and per-item status live in
 [`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).
