@@ -195,6 +195,17 @@ describe("SettingsView - Staff tab", () => {
     expect(screen.queryByText("staff.sharedDeviceMode")).toBeTruthy();
   });
 
+  it("keeps the PIN login hours heading and toggle stacked on desktop", () => {
+    render(<SettingsView />, { wrapper });
+    fireEvent.click(screen.getByText("settings.tabs.staff"));
+
+    const layout = screen.getByText("staff.pinLoginHours").parentElement
+      ?.parentElement;
+
+    expect(layout?.className).toContain("flex-col");
+    expect(layout?.className).not.toContain("sm:flex-row");
+  });
+
   it("hides the Staff tab for STAFF users", () => {
     mockAuthState.role = "STAFF";
     render(<SettingsView />, { wrapper });
