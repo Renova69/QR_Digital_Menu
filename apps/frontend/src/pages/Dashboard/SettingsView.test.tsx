@@ -12,14 +12,22 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsView from "./SettingsView";
 import RestaurantContext from "../../context/RestaurantContext";
-import { createStaff, updateRestaurant } from "../../lib/api";
+import {
+  createDeviceEnrollment,
+  createStaff,
+  listStaff,
+  updateRestaurant,
+} from "../../lib/api";
 
 const mockT = vi.fn((key: string) => key);
 const mockAuthState = vi.hoisted(() => ({ role: "OWNER" }));
 const mockFeatureState = vi.hoisted(() => ({ printers: true }));
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: mockT }),
+  useTranslation: () => ({
+    t: mockT,
+    i18n: { language: "bg", resolvedLanguage: "bg" },
+  }),
 }));
 
 vi.mock("../../context/AuthContext", () => ({
@@ -162,6 +170,7 @@ beforeEach(() => {
   for (const k of Object.keys(store)) delete store[k];
   mockAuthState.role = "OWNER";
   mockFeatureState.printers = true;
+  mockRestaurant.sharedDeviceModeEnabled = false;
   vi.clearAllMocks();
   vi.mocked(updateRestaurant).mockResolvedValue({
     ...mockRestaurant,
@@ -223,8 +232,51 @@ describe("SettingsView - Staff tab", () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));
     expect(screen.getByText("staff.bondDevice")).toBeTruthy();
-    // The generate-enrollment action button renders as "New".
-    expect(screen.getByText("New")).toBeTruthy();
+    expect(screen.getByText("staff.newDeviceEnrollment")).toBeTruthy();
+  });
+
+  it("localizes staff status, actions and restaurant-timezone dates", async () => {
+    vi.mocked(listStaff).mockResolvedValueOnce([
+      {
+        id: "staff-1",
+        name: "Ivan Waiter",
+        email: "ivan@staff.local",
+        role: "WAITER",
+        isActive: true,
+        createdAt: "2026-09-02T12:34:00.000Z",
+        updatedAt: "2026-09-02T12:34:00.000Z",
+      },
+    ]);
+
+    render(<SettingsView />, { wrapper });
+    fireEvent.click(screen.getByText("settings.tabs.staff"));
+
+    expect(await screen.findByText("Ivan Waiter")).toBeTruthy();
+    expect(screen.getByText("staff.statusActive")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "staff.openActions" }),
+    ).toBeTruthy();
+    expect(screen.getAllByText("2.09, 15:34").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Active")).toBeNull();
+  });
+
+  it("renders a stale step-up rejection through the localized API key", async () => {
+    mockRestaurant.sharedDeviceModeEnabled = true;
+    vi.mocked(createDeviceEnrollment).mockRejectedValueOnce({
+      response: {
+        status: 403,
+        data: {
+          code: "STEP_UP_REQUIRED",
+          message: "Sign in again before performing this sensitive action.",
+        },
+      },
+    });
+
+    render(<SettingsView />, { wrapper });
+    fireEvent.click(screen.getByText("settings.tabs.staff"));
+    fireEvent.click(screen.getByText("staff.newDeviceEnrollment"));
+
+    expect(await screen.findByText("apiErrors.stepUpRequired")).toBeTruthy();
   });
 
   it("shows QR code and copy link when enrollment URL is set", () => {
