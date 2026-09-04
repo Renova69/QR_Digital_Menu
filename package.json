@@ -46,6 +46,17 @@
     "audit:production": "node scripts/audit-production-dependencies.js",
     "test:database-safety": "node --test scripts/check-migration-safety.test.js scripts/prisma-migrate-guard.test.js scripts/production-db-guard.test.js scripts/db-restore-safety.test.js scripts/seed-script-safety.test.js ops/monitoring/setup-alerts.test.js ops/staging/staging-policy.test.js"
   },
+  "overrides": {
+    "@docusaurus/core": {
+      "qs": "6.16.0"
+    },
+    "@nestjs/platform-express": {
+      "qs": "6.16.0"
+    },
+    "supertest": {
+      "qs": "6.16.0"
+    }
+  },
   "devDependencies": {
     "@swc/cli": "^0.8.1",
     "@swc/core": "^1.15.41",
