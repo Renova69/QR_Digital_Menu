@@ -1,6 +1,6 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** September 2, 2026
+> **Last Updated:** September 4, 2026
 > **MVP Status:** ✅ Complete
 > **V2 Status:** ✅ Phases 9–14 Complete
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete
@@ -52,9 +52,10 @@
   archive. A 2 Sep disposable-local restore drill verified the newest archive's
   SHA-256, all manifest counts, 76 migration ledger rows with zero unresolved
   migrations, constraints, materialized views and all database-loss guards.
-- **Next gate:** finish the remaining P3-1/P3-6 manual checks, then choose the
-  next product slice. Phase 20 multi-location / franchise management remains
-  the named unbuilt product phase.
+- **Next gate:** reconcile the remaining P3-1/P3-6 manual checks with recorded
+  verification, then choose the next single-restaurant product slice.
+  Multi-location / franchise management is out of scope at this stage by
+  owner decision (4 Sep 2026); it is not the next development task.
 
 The detailed evidence and per-item status live in
 [`SECURITY_AUDIT_VERDICT_22082026.md`](./SECURITY_AUDIT_VERDICT_22082026.md).
@@ -487,7 +488,10 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 
 ---
 
-### Phase 20: Multi-Location / Franchise Management
+### Phase 20: Multi-Location / Franchise Management — Deferred
+
+Not planned at this stage by owner decision (4 Sep 2026). Retained below as a
+future idea only, not an active development or launch requirement.
 
 **Goal:** Centralized management for restaurant chains.
 
