@@ -7,9 +7,13 @@ import {
   Query,
   Request,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { NotificationDeliveryStatus } from '@prisma/client';
 import { RequireRestaurantAccess } from '../auth/require-restaurant-access.decorator';
-import { NotificationDeliveryService } from './notification-delivery.service';
+import {
+  NotificationDeliveryService,
+  type NotificationDeliverySourceFamily,
+} from './notification-delivery.service';
 
 type NotificationDeliveryRequest = {
   user: { id: string; role: string };
@@ -25,10 +29,16 @@ export class NotificationDeliveryController {
   constructor(private readonly deliveries: NotificationDeliveryService) {}
 
   @Get()
+  @ApiQuery({
+    name: 'sourceFamily',
+    required: false,
+    enum: ['RESERVATION'],
+  })
   list(
     @Param('restaurantId') restaurantId: string,
     @Request() request: NotificationDeliveryRequest,
     @Query('status') requestedStatus?: string,
+    @Query('sourceFamily') requestedSourceFamily?: string,
   ) {
     this.assertManagerRole(request);
     const status = Object.values(NotificationDeliveryStatus).includes(
@@ -36,10 +46,13 @@ export class NotificationDeliveryController {
     )
       ? (requestedStatus as NotificationDeliveryStatus)
       : undefined;
+    const sourceFamily: NotificationDeliverySourceFamily | undefined =
+      requestedSourceFamily === 'RESERVATION' ? 'RESERVATION' : undefined;
     return this.deliveries.listForRestaurant(
       restaurantId,
       request.user.id,
       status,
+      sourceFamily,
     );
   }
 

@@ -4225,7 +4225,55 @@
       "sat": "Sat",
       "sun": "Sun"
     },
-    "allergenSection": "Show menu allergen section"
+    "allergenSection": "Show menu allergen section",
+    "notifications": {
+      "tab": "Notification delivery",
+      "smsUsageTitle": "Monthly SMS usage",
+      "smsUsageHelp": "Segments are tracked for visibility only. Reservations are never blocked.",
+      "loadingUsage": "Loading SMS usage…",
+      "historyTitle": "Delivery history",
+      "historyHelp": "Provider acceptance, sending and confirmed delivery are shown separately.",
+      "refresh": "Refresh",
+      "retryError": "The delivery could not be queued again. Refresh and check its current status.",
+      "loadingHistory": "Loading delivery history…",
+      "empty": "No reservation notifications have been queued yet.",
+      "segmentsUsed": "{{used}} of {{included}} segments used",
+      "deliveryCount": "{{count}} SMS deliveries",
+      "overAllowance": "{{count}} segments above the included allowance. Tracking only; messages remain enabled.",
+      "nearAllowance": "{{percent}}% of this month's included SMS segments have been used.",
+      "segmentsRemaining": "{{count}} included segments remaining.",
+      "reservationUnavailable": "Reservation unavailable",
+      "email": "Email",
+      "sms": "SMS",
+      "bookingTime": "Booking",
+      "retrying": "Retrying…",
+      "retry": "Retry",
+      "updatedAt": "Status updated",
+      "segmentCount": "SMS segments: {{count}}",
+      "attempts": "Attempt {{count}} of {{max}}",
+      "uncertainHelp": "The provider outcome is unknown. Retry is disabled to avoid sending a duplicate.",
+      "usageError": "SMS usage is temporarily unavailable.",
+      "historyError": "Delivery history is temporarily unavailable.",
+      "tryAgain": "Try again",
+      "source": {
+        "ownerNew": "New booking alert",
+        "reminder": "Reservation reminder",
+        "lifecycle": "Guest reservation update"
+      },
+      "status": {
+        "pending": "Queued",
+        "processing": "Sending",
+        "retryScheduled": "Retry scheduled",
+        "accepted": "Provider accepted",
+        "sent": "Sent",
+        "delayed": "Delayed",
+        "delivered": "Delivered",
+        "failed": "Failed",
+        "bounced": "Bounced",
+        "complained": "Spam complaint",
+        "uncertain": "Outcome unknown"
+      }
+    }
   },
   "manage": {
     "title": "Manage your reservation",

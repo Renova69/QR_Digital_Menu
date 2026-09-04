@@ -106,6 +106,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "sourceFamily",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "RESERVATION"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {

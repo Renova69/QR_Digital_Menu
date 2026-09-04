@@ -67,6 +67,8 @@ type NotificationDeliveryClient = Pick<
   'notificationDelivery'
 >;
 
+export type NotificationDeliverySourceFamily = 'RESERVATION';
+
 @Injectable()
 export class NotificationDeliveryService {
   private readonly logger = new Logger(NotificationDeliveryService.name);
@@ -395,10 +397,17 @@ export class NotificationDeliveryService {
     restaurantId: string,
     userId: string,
     status?: NotificationDeliveryStatus,
+    sourceFamily?: NotificationDeliverySourceFamily,
   ) {
     await this.assertManagementAccess(restaurantId, userId);
-    return this.prisma.notificationDelivery.findMany({
-      where: { restaurantId, ...(status ? { status } : {}) },
+    const deliveries = await this.prisma.notificationDelivery.findMany({
+      where: {
+        restaurantId,
+        ...(status ? { status } : {}),
+        ...(sourceFamily === 'RESERVATION'
+          ? { sourceType: { startsWith: 'RESERVATION_' } }
+          : {}),
+      },
       select: {
         id: true,
         sourceType: true,
@@ -443,6 +452,40 @@ export class NotificationDeliveryService {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+
+    if (sourceFamily !== 'RESERVATION') return deliveries;
+
+    const reservationIds = [
+      ...new Set(
+        deliveries
+          .filter((delivery) => delivery.sourceType.startsWith('RESERVATION_'))
+          .map((delivery) => delivery.sourceId),
+      ),
+    ];
+    if (reservationIds.length === 0) {
+      return deliveries.map((delivery) => ({
+        ...delivery,
+        reservation: null,
+      }));
+    }
+
+    const reservations = await this.prisma.reservation.findMany({
+      where: { restaurantId, id: { in: reservationIds } },
+      select: {
+        id: true,
+        referenceCode: true,
+        guestName: true,
+        startsAt: true,
+      },
+    });
+    const reservationById = new Map(
+      reservations.map((reservation) => [reservation.id, reservation]),
+    );
+
+    return deliveries.map((delivery) => ({
+      ...delivery,
+      reservation: reservationById.get(delivery.sourceId) ?? null,
+    }));
   }
 
   async getSmsUsage(

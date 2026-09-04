@@ -33,6 +33,7 @@ describe('NotificationDeliveryController', () => {
       'r1',
       'u1',
       validStatus,
+      undefined,
     );
     await expect(result).resolves.toEqual([{ id: 'd1' }]);
   });
@@ -46,6 +47,7 @@ describe('NotificationDeliveryController', () => {
       'r1',
       'u1',
       undefined,
+      undefined,
     );
   });
 
@@ -57,6 +59,33 @@ describe('NotificationDeliveryController', () => {
     expect(deliveries.listForRestaurant).toHaveBeenCalledWith(
       'r1',
       'u2',
+      undefined,
+      undefined,
+    );
+  });
+
+  it('passes the allowlisted reservation source family to the service', async () => {
+    deliveries.listForRestaurant.mockResolvedValue([]);
+
+    await controller.list('r1', ownerReq, undefined, 'RESERVATION');
+
+    expect(deliveries.listForRestaurant).toHaveBeenCalledWith(
+      'r1',
+      'u1',
+      undefined,
+      'RESERVATION',
+    );
+  });
+
+  it('drops an unknown source family instead of exposing an arbitrary filter', async () => {
+    deliveries.listForRestaurant.mockResolvedValue([]);
+
+    await controller.list('r1', ownerReq, undefined, 'LOYALTY');
+
+    expect(deliveries.listForRestaurant).toHaveBeenCalledWith(
+      'r1',
+      'u1',
+      undefined,
       undefined,
     );
   });

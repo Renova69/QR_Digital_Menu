@@ -6,6 +6,24 @@ import ReservationsView from "./ReservationsView";
 const api = vi.hoisted(() => ({
   listReservations: vi.fn().mockResolvedValue([]),
   getReservationAnalytics: vi.fn().mockResolvedValue(null),
+  listReservationNotificationDeliveries: vi.fn().mockResolvedValue([]),
+  getReservationSmsUsage: vi.fn().mockResolvedValue({
+    periodMonth: "2030-01",
+    timezone: "Europe/Sofia",
+    trackOnly: true,
+    effectiveTier: "PROFESSIONAL",
+    includedSegments: 50,
+    usedSegments: 0,
+    remainingSegments: 50,
+    overageSegments: 0,
+    deliveryCount: 0,
+  }),
+}));
+
+const auth = vi.hoisted(() => ({ role: "OWNER" }));
+
+vi.mock("../../context/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "owner-1", role: auth.role } }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -28,6 +46,10 @@ vi.mock("../../context/SocketContext", () => ({
 vi.mock("../../lib/api", () => ({
   listReservations: api.listReservations,
   getReservationAnalytics: api.getReservationAnalytics,
+  listReservationNotificationDeliveries:
+    api.listReservationNotificationDeliveries,
+  getReservationSmsUsage: api.getReservationSmsUsage,
+  retryReservationNotification: vi.fn(),
   reservationAction: vi.fn(),
   getReservationSettings: vi.fn(),
   updateReservationSettings: vi.fn(),
@@ -42,6 +64,7 @@ vi.mock("../../lib/api", () => ({
 describe("ReservationsView downgrade continuity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    auth.role = "OWNER";
   });
 
   it("keeps existing-booking operations visible without exposing paid creation or configuration", async () => {
@@ -66,5 +89,22 @@ describe("ReservationsView downgrade continuity", () => {
     expect(
       await screen.findByText("No reservations for this filter."),
     ).toBeTruthy();
+  });
+
+  it("does not expose owner notification operations to other roles", () => {
+    auth.role = "STAFF";
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={client}>
+        <ReservationsView />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Notification delivery" }),
+    ).toBeNull();
   });
 });

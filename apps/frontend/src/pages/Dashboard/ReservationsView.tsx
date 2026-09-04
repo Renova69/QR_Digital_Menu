@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
 import { useRestaurantContext } from "../../context/RestaurantContext";
+import { ReservationNotificationPanel } from "../../components/reservations/ReservationNotificationPanel";
 import { ReservationList } from "../../components/reservations/ReservationList";
 import { ReservationSettingsForm } from "../../components/reservations/ReservationSettingsForm";
 import { DashboardButton } from "../../components/dashboard/DashboardButton";
@@ -11,13 +13,24 @@ const ReservationsView = ({
   canConfigure?: boolean;
 }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
   const restaurantId = activeRestaurant?.id ?? "";
-  const [subTab, setSubTab] = useState<"list" | "settings">("list");
+  const canManageNotifications = ["OWNER", "MANAGER"].includes(
+    user?.role?.toUpperCase() ?? "",
+  );
+  const [subTab, setSubTab] = useState<"list" | "notifications" | "settings">(
+    "list",
+  );
 
   useEffect(() => {
-    if (!canConfigure && subTab === "settings") setSubTab("list");
-  }, [canConfigure, subTab]);
+    if (
+      (!canConfigure && subTab === "settings") ||
+      (!canManageNotifications && subTab === "notifications")
+    ) {
+      setSubTab("list");
+    }
+  }, [canConfigure, canManageNotifications, subTab]);
 
   return (
     <div className="space-y-4">
@@ -30,7 +43,7 @@ const ReservationsView = ({
         </div>
       )}
       <div
-        className="flex gap-2"
+        className="grid grid-cols-2 gap-2 sm:flex"
         role="tablist"
         aria-label={t("reservations.title", "Reservations")}
       >
@@ -39,6 +52,13 @@ const ReservationsView = ({
           onClick={() => setSubTab("list")}
           label={t("reservations.tabList", "Reservations")}
         />
+        {canManageNotifications && (
+          <TabButton
+            active={subTab === "notifications"}
+            onClick={() => setSubTab("notifications")}
+            label={t("reservations.notifications.tab", "Notification delivery")}
+          />
+        )}
         {canConfigure && (
           <TabButton
             active={subTab === "settings"}
@@ -51,6 +71,11 @@ const ReservationsView = ({
         <ReservationList
           restaurantId={restaurantId}
           canCreate={canConfigure}
+          timezone={activeRestaurant?.timezone}
+        />
+      ) : subTab === "notifications" ? (
+        <ReservationNotificationPanel
+          restaurantId={restaurantId}
           timezone={activeRestaurant?.timezone}
         />
       ) : (
