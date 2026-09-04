@@ -5,6 +5,7 @@ const { resolve } = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const HIGH_SEVERITIES = new Set(["high", "critical"]);
+const SEVERITIES = ["info", "low", "moderate", "high", "critical"];
 const AUDIT_TIMEOUT_MS = 60_000;
 const MAX_AUDIT_ATTEMPTS = 2;
 
@@ -47,18 +48,92 @@ function evaluateAudit(report, baselineIds) {
   return { findings, blocking, staleBaseline };
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonemptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function isAuditReport(report) {
   const counts = report?.metadata?.vulnerabilities;
-  return (
-    report?.auditReportVersion === 2 &&
-    !Object.hasOwn(report, "error") &&
-    report.vulnerabilities !== null &&
-    typeof report.vulnerabilities === "object" &&
-    !Array.isArray(report.vulnerabilities) &&
-    ["info", "low", "moderate", "high", "critical", "total"].every(
+  if (
+    report?.auditReportVersion !== 2 ||
+    Object.hasOwn(report, "error") ||
+    !isRecord(report.vulnerabilities) ||
+    ![...SEVERITIES, "total"].every(
       (severity) =>
-        Number.isInteger(counts?.[severity]) && counts[severity] >= 0,
+        Number.isSafeInteger(counts?.[severity]) && counts[severity] >= 0,
     )
+  ) {
+    return false;
+  }
+
+  const entries = Object.entries(report.vulnerabilities);
+  const actual = Object.fromEntries(
+    SEVERITIES.map((severity) => [severity, 0]),
+  );
+  const sources = new Map(entries.map(([name]) => [name, new Set()]));
+  const dependents = new Map(entries.map(([name]) => [name, []]));
+  const pending = [];
+  for (const [name, vulnerability] of entries) {
+    if (
+      !isRecord(vulnerability) ||
+      vulnerability.name !== name ||
+      !SEVERITIES.includes(vulnerability.severity) ||
+      !Array.isArray(vulnerability.via) ||
+      vulnerability.via.length === 0
+    ) {
+      return false;
+    }
+    actual[vulnerability.severity] += 1;
+    for (const via of vulnerability.via) {
+      if (typeof via === "string") {
+        if (!dependents.has(via)) return false;
+        dependents.get(via).push(name);
+      } else {
+        if (
+          !isRecord(via) ||
+          !SEVERITIES.includes(via.severity) ||
+          !(
+            (Number.isSafeInteger(via.source) && via.source > 0) ||
+            isNonemptyString(via.source)
+          ) ||
+          !isNonemptyString(via.title) ||
+          !isNonemptyString(via.url)
+        ) {
+          return false;
+        }
+        if (!sources.get(name).has(via.severity)) {
+          sources.get(name).add(via.severity);
+          pending.push([name, via.severity]);
+        }
+      }
+    }
+  }
+  // npm metadata counts vulnerable packages, not distinct advisory IDs.
+  if (
+    counts.total !== entries.length ||
+    SEVERITIES.some((severity) => counts[severity] !== actual[severity])
+  ) {
+    return false;
+  }
+  // Metavulnerabilities reference other packages and may form cycles. Every
+  // declared severity must reach a source advisory, not just another claim.
+  // Propagate each severity once per package; cycles need no recursive walk.
+  for (let index = 0; index < pending.length; index += 1) {
+    const [name, severity] = pending[index];
+    for (const dependent of dependents.get(name)) {
+      if (!sources.get(dependent).has(severity)) {
+        sources.get(dependent).add(severity);
+        pending.push([dependent, severity]);
+      }
+    }
+  }
+  // Mixed installed versions need not share a dependency's maximum severity.
+  return entries.every(([name, vulnerability]) =>
+    sources.get(name).has(vulnerability.severity),
   );
 }
 
@@ -73,7 +148,7 @@ function auditFailure(audit, report) {
   // npm sometimes serializes FetchError as {summary:'', detail:''}. Its useful
   // message is on stderr or the top-level report. Classify it, but never echo
   // raw diagnostics: registry URLs/headers can contain credentials.
-  const detail = `${JSON.stringify(report ?? {})}\n${audit.stderr ?? ""}`;
+  const detail = `${JSON.stringify({ error: report?.error, message: report?.message })}\n${audit.stderr ?? ""}`;
   if (/\b(E401|E403|ENOLOCK|EUSAGE|EJSONPARSE)\b/.test(detail)) {
     return { transient: false, reason: "npm rejected configuration or access" };
   }
@@ -134,11 +209,14 @@ function runAudit(npmCli, { spawn = spawnSync, warn = console.warn } = {}) {
     } catch {
       // Invalid JSON is never interpreted as an empty, successful report.
     }
-    if (
-      !audit.error &&
-      [0, 1].includes(audit.status) &&
-      isAuditReport(report)
-    ) {
+    if (isAuditReport(report)) {
+      // Complete evidence must not be replaced by a retry, even if npm hangs
+      // or crashes after printing it. A failed process is still not a pass.
+      if (audit.error || ![0, 1].includes(audit.status)) {
+        throw new Error(
+          "npm returned audit data but did not complete normally; CI remains blocked.",
+        );
+      }
       // Exit 1 is normal for vulnerability findings. Evaluate them once using
       // the existing policy; never retry a valid report to seek a green result.
       return report;
