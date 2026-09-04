@@ -2430,6 +2430,93 @@ export const listReservations = (
   params: { date?: string; status?: string; upcoming?: string } = {},
 ) => api.get(`/reservations/${restaurantId}`, { params }).then((r) => r.data);
 
+export type NotificationDeliveryStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "RETRY_SCHEDULED"
+  | "ACCEPTED"
+  | "FAILED";
+
+export type EmailDeliveryStatus =
+  | "ACCEPTED"
+  | "SENT"
+  | "DELAYED"
+  | "DELIVERED"
+  | "BOUNCED"
+  | "COMPLAINED"
+  | "FAILED";
+
+export type SmsDeliveryStatus = "ACCEPTED" | "SENT" | "DELIVERED" | "FAILED";
+
+export interface ReservationNotificationDelivery {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  channel: "EMAIL" | "SMS";
+  status: NotificationDeliveryStatus;
+  attempts: number;
+  maxAttempts: number;
+  nextAttemptAt: string;
+  emailDeliveryStatus: EmailDeliveryStatus | null;
+  emailSentAt: string | null;
+  emailDeliveredAt: string | null;
+  emailFailedAt: string | null;
+  emailComplainedAt: string | null;
+  smsProvider: string | null;
+  smsDeliveryStatus: SmsDeliveryStatus | null;
+  smsSegmentCount: number | null;
+  smsDeliveredPartCount: number;
+  smsSentAt: string | null;
+  smsDeliveredAt: string | null;
+  smsFailedAt: string | null;
+  outcomeUncertain: boolean;
+  acceptedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reservation: {
+    referenceCode: string;
+    guestName: string;
+    startsAt: string;
+  } | null;
+}
+
+export interface ReservationSmsUsage {
+  periodMonth: string;
+  timezone: string;
+  trackOnly: true;
+  effectiveTier: string;
+  includedSegments: number;
+  usedSegments: number;
+  remainingSegments: number;
+  overageSegments: number;
+  deliveryCount: number;
+}
+
+export const listReservationNotificationDeliveries = (restaurantId: string) =>
+  api
+    .get<
+      ReservationNotificationDelivery[]
+    >(`/restaurants/${restaurantId}/notification-deliveries`, { params: { sourceFamily: "RESERVATION" } })
+    .then((r) => r.data);
+
+export const getReservationSmsUsage = (restaurantId: string) =>
+  api
+    .get<ReservationSmsUsage>(
+      `/restaurants/${restaurantId}/notification-deliveries/sms-usage`,
+    )
+    .then((r) => r.data);
+
+export const retryReservationNotification = (
+  restaurantId: string,
+  deliveryId: string,
+) =>
+  api
+    .post<{
+      id: string;
+      status: NotificationDeliveryStatus;
+    }>(`/restaurants/${restaurantId}/notification-deliveries/${deliveryId}/retry`)
+    .then((r) => r.data);
+
 export const getReservationSettings = (restaurantId: string) =>
   api.get(`/reservations/${restaurantId}/settings`).then((r) => r.data);
 

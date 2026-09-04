@@ -4312,7 +4312,55 @@
       "sat": "Sâm",
       "sun": "Dum"
     },
-    "allergenSection": "Afișează secțiunea de alergeni din meniu"
+    "allergenSection": "Afișează secțiunea de alergeni din meniu",
+    "notifications": {
+      "tab": "Livrarea notificărilor",
+      "smsUsageTitle": "Utilizarea lunară a SMS-urilor",
+      "smsUsageHelp": "Segmentele sunt urmărite doar pentru vizibilitate. Rezervările nu sunt blocate niciodată.",
+      "loadingUsage": "Se încarcă utilizarea SMS…",
+      "historyTitle": "Istoricul livrărilor",
+      "historyHelp": "Acceptarea de către furnizor, trimiterea și livrarea confirmată sunt afișate separat.",
+      "refresh": "Reîmprospătează",
+      "retryError": "Notificarea nu a putut fi pusă din nou în coadă. Reîmprospătați și verificați starea curentă.",
+      "loadingHistory": "Se încarcă istoricul livrărilor…",
+      "empty": "Nu există încă notificări de rezervare în coadă.",
+      "segmentsUsed": "{{used}} din {{included}} segmente utilizate",
+      "deliveryCount": "{{count}} livrări SMS",
+      "overAllowance": "{{count}} segmente peste limita inclusă. Doar monitorizare; mesajele rămân active.",
+      "nearAllowance": "Au fost utilizate {{percent}}% din segmentele SMS incluse pentru această lună.",
+      "segmentsRemaining": "Au rămas {{count}} segmente incluse.",
+      "reservationUnavailable": "Rezervarea nu este disponibilă",
+      "email": "E-mail",
+      "sms": "SMS",
+      "bookingTime": "Rezervare",
+      "retrying": "Se reîncearcă…",
+      "retry": "Reîncearcă",
+      "updatedAt": "Stare actualizată",
+      "segmentCount": "Segmente SMS: {{count}}",
+      "attempts": "Încercarea {{count}} din {{max}}",
+      "uncertainHelp": "Rezultatul furnizorului este necunoscut. Reîncercarea este dezactivată pentru a evita un duplicat.",
+      "usageError": "Utilizarea SMS este temporar indisponibilă.",
+      "historyError": "Istoricul livrărilor este temporar indisponibil.",
+      "tryAgain": "Încearcă din nou",
+      "source": {
+        "ownerNew": "Alertă de rezervare nouă",
+        "reminder": "Memento de rezervare",
+        "lifecycle": "Actualizare a rezervării pentru oaspete"
+      },
+      "status": {
+        "pending": "În coadă",
+        "processing": "Se trimite",
+        "retryScheduled": "Reîncercare programată",
+        "accepted": "Acceptat de furnizor",
+        "sent": "Trimis",
+        "delayed": "Întârziat",
+        "delivered": "Livrat",
+        "failed": "Eșuat",
+        "bounced": "Respins",
+        "complained": "Raportat ca spam",
+        "uncertain": "Rezultat necunoscut"
+      }
+    }
   },
   "manage": {
     "title": "Gestionează rezervarea",

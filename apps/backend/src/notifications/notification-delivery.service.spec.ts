@@ -88,7 +88,7 @@ function build() {
       count: jest.fn().mockResolvedValue(0),
       findMany: jest.fn(),
     },
-    reservation: { updateMany: jest.fn() },
+    reservation: { updateMany: jest.fn(), findMany: jest.fn() },
     loyaltyPointLedger: { updateMany: jest.fn() },
     restaurant: { findFirst: jest.fn() },
   };
@@ -461,5 +461,59 @@ describe('NotificationDeliveryService', () => {
         select: expect.not.objectContaining({ payload: true }),
       }),
     );
+  });
+
+  it('scopes reservation history and attaches only same-tenant booking context', async () => {
+    const { service, prisma } = build();
+    prisma.restaurant.findFirst.mockResolvedValue({ id: 'restaurant-1' });
+    prisma.notificationDelivery.findMany.mockResolvedValue([
+      {
+        id: 'delivery-1',
+        sourceType: 'RESERVATION_LIFECYCLE',
+        sourceId: 'reservation-1',
+      },
+    ]);
+    prisma.reservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        referenceCode: 'BOOK42',
+        guestName: 'Guest One',
+        startsAt: new Date('2030-01-02T17:00:00Z'),
+      },
+    ]);
+
+    await expect(
+      service.listForRestaurant(
+        'restaurant-1',
+        'owner-1',
+        undefined,
+        'RESERVATION',
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: 'delivery-1',
+        reservation: expect.objectContaining({ referenceCode: 'BOOK42' }),
+      }),
+    ]);
+    expect(prisma.notificationDelivery.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          restaurantId: 'restaurant-1',
+          sourceType: { startsWith: 'RESERVATION_' },
+        },
+      }),
+    );
+    expect(prisma.reservation.findMany).toHaveBeenCalledWith({
+      where: {
+        restaurantId: 'restaurant-1',
+        id: { in: ['reservation-1'] },
+      },
+      select: {
+        id: true,
+        referenceCode: true,
+        guestName: true,
+        startsAt: true,
+      },
+    });
   });
 });
