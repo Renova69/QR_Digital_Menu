@@ -271,6 +271,72 @@ describe("SettingsView - Staff tab", () => {
     expect(screen.queryByText("Active")).toBeNull();
   });
 
+  it("keeps Team Console staff cards stacked without horizontal scrolling", async () => {
+    vi.mocked(listStaff).mockResolvedValueOnce([
+      {
+        id: "staff-1",
+        name: "Ivan Waiter",
+        email: "ivan@staff.local",
+        role: "WAITER",
+        isActive: true,
+        createdAt: "2026-09-02T12:34:00.000Z",
+        updatedAt: "2026-09-02T12:34:00.000Z",
+      },
+    ]);
+
+    render(<SettingsView />, { wrapper });
+    fireEvent.click(screen.getByText("settings.tabs.staff"));
+
+    const actions = await screen.findByRole("button", {
+      name: "staff.openActions",
+    });
+    const section = actions.closest("section");
+    const table = section?.querySelector("table");
+    const row = actions.closest("tr");
+    const cells = Array.from(row?.querySelectorAll("td") ?? []);
+    const labels = Array.from(row?.querySelectorAll("span") ?? []);
+
+    expect(table?.querySelector("thead")).toHaveClass("sr-only");
+    expect(table?.querySelector("thead")).not.toHaveClass("hidden");
+    for (const key of [
+      "staff.nameColumn",
+      "staff.emailColumn",
+      "staff.roleColumn",
+      "staff.colStatus",
+      "staff.colLastUpdate",
+      "staff.openActions",
+    ]) {
+      expect(screen.getByRole("columnheader", { name: key })).toHaveAttribute(
+        "scope",
+        "col",
+      );
+    }
+    expect(table?.parentElement?.className).not.toContain("overflow-x-auto");
+    expect(table?.className).not.toContain("min-w-[760px]");
+    expect(row?.className).toContain("block");
+    expect(row?.className).not.toContain("md:table-row");
+    expect(cells.every((cell) => !cell.className.includes("table-cell"))).toBe(
+      true,
+    );
+    for (const key of [
+      "staff.emailColumn",
+      "staff.roleColumn",
+      "staff.colStatus",
+      "staff.colLastUpdate",
+    ]) {
+      const label = labels.find((candidate) => candidate.textContent === key);
+      expect(label).toBeDefined();
+      expect(label?.className).not.toContain("md:hidden");
+    }
+    expect(actions.parentElement?.className).toContain("absolute");
+
+    fireEvent.click(actions);
+    expect(screen.getByText("staff.actionResetPin")).toBeTruthy();
+    expect(screen.getByText("staff.rebondTitle")).toBeTruthy();
+    expect(screen.getByText("staff.actionDeactivate")).toBeTruthy();
+    expect(screen.getByText("staff.actionRemovePermanently")).toBeTruthy();
+  });
+
   it("renders a stale step-up rejection through the localized API key", async () => {
     mockRestaurant.sharedDeviceModeEnabled = true;
     vi.mocked(createDeviceEnrollment).mockRejectedValueOnce({
