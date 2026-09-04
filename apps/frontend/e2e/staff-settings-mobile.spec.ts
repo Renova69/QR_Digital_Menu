@@ -1,4 +1,10 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Route,
+} from "@playwright/test";
 
 const RESTAURANT_ID = "mobile-staff-restaurant";
 
@@ -103,21 +109,10 @@ async function mockStaffSettingsApi(page: Page): Promise<void> {
   });
 }
 
-test("staff settings stay within a mobile viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await mockStaffSettingsApi(page);
-
-  await page.goto("/dashboard?tab=settings&settingsTab=staff&lng=en");
-  await expect(
-    page.getByRole("heading", { name: "Staff Members" }),
-  ).toBeVisible();
-  await expect(page.getByText("Alexandra Longname")).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Name" })).toBeHidden();
-  await expect(
-    page.locator("tbody").getByText("Email", { exact: true }),
-  ).toBeVisible();
-
-  const layout = await page.evaluate(() => ({
+async function expectNoHorizontalOverflow(
+  clippedHeader: Locator,
+): Promise<void> {
+  const layout = await clippedHeader.evaluate((header) => ({
     viewportWidth: window.innerWidth,
     documentWidth: document.documentElement.scrollWidth,
     horizontalScrollers: [...document.querySelectorAll<HTMLElement>("body *")]
@@ -133,6 +128,9 @@ test("staff settings stay within a mobile viewport", async ({ page }) => {
         scrollWidth: element.scrollWidth,
       })),
     overflowingElements: [...document.querySelectorAll<HTMLElement>("body *")]
+      // The caller verifies this header is clipped for sighted users. Its
+      // accessible descendants keep full boxes, but cannot paint or scroll.
+      .filter((element) => !header.contains(element))
       .map((element) => {
         const rect = element.getBoundingClientRect();
         return {
@@ -156,16 +154,77 @@ test("staff settings stay within a mobile viewport", async ({ page }) => {
   ).toBeLessThanOrEqual(layout.viewportWidth);
   expect(
     layout.overflowingElements,
-    "staff settings content should not be clipped outside the mobile viewport",
+    "staff settings content should not be clipped outside the viewport",
   ).toEqual([]);
   expect(
     layout.horizontalScrollers,
-    "staff settings should not require horizontal scrolling on mobile",
+    "staff settings should not require horizontal scrolling",
   ).toEqual([]);
+}
 
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();
-  await expect(
-    page.locator("tbody").getByText("Email", { exact: true }),
-  ).toBeHidden();
-});
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1280, height: 900 },
+  { width: 1536, height: 960 },
+]) {
+  test(`staff settings stay stacked without overflow at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await mockStaffSettingsApi(page);
+
+    await page.goto("/dashboard?tab=settings&settingsTab=staff&lng=en");
+    await expect(
+      page.getByRole("heading", { name: "Staff Members" }),
+    ).toBeVisible();
+    await expect(page.getByText("Alexandra Longname")).toBeVisible();
+
+    const table = page
+      .getByRole("table")
+      .filter({ hasText: "Alexandra Longname" });
+    const header = table.locator("thead");
+    // sr-only is visually clipped, not display:none: the column names must
+    // remain accessible at every width. toBeHidden() tests the wrong contract.
+    for (const name of [
+      "Name",
+      "Email",
+      "Role",
+      "Status",
+      "Last update",
+      "Open staff actions",
+    ]) {
+      await expect(
+        table.getByRole("columnheader", { name, exact: true }),
+      ).toHaveAttribute("scope", "col");
+    }
+    await expect(header).toHaveCSS("position", "absolute");
+    await expect(header).toHaveCSS("width", "1px");
+    await expect(header).toHaveCSS("height", "1px");
+    await expect(header).toHaveCSS("overflow", "hidden");
+    await expect(header).toHaveCSS("clip-path", "inset(50%)");
+
+    const card = table.locator("tbody > tr");
+    await expect(card).toHaveCSS("display", "block");
+    for (const label of ["Email", "Role", "Status", "Last update"]) {
+      await expect(card.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expectNoHorizontalOverflow(header);
+
+    await card.scrollIntoViewIfNeeded();
+    const actions = card.getByRole("button", { name: "Open staff actions" });
+    await expect(actions).toBeInViewport();
+    await actions.click();
+    for (const name of [
+      "Reset PIN",
+      "Re-bond Device",
+      "Deactivate",
+      "Remove permanently",
+    ]) {
+      const action = card.getByRole("button", { name, exact: true });
+      await expect(action).toBeVisible();
+      await expect(action).toBeInViewport();
+      await expect(action).toBeEnabled();
+    }
+    await expectNoHorizontalOverflow(header);
+  });
+}
