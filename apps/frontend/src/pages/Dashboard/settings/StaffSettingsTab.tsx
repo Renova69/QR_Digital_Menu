@@ -1011,24 +1011,41 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({
             ) : (
               <div className="overflow-visible">
                 <table className="block w-full text-sm">
-                  <thead className="hidden">
+                  <thead className="sr-only">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left font-semibold"
+                      >
                         {t("staff.nameColumn")}
                       </th>
-                      <th className="px-4 py-3 text-left font-semibold">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left font-semibold"
+                      >
                         {t("staff.emailColumn")}
                       </th>
-                      <th className="px-4 py-3 text-left font-semibold">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left font-semibold"
+                      >
                         {t("staff.roleColumn")}
                       </th>
-                      <th className="px-4 py-3 text-left font-semibold">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left font-semibold"
+                      >
                         {t("staff.colStatus")}
                       </th>
-                      <th className="px-4 py-3 text-left font-semibold">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left font-semibold"
+                      >
                         {t("staff.colLastUpdate")}
                       </th>
-                      <th className="w-14 px-4 py-3" />
+                      <th scope="col" className="w-14 px-4 py-3">
+                        {t("staff.openActions")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="block space-y-3 p-3">

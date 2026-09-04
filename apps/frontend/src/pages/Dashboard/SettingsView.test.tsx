@@ -296,6 +296,21 @@ describe("SettingsView - Staff tab", () => {
     const cells = Array.from(row?.querySelectorAll("td") ?? []);
     const labels = Array.from(row?.querySelectorAll("span") ?? []);
 
+    expect(table?.querySelector("thead")).toHaveClass("sr-only");
+    expect(table?.querySelector("thead")).not.toHaveClass("hidden");
+    for (const key of [
+      "staff.nameColumn",
+      "staff.emailColumn",
+      "staff.roleColumn",
+      "staff.colStatus",
+      "staff.colLastUpdate",
+      "staff.openActions",
+    ]) {
+      expect(screen.getByRole("columnheader", { name: key })).toHaveAttribute(
+        "scope",
+        "col",
+      );
+    }
     expect(table?.parentElement?.className).not.toContain("overflow-x-auto");
     expect(table?.className).not.toContain("min-w-[760px]");
     expect(row?.className).toContain("block");
@@ -310,6 +325,7 @@ describe("SettingsView - Staff tab", () => {
       "staff.colLastUpdate",
     ]) {
       const label = labels.find((candidate) => candidate.textContent === key);
+      expect(label).toBeDefined();
       expect(label?.className).not.toContain("md:hidden");
     }
     expect(actions.parentElement?.className).toContain("absolute");
