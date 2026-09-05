@@ -17,3 +17,5 @@ When ordering is enabled for the restaurant and service point, guests can submit
 5. Eligible orders appear in the restaurant's operational views in real time.
 
 Staff can follow order progress in the dashboard, POS, or kitchen display according to their role and enabled features.
+ 
+*(For the complete guest walkthrough, see [Guest Experience & Checkout](/guides/operations/public-menu-checkout))*

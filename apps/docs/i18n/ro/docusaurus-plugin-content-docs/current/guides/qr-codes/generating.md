@@ -19,3 +19,5 @@ Fiecare masă sau punct de servire are propria sa destinație QR. Scanarea acest
 Camerele și punctele de preluare acceptă descărcări PNG individuale, dar nu sunt incluse în vizualizarea de imprimare în masă a meselor.
 
 Nu editați manual un URL QR generat. Redenumiți sau actualizați punctul de servire în Renova, apoi generați un activ nou dacă destinația acestuia se schimbă.
+
+*(Pentru șabloane de corturi de masă, gestionarea sălii și organizarea pe zone, consultați [Mese, zone și coduri QR](/guides/operations/qr-codes-tables))*

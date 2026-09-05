@@ -11,3 +11,5 @@ The dashboard is the owner and manager workspace for restaurant configuration an
 Depending on role, plan, and enabled features, it provides access to menu editing, tables and QR codes, live orders, payments, reservations, feedback, analytics, staff, printer stations, restaurant settings, and subscription management.
 
 Feature gates may hide sections that are not included in the restaurant's effective subscription. Staff and device roles can also have narrower operational views than owners and managers.
+ 
+*(For an overview of dashboard navigation, see [Getting Started](/getting-started) and [Restaurant Settings](/guides/core-platform/dashboard-settings))*

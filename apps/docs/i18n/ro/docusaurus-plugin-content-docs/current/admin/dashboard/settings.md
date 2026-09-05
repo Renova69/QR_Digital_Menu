@@ -18,3 +18,5 @@ Setările restaurantului oferă informațiile sursă utilizate de meniul public 
 - Dispozitive pentru personal și stații de imprimantă
 
 Modificările pot afecta imediat fluxurile publice ale oaspeților. Previzualizați meniul și testați fluxurile de lucru pentru QR, comenzi, plată, rezervare și imprimare după modificarea setărilor operaționale.
+
+*(Pentru documentația completă a setărilor, consultați [Setările restaurantului](/guides/core-platform/dashboard-settings))*

@@ -18,3 +18,5 @@ Renova supports configured online-provider flows and a staff-confirmed cash flow
 4. Test failed, cancelled, delayed, and cash-confirmation paths.
 
 Payout timing and supported methods are controlled by the selected payment provider and merchant account.
+ 
+*(For complete gateway setup and pay-at-table configuration, see [Digital Payments & Reconciliation](/guides/payments-integrations/payment-providers))*

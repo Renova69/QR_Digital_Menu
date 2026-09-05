@@ -13,3 +13,5 @@ sidebar_position: 2
 5. Save the item, then preview the public menu.
 
 Use the availability control to temporarily hide a sold-out item without deleting it. Keep descriptions concise and verify prices before publishing.
+ 
+*(For complete details on configuring dish options, add-ons, and running the menu health audit, see [Digital Menu Builder](/guides/menu-management/menu-builder))*

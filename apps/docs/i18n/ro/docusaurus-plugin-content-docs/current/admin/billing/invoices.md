@@ -19,3 +19,5 @@ Documentele exacte și acțiunile disponibile depind de configurația clientului
 ## Facturarea abonamentului versus Plățile clienților
 
 Pagina de Facturare acoperă abonamentul Renova al restaurantului. Plățile efectuate de oaspeții restaurantului pentru comenzi sunt tranzacții separate și nu apar ca facturi de abonament Renova.
+
+*(Pentru detalii privind plățile la masă ale oaspeților și gateway-urile de plată, consultați [Plăți digitale și reconciliere](/guides/payments-integrations/payment-providers))*

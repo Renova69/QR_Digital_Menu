@@ -15,3 +15,5 @@ Renova accepts JPEG and PNG menu-item images up to 5 MB.
 3. Save the item and check the result in the public-menu preview.
 
 Use clear, consistently framed photos and compress large source images before uploading. Avoid placing essential text inside an image because it may be difficult to read on small screens.
+ 
+*(For full dish configuration, see [Digital Menu Builder](/guides/menu-management/menu-builder))*

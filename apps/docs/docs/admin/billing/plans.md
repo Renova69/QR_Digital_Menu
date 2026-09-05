@@ -19,3 +19,5 @@ Do not close the checkout window until it confirms completion. Return to **Dashb
 For an active Stripe subscription, choose **Manage Billing** to open the Stripe-hosted customer portal. Depending on the options enabled for the account, the portal can let you change or cancel the subscription and update its payment method.
 
 The timing of plan changes and cancellations is determined by the subscription state and the billing provider. Treat the status shown in Renova and the confirmation shown by Stripe as authoritative.
+ 
+*(For the complete feature matrix and tier limits, see [Subscriptions & Billing](/guides/core-platform/subscriptions-billing))*

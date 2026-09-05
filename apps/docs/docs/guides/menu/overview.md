@@ -22,3 +22,4 @@ Guests open your mobile-friendly menu by scanning a table or service-point QR co
 - [Manage categories](./categories)
 - [Upload images](./images)
 - [Maintain allergen information](./allergens)
+- [Full Menu Builder Guide](/guides/menu-management/menu-builder)

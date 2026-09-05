@@ -1,33 +1,72 @@
 ---
 id: translation-system
-title: Auto-Translation System
+title: Multi-Language Menus
 sidebar_position: 4
 ---
 
-# Auto-Translation System
+# Multi-Language Menus
 
-A core feature of the platform is the fully automated menu translation system powered by DeepL. By serving a multilingual menu, you can cater to tourists and diverse demographics without any extra manual effort.
+*(Available on Starter, Professional, and Enterprise plans)*
 
-## How It Works
+Serving international tourists and multilingual guests is effortless with Renova's built-in multi-language translation system. You author your menu once in your primary language, and the platform automatically translates your categories, items, dish descriptions, options, and allergen tags into your chosen languages.
 
-You create your menu in your primary language (e.g., Bulgarian or English). The system takes care of the rest automatically. There are three ways translations occur:
+---
 
-1. **Background Pre-warming**: Whenever you create or update a category, item, or option, the system silently translates it into your configured target languages in the background. It does not slow down your workflow.
-2. **Lazy On-Demand**: If a customer selects a language on the public menu that hasn't been translated yet, the platform intercepts the request, calls DeepL, caches the result in the database, and serves the fully translated menu. The cache ensures subsequent visits are lightning-fast.
-3. **Manual Batch Translation**: If you want to force-translate your entire menu at once, you can go to **Settings > Localization** and click "Translate All Now". 
+## What This Feature Does
 
-## Managing Languages
+- **12 Supported Languages**: Offer full menu versions in English (EN), Bulgarian (BG), Romanian (RO), German (DE), Spanish (ES), French (FR), Italian (IT), Greek (EL), Chinese (ZH), Japanese (JA), Russian (RU), and Arabic (AR).
+- **Automatic Background Translation**: When you create or update dishes, translations are automatically queued and generated without slowing down your editing workflow.
+- **Smart Visitor Detection**: When a guest scans your table QR code, Renova checks their smartphone's system language and automatically loads the appropriate menu language.
+- **Guest Language Selector**: Guests can tap the language flag icon in the menu navigation bar at any time to switch between available languages.
+- **Zero Configuration**: You do not need to sign up for external translation tools, configure API credentials, or manage word quotas. The service is completely managed and included with your plan.
 
-In your Dashboard **Settings**, you can specify which languages you want to target. The public menu currently supports up to 12 locales, including EN, BG, RO, DE, ES, FR, IT, ZH, EL, JA, RU, and AR.
+---
 
-When a customer visits your menu, the system automatically detects their browser's language preference and serves the appropriate translation. They can also manually change the language using the flags in the top navigation bar.
+## Who Can Use It
 
-## What Gets Translated?
-The system translates almost everything, including:
-- Category names
-- Item names and descriptions
-- Menu option variations (e.g., "Medium Rare")
-- Dietary tags and allergen warnings
+- **Owners and Managers**: On Starter, Professional, and Enterprise subscription plans.
 
-## Platform Managed
-Unlike other systems that require you to generate and manage your own API keys, our DeepL integration is fully managed by the platform. You do not need to configure API keys or pay for translation quotas directly.
+---
+
+## How to Set Up Multi-Language Menus
+
+1. Navigate to **Settings** in your dashboard sidebar and select the **General** tab.
+2. Locate the **Localization & Languages** section.
+3. Verify your **Default Language** (the primary language in which you write your menu items).
+4. Under **Target Languages**, check the boxes for each language you want available for your guests (e.g., English, German, Romanian).
+5. Click **Save Changes**.
+
+---
+
+## How to Trigger a Full Menu Translation
+
+Whenever you create or edit items, translations are generated automatically in the background. If you have made extensive edits or imported a new spreadsheet and want to refresh every language immediately:
+
+1. Open **Settings > General**.
+2. Scroll to the **Localization** section.
+3. Click the **Translate All Now** button.
+4. A progress indicator will display while the system translates any pending categories, dishes, choices, and tags.
+5. Once completed, all target language versions of your menu are fully up to date.
+
+---
+
+## What Gets Translated
+
+- **Category Names and Subtitles**
+- **Dish Names and Descriptions**
+- **Custom Variations and Choice Names** (e.g., "Medium Well", "Extra Cheese")
+- **Dietary Tags and Allergen Warnings** (e.g., "Gluten-Free", "Contains Nuts")
+
+---
+
+## Important Notes
+
+- **Order Integrity**: Even when guests browse and order in a foreign language, orders sent to the Kitchen Display System (KDS), Waiter POS, and thermal kitchen printers maintain clear canonical descriptions so your kitchen staff never receives ambiguous or mistranslated tickets.
+- **Display Fields Only**: Translations update public display labels. Pricing, modifiers, and dish codes remain identical across all languages.
+
+---
+
+## If Something Goes Wrong
+
+- **An Item Shows in the Primary Language**: If a newly added item has not yet appeared in a translated language on a guest's phone, open **Settings > General** and click **Translate All Now**. Then refresh the guest menu page.
+- **Language Flag Not Appearing in the Menu**: Confirm that the language is checked under **Target Languages** in **Settings > General** and that you clicked **Save Changes**.

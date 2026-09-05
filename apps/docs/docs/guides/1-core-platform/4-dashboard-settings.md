@@ -1,45 +1,72 @@
 ---
 id: dashboard-settings
-title: Dashboard Settings Deep Dive
+title: Venue Settings & Configuration
 sidebar_position: 4
 ---
 
-# Dashboard Settings Deep Dive
+# Venue Settings & Configuration
 
-The **Settings** page is where you control how your restaurant operates on the digital platform. It is broken down into several easy-to-use tabs.
+The **Settings** area is your command center for configuring how your restaurant operates, how information is displayed to guests, and what operational tools are active.
 
-## General
-This is the core identity of your restaurant. 
-- **Restaurant Name & Contact**: Update your venue's name, phone number, and address. This information is displayed at the bottom of your public menu.
-- **Localization**: Choose the default language for your menu, and select which languages you want the system to auto-translate into (e.g., German, French, Spanish) for your tourists.
-- **Timezone**: Set your local timezone so that features like Happy Hours and Menu Schedules always trigger at the correct local time, no matter where our servers are located.
+---
 
-## Loyalty
-Control how your rewards program works to keep customers coming back.
-- **Enable/Disable**: Turn the loyalty program on or off.
-- **Earn Rate**: Decide how many points customers earn per Euro spent.
-- **Redemption**: Decide how many points are required to get a €1 discount.
+## What This Feature Does
 
-## Payments
-Manage how you get paid.
-- **Enable Digital Payments**: Turn pay-at-table on or off.
-- **Providers**: Connect your preferred payment provider (like Stripe, BORICA, or MyPOS).
-- **Tipping**: Set the default tip percentages suggested to your customers at checkout (e.g., 10%, 15%, 20%).
+The **General** settings tab controls your venue's public identity, operating timezone, language preferences, and customer footer details.
 
-## Staff (Roles)
-Manage who has access to your dashboard and what they are allowed to do.
-- **Managers**: Have full access to settings, analytics, and menu building.
-- **Staff**: Can manage orders and reservations, but cannot change core settings or view financial analytics.
-- **Waiters & Kitchen**: These roles do not use emails or passwords. Instead, you create a fast 4-digit PIN for them so they can quickly log into shared tablets (like the Kitchen Display System or Waiter POS) without seeing any sensitive business data.
+- **Contact & Location Details**: Your public restaurant name, phone number, and physical street address appear in the footer of your public menu so guests can contact or locate you.
+- **Social Media Icons**: Add links to your Instagram, Facebook, TikTok, YouTube, and official website. These display as interactive icons at the bottom of your digital menu.
+- **Timezone Configuration**: Ensure your local time is accurate so that time-based menu categories (dayparting), happy hour point bonuses, and daily sales cutoffs trigger at the exact local time.
+- **Languages & Translation**: Choose your staff's dashboard language and select target languages for automatic customer menu translation.
+- **Dual Currency Display**: Renova displays item prices with secondary currency equivalents automatically converted according to official fixed exchange rates (e.g., EUR and BGN).
 
-## Branding
-Customize the look and feel of your menu.
-- Upload your logo.
-- Choose your brand colors and fonts.
-- Preview exactly what your menu will look like in real-time as you make changes.
+---
 
-## Subscription
-Manage your billing with the platform. Upgrade your tier to unlock more features, switch to yearly billing for a discount, or update your credit card details securely.
+## Who Can Use It
 
-## Printers
-If you use physical thermal printers in your kitchen or bar, you can manage them here. You can name your printers (e.g., "Main Kitchen", "Patio Bar") and tell the system exactly which menu categories should print to which machine.
+- **Owners and Managers**: Can update venue settings and contact information.
+- **Staff**: Cannot access the Settings view.
+
+---
+
+## How to Configure Your Venue Settings
+
+1. In the left sidebar, click **Settings**.
+2. Make sure the **General** tab is active.
+3. Update the following fields:
+   - **Restaurant Name**: The name displayed at the top of your digital menu and dashboard.
+   - **Phone Number**: Your venue's contact phone number.
+   - **Address**: Your restaurant's physical address.
+   - **Vanity Slug**: A unique short name for your direct menu URL.
+   - **Timezone**: Select your city or region (e.g., `Europe/Sofia`).
+   - **Dashboard Language**: Choose the default language for your dashboard interface.
+   - **Target Languages**: Check the languages you wish to offer to international guests (such as English, German, French, Romanian, Greek, Italian, Spanish).
+4. Scroll down to **Social Links** and paste your full profile addresses (e.g., `https://instagram.com/yourrestaurant`).
+5. Click **Save Changes**. A confirmation toast notification will appear confirming that your settings were updated.
+
+---
+
+## Overview of Other Settings Tabs
+
+Your dashboard settings menu also contains dedicated tabs for specialized features:
+
+- **Loyalty**: Configure points earn rates, redemption values, VIP tiers, and happy hours. *(See [Loyalty Program](/guides/customer-experience/loyalty-program))*
+- **Payments**: Connect digital payment processors and configure suggested tip percentages. *(See [Payment Providers](/guides/payments-integrations/payment-providers))*
+- **Staff**: Add team members, manage roles, set up PINs, and enroll shared tablets. *(See [Staff Roles](/admin/staff/roles))*
+- **Branding**: Upload your logo, choose brand colors, select fonts, and adjust contrast. *(See [Branding & Theming](/guides/analytics-customization/branding-theming))*
+- **Subscription**: View your current plan, upgrade, or manage billing receipts. *(See [Subscriptions & Billing](/guides/core-platform/subscriptions-billing))*
+- **Printers**: Set up thermal receipt printers and route menu categories to kitchen or bar stations. *(See [Print Station](/guides/payments-integrations/print-station))*
+
+---
+
+## Important Notes
+
+- **Social Links Format**: Always include the full web address (starting with `https://`) so the links open properly on guests' phones.
+- **Timezone Precision**: Avoid leaving your timezone unset. Scheduled breakfast menus and late-night happy hours rely on this setting to switch automatically without manual intervention.
+
+---
+
+## If Something Goes Wrong
+
+- **Changes Not Appearing on the Public Menu**: Make sure you clicked the **Save Changes** button at the bottom of the page. Then pull down on your mobile phone screen to refresh the public menu.
+- **Toast Shows "Failed to save settings"**: Check that all required fields (such as Restaurant Name and a valid timezone) are filled in and that social links have valid URL formatting.

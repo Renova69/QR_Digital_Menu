@@ -1,28 +1,83 @@
 ---
 id: menu-scheduling
-title: Menu Scheduling (Dayparting)
+title: Menu Scheduling & Dayparting
 sidebar_position: 2
 ---
 
-# Menu Scheduling (Dayparting)
+# Menu Scheduling & Dayparting
 
-Menu scheduling allows you to automatically hide or show specific menu categories based on the time of day and the day of the week. This is perfect for offering a dedicated breakfast menu, a weekend brunch menu, or late-night drink specials.
+*(Available on Professional and Enterprise plans)*
 
-## Setting Availability
+Menu scheduling (also called dayparting) allows you to automatically control when specific menu categories appear on your public digital menu based on the time of day and the day of the week. This eliminates the need to manually hide or unhide breakfast menus, lunch specials, or late-night drink lists.
 
-Every category in your menu has an "Availability" setting with three options:
-1. **Always Available**: The category is visible 24/7. This is the default.
-2. **Hidden**: The category is manually hidden from the public menu (useful for seasonal menus you want to save for later).
-3. **Scheduled**: The category only appears during specific times and days.
+---
 
-## How Scheduled Availability Works
+## What This Feature Does
 
-When you set a category to "Scheduled", you define:
-- **Days of the Week**: Select which days the category should appear (e.g., Saturday and Sunday for brunch).
-- **Time Range**: Set a start time and an end time (e.g., 07:00 to 11:30).
+- **Automated Menu Transitions**: Breakfast menus automatically switch off at 11:30 AM, lunch specials appear only from 12:00 PM to 3:00 PM, and late-night menus activate in the evening.
+- **Day-of-Week Targeting**: Configure weekend-only brunch menus or weekday-only business lunches.
+- **Overnight Schedule Handling**: Seamlessly support bar and nightlife schedules that span across midnight (such as 10:00 PM to 3:00 AM).
+- **Timezone Accurate**: Uses your restaurant's configured local timezone rather than the guest's device clock, preventing tourists from seeing out-of-schedule menus.
 
-### Timezone Accuracy
-The scheduling system uses the precise IANA timezone you configured in your Restaurant Settings (e.g., `Europe/Sofia`). It does not rely on the customer's phone clock or the server's UTC time. This guarantees that your breakfast menu stops at exactly 11:30 AM local time, no matter what time it is for a tourist browsing your menu.
+---
 
-### Overnight Schedules
-The system fully supports overnight ranges. For example, if you run a bar and want a "Late Night" category visible from 22:00 to 02:00, simply enter those times. The platform will automatically calculate the boundary across midnight and display the category correctly.
+## Who Can Use It
+
+- **Owners and Managers**: On Professional and Enterprise subscription tiers.
+- Venues on Free or Starter plans will see an upgrade option when selecting the Scheduled availability mode.
+
+---
+
+## Availability Modes
+
+Each category in your menu has one of three availability settings:
+
+1. **Always Available** *(Default)*: The category is visible 24 hours a day, 7 days a week.
+2. **Hidden**: The category is saved in your dashboard but completely hidden from guests. Ideal for seasonal menus or upcoming dishes in draft.
+3. **Scheduled**: The category is visible only during specific hours and days that you define.
+
+---
+
+## How to Set Up Category Scheduling
+
+1. In the top navigation bar, click **Edit Menu**.
+2. Under the **Items** tab, locate the category you wish to schedule and click its **Edit** (pencil) icon.
+3. In the category dialog, find the **Availability** section and select **Scheduled**.
+4. Configure your schedule:
+   - **Active Days**: Check the days of the week when this category should appear (e.g., check **Saturday** and **Sunday** for a weekend brunch menu).
+   - **Start Time**: Set the time when the category should become visible (e.g., `08:00`).
+   - **End Time**: Set the time when the category should be hidden (e.g., `11:30`).
+5. Click **Save Category**.
+
+---
+
+## Overnight Schedules for Bars & Late-Night Venues
+
+If you run a late-night lounge or bar and want a category visible across midnight (for example, from 21:00 to 02:00):
+
+1. Set the **Start Time** to `21:00`.
+2. Set the **End Time** to `02:00`.
+3. Check the days when this night schedule starts.
+4. Renova automatically detects that the end time falls on the following morning and keeps the category visible across midnight.
+
+---
+
+## Managing Existing Schedules
+
+- **Change Hours**: Click the edit icon on the category, update the start or end times, and click **Save Category**.
+- **Temporarily Hide**: Switch the availability mode to **Hidden** to immediately remove the category without deleting its scheduled hours.
+- **Revert to Full-Time**: Switch the availability mode back to **Always Available** and click **Save Category**.
+
+---
+
+## Important Notes
+
+- **Timezone Dependency**: Scheduling relies on the timezone configured in **Settings > General**. Verify that your local city or region is selected so your schedules switch at the correct hour.
+- **Guest In-Progress Carts**: If a guest adds an item to their cart before the scheduled end time, they can still complete their checkout even if the clock passes the cutoff while they are entering their payment details.
+
+---
+
+## If Something Goes Wrong
+
+- **Category Visible at the Wrong Time**: Open **Settings > General** and confirm your venue's **Timezone** matches your physical location.
+- **Category Not Visible During Scheduled Hours**: Ensure that at least one item inside the category is marked as **Available**, and verify that the current day of the week is checked in the category's active days list.

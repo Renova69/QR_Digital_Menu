@@ -19,3 +19,5 @@ Renova creates staff access directly; it does not currently use a pending email-
 Waiter and kitchen roles use a PIN. When shared-device enrollment is enabled, Renova can also show a short-lived enrollment QR code for the device. Staff and manager roles receive a temporary password for email sign-in.
 
 Review access whenever responsibilities change. Remove or deactivate access promptly when a staff member no longer needs it, and regenerate credentials if they may have been exposed.
+ 
+*(For step-by-step role management, PIN resets, and device enrollment, see [Signing In & Account Access](/guides/core-platform/authentication))*
