@@ -1,0 +1,25 @@
+{
+  "packages": [
+    "@ast-grep/lang-go@0.0.6",
+    "@ast-grep/lang-php@0.0.7",
+    "@ast-grep/lang-python@0.0.6",
+    "@ast-grep/lang-ruby@0.0.7",
+    "@ast-grep/lang-rust@0.0.7",
+    "@nestjs/core@11.1.24",
+    "@prisma/client@6.19.3",
+    "@prisma/engines@6.19.3",
+    "@scarf/scarf@1.4.0",
+    "@sentry/cli@2.58.6",
+    "@supersami/rn-foreground-service@2.2.5",
+    "@swc/core@1.15.41",
+    "@swc/core@1.15.47",
+    "@tailwindcss/oxide@4.1.12",
+    "core-js@3.50.0",
+    "esbuild@0.25.0",
+    "esbuild@0.25.12",
+    "fsevents@2.3.2",
+    "fsevents@2.3.3",
+    "prisma@6.19.3",
+    "unrs-resolver@1.12.2"
+  ]
+}

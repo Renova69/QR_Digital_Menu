@@ -1,45 +1,72 @@
 ---
 id: dashboard-settings
-title: Setări Panou de Control
+title: Setările restaurantului
 sidebar_position: 4
 ---
 
-# Setări Panou de Control (Dashboard Settings)
+# Setările restaurantului
 
-Pagina de **Setări** (Settings) este locul în care controlezi modul în care funcționează restaurantul tău pe platforma digitală. Este împărțită în mai multe file (tab-uri) ușor de utilizat.
+Zona de **Setări** reprezintă centrul de comandă pentru configurarea modului în care funcționează localul dumneavoastră, cum sunt afișate informațiile pentru oaspeți și ce instrumente operaționale sunt active.
 
-## General
-Aceasta este identitatea de bază a restaurantului tău.
-- **Nume Restaurant & Contact**: Actualizează numele, numărul de telefon și adresa locației tale. Aceste informații sunt afișate în partea de jos a meniului tău public.
-- **Localizare**: Alege limba implicită pentru meniul tău și selectează în ce limbi dorești ca sistemul să îl traducă automat (de ex., germană, franceză, spaniolă) pentru turiștii tăi.
-- **Fus orar**: Setează fusul tău orar local, astfel încât funcționalități precum Happy Hours și Programele Meniului să se declanșeze întotdeauna la ora locală corectă, indiferent unde se află serverele noastre.
+---
 
-## Loialitate (Loyalty)
-Controlează modul în care funcționează programul tău de recompense pentru a menține clienții să revină.
-- **Activare/Dezactivare**: Pornește sau oprește programul de loialitate.
-- **Rata de Câștig (Earn Rate)**: Decide câte puncte câștigă clienții pentru fiecare Euro cheltuit.
-- **Răscumpărare (Redemption)**: Decide câte puncte sunt necesare pentru a obține o reducere de 1€.
+## Ce oferă această funcționalitate
 
-## Plăți (Payments)
-Gestionează modul în care ești plătit.
-- **Activare Plăți Digitale**: Pornește sau oprește plata la masă.
-- **Furnizori**: Conectează furnizorul tău de plăți preferat (precum Stripe, BORICA sau MyPOS).
-- **Bacșiș (Tipping)**: Setează procentele implicite de bacșiș sugerate clienților tăi la finalizarea comenzii (de ex., 10%, 15%, 20%).
+Fila de setări **General** controlează identitatea publică a localului, fusul orar de lucru, preferințele lingvistice și detaliile afișate în subsolul meniului pentru oaspeți.
 
-## Personal (Roluri) (Staff)
-Gestionează cine are acces la panoul tău de control și ce are voie să facă.
-- **Manageri**: Au acces complet la setări, analitice și crearea meniului.
-- **Personal (Staff)**: Pot gestiona comenzi și rezervări, dar nu pot modifica setările de bază și nu pot vizualiza analiticele financiare.
-- **Ospătari & Bucătărie (Waiters & Kitchen)**: Aceste roluri nu folosesc e-mailuri sau parole. În schimb, creezi un PIN rapid din 4 cifre pentru ei, astfel încât să se poată conecta rapid pe tablete partajate (cum ar fi KDS sau Waiter POS) fără a vedea date comerciale sensibile.
+- **Detalii de contact și adresă**: Numele comercial al restaurantului, numărul de telefon și adresa fizică apar în subsolul meniului public, astfel încât oaspeții să vă poată contacta sau găsi cu ușurință.
+- **Pictograme pentru rețele sociale**: Adăugați linkuri către conturile dumneavoastră de Instagram, Facebook, TikTok, YouTube și site-ul oficial. Acestea apar sub formă de pictograme interactive în partea de jos a meniului digital.
+- **Configurarea fusului orar**: Asigurați-vă că ora locală este corectă, astfel încât categoriile de meniu programate pe ore, bonusurile de puncte Happy Hour și încheierea zilnică a vânzărilor să se declanșeze la ora locală exactă.
+- **Limbi și traducere**: Alegeți limba de afișare a panoului de control pentru echipă și selectați limbile țintă în care doriți traducerea automată a meniului pentru oaspeți.
+- **Afișare în două monede**: Renova afișează prețurile preparatelor împreună cu echivalentul într-o a doua monedă, convertit automat la cursuri fixe oficiale (de exemplu, EUR și BGN).
 
-## Branding
-Personalizează aspectul și senzația meniului tău.
-- Încarcă logo-ul tău.
-- Alege culorile și fonturile mărcii tale.
-- Previzualizează exact cum va arăta meniul tău în timp real pe măsură ce faci modificări.
+---
 
-## Abonament (Subscription)
-Gestionează-ți facturarea cu platforma. Fă upgrade la nivelul tău pentru a debloca mai multe funcționalități, treci la facturarea anuală pentru o reducere sau actualizează-ți în siguranță detaliile cardului de credit.
+## Cine poate folosi această opțiune
 
-## Imprimante (Printers)
-Dacă folosești imprimante termice fizice în bucătărie sau la bar, le poți gestiona aici. Poți denumi imprimantele (de ex., "Bucătărie Principală", "Bar Terasă") și poți spune sistemului exact care categorii din meniu ar trebui să se tipărească la ce mașină.
+- **Proprietarii și managerii**: Pot actualiza setările localului și informațiile de contact.
+- **Personalul**: Nu are acces la secțiunea Setări.
+
+---
+
+## Cum să configurați setările restaurantului
+
+1. În meniul lateral din stânga, apăsați pe **Setări**.
+2. Asigurați-vă că este selectată fila **General**.
+3. Completați sau actualizați următoarele câmpuri:
+   - **Numele restaurantului**: Numele afișat în partea de sus a meniului digital și a panoului de control.
+   - **Număr de telefon**: Numărul de telefon de contact al localului.
+   - **Adresă**: Adresa fizică a restaurantului.
+   - **Identificator adresă web (Vanity Slug)**: Numele scurt unic pentru adresa URL directă a meniului.
+   - **Fus orar**: Selectați orașul sau regiunea (de exemplu, `Europe/Bucharest`).
+   - **Limba panoului de control**: Alegeți limba implicită pentru interfața panoului.
+   - **Limbi țintă**: Bifați limbile pe care doriți să le puneți la dispoziția oaspeților internaționali (cum ar fi engleză, germană, franceză, română, greacă, italiană, spaniolă).
+4. Derulați până la secțiunea **Linkuri rețele sociale** și introduceți adresele complete ale profilurilor (de exemplu, `https://instagram.com/restaurantuldumneavoastra`).
+5. Apăsați pe **Salvează modificările**. O notificare de confirmare va apărea pe ecran, semnalând că setările au fost actualizate.
+
+---
+
+## Prezentarea celorlalte file de setări
+
+Meniul de setări include și file dedicate pentru funcționalități specializate:
+
+- **Fidelitate**: Configurați ratele de acumulare a punctelor, valoarea de utilizare, nivelurile VIP și promoțiile Happy Hour. *(Consultați [Program de loialitate](/guides/customer-experience/loyalty-program))*
+- **Plăți**: Conectați procesatorii de plăți digitale și stabiliți procentele recomandate de bacșiș. *(Consultați [Procesatori de plăți](/guides/payments-integrations/payment-providers))*
+- **Personal**: Adăugați membri ai echipei, gestionați rolurile, setați coduri PIN și înregistrați tablete partajate. *(Consultați [Roluri personal](/admin/staff/roles))*
+- **Imagine de brand**: Încărcați sigla, alegeți culorile de brand, selectați fonturile și ajustați contrastul. *(Consultați [Identitate vizuală și teme](/guides/analytics-customization/branding-theming))*
+- **Abonament**: Vizualizați planul activ, faceți upgrade sau gestionați facturile și plățile. *(Consultați [Abonamente și facturare](/guides/core-platform/subscriptions-billing))*
+- **Imprimante**: Configurați imprimantele termice de bonuri și direcționați categoriile de meniu către bucătărie sau bar. *(Consultați [Stații de imprimare](/guides/payments-integrations/print-station))*
+
+---
+
+## Observații importante
+
+- **Formatul linkurilor sociale**: Introduceți întotdeauna adresa web completă (începând cu `https://`), astfel încât linkurile să se deschidă corect pe telefoanele clienților.
+- **Acuratețea fusului orar**: Nu lăsați fusul orar nesetat. Meniurile de mic dejun programate și ofertele speciale de noapte depind de această setare pentru a se comuta automat, fără intervenție manuală.
+
+---
+
+## Ce puteți face dacă întâmpinați probleme
+
+- **Modificările nu apar în meniul public**: Asigurați-vă că ați apăsat pe butonul **Salvează modificările** din partea de jos a paginii. Apoi glisați în jos pe ecranul telefonului pentru a reîmprospăta meniul public.
+- **Mesaj de eroare la salvare**: Verificați dacă toate câmpurile obligatorii (cum ar fi Numele restaurantului și un fus orar valid) sunt completate și dacă linkurile sociale au un format URL valid.

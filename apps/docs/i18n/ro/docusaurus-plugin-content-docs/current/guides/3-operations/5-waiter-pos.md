@@ -1,33 +1,90 @@
 ---
 id: waiter-pos
-title: POS pentru Chelneri (Punct de Vânzare)
+title: POS mobil pentru ospătari
 sidebar_position: 5
 ---
 
-# POS pentru Chelneri (Punct de Vânzare)
+# POS mobil pentru ospătari
 
-POS-ul pentru Chelneri este o interfață rapidă, axată pe dispozitive mobile (mobile-first), concepută pentru ca personalul tău să preia rapid comenzi direct la masă. Acesta funcționează complet independent de meniul QR destinat clienților pentru a se asigura că fluxurile de lucru ale personalului nu interferează niciodată cu sesiunile clienților.
+*(Disponibil în abonamentul Enterprise)*
 
-## Design Axat pe Dispozitive Mobile
-Aspectul POS elimină navigarea standard a panoului de control pentru a oferi o experiență pe tot ecranul pe dispozitive mobile și tablete. Folosește o structură de grilă densă, cu 2 coloane pentru articolele din meniu (afișând doar numele și prețurile, fără imagini) pentru a maximiza viteza și eficiența pe dispozitivele Android sau iOS de gamă medie.
+**Aplicația POS pentru ospătari (Point of Sale)** este o interfață rapidă, optimizată pentru dispozitive mobile, concepută pentru ca personalul de servire să preia comenzi direct la masă de pe smartphone-uri sau tablete, să atribuie preparatele pe locuri la masă, să trimită comenzile la bucătărie și să închidă notele de plată.
 
-## Preluarea Comenzilor
+---
 
-### Selectarea Mesei
-Chelnerii încep prin selectarea unei mese dintr-o grilă codificată pe culori. Dacă o masă este deja ocupată (de ex., clienții au comandat prin cod QR), chelnerul poate deschide sesiunea mesei respective. POS-ul va încărca istoricul complet al comenzilor de la masa respectivă ca articole doar în citire (read-only), iar orice articole noi pe care le adaugă chelnerul vor fi urmărite separat ca „în așteptare” (pending).
+## Ce oferă această funcționalitate
 
-### Alocarea Locurilor și Note
-Pentru a facilita notele de plată separate și livrarea precisă, chelnerii pot atribui articole la anumite locuri (de ex., Locul 1, Locul 2 sau Împărțit).
+- **Design pe tot ecranul pentru mobil**: Elimină elementele administrative inutile pentru a oferi ospătarilor o grilă aerisită și rapidă pentru introducerea comenzilor.
+- **Selectarea meselor pe zone**: Selectați mesele organizate după zonele fizice ale localului (Sala principală, Terasă, Bar).
+- **Alocare pe locuri la masă**: Asociați preparatele și băuturile anumitor locuri (Locul 1, Locul 2, ..., Comun) pentru a simplifica servirea și împărțirea notei de plată.
+- **Mențiuni pentru bucătărie și opțiuni suplimentare**: Selectați rapid mărimile, gradul de gătire și ingredientele suplimentare plătite, sau tastați instrucțiuni speciale (cum ar fi „fără sare”, „lămâie separat”).
+- **Modalități multiple de încasare**: Închideți notele cu terminale POS de card integrate, împărțiți nota între clienți, încasați numerar sau afișați un cod QR de plată direct pe ecranul tabletei pentru ca oaspetele să scaneze și să plătească.
+- **Atribuirea angajatului**: Fiecare comandă înregistrează numele membrului din personal autentificat, pentru o evidență clară pe ture.
 
-La atingerea unui articol din meniu, dacă are variații sau completări, se deschide un sertar (drawer) care permite chelnerului să selecteze acele opțiuni și, opțional, să adauge o notă text personalizată pentru bucătărie (de ex., "fără sare", "extra lămâie").
+---
 
-### Trimiterea către Bucătărie
-Când chelnerul apasă „Trimite Comanda”, doar articolele *noi, în așteptare* sunt trimise la bucătărie. Sesiunea activă rămâne deschisă. Bucătăria primește comanda perfect formatată, grupând articolele după locurile alocate.
+## Cine poate utiliza această funcționalitate
 
-## Închiderea Sesiunilor
-Când este timpul să fie achitată nota, chelnerul are trei opțiuni pentru a încheia sesiunea:
-1. **Trimite Comanda (Submit Order)**: Păstrează sesiunea deschisă pentru mai multe comenzi.
-2. **Plătit cu Cardul (Paid by Card)**: Marchează sesiunea ca achitată complet folosind un terminal POS integrat (de ex., MyPOS), eliberând masa pentru următorul client.
-3. **Închidere Forțată (Force Close)**: Închide manual sesiunea fără a procesa o plată (util pentru plățile în numerar sau corectarea erorilor).
+- **Personalul de servire (ospătari)**: Introduce codul PIN din 4 cifre pe o tabletă înregistrată pentru a deschide automat interfața POS.
+- **Proprietarii și managerii**: Pot deschide interfața POS oricând, apăsând pe butonul **POS** din bara superioară a panoului de control.
 
-Chelnerii pot, de asemenea, să genereze o Notă QR pentru a o arăta clientului, permițându-i clientului să plătească de pe propriul telefon prin Stripe, dacă preferă.
+---
+
+## Fluxul complet de lucru în aplicația POS
+
+### 1. Deschiderea unei mese
+1. Atingeți **Selectează masa** în bara superioară a ecranului POS.
+2. Selectorul de mese afișează toate mesele localului grupate pe **Zone**.
+3. Atingeți masa dorită:
+   - Dacă masa este **Liberă**, începe o sesiune nouă de servire.
+   - Dacă masa este **Ocupată** (de exemplu, dacă oaspeții au comandat deja băuturi prin codul QR), aplicația POS încarcă istoricul comenzilor confirmate (cu text gri) și vă permite să adăugați produse noi.
+
+### 2. Adăugarea preparatelor și a băuturilor
+1. Utilizați etichetele categoriilor din partea de sus (de exemplu, Aperitive, Feluri principale, Băuturi) pentru a filtra produsele.
+2. Atingeți cartonașul oricărui preparat pentru a-l adăuga la comanda curentă.
+3. Dacă preparatul are opțiuni, se deschide o fereastră laterală:
+   - Selectați opțiunile obligatorii (de exemplu, „Gătit mediu”).
+   - Selectați opțiunile suplimentare plătite (de exemplu, „Unt cu trufe”).
+   - *(Opțional)* Scrieți o notă personalizată în câmpul **Instrucțiuni speciale**.
+4. Atingeți **Gata** pentru a confirma produsul configurat.
+
+### 3. Alocarea produselor pe locuri la masă
+1. Înainte sau după selectarea preparatelor, alegeți locul din bara de selecție (**Locul 1**, **Locul 2**, **Locul 3** sau **Comun**).
+2. Produsele adăugate în timp ce un loc este selectat sunt etichetate automat cu acel număr de loc.
+3. La trimiterea comenzii către bucătărie, preparatele sunt grupate pe locuri, astfel încât personalul care aduce mâncarea știe exact la cine ajunge fiecare farfurie.
+
+### 4. Trimiterea comenzii către bucătărie
+1. Verificați produsele adăugate în panoul comenzii.
+2. Atingeți **Trimite comanda** (sau **Trimite la bucătărie**).
+3. Doar produsele nou adăugate sunt transmise către sistemul din bucătărie (KDS) și imprimantele de comenzi.
+4. Sesiunea mesei rămâne activă, astfel încât să puteți reveni oricând pentru a adăuga deserturi sau băuturi suplimentare.
+
+### 5. Încasarea notei de plată
+Când oaspeții doresc să achite, deschideți panoul notei de plată a mesei și verificați produsele. Aveți la dispoziție patru modalități de închidere:
+
+- **Plată cu cardul**: Marchează nota ca achitată complet prin terminalul de plată cu cardul al localului (de exemplu, MyPOS) și eliberează masa pentru următorii oaspeți.
+- **Împărțirea notei**: Deschide panoul de divizare a notei, permițând oaspeților să împartă suma în mod egal sau să aleagă produse individuale pentru plată separată. *(Consultați [Împărțirea notei de plată](/guides/payments-integrations/split-bill))*
+- **Afișează cod QR de plată**: Afișează un cod QR de plată digitală direct pe ecranul tabletei. Oaspetele îl scanează cu camera telefonului pentru a plăti prin Apple Pay, Google Pay sau card.
+- **Închidere forțată / Numerar**: Închide sesiunea mesei fără o tranzacție electronică (folosită când oaspeții plătesc în numerar sau la corectarea deschiderii accidentale a unei mese).
+
+---
+
+## Schimbarea utilizatorului între mese
+
+Pe tabletele partajate între colegi, personalul ar trebui să blocheze ecranul după preluarea comenzii:
+1. Atingeți butonul **Schimbă utilizatorul** sau **Blochează** din colțul din dreapta-sus.
+2. Ecranul revine la tastatura pentru introducerea codului PIN din 4 cifre, pregătit pentru următorul ospătar.
+
+---
+
+## Note importante
+
+- **Coșuri independente**: Aplicația POS funcționează complet separat de coșurile din navigatoarele oaspeților. Acțiunile ospătarilor nu vor suprascrie și nu vor interfera cu produsele pe care un client le vizualizează pe propriul telefon.
+- **Notificare în timp real la plata online**: Dacă un oaspete achită nota direct de pe propriul telefon în timp ce ospătarul are masa deschisă pe POS, Renova afișează o notificare pe ecran și resetează automat masa.
+
+---
+
+## Depanare și întrebări frecvente
+
+- **Tableta s-a deconectat de la Wi-Fi**: Dacă semnalul cade temporar, aplicația POS păstrează produsele adăugate local și afișează o bară de atenționare până la restabilirea conexiunii.
+- **Produs greșit trimis la bucătărie**: Deschideți comanda în panoul de control la secțiunea **Comenzi** sau anunțați direct bucătăria; personalul poate anula sau ajusta comanda.

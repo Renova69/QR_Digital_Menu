@@ -11,3 +11,5 @@ The staff POS at `/staff/pos` supports table operations, order entry, and paymen
 Owners, managers, staff, and authorized device roles can reach operational screens according to their role and enabled subscription features. Waiter devices default to the POS, while kitchen devices default to the kitchen display.
 
 Use the POS to select a table, create orders, review active work, and start supported payment flows. Keep staff sessions individual so actions can be attributed correctly.
+
+*(See also: [Waiter POS Guide](/guides/operations/waiter-pos) and [Kitchen Display System](/guides/operations/kitchen-display-system))*

@@ -11,3 +11,5 @@ Sistemul POS pentru personal de la `/staff/pos` acceptă operațiuni la masă, i
 Proprietarii, managerii, personalul și rolurile de dispozitiv autorizate pot ajunge la ecranele operaționale în funcție de rolul lor și de funcțiile de abonament activate. Dispozitivele ospătarilor accesează implicit POS-ul, în timp ce dispozitivele de bucătărie accesează implicit afișajul bucătăriei.
 
 Utilizați POS-ul pentru a selecta o masă, a crea comenzi, a revizui activitatea în curs și a începe fluxurile de plată acceptate. Păstrați sesiunile personalului individuale, astfel încât acțiunile să poată fi atribuite corect.
+
+*(Consultați și: [Ghidul POS pentru ospătari](/guides/operations/waiter-pos) și [Sistemul de afișaj pentru bucătărie](/guides/operations/kitchen-display-system))*

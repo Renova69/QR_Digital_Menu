@@ -11,3 +11,5 @@ Checkout shows the guest's cart, quantities, selected options, total, and the fi
 Guests can review the destination attached to their QR session and add supported notes or special requests before submitting. Payment choices appear only when the restaurant has enabled and configured them.
 
 After submission, Renova shows the relevant order or payment confirmation state. Staff should test this complete flow after changing menu, ordering, or payment settings.
+ 
+*(For the complete guest walkthrough and allergen filtering, see [Guest Experience & Checkout](/guides/operations/public-menu-checkout))*

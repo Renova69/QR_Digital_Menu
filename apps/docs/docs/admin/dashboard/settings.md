@@ -18,3 +18,5 @@ Restaurant settings provide the source information used by the public menu and o
 - Staff devices and printer stations
 
 Changes can affect public guest flows immediately. Preview the menu and test QR, ordering, payment, reservation, and printing workflows after changing operational settings.
+ 
+*(For complete settings documentation, see [Restaurant Settings](/guides/core-platform/dashboard-settings))*

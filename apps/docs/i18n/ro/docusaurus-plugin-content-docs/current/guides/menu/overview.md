@@ -22,3 +22,4 @@ Oaspeții deschid meniul prietenos cu dispozitivele mobile scanând un cod QR de
 - [Gestionați categoriile](./categories)
 - [Încărcați imagini](./images)
 - [Mențineți informațiile despre alergeni](./allergens)
+- [Ghidul complet al constructorului de meniu](/guides/menu-management/menu-builder)

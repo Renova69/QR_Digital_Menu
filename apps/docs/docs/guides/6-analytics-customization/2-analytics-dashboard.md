@@ -1,40 +1,89 @@
 ---
 id: analytics-dashboard
-title: Analytics Dashboard
+title: Analytics & Reporting
 sidebar_position: 2
 ---
 
-# Analytics Dashboard
+# Analytics & Reporting
 
-*(Available on PROFESSIONAL and ENTERPRISE tiers)*
+The **Analytics** dashboard provides actionable insights into your restaurant's daily traffic, revenue trends, popular dishes, peak operating hours, and customer satisfaction, eliminating guesswork from menu engineering and staff scheduling.
 
-The Analytics Dashboard takes the guesswork out of running your restaurant. It provides crystal-clear insights into your sales, your customers, and your top-performing dishes.
+---
 
-![Analytics Dashboard](pathname:///absolute/path/to/analytics_mockup_1786286644391.jpg)
-*(A preview of the Analytics Dashboard showing revenue trends and key performance indicators)*
+## What This Feature Does
 
-## Understanding Your KPI Cards
+- **Reach & Menu Engagement** *(Available on all plans, including Free)*: Monitor total menu views, unique visitors, and scan counts broken down per table.
+- **Financial Performance KPIs** *(Professional and Enterprise plans)*: Track total revenue, total orders, and average order value (AOV) across customizable date ranges.
+- **Sales Trends Chart**: Visualize revenue patterns over days, weeks, or months to spot growth trajectories and seasonal dips.
+- **Top Dishes Ranking**: See your best-selling dishes ranked by order count and revenue contribution to identify signature favorites.
+- **Peak Hours Heatmap**: Identify your venue's busiest hours of the day to optimize kitchen preparation and front-of-house staffing.
+- **Sales by Ordering Channel**: Compare sales generated directly through customer QR codes versus staff Waiter POS orders.
+- **Multi-Sheet Excel Export**: Download a formatted, ready-to-share Excel (`.xlsx`) workbook for your accountants and business partners with a single click.
 
-When you open the Summary View, you are greeted with several **KPI (Key Performance Indicator)** cards. These give you a lightning-fast snapshot of your business.
+---
 
-### Reach & Visitors
-- **Menu Views**: Shows exactly how many times your QR codes were scanned and your menu was opened.
-- **Unique Visitors**: Shows how many *individual* people looked at your menu (ignoring people who refreshed the page multiple times).
-- **Per-Table Views**: A detailed breakdown showing exactly which tables are getting the most scans.
+## Who Can Use It
 
-### Financial Performance
-- **Orders Overview Chart**: A beautiful, sweeping chart showing your revenue trends over the last week or month, so you can easily spot if sales are trending up or down.
-- **Payments Summary**: A clear breakdown of exactly how much money you collected digitally vs. how much was refunded.
-- **Daily Target Card**: Set a daily revenue goal! This card shows a progress bar filling up as you get closer to your target for the day.
-- **Revenue & Average Order Value (AOV)**: Quick metrics showing your total sales and the average amount a customer spends per order.
+- **Reach Metrics (Menu Views & Scans)**: Available to all users across all plans (Free, Starter, Professional, Enterprise) under the **Summary** tab.
+- **Full Revenue Analytics & Excel Export**: Available to Owners and Managers on Professional and Enterprise subscription tiers.
 
-### Operational Insights
-- **Top Dishes Table**: A ranked list of your best-selling items. This is the perfect tool for deciding which dishes to promote in your "Trending Carousel".
-- **Recent Orders Table**: A quick list of the last 50 orders placed at your restaurant for easy auditing.
-- **Live Tables Grid**: A real-time floor plan showing which tables are currently eating, and which have paid and are ready to leave.
+---
 
-### Customer Retention
-- **Loyalty Retention Card**: Shows how many of your customers are returning to use their loyalty points, giving you a clear picture of how well your rewards program is working to create regulars.
+## Navigating the Analytics Dashboard
 
-## Data Export
-If you need to share your numbers with an accountant, you can export all of this data into an Excel spreadsheet with a single click. The spreadsheet is fully formatted and ready to read.
+1. In your dashboard sidebar, click **Analytics**.
+2. **Select Date Range**: Use the date range selector at the top to focus on:
+   - **Today**: Live shift performance.
+   - **Last 7 Days**: Recent weekly comparison.
+   - **Last 30 Days**: Monthly review.
+   - **Custom Range**: Select custom start and end calendar dates.
+
+---
+
+## Understanding Your Reports
+
+### 1. Reach & Menu Scans
+- **Total Menu Views**: The total number of times your QR codes were scanned and loaded.
+- **Unique Visitors**: How many individual diners viewed your menu (excluding accidental double-scans or page refreshes).
+- **Per-Table Scans**: A list showing which physical tables generate the highest customer traffic.
+
+### 2. Revenue & Order Volume
+- **Total Revenue**: Total sales processed through dining sessions during the selected period.
+- **Completed Orders**: The count of orders successfully served to guests.
+- **Average Order Value (AOV)**: Average spend per order, helping you evaluate upselling effectiveness.
+- **Revenue Trend Line**: An interactive chart showing daily revenue peaks and valleys.
+
+### 3. Operational Demand
+- **Top Dishes Ranking**: Lists your highest-volume dishes. Use this to determine which items to highlight in your **Trending Carousel** or promote with **Perfect Pairings**.
+- **Sales by Channel**: A donut chart illustrating the split between orders placed by guests via **QR Code** versus orders entered by staff on the **Waiter POS**.
+- **Peak Dining Hours**: An hourly bar graph showing order concentration across lunch and dinner shifts.
+
+---
+
+## How to Export Analytics to Excel
+
+To generate an accounting-ready report:
+
+1. Open the **Analytics** view.
+2. Choose the date range you want to export (e.g., *Last 30 Days*).
+3. Click the **Export Excel** button in the top right corner.
+4. Renova generates and downloads a formatted `.xlsx` workbook containing five comprehensive sheets:
+   - **Summary**: High-level KPIs, total revenue, orders, and averages.
+   - **Revenue Trend**: Daily chronological breakdown of sales in dual currencies.
+   - **Top Items**: Itemized dish sales ranked by popularity.
+   - **Peak Hours**: Hourly demand breakdown across the week.
+   - **Category Breakdown**: Sales distribution across food, beverages, and desserts.
+
+---
+
+## Important Notes
+
+- **Dual Currency Accounting**: Reports include figures in both your primary and secondary currencies (e.g., EUR and BGN), calculated using official fixed rates.
+- **Session Finalization**: Revenue numbers reflect completed orders and settled table sessions to ensure complete accounting accuracy.
+
+---
+
+## If Something Goes Wrong
+
+- **Revenue Cards Show Locked Status**: If you are on the Free or Starter plan, reach metrics appear in the **Summary** view, while financial revenue cards display an upgrade prompt. Upgrading to Professional unlocks full sales reporting immediately.
+- **Today's Numbers Seem Incomplete**: Ongoing table sessions update their totals in live views; final revenue is confirmed as orders are fulfilled and sessions are closed.

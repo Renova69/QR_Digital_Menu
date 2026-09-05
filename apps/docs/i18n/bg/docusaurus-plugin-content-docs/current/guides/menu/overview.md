@@ -22,3 +22,4 @@ sidebar_position: 1
 - [Управление на категории](./categories)
 - [Качване на изображения](./images)
 - [Поддържане на информация за алергени](./allergens)
+- [Пълно ръководство за създаване на меню](/guides/menu-management/menu-builder)

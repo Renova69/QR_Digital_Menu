@@ -21,3 +21,5 @@ Renova poate expune o pagină publică de rezervare la `/book/[restaurant-id]` a
 - E-mail sau telefon de notificare pentru restaurant
 
 Salvați setările, deschideți pagina publică de rezervări și faceți o rezervare de test înainte de a partaja linkul.
+
+*(Pentru ghidul complet de rezervări, consultați [Rezervări de mese](/guides/customer-experience/reservations))*

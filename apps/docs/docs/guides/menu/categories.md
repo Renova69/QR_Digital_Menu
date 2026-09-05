@@ -15,3 +15,5 @@ Categories group related items such as starters, mains, desserts, and drinks.
 3. Reorder categories and items to control how they appear to guests.
 
 Turn off a category's visibility to remove the entire section from the public menu without deleting its items. This is useful for seasonal or temporarily unavailable sections.
+ 
+*(For category scheduling and dayparting, see [Menu Scheduling](/guides/menu-management/menu-scheduling). For complete builder details, see [Digital Menu Builder](/guides/menu-management/menu-builder))*

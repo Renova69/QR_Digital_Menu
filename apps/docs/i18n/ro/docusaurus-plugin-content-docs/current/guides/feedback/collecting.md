@@ -21,3 +21,5 @@ Solicitarea este legată de o vizită verificată și nu este trimisă ca o invi
 ## Revizuirea răspunsurilor
 
 Utilizatorii autorizați ai tabloului de bord pot revizui intrările de feedback și valorile rezumative. Utilizați filtrele de dată și evaluare acolo unde sunt disponibile și investigați temele operaționale recurente, în loc să vă bazați pe un singur răspuns.
+
+*(Pentru detalii complete privind rutarea inteligentă a recenziilor și analizele din panou, consultați [Sistem de feedback pentru clienți](/guides/customer-experience/feedback-system))*

@@ -19,3 +19,5 @@ Renova creează accesul personalului direct; în prezent, nu utilizează un flux
 Rolurile de ospătar și bucătărie folosesc un cod PIN. Când înregistrarea dispozitivelor partajate este activată, Renova poate afișa, de asemenea, un cod QR de scurtă durată pentru înregistrarea dispozitivului. Rolurile de personal și manager primesc o parolă temporară pentru conectarea prin e-mail.
 
 Revizuiți accesul ori de câte ori se schimbă responsabilitățile. Eliminați sau dezactivați accesul prompt atunci când un membru al personalului nu mai are nevoie de el și regenerați acreditările dacă este posibil să fi fost expuse.
+
+*(Pentru gestionarea pas cu pas a personalului, codurilor PIN și înrolarea dispozitivelor, consultați [Autentificare și acces la cont](/guides/core-platform/authentication))*

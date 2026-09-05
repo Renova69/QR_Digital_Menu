@@ -17,3 +17,5 @@ Renova can display the 14 major EU allergen categories on menu items, including 
 :::caution
 Renova displays the information your restaurant enters. Confirm ingredients and cross-contamination risks with the kitchen and follow the rules that apply in your jurisdiction.
 :::
+
+*(For full menu configuration, see [Digital Menu Builder](/guides/menu-management/menu-builder))*

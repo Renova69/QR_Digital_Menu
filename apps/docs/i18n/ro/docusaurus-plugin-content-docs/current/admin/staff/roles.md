@@ -17,3 +17,5 @@ Renova separă conturile privilegiate ale panoului de control de rolurile opera�
 | **Bucătărie** (Kitchen) | PIN numeric pe un dispozitiv înregistrat | Afișaj pentru bucătărie                |
 
 Accesul exact depinde, de asemenea, de caracteristicile abonamentului și de autorizarea pe partea de server. Atribuiți rolul cu cele mai puține privilegii care se potrivește muncii persoanei și nu utilizați niciodată un cod PIN partajat de ospătar sau bucătărie pentru un cont de proprietar sau manager.
+
+*(Pentru gestionarea rolurilor, resetarea PIN-ului și înrolarea dispozitivelor, consultați [Autentificare și acces la cont](/guides/core-platform/authentication))*

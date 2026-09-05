@@ -1,8 +1,11 @@
 # P3 security close-out
 
-**Status (2 Sep 2026): COMPLETE. PR #68 merged the close-out with green CI, and
-the production image for `445afc6d` contains P3-4 through P3-10. Remaining
-P3-1/P3-6 manual checks are release evidence, not open engineering scope.**
+**Status (5 Sep 2026): OPERATIONALLY CLOSED for application scope. PR #68
+merged the close-out with green CI, and the production image for `445afc6d`
+contains P3-4 through P3-10. The remaining P3-1/P3-6 manual checks passed on
+merged `main` in a fresh disposable local environment. Backend deployment and
+serving-revision verification were explicitly excluded and remain pre-launch
+gates.**
 
 This document closes the engineering scope in P3-4 through P3-10 and records
 the subsequent merge and production rollout.
@@ -25,6 +28,15 @@ Detailed evidence:
 - [Operational query scope](./TENANT_QUERY_SCOPING.md)
 - [Management query scope](./TENANT_MANAGEMENT_QUERIES.md)
 
+## P3-1 — durable sessions
+
+The remaining operational matrix is recorded in the
+[session rollout evidence](../db-safety/P3_SESSION_ROLLOUT.md). Individual
+revocation evicted the live socket and rejected the revoked token; global
+sign-out rejected all prior sessions while a fresh session remained usable;
+cross-account revocation was isolated; and PIN re-login retained the enrolled
+shared-device configuration.
+
 ## P3-5 — provider circuit breakers
 
 DeepL, Stripe and R2 share one per-process circuit implementation. Five counted
@@ -40,6 +52,21 @@ enrolment/revocation requires a durable PASSWORD, GOOGLE or OTP session created
 within the previous five minutes. PIN, impersonation, legacy, revoked and
 expired sessions cannot satisfy the guard. Re-authentication currently means a
 normal strong sign-in, which creates a fresh durable session.
+
+### Manual verification — 5 Sep 2026
+
+- A fresh password login permitted a sensitive payment-toggle action after the
+  required `CONFIRM` value.
+- Aging that session beyond the five-minute window caused the same action to
+  return `403`; the frontend rendered the translated message `Sign in again
+  before performing this sensitive action.`
+- A new password login restored access to the sensitive action.
+- An active `WAITER` PIN session was rejected by the runtime
+  `StepUpAuthGuard` with `STEP_UP_REQUIRED`; PIN authentication cannot satisfy
+  step-up.
+
+These checks used merged `main` and a disposable local PostgreSQL database;
+they did not deploy or mutate the production backend.
 
 Coverage tests fail if a new super-admin mutation or listed credential mutation
 omits the guard. Real HTTP tests also pin guard ordering: unauthenticated callers
@@ -98,5 +125,7 @@ route.
 PR #68 and its post-merge CI passed. The batch is present in the production
 image for `445afc6d`; the current configuration-only revision serves that image
 with readiness 200. PIN-login hours were manually verified after the follow-up
-fixes in PRs #70/#71. The unfinished release evidence is the P3-1
-revocation/socket/legacy matrix and the P3-6 step-up matrix.
+fixes in PRs #70/#71. The P3-1 revocation/socket/cross-account/PIN matrix and
+the P3-6 step-up matrix are now operationally closed for application scope.
+Repeat the matrix against the actual serving revision after the deliberately
+deferred backend deployment, before pre-launch.

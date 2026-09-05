@@ -21,3 +21,5 @@ In the dashboard's reservation settings, configure the options your venue needs:
 - Restaurant notification email or phone
 
 Save the settings, open the public booking page, and make a test reservation before sharing the link.
+ 
+*(For the complete reservations guide, see [Table Reservations](/guides/customer-experience/reservations))*

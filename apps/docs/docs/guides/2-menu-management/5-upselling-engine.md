@@ -1,32 +1,85 @@
 ---
 id: upselling-engine
-title: Upselling Engine
+title: Smart Upselling Engine
 sidebar_position: 5
 ---
 
-# Upselling Engine
+# Smart Upselling Engine
 
-The platform includes a built-in upselling engine designed to naturally increase your average order value (AOV) without feeling pushy to the customer. 
+*(Available on Professional and Enterprise plans)*
 
-It consists of three main features: Perfect Pairings, the Trending Carousel, and Drink Upsells.
+Renova includes an automated upselling engine designed to increase your average order value (AOV) by suggesting relevant pairings, highlighting trending favorites, and reminding guests to add beverages right before checkout.
 
-## 1. Perfect Pairings
+---
 
-When you configure an item in the Menu Builder, you can select "Related Items". 
-When a customer adds that item to their cart, a stylish modal instantly appears with a "Chef's Recommendation" badge, suggesting the paired items. 
+## The Three Upselling Tools
 
-*Example: If a customer orders a Ribeye Steak, the Perfect Pairing modal can suggest a side of Truffle Fries or a specific glass of Red Wine. The customer can add these items to their cart with a single tap.*
+### 1. Perfect Pairings (Chef's Recommendations)
+When a guest adds a dish to their cart, Renova can suggest complementary items that elevate the meal.
+- **Example**: A guest orders a Ribeye Steak, and the app prompts: *"Pairs well with Truffle Fries or Cabernet Sauvignon."*
+- **One-Tap Addition**: Guests can tap **Add to Cart** directly from the recommendation prompt without searching through the menu.
 
-## 2. Trending Carousel
+### 2. Drink Reminders at Checkout
+Beverages represent some of the highest-margin sales in hospitality. 
+- When a guest opens their cart to place an order, the system checks whether they have selected any drinks.
+- If no beverage is in the cart, the cart drawer presents up to 4 beverage options from your designated drink categories before final order submission.
 
-The top of the public menu features a sleek horizontal carousel highlighting popular items. You can configure its behavior in the dashboard:
+### 3. Trending Dish Carousel
+Positioned at the very top of your digital menu, this horizontal carousel showcases your venue's most enticing dishes.
+- **AUTO Mode**: Renova reviews your recent order history and automatically displays your top 4 most popular dishes to provide social proof.
+- **MANUAL Mode**: You handpick up to 4 specific items to promote (such as high-margin chef specials or new seasonal introductions).
+- **OFF**: Hides the carousel if you prefer a minimal menu header.
 
-- **AUTO Mode**: The system analyzes your recent order history and automatically populates the carousel with your top 4 most ordered items. This provides powerful social proof (e.g., "People also love...").
-- **MANUAL Mode**: You manually select up to 4 "Featured" items to display. This is great for pushing high-margin specials or new seasonal dishes.
-- **OFF**: Disables the carousel entirely.
+---
 
-## 3. Drink Upsells
+## Who Can Use It
 
-Beverages often have the highest profit margins. The platform intelligently checks the customer's cart right before they check out. 
+- **Owners and Managers**: On Professional and Enterprise subscription tiers.
 
-If the system detects that the customer hasn't ordered any items from a category marked as a "Drink Category", it will slide open the cart drawer and suggest up to 4 beverage options. This final intervention consistently captures forgotten drink orders.
+---
+
+## How to Set Up Perfect Pairings
+
+1. In the top navigation bar, click **Edit Menu**.
+2. Select the category and click the **Edit** (pencil) icon next to the primary dish.
+3. Scroll down to the **Related Items** field.
+4. Select up to three complementary items from the dropdown list.
+5. Click **Save Item**.
+6. When guests add this dish to their order, a prompt will showcase your recommended pairings.
+
+---
+
+## How to Enable Drink Reminders at Checkout
+
+1. Click **Edit Menu**.
+2. Locate your beverage category (e.g., "Beverages", "Cocktails", "Wine & Beer") and click its **Edit** icon.
+3. Check the box labeled **Drink category — recommend drinks at checkout**.
+4. Click **Save Category**.
+5. Any guest checking out with food only will now be presented with drink recommendations in their cart drawer.
+
+---
+
+## How to Configure the Trending Carousel
+
+1. In the dashboard, open **Settings** and select **General** (or navigate to the menu customization options).
+2. Locate the **Trending Carousel** section.
+3. Select your mode:
+   - Choose **AUTO** to let the system automatically surface your 4 best-selling dishes based on recent orders.
+   - Choose **MANUAL** to select specific items to feature.
+   - Choose **OFF** to disable the carousel.
+4. If you chose MANUAL, click **Select Dishes** and check the 4 items you want to feature.
+5. Click **Save Changes**.
+
+---
+
+## Important Notes
+
+- **Stock Availability**: Renova will never recommend an item that is toggled out of stock or outside its scheduled availability hours.
+- **Subtle Guest Experience**: Recommendation prompts are designed to be fast and non-intrusive. Guests can dismiss suggestions with a single tap or swipe.
+
+---
+
+## If Something Goes Wrong
+
+- **Pairing Suggestion Does Not Appear**: Ensure the paired dish is marked as **Available** and that its category is currently visible.
+- **Drink Reminder Triggers When a Drink is Already in Cart**: Confirm that all your beverage categories have the **Drink category** checkbox enabled.

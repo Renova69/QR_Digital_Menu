@@ -19,3 +19,5 @@ Each table or service point has its own QR destination. Scanning it opens the pu
 Rooms and pickup points support individual PNG downloads but are not included in the table bulk-print view.
 
 Do not manually edit a generated QR URL. Rename or update the service point in Renova, then generate a fresh asset if its destination changes.
+ 
+*(For table tent templates, floor management, and zone organization, see [Tables, Zones & QR Codes](/guides/operations/qr-codes-tables))*

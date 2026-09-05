@@ -1,26 +1,62 @@
 ---
 id: tenant-management
-title: Super Admin & Tenant Management
+title: Platform Administration (Super Admin)
 sidebar_position: 1
 ---
 
-# Super Admin & Tenant Management
+# Platform Administration (Super Admin)
 
-If you are running the platform as a SaaS provider (Software as a Service) managing multiple restaurants, the **Super Admin Portal** gives you a bird's-eye view of your entire operation.
+The **Super Admin Portal** is designed for platform administrators and franchise operators who oversee multiple independent restaurant accounts across the Renova platform.
 
-## Tenant (Restaurant) Management
-The platform allows you to host hundreds of restaurants on a single system. From the Super Admin dashboard, you can:
-- **View All Tenants**: See a list of every restaurant registered on your platform.
-- **Tenant Details**: Click into any restaurant to see their current subscription tier, their contact details, and their onboarding status.
-- **Data Requests**: Manage GDPR and data deletion requests centrally to ensure full legal compliance across all your tenants.
+---
 
-## Global Revenue Tracking
-The **Revenue Page** aggregates the financial performance of your SaaS business:
-- Track subscription revenue from your Starter, Professional, and Enterprise tiers.
-- Monitor exactly how much volume is flowing through your connected Stripe and local payment gateways.
+## What This Feature Does
 
-## Help Center CMS (Content Management)
-Instead of hard-coding help articles into the app, the platform features a built-in **CMS (Content Management System)** for the Help Center.
-- Create, edit, and organize FAQ articles directly from the Super Admin portal.
-- Translate articles into multiple languages so your Romanian clients see help in Romanian, while your Bulgarian clients see help in Bulgarian.
-- The updates you make here instantly appear in the Help tab for all restaurant owners using your platform.
+- **Tenant Directory**: View and search all registered restaurant venues, their owners, active subscription plans, and account creation dates.
+- **Tenant Health & Inspection**: Inspect individual restaurant setups, onboarding progress, and subscription status.
+- **Data Privacy Management**: Centrally manage customer data export and erasure requests to ensure full legal and privacy compliance.
+- **Global Revenue Overview**: Monitor aggregate subscription volume across Free, Starter, Professional, and Enterprise plans.
+- **Help Center CMS**: Author, edit, and localize help articles and frequently asked questions that appear directly in restaurant dashboards.
+
+---
+
+## Who Can Use It
+
+- **Platform Super Administrators**: Users with designated administrative credentials. Restaurant owners and staff do not have access to this portal.
+
+---
+
+## Accessing the Super Admin Portal
+
+1. Sign in with your Super Admin account credentials.
+2. In the top navigation, select **Super Admin** (or navigate to `/super-admin`).
+3. The administration workspace opens with dedicated navigation tabs.
+
+---
+
+## Core Administrative Tools
+
+### 1. Tenants (Restaurants)
+- **Directory**: View a searchable table of all restaurants on the platform.
+- **Inspection**: Click on any restaurant to view its owner contact email, subscription status, table count, and active integrations.
+- **Support & Assistance**: Assist owners with setup questions or troubleshooting directly from the tenant record.
+
+### 2. Data Privacy Requests
+- Review data export requests submitted by registered diners or restaurant owners.
+- Process and confirm data deletion requests in accordance with privacy regulations.
+
+### 3. Global Revenue
+- Track monthly and annual subscription growth.
+- Monitor tier distribution across your customer base.
+
+### 4. Help Center Content Management
+- Create, update, and reorder help articles and guides.
+- Translate articles into multiple languages so Bulgarian, Romanian, and English restaurant operators receive guidance in their preferred language.
+- Published changes appear immediately in the **Help** tab of restaurant dashboards.
+
+---
+
+## Important Notes
+
+- **Strict Access Guard**: Any non-administrative user attempting to access the `/super-admin` URL is automatically redirected to their regular dashboard.
+- **Independent Tenant Isolation**: Actions taken within one restaurant account do not affect the menus, settings, or orders of other tenants on the platform.

@@ -21,3 +21,5 @@ The prompt is tied to a verified visit and is not sent as a separate email invit
 ## Review Responses
 
 Authorized dashboard users can review feedback entries and summary metrics. Use date and rating filters where available, and investigate recurring operational themes rather than relying on a single response.
+ 
+*(For complete details on smart review routing and dashboard analytics, see [Customer Feedback System](/guides/customer-experience/feedback-system))*

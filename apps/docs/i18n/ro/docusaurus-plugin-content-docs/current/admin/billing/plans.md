@@ -19,3 +19,5 @@ Nu închideți fereastra de finalizare a comenzii până când nu confirmă fina
 Pentru un abonament Stripe activ, alegeți **Gestionare facturare** (Manage Billing) pentru a deschide portalul pentru clienți găzduit de Stripe. În funcție de opțiunile activate pentru cont, portalul vă poate permite să modificați sau să anulați abonamentul și să actualizați metoda de plată.
 
 Sincronizarea modificărilor planului și a anulărilor este determinată de starea abonamentului și de furnizorul de facturare. Tratați starea afișată în Renova și confirmarea afișată de Stripe ca fiind autoritare.
+
+*(Pentru matricea completă a caracteristicilor și limitele planurilor, consultați [Abonamente și facturare](/guides/core-platform/subscriptions-billing))*

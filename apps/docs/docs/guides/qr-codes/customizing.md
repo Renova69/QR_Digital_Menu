@@ -17,3 +17,5 @@ Update the restaurant logo or accent color in your branding settings, then reope
 :::caution
 Always scan every printed design before putting it into service. Very light accent colors can reduce contrast even though Renova preserves a white background and high error correction.
 :::
+
+*(For brand colors, fonts, and light/dark theme customization, see [Branding & Theming](/guides/analytics-customization/branding-theming))*

@@ -1,32 +1,77 @@
 ---
 id: split-bill
-title: Împărțire Notă
+title: Împărțirea notei de plată
 sidebar_position: 4
 ---
 
-# Împărțire Notă
+# Împărțirea notei de plată
 
-Când un grup mare este gata să plece, a-ți da seama cine plătește ce poate fi o durere de cap atât pentru clienți, cât și pentru personalul dvs. Funcția **Împărțire Notă** rezolvă acest lucru instantaneu.
+*(Disponibil în abonamentele Professional și Enterprise)*
 
-## Cum Funcționează
+Când un grup ia masa împreună, plata notei poate deveni cu ușurință cel mai stânjenitor și consumator de timp moment al serii. Renova pune la dispoziție o funcționalitate flexibilă de **Împărțire a notei**, permițând clienților să plătească așa cum doresc — împărțind suma totală în mod egal sau achitând preparat cu preparat — direct de pe telefoanele proprii sau prin intermediul POS-ului ospătarului.
 
-Când un client atinge **"Cere Nota"** pe telefonul său, i se oferă două opțiuni:
-- **Plătește Suma Integrală**: Plătește pentru întreaga masă.
-- **Împarte Nota**: Împarte costul în cadrul grupului.
+---
 
-## Opțiuni de Împărțire
+## Ce oferă această funcționalitate
 
-Dacă aleg să împartă nota, ei au modalități incredibil de flexibile de a o face:
+- **Două moduri flexibile de împărțire**:
+  - **Împărțire în mod egal**: Împărțiți totalul notei în părți egale (de exemplu, împărțit la 2, 3, 4 sau mai multe persoane).
+  - **Plată pe produs**: Fiecare persoană bifează exact preparatele, garniturile și băuturile pe care le-a consumat și își achită totalul individual.
+- **Scăderea produselor în timp real**: În secunda în care un oaspete achită un preparat, acesta este marcat ca plătit pentru toți ceilalți meseni de la masă, prevenind plățile duble sau confuziile.
+- **Bacșiș individual**: Fiecare oaspete care achită poate adăuga propriul procent de bacșiș.
+- **Încasare simplă pentru personal**: Ospătarii care folosesc aplicația POS pot efectua plăți împărțite pe mai multe carduri sau numerar fără a fi nevoiți să facă calcule mentale.
 
-### 1. Împărțire în Mod Egal
-Perfect pentru grupuri de prieteni care împart o masă mare comună. Clientul selectează pur și simplu câte persoane plătesc (de ex., „Împarte la 4”). Sistemul divide perfect totalul, inclusiv bacșișurile, în porțiuni egale.
+---
 
-### 2. Plata pe Articol
-Perfect pentru prânzuri de afaceri sau grupuri unde toată lumea vrea să plătească strict pentru ceea ce a comandat.
-- Clientul vede o listă de verificare cu fiecare articol comandat la masă.
-- Selectează doar articolele pe care le-a consumat personal (de ex., „1 Burger, 1 Cola”).
-- Sistemul calculează exact ce datorează și plătește doar acea porțiune.
-- Odată ce plătesc, acele articole sunt marcate ca „Plătite” pentru toți ceilalți de la masă, prevenind taxarea dublă.
+## Cine poate utiliza această funcționalitate
 
-## Vizualizare pentru Personal
-Personalul dvs. nu trebuie să facă matematică. Pe POS-ul Ospătarului și pe Panoul de Control, personalul poate vedea exact ce articole au fost plătite și care articole sunt încă neplătite, permițându-le să închidă masa perfect.
+- **Oaspeții**: Pot împărți nota direct pe propriile smartphone-uri când plata la masă este activată.
+- **Personalul de servire (ospătarii)**: Pot împărți notele pe tablete folosind aplicația POS.
+
+---
+
+## Cum împart oaspeții nota de plată pe smartphone
+
+1. Când au terminat de mâncat, oaspeții apasă pe **Cere nota** în meniul digital.
+2. La opțiunile de plată, apasă pe **Împarte nota**.
+3. Aleg metoda de împărțire preferată:
+
+### Metoda A: Împărțire în mod egal
+1. Selectează numărul de persoane care împart costul (de exemplu, *„Împarte la 4 persoane”*).
+2. Renova calculează cota exactă a fiecărui oaspete.
+3. Oaspetele alege procentul personal de bacșiș.
+4. Plătește partea sa folosind Apple Pay, Google Pay sau cardul bancar.
+5. Restul de plată al mesei scade automat pentru ceilalți meseni.
+
+### Metoda B: Plată pe produs (detaliată pe articole)
+1. Oaspetele vede lista completă cu toate preparatele și băuturile comandate la masă pe durata sesiunii.
+2. Bifează produsele consumate personal (de exemplu, *„1 Salată Grecească, 1 Apă Minerală”*).
+3. Renova calculează subtotalul corespunzător acelor produse.
+4. Oaspetele adaugă opțional bacșișul și confirmă plata.
+5. Preparatele selectate devin imediat gri și sunt marcate ca **Achitate** pe telefoanele tuturor celorlalți meseni de la masă.
+
+---
+
+## Cum împarte personalul nota în aplicația POS
+
+1. Deschideți masa în **Aplicația POS a ospătarului**.
+2. Atingeți butonul **Împarte nota** din panoul de comandă.
+3. Selectați **Împărțire în mod egal** sau **Împărțire pe produse**:
+   - Dacă alegeți **În mod egal**, selectați numărul de părți și încasați cardul primului oaspete pe terminalul de plată.
+   - Dacă alegeți **Pe produse**, atingeți preparatele achitate de primul oaspete, apoi apăsați pe **Încasează plata**.
+4. Repetați procedura pentru fiecare persoană de la masă.
+5. Când toate produsele sau părțile au fost achitate, Renova închide automat sesiunea mesei.
+
+---
+
+## Note importante
+
+- **Protecție la plata simultană**: Dacă doi oaspeți au nota deschisă pe telefon în exact aceeași clipă, sincronizarea în timp real Renova garantează că un preparat nu poate fi plătit de două ori. Dacă oaspetele A achită sticla de vin, aceasta dispare instantaneu din lista de selecție a oaspetelui B.
+- **Produse comune**: Preparatele marcate ca „Comune” în POS pot fi împărțite în mod egal sau atribuite notei unei singure persoane.
+
+---
+
+## Depanare și întrebări frecvente
+
+- **Un oaspete a plătit din greșeală preparatul altcuiva**: Dacă cineva a bifat un preparat greșit, restul de plată poate fi reglat de ceilalți meseni bifând produsele rămase, sau personalul poate corecta situația din panoul de control la secțiunea **Plăți**.
+- **Plăți parțiale rămase după plecarea clienților**: Dacă un grup pleacă înainte ca toate părțile să fie achitate, ospătarul poate vedea soldul restant pe cartonașul mesei și poate încasa diferența sau poate elibera masa folosind **Închidere forțată**.

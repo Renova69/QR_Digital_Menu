@@ -1,33 +1,72 @@
 ---
 id: translation-system
-title: Sistem de traducere automată
+title: Traducere automată multilingvă
 sidebar_position: 4
 ---
 
-# Sistem de traducere automată
+# Traducere automată multilingvă
 
-O caracteristică de bază a platformei este sistemul de traducere automată a meniului, susținut de DeepL. Oferind un meniu multilingv, puteți servi turiști și diverse categorii demografice fără niciun efort manual suplimentar.
+*(Disponibil pe planurile Starter, Professional și Enterprise)*
 
-## Cum funcționează
+Servirea turiștilor străini și a oaspeților multilingvi devine extrem de simplă cu sistemul integrat de traducere automată oferit de Renova. Redactați meniul o singură dată, în limba principală a localului, iar platforma traduce automat categoriile, preparatele, descrierile, opțiunile și avertismentele de alergeni în toate limbile selectate.
 
-Vă creați meniul în limba dvs. principală (de ex., română sau engleză). Sistemul se ocupă de restul automat. Există trei moduri în care au loc traducerile:
+---
 
-1. **Pre-încălzire în fundal (Background Pre-warming)**: Ori de câte ori creați sau actualizați o categorie, un articol sau o opțiune, sistemul îl traduce tăcut în limbile țintă configurate, în fundal. Acest lucru nu vă încetinește fluxul de lucru.
-2. **La cerere (Lazy On-Demand)**: Dacă un client selectează o limbă în meniul public care nu a fost încă tradusă, platforma interceptează cererea, apelează DeepL, stochează rezultatul în memoria cache a bazei de date și servește meniul complet tradus. Memoria cache asigură că vizitele ulterioare sunt extrem de rapide.
-3. **Traducere manuală în masă**: Dacă doriți să forțați traducerea întregului meniu dintr-o dată, puteți merge la **Setări > Localizare** și puteți face clic pe „Traduceți totul acum”.
+## Ce oferă această funcționalitate
 
-## Gestionarea limbilor
+- **12 limbi acceptate**: Oferiți versiuni complete ale meniului în română (RO), engleză (EN), bulgară (BG), germană (DE), spaniolă (ES), franceză (FR), italiană (IT), greacă (EL), chineză (ZH), japoneză (JA), rusă (RU) și arabă (AR).
+- **Traducere automată în fundal**: Când creați sau actualizați preparate, traducerile sunt adăugate automat într-o listă de așteptare și generate fără a vă încetini activitatea de editare.
+- **Detectarea inteligentă a limbii vizitatorului**: Când un oaspete scanează codul QR de pe masă, Renova verifică limba sistemului de operare al telefonului și încarcă automat meniul în limba respectivă.
+- **Selector de limbă pentru oaspeți**: Oaspeții pot atinge oricând pictograma cu steag din bara de navigare a meniului pentru a schimba limba de afișare.
+- **Zero configurare tehnică**: Nu este nevoie să vă înregistrați la servicii externe de traducere, să introduceți chei de acces sau să gestionați limite de cuvinte. Serviciul este complet integrat și inclus în abonament.
 
-În **Setările** panoului dvs. de control, puteți specifica limbile pe care doriți să le vizați. Meniul public acceptă în prezent până la 12 limbi, inclusiv EN, BG, RO, DE, ES, FR, IT, ZH, EL, JA, RU și AR.
+---
 
-Când un client vă vizitează meniul, sistemul detectează automat preferința de limbă a browserului său și servește traducerea adecvată. Aceștia pot, de asemenea, să schimbe manual limba folosind steagurile din bara de navigare de sus.
+## Cine poate folosi această opțiune
 
-## Ce se traduce?
-Sistemul traduce aproape totul, inclusiv:
-- Numele categoriilor
-- Numele și descrierile articolelor
-- Variațiile opțiunilor din meniu (de ex., „Gătit mediu”)
-- Etichetele dietetice și avertismentele privind alergenii
+- **Proprietarii și managerii**: Aflați pe planurile de abonament Starter, Professional și Enterprise.
 
-## Gestionat de platformă
-Spre deosebire de alte sisteme care vă solicită să vă generați și să vă gestionați propriile chei API, integrarea noastră DeepL este complet gestionată de platformă. Nu trebuie să configurați chei API sau să plătiți direct pentru cotele de traducere.
+---
+
+## Cum să configurați meniurile multilingve
+
+1. Navigați la **Setări** în meniul lateral al panoului de control și selectați fila **General**.
+2. Identificați secțiunea **Localizare și limbi**.
+3. Verificați **Limba implicită** (limba principală în care introduceți preparatele).
+4. La **Limbi țintă**, bifați căsuțele pentru fiecare limbă pe care doriți să o puneți la dispoziția clienților (de exemplu: engleză, germană, română).
+5. Apăsați pe **Salvează modificările**.
+
+---
+
+## Cum să declanșați o traducere completă a meniului
+
+Ori de câte ori creați sau editați preparate, traducerile sunt generate automat în fundal. Dacă ați efectuat modificări ample sau ați importat un fișier de calcul nou și doriți să actualizați imediat toate limbile:
+
+1. Deschideți **Setări > General**.
+2. Derulați până la secțiunea **Localizare**.
+3. Apăsați pe butonul **Tradu tot acum**.
+4. Un indicator de progres va arăta evoluția traducerii pentru categoriile, preparatele, opțiunile și etichetele în așteptare.
+5. După finalizare, toate versiunile lingvistice ale meniului vor fi complet actualizate.
+
+---
+
+## Ce elemente sunt traduse automat
+
+- **Numele categoriilor și subtitlurile**
+- **Numele preparatelor și descrierile detaliate**
+- **Variantele și opțiunile de personalizare** (de exemplu, „Bine făcut”, „Extra brânză”)
+- **Etichetele de preferințe alimentare și alergenii** (de exemplu, „Fără gluten”, „Conține nuci”)
+
+---
+
+## Observații importante
+
+- **Claritate în comunicarea comenzilor**: Chiar dacă un oaspete explorează meniul și comandă într-o limbă străină, bonurile trimise către ecranul din bucătărie (KDS), POS-ul ospătarilor și imprimantele termice păstrează denumirile standard, astfel încât bucătarii să nu primească bonuri confuze sau traduse eronat.
+- **Doar câmpuri de afișare**: Traducerile actualizează doar textele vizibile clienților. Prețurile, modificatorii și codurile preparatelor rămân identice în toate limbile.
+
+---
+
+## Ce puteți face dacă întâmpinați probleme
+
+- **Un preparat apare în limba principală**: Dacă un preparat nou adăugat nu a apărut încă în limba tradusă pe telefonul oaspetelui, mergeți la **Setări > General** și apăsați pe **Tradu tot acum**. Apoi reîmprospătați pagina meniului pe telefon.
+- **Steagul unei limbi nu apare în meniu**: Asigurați-vă că limba respectivă este bifată la **Limbi țintă** în **Setări > General** și că ați apăsat pe **Salvează modificările**.

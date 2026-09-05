@@ -19,3 +19,5 @@ The exact documents and actions available depend on the Stripe customer and merc
 ## Subscription Billing vs Customer Payments
 
 The Billing page covers the restaurant's Renova subscription. Payments made by restaurant guests for orders are separate transactions and do not appear as Renova subscription invoices.
+ 
+*(For details on guest pay-at-table settlements and payment gateways, see [Digital Payments & Reconciliation](/guides/payments-integrations/payment-providers))*

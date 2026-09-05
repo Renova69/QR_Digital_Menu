@@ -3,9 +3,35 @@
 Implementation/review/merge: complete via PR #57. The original backend
 deployment checkpoint was 28 Aug 2026 at
 `e75007853d333186cdbc76db1dd20551b2b6e2ad`; the current production image for
-`445afc6d` still contains the session controls. Manual verification is partial:
-two simultaneous browser sessions were confirmed, but the complete
-revocation/socket/legacy/cross-account matrix below is not yet signed off.
+`445afc6d` still contains the session controls.
+
+**Operational status (5 Sep 2026): CLOSED for application scope.** The remaining
+revocation, socket, sign-out-everywhere, cross-account, PIN re-login, and
+step-up session checks passed against merged `main` in a fresh disposable local
+environment. Backend deployment and a repeat against the serving revision are
+intentionally excluded from this close-out and remain a pre-launch gate.
+
+## Manual verification — 5 Sep 2026
+
+Target: branch `codex/p3-operational-closeout` at merged `origin/main`
+(`6e2f243495943d081595044c42a647fef21f8060`), local backend/frontend on
+`:3000`/`:3001`, and a newly created disposable PostgreSQL database on
+`:55432`. No remote database or backend deployment was used.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Individual session revocation + socket eviction | PASS | Two password sessions were created; revoking the second from the first returned `200`, its authenticated Socket.IO client ended with `io server disconnect`, and the revoked token returned `401` from `/auth/me`. |
+| Sign out everywhere | PASS | `DELETE /auth/sessions` returned `200`; both prior sessions returned `401`, while a newly issued session returned `200` from `/auth/me`. |
+| Cross-account isolation | PASS | Revoking a session belonging to the other demo account returned `404`; that account's own `/auth/me` remained `200`. |
+| PIN re-login | PASS | A one-time device-enrolment link was consumed, shared-device state remained configured, and PIN `2468` re-entered the waiter at `/staff/pos`. |
+| Step-up after fresh strong login | PASS | Fresh password login permitted the sensitive payment-toggle action after `CONFIRM`; the UI showed the success state. |
+| Step-up expiry + translated rejection | PASS | After aging the active session beyond five minutes in the disposable database, the same action returned `403` and the UI rendered the localized copy `Sign in again before performing this sensitive action.` |
+| Step-up after re-login | PASS | A new password login restored access to the same sensitive action. |
+| PIN cannot satisfy step-up | PASS | The runtime `StepUpAuthGuard` rejected an active `WAITER` session with `authMethod=PIN` using code `STEP_UP_REQUIRED`; no PIN session was accepted as strong authentication. |
+
+The local checks exercised the merged application behavior only. They do not
+replace the future production-serving-revision check after the deliberately
+deferred backend deployment.
 
 ## Verified deployment checkpoint — 28 Aug 2026
 
