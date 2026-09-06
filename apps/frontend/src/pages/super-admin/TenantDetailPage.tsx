@@ -43,6 +43,11 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import {
+  IMPORT_ERROR_DEFAULTS,
+  isImportErrorKey,
+  jsonToPayload,
+} from "../../lib/menuImport";
 
 const TIERS = ["FREE", "STARTER", "PROFESSIONAL", "ENTERPRISE"] as const;
 
@@ -246,7 +251,16 @@ export default function TenantDetailPage() {
         message?: string;
       };
       const msg = e?.response?.data?.message ?? e?.message ?? "Import failed";
-      setImportError(typeof msg === "string" ? msg : JSON.stringify(msg));
+      if (Array.isArray(msg)) {
+        const key = "importExport.errors.validationFailed";
+        setImportError(t(key, IMPORT_ERROR_DEFAULTS[key]));
+        return;
+      }
+      if (isImportErrorKey(msg)) {
+        setImportError(t(msg, IMPORT_ERROR_DEFAULTS[msg]));
+        return;
+      }
+      setImportError(typeof msg === "string" ? msg : "Import failed");
     },
   });
 
@@ -354,14 +368,17 @@ export default function TenantDetailPage() {
 
   const handleImport = () => {
     setImportError(null);
-    let parsed: object;
     try {
-      parsed = JSON.parse(importJson);
-    } catch {
-      setImportError("Invalid JSON — check the format and try again.");
+      const categories = jsonToPayload(importJson);
+      importMutation.mutate({ categories });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const key = isImportErrorKey(message)
+        ? message
+        : "importExport.errors.invalidJson";
+      setImportError(t(key, IMPORT_ERROR_DEFAULTS[key]));
       return;
     }
-    importMutation.mutate(parsed);
   };
 
   if (isLoading) {

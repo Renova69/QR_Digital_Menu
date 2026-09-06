@@ -238,7 +238,7 @@ const DashboardPage = () => {
   };
   const activeRestaurantId = normalizeRestaurantId(activeRestaurant?.id);
   const publicMenuUrl = activeRestaurantId
-    ? buildMenuReturnUrl(activeRestaurantId, "1", null, activeRestaurant?.slug)
+    ? buildMenuReturnUrl(activeRestaurantId, null, null, activeRestaurant?.slug)
     : null;
   const canAnalytics = useFeature("analytics:full");
   const canOrders = useFeature("orders:receive");
@@ -657,7 +657,7 @@ const DashboardPage = () => {
                 style={{ background: "var(--brand)" }}
               >
                 <Users className="w-3.5 h-3.5" />
-                {t("dashboard.viewPublicMenu", "View Menu")}
+                {t("dashboard.viewPublicMenu", "Preview Public Menu")}
               </a>
             )}
           </div>
@@ -902,7 +902,9 @@ const DashboardPage = () => {
                 style={{ background: "var(--brand)" }}
               >
                 <Users className="w-[18px] h-[18px]" />
-                <span>{t("dashboard.viewPublicMenu", "View Menu")}</span>
+                <span>
+                  {t("dashboard.viewPublicMenu", "Preview Public Menu")}
+                </span>
               </a>
             )}
 

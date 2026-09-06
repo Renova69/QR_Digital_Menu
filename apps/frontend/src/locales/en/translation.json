@@ -121,7 +121,7 @@
   "dashboard": {
     "title": "Restaurant Dashboard",
     "welcome": "Welcome back, {{name}}",
-    "viewPublicMenu": "View Public Menu",
+    "viewPublicMenu": "Preview Public Menu",
     "overview": "Overview",
     "viewFullAnalytics": "View Full Analytics →",
     "totalRevenue": "Total Revenue",
@@ -3213,7 +3213,19 @@
     "keyConfigured": "A key is configured. It cannot be displayed again — regenerate to issue a new one.",
     "xlsxSheetCategories": "Categories",
     "xlsxSheetItems": "Items",
-    "xlsxSheetOptions": "Options & Choices"
+    "xlsxSheetOptions": "Options & Choices",
+    "errors": {
+      "csvUnclosedQuote": "The CSV contains an unclosed quoted field.",
+      "csvNoRows": "The CSV does not contain any data rows.",
+      "csvMissingColumns": "The CSV must include category and item_name columns.",
+      "xlsxNoRows": "The spreadsheet does not contain any data rows.",
+      "xlsxMissingColumns": "The spreadsheet must include category and item_name columns.",
+      "parseFailed": "We couldn't read this menu file. Make sure it is valid JSON, CSV, or XLSX and try again.",
+      "invalidJson": "We couldn't read this menu file. Make sure it is valid JSON and try again.",
+      "invalidPrice": "Use a valid euro price with at most two decimal places (for example 12.50 or 12,50).",
+      "eurOnly": "Only EUR prices can be imported.",
+      "validationFailed": "Some menu data is invalid. Check item names, EUR prices, and options, then try again."
+    }
   },
   "bulkEdit": {
     "title": "Bulk Edit",

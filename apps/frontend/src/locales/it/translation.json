@@ -823,7 +823,7 @@
   "dashboard": {
     "title": "Pannello di controllo del ristorante",
     "welcome": "Bentornato, {{name}}",
-    "viewPublicMenu": "Visualizza il menu pubblico",
+    "viewPublicMenu": "Anteprima del menu pubblico",
     "overview": "Panoramica",
     "viewFullAnalytics": "Visualizza le statistiche complete →",
     "totalRevenue": "Ricavi totali",
@@ -3344,7 +3344,19 @@
     "keyConfigured": "Una chiave è stata configurata. Non è possibile visualizzarla nuovamente: generarla nuovamente per ottenerne una nuova.",
     "xlsxSheetCategories": "Categorie",
     "xlsxSheetItems": "Articoli",
-    "xlsxSheetOptions": "Opzioni e scelte"
+    "xlsxSheetOptions": "Opzioni e scelte",
+    "errors": {
+      "csvUnclosedQuote": "Il file CSV contiene un campo tra virgolette non chiuso.",
+      "csvNoRows": "Il file CSV non contiene righe di dati.",
+      "csvMissingColumns": "Il file CSV deve includere le colonne category e item_name.",
+      "xlsxNoRows": "Il foglio di calcolo non contiene righe di dati.",
+      "xlsxMissingColumns": "Il foglio di calcolo deve includere le colonne category e item_name.",
+      "parseFailed": "Non siamo riusciti a leggere il file del menu. Assicurati che sia un file JSON, CSV o XLSX valido e riprova.",
+      "invalidJson": "Non siamo riusciti a leggere il file del menu. Assicurati che contenga JSON valido e riprova.",
+      "invalidPrice": "Usa un prezzo valido in euro con un massimo di due decimali (ad esempio 12.50 o 12,50).",
+      "eurOnly": "È possibile importare solo prezzi in EUR.",
+      "validationFailed": "Alcuni dati del menu non sono validi. Controlla nomi, prezzi in EUR e opzioni, quindi riprova."
+    }
   },
   "onboarding": {
     "brand": "Menu QR",
