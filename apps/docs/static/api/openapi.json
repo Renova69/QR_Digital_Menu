@@ -7492,6 +7492,12 @@
       "ImportItemDto": {
         "type": "object",
         "properties": {
+          "currency": {
+            "enum": [
+              "EUR"
+            ],
+            "type": "string"
+          },
           "name": {
             "type": "string",
             "maxLength": 100
@@ -7511,13 +7517,6 @@
           "weight": {
             "type": "string",
             "maxLength": 100
-          },
-          "currency": {
-            "type": "string",
-            "enum": [
-              "EUR",
-              "BGN"
-            ]
           },
           "allergens": {
             "maxItems": 50,
@@ -8501,6 +8500,12 @@
       "CreateItemDto": {
         "type": "object",
         "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR"
+            ]
+          },
           "name": {
             "type": "string",
             "maxLength": 100
@@ -8520,13 +8525,6 @@
           "weight": {
             "type": "string",
             "maxLength": 100
-          },
-          "currency": {
-            "type": "string",
-            "enum": [
-              "EUR",
-              "BGN"
-            ]
           },
           "allergens": {
             "maxItems": 15,
@@ -8582,9 +8580,9 @@
           }
         },
         "required": [
+          "currency",
           "name",
-          "price",
-          "currency"
+          "price"
         ]
       },
       "UpdateItemTranslationDto": {
@@ -8616,6 +8614,12 @@
       "UpdateItemDto": {
         "type": "object",
         "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR"
+            ]
+          },
           "imageUrl": {
             "type": "string",
             "nullable": true,
@@ -8648,13 +8652,6 @@
           "weight": {
             "type": "string",
             "maxLength": 100
-          },
-          "currency": {
-            "enum": [
-              "EUR",
-              "BGN"
-            ],
-            "type": "string"
           },
           "allergens": {
             "maxItems": 15,
@@ -8760,6 +8757,12 @@
       "BulkItemUpdateDto": {
         "type": "object",
         "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR"
+            ]
+          },
           "imageUrl": {
             "type": "string",
             "nullable": true,
@@ -8792,13 +8795,6 @@
           "weight": {
             "type": "string",
             "maxLength": 100
-          },
-          "currency": {
-            "enum": [
-              "EUR",
-              "BGN"
-            ],
-            "type": "string"
           },
           "allergens": {
             "maxItems": 15,

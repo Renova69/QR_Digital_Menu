@@ -7,6 +7,7 @@ import {
   getPublicLegalSettings,
   exportUserData,
   deleteUserAccount,
+  getAuthSessions,
 } from "../../lib/api";
 import { getApiError } from "../../lib/apiError";
 import { useAuth } from "../../context/AuthContext";
@@ -46,7 +47,28 @@ export default function DataPrivacyTab() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteUserAccount,
+    mutationFn: async () => {
+      // Check freshness without consuming the destructive endpoint's hourly
+      // attempt. The server guard remains authoritative for the deletion.
+      const { sessions } = await getAuthSessions();
+      const session = sessions.find((candidate) => candidate.current);
+      const age = session ? Date.now() - Date.parse(session.createdAt) : NaN;
+      const expiresAt = session ? Date.parse(session.expiresAt) : NaN;
+      if (
+        !session ||
+        !["PASSWORD", "GOOGLE", "OTP"].includes(session.authMethod) ||
+        !Number.isFinite(age) ||
+        age < 0 ||
+        age >= 4 * 60_000 ||
+        !Number.isFinite(expiresAt) ||
+        expiresAt <= Date.now()
+      ) {
+        throw Object.assign(new Error("STEP_UP_REQUIRED"), {
+          response: { data: { code: "STEP_UP_REQUIRED" } },
+        });
+      }
+      return deleteUserAccount();
+    },
     onSuccess: () => {
       logout();
       navigate("/");
@@ -107,11 +129,6 @@ export default function DataPrivacyTab() {
                     </button>
                   </AlertDialog.Action>
                 </div>
-                {deleteMutation.isError && (
-                  <p className="text-xs text-red-500 mt-3 text-center">
-                    {t(getApiError(deleteMutation.error))}
-                  </p>
-                )}
               </AlertDialog.Content>
             </AlertDialog.Portal>
           </AlertDialog.Root>
@@ -119,6 +136,22 @@ export default function DataPrivacyTab() {
       </div>
 
       {exportError && <p className="text-xs text-red-500">{exportError}</p>}
+      {deleteMutation.isError && (
+        <div role="alert" className="text-sm text-red-500 space-y-2">
+          <p>{t(getApiError(deleteMutation.error))}</p>
+          {getApiError(deleteMutation.error) === "apiErrors.stepUpRequired" && (
+            <button
+              className="underline font-medium"
+              onClick={async () => {
+                await logout();
+                navigate("/login");
+              }}
+            >
+              {t("profile.loginButton")}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

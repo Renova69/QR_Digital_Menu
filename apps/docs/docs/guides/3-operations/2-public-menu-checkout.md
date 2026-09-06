@@ -12,7 +12,7 @@ Renova provides a lightning-fast, phone-first dining experience. Guests scan a t
 
 ## What Guests Can Do
 
-- **Fast Browsing**: Scroll through categorized dishes, view high-resolution photos, and check dual-currency pricing (e.g., EUR and BGN).
+- **Fast Browsing**: Scroll through categorized dishes, view photos, and check prices in EUR.
 - **Instant Search & Allergen Filtering**: Filter dishes by dietary preferences (Vegan, Vegetarian) or exclude specific allergens (Gluten, Dairy, Peanuts, Seafood).
 - **Customized Orders**: Select sizes, doneness, and paid add-ons, or enter custom kitchen instructions (such as "Dressing on the side").
 - **Table Assistance**: Tap a single button to call a waiter or request a physical cash payment at the table.

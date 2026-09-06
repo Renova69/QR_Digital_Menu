@@ -24,11 +24,6 @@ const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
 const MAX_IMPORT_TOTAL_ITEMS = 1_000;
 const MAX_IMPORT_TOTAL_OPTIONS = 2_000;
 const MAX_IMPORT_TOTAL_CHOICES = 5_000;
-// BNB fixed rate; Bulgaria adopted the euro 2026-01-01. EUR is the only
-// transactional currency (F-FE-1/F-FE-3) — an imported BGN price is
-// normalized to EUR here rather than stored as authoritative BGN.
-const BGN_TO_EUR_RATE = 1.95583;
-const VALID_IMPORT_CURRENCIES = new Set(['EUR', 'BGN']);
 
 type ImageRefExclusions = {
   excludeItemIds?: string[];
@@ -238,25 +233,17 @@ export class MenuImportService {
           const itemName = item.name.trim();
           // Reject unrecognized currencies instead of silently treating them
           // as EUR — an import with e.g. "USD" must not be misread as EUR.
-          const normalizedCurrency = item.currency?.toUpperCase();
+          const normalizedCurrency = item.currency?.trim().toUpperCase();
           if (
             normalizedCurrency !== undefined &&
-            !VALID_IMPORT_CURRENCIES.has(normalizedCurrency)
+            normalizedCurrency !== 'EUR'
           ) {
             throw new BadRequestException(
-              `Unsupported currency "${item.currency}" for item "${itemName}" — only EUR and BGN are accepted.`,
+              `Unsupported currency "${item.currency}" for item "${itemName}" — only EUR is accepted.`,
             );
           }
-          // F-FE-1/F-FE-3: normalize a BGN-tagged import to EUR at write
-          // time — cart/order totals downstream treat every stored price as
-          // EUR, so an authoritative BGN row would silently under/over-charge.
-          const isImportedBgn = normalizedCurrency === 'BGN';
-          const price = isImportedBgn
-            ? Math.round(((item.price ?? 0) / BGN_TO_EUR_RATE) * 100) / 100
-            : (item.price ?? 0);
-          const costPrice = isImportedBgn
-            ? Math.round(((item.costPrice ?? 0) / BGN_TO_EUR_RATE) * 100) / 100
-            : (item.costPrice ?? 0);
+          const price = item.price ?? 0;
+          const costPrice = item.costPrice ?? 0;
           const rewardPointsMode =
             item.rewardPointsMode ??
             (item.rewardPointsPrice !== undefined
@@ -361,17 +348,11 @@ export class MenuImportService {
 
           for (const opt of item.options ?? []) {
             if (!opt.choices?.length) continue;
-            // F-FE-1/F-FE-3: choice price deltas are stored on the option,
-            // not the item — the parent item's isImportedBgn conversion
-            // above doesn't touch these, so they need the same normalization
-            // or a BGN "+2" upcharge gets reinterpreted as "+2 EUR" downstream.
+            // External formats may call a modifier "price"; store only the
+            // canonical field consumed by ordering and billing.
             const choices = opt.choices.map((c: any) => ({
               name: c.name,
-              priceModifier: isImportedBgn
-                ? Math.round(
-                    ((c.priceModifier ?? c.price ?? 0) / BGN_TO_EUR_RATE) * 100,
-                  ) / 100
-                : (c.priceModifier ?? c.price ?? 0),
+              priceModifier: c.priceModifier ?? c.price ?? 0,
               ...(c.weight ? { weight: c.weight } : {}),
             }));
             const optType =

@@ -1,6 +1,6 @@
 import writeXlsxFile from "write-excel-file/browser";
 import type { TFunction } from "i18next";
-import { BGN_RATE } from "./currency";
+
 import { MENU_TAGS } from "./menuTags";
 
 export interface MenuExportCategory {
@@ -43,7 +43,6 @@ interface Cell {
 const HEADER_BG = "#4f46e5";
 const HEADER_FG = "#ffffff";
 const EUR_FORMAT = '"EUR "#,##0.00';
-const BGN_FORMAT = '#,##0.00" BGN"';
 
 function h(value: string): Cell {
   return {
@@ -56,10 +55,6 @@ function h(value: string): Cell {
 
 function eur(value: number): Cell {
   return { value, type: Number, format: EUR_FORMAT };
-}
-
-function bgn(eurValue: number): Cell {
-  return { value: eurValue * BGN_RATE, type: Number, format: BGN_FORMAT };
 }
 
 // Excel / Google Sheets interpret a cell whose text starts with = + - @ (or a
@@ -123,7 +118,6 @@ export async function downloadMenuExport(
       h(ex("colItemName", "Item Name")),
       h(ex("colDescription", "Description")),
       h(ex("colPriceEur", "Price EUR")),
-      h(ex("colPriceBgn", "Price BGN")),
       h(ex("colWeight", "Weight")),
       h(ex("colAllergens", "Allergens")),
       h(ex("colDietaryTags", "Dietary Tags")),
@@ -139,7 +133,6 @@ export async function downloadMenuExport(
         text(item.name),
         text(item.description),
         eur(price),
-        bgn(price),
         text(item.weight),
         text((item.allergens ?? []).join(", ")),
         text((item.dietaryTags ?? []).join(", ")),
@@ -151,7 +144,7 @@ export async function downloadMenuExport(
   if (itemsSheet.length === 1) {
     itemsSheet.push([
       text(ex("noData", "No items")),
-      ...Array(8).fill({ value: null }),
+      ...Array(7).fill({ value: null }),
     ]);
   }
 
@@ -163,7 +156,6 @@ export async function downloadMenuExport(
       h(ex("colOption", "Option")),
       h(ex("colChoice", "Choice")),
       h(ex("colModifierEur", "Modifier EUR")),
-      h(ex("colModifierBgn", "Modifier BGN")),
     ],
   ];
 
@@ -178,7 +170,6 @@ export async function downloadMenuExport(
             text(option.name),
             text(choice.name),
             eur(mod),
-            bgn(mod),
           ]);
         }
       }
@@ -188,7 +179,7 @@ export async function downloadMenuExport(
   if (optionsSheet.length === 1) {
     optionsSheet.push([
       text(ex("noData", "No options")),
-      ...Array(5).fill({ value: null }),
+      ...Array(4).fill({ value: null }),
     ]);
   }
 
@@ -228,7 +219,6 @@ export async function downloadMenuExport(
         { width: 30 },
         { width: 50 },
         { width: 14 },
-        { width: 14 },
         { width: 12 },
         { width: 26 },
         { width: 26 },
@@ -243,7 +233,6 @@ export async function downloadMenuExport(
         { width: 28 },
         { width: 24 },
         { width: 26 },
-        { width: 14 },
         { width: 14 },
       ],
       data: optionsSheet as any,

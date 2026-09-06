@@ -8,7 +8,7 @@ Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` dire
 
 - **`apps/backend`** — NestJS 11 + Prisma 6 + Supabase (hosted Postgres, pooled). API on `:3000` under `/api`, Swagger at `/api-docs`.
 - **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
-- **Currency** — `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` at BNB fixed rate 1 EUR = 1.95583 BGN. Used in CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions.
+- **Currency** — EUR only. `apps/frontend/src/lib/currency.ts` provides `formatEuro()` for menu prices, cart, checkout, and payments. Imports reject non-EUR currencies; exports contain EUR amounts only. Do not add secondary currency displays or conversion paths.
 
 ## Reference docs
 
@@ -160,7 +160,7 @@ Key files for the options flow:
 - **API client** — `src/lib/api.ts` (axios + CSRF interceptor) always uses same-origin `/api/v1`. Vite proxies it in development; `vercel.json` rewrites it to Cloud Run in production. `withCredentials: true` sends the httpOnly cookie. CSRF token is fetched once, cached, and attached to state-changing requests. The 401 interceptor skips `/auth/me` to prevent a logout loop. All HTTP requests go through this client — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 - **Menu import/export** — `src/pages/Dashboard/MenuImportExportView.tsx` (~380 lines). Combined Import/Export dashboard tab with sub-tab navigation. `ImportTab` accepts both JSON and XLSX files (full roundtrip: export → edit in Excel → re-import). Contains OCR JSON import flow (ApiKeyPanel, FileImporter, PreviewTable, confirm import with mutation). `ExportTab` offers Download JSON, Download XLSX, Download CSV (`menuToCSV()` with BOM + European locale), Copy JSON. Uses lazy fetch (`useQuery({ enabled: false })`) — data fetched on button click only. `exportMenu()` in `api.ts` calls `GET /api/restaurants/:id/menu/export` (JWT-guarded, backend endpoint already existed). Tab label key: `dashboard.tabs.importExport`.
-- **Analytics export** — `src/lib/analyticsExport.ts` (217 lines). Multi-sheet XLSX workbook generation replacing single-sheet CSV. 5 sheets: Summary, Revenue Trend, Top Items, Peak Hours, Category Breakdown. BGN dual-currency columns. Used by `AnalyticsView.tsx` via download button.
+- **Analytics export** — `src/lib/analyticsExport.ts`. Multi-sheet XLSX workbook generation with EUR monetary columns. Used by `AnalyticsView.tsx` via download button. The installed `write-excel-file` v4 browser API uses `.toFile(fileName)`.
 - **Help Center CMS** — `src/pages/super-admin/HelpCenterPage.tsx` (~507 lines). Database-driven CMS for all Help/FAQ content. Sub-tabs for Landing FAQ and Dashboard Help sections. Locale tabs (EN/BG/RO). Inline CRUD with modal forms. `LandingFAQ.tsx` on home page fetches from API (`getHelpContent('landing', locale)`). `HelpView.tsx` in dashboard fetches from API. Backend: `HelpContentModule` with 6 endpoints — public `GET /help-content/:section` (grouped by category, ordered by sortOrder) + super-admin CRUD under `/super-admin/help-content`. Seed: `prisma/seed-help-content.ts` (idempotent, checks existing count) + `prisma/seed-help-only.ts` (help-only, zero destructive ops). Help content is tri-lingual (EN/BG/RO) per item.
 
 ## Conventions & gotchas

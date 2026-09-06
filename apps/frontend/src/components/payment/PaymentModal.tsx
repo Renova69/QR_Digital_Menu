@@ -18,7 +18,7 @@ import {
 import { Button } from "../ui/button";
 import { useTranslation } from "react-i18next";
 import { Banknote, ReceiptText, Users, X } from "lucide-react";
-import { formatEuro, formatBgn } from "../../lib/currency";
+import { formatEuro } from "../../lib/currency";
 import { getCustomerFacingOrderSourceLabel } from "../../lib/orderSourceLabel";
 import { useSocket } from "../../context/SocketContext";
 import {
@@ -495,9 +495,6 @@ function PaymentForm({
             <span>{t("payment.subtotal", "Subtotal")}</span>
             <div className="text-right">
               <div>{formatEuro(total - tipAmount)}</div>
-              <span className="text-xs text-muted-foreground">
-                {formatBgn(total - tipAmount)}
-              </span>
             </div>
           </div>
           {tipAmount > 0 && (
@@ -505,9 +502,6 @@ function PaymentForm({
               <span>{t("payment.tip", "Tip")}</span>
               <div className="text-right">
                 <div>{formatEuro(tipAmount)}</div>
-                <span className="text-xs text-muted-foreground">
-                  {formatBgn(tipAmount)}
-                </span>
               </div>
             </div>
           )}
@@ -515,9 +509,6 @@ function PaymentForm({
             <span>{t("payment.total", "Total")}</span>
             <div className="text-right">
               <div>{formatEuro(total)}</div>
-              <span className="text-xs text-muted-foreground">
-                {formatBgn(total)}
-              </span>
             </div>
           </div>
         </div>
@@ -1268,9 +1259,6 @@ export function PaymentModal({
                 <p className="text-2xl font-bold">
                   {formatEuro(activeSubtotal)}
                 </p>
-                <span className="text-xs text-muted-foreground">
-                  {formatBgn(activeSubtotal)}
-                </span>
               </div>
 
               {bill.tipsEnabled && (
@@ -1519,9 +1507,6 @@ export function PaymentModal({
                   <span>{t("payment.total", "Total")}</span>
                   <div className="text-right">
                     <div>{formatEuro(payment.total)}</div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatBgn(payment.total)}
-                    </span>
                   </div>
                 </div>
               </div>

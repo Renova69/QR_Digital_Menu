@@ -59,7 +59,7 @@ describe('ImportMenuDto validation', () => {
         menu([
           {
             name: 'Mains',
-            items: [{ name: 'Soup', price: 5, currency: 'bgn' }],
+            items: [{ name: 'Soup', price: 5, currency: ' eur ' }],
           },
         ]),
       ),
@@ -73,7 +73,7 @@ describe('ImportMenuDto validation', () => {
           },
         ]),
       ),
-    ).toContain('isEnum');
+    ).toContain('isIn');
   });
 
   it('validates imported tags, upsell contexts, and priceModifier', () => {

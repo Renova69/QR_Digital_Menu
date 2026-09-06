@@ -51,7 +51,6 @@ const PaymentSettingsTab: React.FC = () => {
   const [boricaPrivateKeyConfigured, setBoricaPrivateKeyConfigured] =
     useState(false);
   const [boricaPublicCert, setBoricaPublicCert] = useState("");
-  const [boricaCurrency, setBoricaCurrency] = useState<"EUR" | "BGN">("EUR");
   const [myposEnabled, setMyposEnabled] = useState(false);
   const [myposMode, setMyposMode] = useState<"DEMO" | "LIVE">("DEMO");
   const [myposClientNumber, setMyposClientNumber] = useState("");
@@ -104,9 +103,6 @@ const PaymentSettingsTab: React.FC = () => {
         activeRestaurant.boricaPrivateKeyConfigured ?? false,
       );
       setBoricaPublicCert(activeRestaurant.boricaPublicCert ?? "");
-      setBoricaCurrency(
-        (activeRestaurant.boricaCurrency ?? "EUR") as "EUR" | "BGN",
-      );
       setMyposEnabled(activeRestaurant.myposEnabled ?? false);
       setMyposMode((activeRestaurant.myposMode ?? "DEMO") as "DEMO" | "LIVE");
       setMyposClientNumber(activeRestaurant.myposClientNumber ?? "");
@@ -166,7 +162,7 @@ const PaymentSettingsTab: React.FC = () => {
         boricaMerchantId: boricaMerchantId.trim() || null,
         boricaMerchantName: boricaMerchantName.trim() || null,
         boricaPublicCert: boricaPublicCert.trim() || null,
-        boricaCurrency,
+        boricaCurrency: "EUR",
         ...(trimmedBoricaKey ? { boricaPrivateKey: trimmedBoricaKey } : {}),
         myposEnabled,
         myposMode,

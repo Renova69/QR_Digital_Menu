@@ -14,6 +14,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersDataService } from './users-data.service';
 import { clearAuthTokenCookie } from '../auth/auth-cookie';
+import { RequireStepUp } from '../auth/step-up-auth.guard';
 
 @ApiTags('users-data')
 @Controller('users/me')
@@ -28,6 +29,7 @@ export class UsersDataController {
   }
 
   @Delete('delete')
+  @RequireStepUp()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 1, ttl: 3_600_000 } })
   @ApiOperation({

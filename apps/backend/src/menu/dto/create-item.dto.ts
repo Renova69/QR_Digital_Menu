@@ -14,6 +14,7 @@ import {
   ArrayUnique,
 } from 'class-validator';
 import { UPSELL_CONTEXTS } from '../upsell/upsell-context';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   REWARD_POINTS_MODES,
   RewardPointsModeValue,
@@ -21,7 +22,6 @@ import {
 
 export enum Currency {
   EUR = 'EUR',
-  BGN = 'BGN',
 }
 
 export class CreateItemDto {
@@ -49,11 +49,10 @@ export class CreateItemDto {
   @MaxLength(100)
   weight?: string;
 
-  // F-FE-1/F-FE-3: EUR is the only transactional currency (Bulgaria adopted
-  // the euro 2026-01-01). BGN is display-only via a fixed-rate conversion at
-  // the public-menu presentation boundary — never an authoritative price.
+  // EUR is the only supported currency across the product.
+  @ApiProperty({ enum: [Currency.EUR] })
   @IsIn([Currency.EUR], {
-    message: 'currency must be EUR — BGN is display-only, never transactional',
+    message: 'currency must be EUR',
   })
   currency: Currency;
 

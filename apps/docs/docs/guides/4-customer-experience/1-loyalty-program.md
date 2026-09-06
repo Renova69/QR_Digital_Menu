@@ -89,7 +89,7 @@ The effective reward percentage is `Earn Rate ÷ Redeem Rate × 100`. With the d
 ## Important Notes
 
 - **Multiplier Strategy**: If an order takes place during an active Happy Hour (e.g., 2.0x) and the guest also has a Gold VIP multiplier (e.g., 1.5x), Renova applies the higher multiplier (2.0x) rather than multiplying them together.
-- **Dual Currency Balance**: Point values and rewards calculate against your restaurant's base currency and display accurately in dual currency.
+- **EUR Reward Values**: Point values and reward discounts are calculated and displayed in EUR.
 
 ---
 

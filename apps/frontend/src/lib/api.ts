@@ -1714,7 +1714,7 @@ export type BulkEditItem = {
   price: number;
   costPrice: number | null;
   weight: string | null;
-  currency: "EUR" | "BGN";
+  currency: "EUR";
   categoryId: string;
   allergens: string[];
   dietaryTags: string[];
@@ -2514,7 +2514,9 @@ export const retryReservationNotification = (
     .post<{
       id: string;
       status: NotificationDeliveryStatus;
-    }>(`/restaurants/${restaurantId}/notification-deliveries/${deliveryId}/retry`)
+    }>(
+      `/restaurants/${restaurantId}/notification-deliveries/${deliveryId}/retry`,
+    )
     .then((r) => r.data);
 
 export const getReservationSettings = (restaurantId: string) =>

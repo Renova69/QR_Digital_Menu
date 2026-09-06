@@ -73,7 +73,7 @@ Sometimes dining bills are paid outside of the digital menu (for example, when a
 ## Important Notes
 
 - **Direct Payouts**: Renova does not hold your restaurant's funds. All customer payments flow directly through your connected payment gateway into your designated bank account according to your provider's payout schedule.
-- **Currency Support**: Digital payments are processed in your venue's primary currency (e.g., EUR or BGN) with dual-currency conversions clearly itemized on the guest's receipt.
+- **Currency**: Digital payments and guest receipts use EUR.
 
 ---
 

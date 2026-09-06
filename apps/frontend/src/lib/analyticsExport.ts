@@ -1,7 +1,6 @@
 import writeXlsxFile from "write-excel-file/browser";
 import type { TFunction } from "i18next";
 import type { AnalyticsData, PeakHour } from "../hooks/useAnalytics";
-import { BGN_RATE } from "./currency";
 
 export interface ExportMeta {
   restaurantName: string;
@@ -33,7 +32,7 @@ const HEADER_BG = "#4f46e5";
 const SECTION_BG = "#ede9fe";
 const HEADER_FG = "#ffffff";
 const EUR_FORMAT = '"EUR "#,##0.00';
-const BGN_FORMAT = '#,##0.00" BGN"';
+
 const PCT_FORMAT = '0.0"%"';
 
 const dayParts = [
@@ -81,10 +80,6 @@ function section(value: string, cols: number): Cell[] {
 
 function eur(value: number): Cell {
   return { value, type: Number, format: EUR_FORMAT };
-}
-
-function bgn(eurValue: number): Cell {
-  return { value: eurValue * BGN_RATE, type: Number, format: BGN_FORMAT };
 }
 
 function int(value: number): Cell {
@@ -207,7 +202,6 @@ function getDayPartRows(data: AnalyticsData, t: TFunction): Cell[][] {
       text(part.range.map(formatHour).join(", ")),
       int(orders),
       eur(revenue),
-      bgn(revenue),
       pct(safePercent(orders, data.totalOrders)),
       pct(safePercent(revenue, totalHourRevenue)),
     ];
@@ -272,12 +266,11 @@ export async function downloadAnalyticsExport(
   const paymentMethods = data.paymentsByMethod ?? [];
 
   const summarySheet: Cell[][] = [
-    section(ex("sections.exportDetails", "Export details"), 5),
+    section(ex("sections.exportDetails", "Export details"), 4),
     [
       h(ex("columns.field", "Field")),
       h(ex("columns.value", "Value")),
       h(ex("columns.eur", "EUR")),
-      h(ex("columns.bgn", "BGN")),
       h(ex("columns.notes", "Notes")),
     ],
     [
@@ -285,12 +278,10 @@ export async function downloadAnalyticsExport(
       text(meta.restaurantName),
       empty(),
       empty(),
-      empty(),
     ],
     [
       text(ex("summary.period", "Period")),
       text(range.label),
-      empty(),
       empty(),
       text(
         ex("labels.previousPeriod", "Previous: {{start}} to {{end}}", {
@@ -304,28 +295,24 @@ export async function downloadAnalyticsExport(
       text(new Date().toLocaleString([], { hour12: false })),
       empty(),
       empty(),
-      empty(),
     ],
-    [empty(), empty(), empty(), empty(), empty()],
-    section(ex("sections.kpiCards", "KPI cards"), 5),
+    [empty(), empty(), empty(), empty()],
+    section(ex("sections.kpiCards", "KPI cards"), 4),
     [
       h(ex("columns.metric", "Metric")),
       h(ex("columns.value", "Value")),
       h(ex("columns.eur", "EUR")),
-      h(ex("columns.bgn", "BGN")),
       h(ex("columns.changeDetail", "Change / detail")),
     ],
     [
       text(ex("metrics.revenue", "Revenue")),
       empty(),
       eur(data.totalRevenue),
-      bgn(data.totalRevenue),
       pct(data.comparison.revenueChange),
     ],
     [
       text(ex("metrics.orders", "Orders")),
       int(data.totalOrders),
-      empty(),
       empty(),
       pct(data.comparison.ordersChange),
     ],
@@ -333,20 +320,17 @@ export async function downloadAnalyticsExport(
       text(ex("metrics.avgOrderValue", "Average order value")),
       empty(),
       eur(data.avgOrderValue),
-      bgn(data.avgOrderValue),
       pct(data.comparison.avgOrderValueChange),
     ],
     [
       text(ex("metrics.activeCustomers", "Active customers")),
       int(data.activeCustomers),
       empty(),
-      empty(),
       pct(data.comparison.activeCustomersChange),
     ],
     [
       text(ex("metrics.completionRate", "Completion rate")),
       pct(data.completionRate),
-      empty(),
       empty(),
       text(
         ex("labels.completedOrders", "{{count}} completed orders", {
@@ -358,37 +342,32 @@ export async function downloadAnalyticsExport(
       text(ex("metrics.repeatGuests", "Repeat guests")),
       pct(data.repeatCustomerRate ?? 0),
       empty(),
-      empty(),
       text(ex("labels.repeatGuestsDetail", "Share of guests with 2+ orders")),
     ],
-    [empty(), empty(), empty(), empty(), empty()],
-    section(ex("sections.revenueReconciliation", "Revenue reconciliation"), 5),
+    [empty(), empty(), empty(), empty()],
+    section(ex("sections.revenueReconciliation", "Revenue reconciliation"), 4),
     [
       h(ex("columns.stage", "Stage")),
       h(ex("columns.value", "Value")),
       h(ex("columns.eur", "EUR")),
-      h(ex("columns.bgn", "BGN")),
       h(ex("columns.notes", "Notes")),
     ],
     [
       text(ex("reconciliation.ordered", "Ordered revenue")),
       empty(),
       eur(data.totalRevenue),
-      bgn(data.totalRevenue),
       text(ex("reconciliation.orderedNote", "Order rows, excludes canceled")),
     ],
     [
       text(ex("reconciliation.collected", "Collected")),
       empty(),
       eur(collectedRevenue),
-      bgn(collectedRevenue),
       text(ex("reconciliation.collectedNote", "Successful payments")),
     ],
     [
       text(ex("reconciliation.refunded", "Refunded")),
       empty(),
       eur(refundedAmount),
-      bgn(refundedAmount),
       text(
         ex("reconciliation.refundRate", "Refund rate {{rate}}%", {
           rate: refundRate.toFixed(1),
@@ -399,14 +378,12 @@ export async function downloadAnalyticsExport(
       text(ex("reconciliation.netCollected", "Net collected")),
       empty(),
       eur(netCollected),
-      bgn(netCollected),
       text(ex("reconciliation.netCollectedNote", "Collected minus refunded")),
     ],
     [
       text(ex("reconciliation.orderPaymentGap", "Order/payment gap")),
       empty(),
       eur(orderPaymentGap),
-      bgn(orderPaymentGap),
       text(
         ex(
           "reconciliation.orderPaymentGapNote",
@@ -414,20 +391,18 @@ export async function downloadAnalyticsExport(
         ),
       ),
     ],
-    [empty(), empty(), empty(), empty(), empty()],
-    section(ex("sections.insightCards", "Insight cards"), 5),
+    [empty(), empty(), empty(), empty()],
+    section(ex("sections.insightCards", "Insight cards"), 4),
     [
       h(ex("columns.insight", "Insight")),
       h(ex("columns.primaryValue", "Primary value")),
       h(ex("columns.eur", "EUR")),
-      h(ex("columns.bgn", "BGN")),
       h(ex("columns.detail", "Detail")),
     ],
     [
       text(ex("insights.revenueLeader", "Revenue leader")),
       text(bestDay?.date ?? "-"),
       eur(bestDay?.revenue ?? 0),
-      bgn(bestDay?.revenue ?? 0),
       text(
         ex("labels.ordersCount", "{{count}} orders", {
           count: bestDay?.orders ?? 0,
@@ -437,7 +412,6 @@ export async function downloadAnalyticsExport(
     [
       text(ex("insights.peakWindow", "Peak window")),
       text(busiestWindow?.label ?? "-"),
-      empty(),
       empty(),
       text(
         ex(
@@ -451,7 +425,6 @@ export async function downloadAnalyticsExport(
       text(ex("insights.top3MenuShare", "Top 3 menu share")),
       pct(safePercent(topThreeRevenue, itemRevenueTotal)),
       eur(topThreeRevenue),
-      bgn(topThreeRevenue),
       text(
         heroItem
           ? ex("labels.heroLeads", "{{name}} leads with {{share}}%", {
@@ -465,26 +438,23 @@ export async function downloadAnalyticsExport(
       text(ex("insights.bestTable", "Best table")),
       text(bestTable?.table ?? "-"),
       eur(bestTable?.revenue ?? 0),
-      bgn(bestTable?.revenue ?? 0),
       text(
         ex("labels.ordersCount", "{{count}} orders", {
           count: bestTable?.orders ?? 0,
         }),
       ),
     ],
-    [empty(), empty(), empty(), empty(), empty()],
-    section(ex("sections.actionableSignals", "Actionable signals"), 5),
+    [empty(), empty(), empty(), empty()],
+    section(ex("sections.actionableSignals", "Actionable signals"), 4),
     [
       h(ex("columns.signal", "Signal")),
       h(ex("columns.value", "Value")),
       h(ex("columns.eur", "EUR")),
-      h(ex("columns.bgn", "BGN")),
       h(ex("columns.recommendation", "Recommendation")),
     ],
     [
       text(ex("signals.protectRush", "Protect the rush")),
       text(busiestWindow?.label ?? "-"),
-      empty(),
       empty(),
       text(
         busiestWindow
@@ -500,7 +470,6 @@ export async function downloadAnalyticsExport(
       text(ex("signals.pushHero", "Push the hero")),
       text(heroItem?.name ?? "-"),
       eur(heroItem?.revenue ?? 0),
-      bgn(heroItem?.revenue ?? 0),
       text(
         heroItem
           ? ex(
@@ -514,7 +483,6 @@ export async function downloadAnalyticsExport(
       text(ex("signals.watchCancellations", "Watch cancellations")),
       pct(cancelRate),
       empty(),
-      empty(),
       text(
         ex("labels.cancelledOrders", "{{count}} cancelled orders", {
           count: canceled,
@@ -525,7 +493,6 @@ export async function downloadAnalyticsExport(
       text(ex("signals.liftQuietDays", "Lift quiet days")),
       text(quietDay?.date ?? "-"),
       eur(quietDay?.revenue ?? 0),
-      bgn(quietDay?.revenue ?? 0),
       text(
         quietDay
           ? ex(
@@ -542,33 +509,23 @@ export async function downloadAnalyticsExport(
     [
       h(ex("columns.date", "Date")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.orders", "Orders")),
       h(ex("columns.avgOrderEur", "Avg order EUR")),
-      h(ex("columns.avgOrderBgn", "Avg order BGN")),
     ],
     ...(data.revenueTrend.length > 0
       ? data.revenueTrend.map((row) => {
           const avg = row.orders > 0 ? row.revenue / row.orders : 0;
-          return [
-            text(row.date),
-            eur(row.revenue),
-            bgn(row.revenue),
-            int(row.orders),
-            eur(avg),
-            bgn(avg),
-          ];
+          return [text(row.date), eur(row.revenue), int(row.orders), eur(avg)];
         })
-      : noDataRow(t, 6)),
+      : noDataRow(t, 4)),
   ];
 
   const demandSheet: Cell[][] = [
-    section(ex("sections.hourlyDemand", "Hourly demand"), 7),
+    section(ex("sections.hourlyDemand", "Hourly demand"), 6),
     [
       h(ex("columns.hour", "Hour")),
       h(ex("columns.orders", "Orders")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.shareOfTotal", "Share of total")),
       h(ex("columns.shareOfPeak", "Share of peak")),
       h(ex("columns.segment", "Segment")),
@@ -591,21 +548,19 @@ export async function downloadAnalyticsExport(
             text(formatHour(row.hour)),
             int(row.orders),
             eur(row.revenue ?? 0),
-            bgn(row.revenue ?? 0),
             pct(safePercent(row.orders, data.totalOrders)),
             pct(shareOfPeak),
             text(segment),
           ];
         })
-      : noDataRow(t, 7)),
-    [empty(), empty(), empty(), empty(), empty(), empty(), empty()],
-    section(ex("sections.daypartDemand", "Daypart demand"), 7),
+      : noDataRow(t, 6)),
+    [empty(), empty(), empty(), empty(), empty(), empty()],
+    section(ex("sections.daypartDemand", "Daypart demand"), 6),
     [
       h(ex("columns.daypart", "Daypart")),
       h(ex("columns.hours", "Hours")),
       h(ex("columns.orders", "Orders")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.shareOfOrders", "Share of orders")),
       h(ex("columns.shareOfRevenue", "Share of revenue")),
     ],
@@ -618,7 +573,6 @@ export async function downloadAnalyticsExport(
       h(ex("columns.item", "Item")),
       h(ex("columns.quantitySold", "Quantity sold")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.avgItemYieldEur", "Avg item yield EUR")),
       h(ex("columns.shareOfItemSales", "Share of item sales")),
     ],
@@ -628,18 +582,16 @@ export async function downloadAnalyticsExport(
           text(item.name),
           int(item.quantity),
           eur(item.revenue),
-          bgn(item.revenue),
           eur(item.quantity > 0 ? item.revenue / item.quantity : 0),
           pct(safePercent(item.revenue, itemRevenueTotal)),
         ])
-      : noDataRow(t, 7)),
-    [empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+      : noDataRow(t, 6)),
+    [empty(), empty(), empty(), empty(), empty(), empty()],
     [
       text(ex("metrics.trackedTopItemRevenue", "Tracked top item revenue")),
       empty(),
       empty(),
       eur(topItemRevenue),
-      bgn(topItemRevenue),
       empty(),
       pct(safePercent(topItemRevenue, itemRevenueTotal)),
     ],
@@ -649,17 +601,15 @@ export async function downloadAnalyticsExport(
     [
       h(ex("columns.category", "Category")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.shareOfItemSales", "Share of item sales")),
     ],
     ...(data.categoryBreakdown.length > 0
       ? data.categoryBreakdown.map((row) => [
           text(row.category),
           eur(row.revenue),
-          bgn(row.revenue),
           pct(safePercent(row.revenue, itemRevenueTotal)),
         ])
-      : noDataRow(t, 4)),
+      : noDataRow(t, 3)),
   ];
 
   const tablesSheet: Cell[][] = [
@@ -667,7 +617,6 @@ export async function downloadAnalyticsExport(
       h(ex("columns.table", "Table")),
       h(ex("columns.orders", "Orders")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.avgOrderEur", "Avg order EUR")),
       h(ex("columns.revenueShare", "Revenue share")),
     ],
@@ -676,11 +625,10 @@ export async function downloadAnalyticsExport(
           text(row.table),
           int(row.orders),
           eur(row.revenue),
-          bgn(row.revenue),
           eur(row.orders > 0 ? row.revenue / row.orders : 0),
           pct(safePercent(row.revenue, data.totalRevenue)),
         ])
-      : noDataRow(t, 6)),
+      : noDataRow(t, 5)),
   ];
 
   const orderFlowSheet: Cell[][] = [
@@ -704,32 +652,28 @@ export async function downloadAnalyticsExport(
   ];
 
   const paymentMethodsSheet: Cell[][] = [
-    section(ex("sections.paymentSplit", "Payment-method split"), 4),
+    section(ex("sections.paymentSplit", "Payment-method split"), 3),
     [
       h(ex("columns.method", "Method")),
       h(ex("columns.revenueEur", "Revenue EUR")),
-      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.shareOfCollected", "Share of collected")),
     ],
     ...(paymentMethods.length > 0
       ? paymentMethods.map((row) => [
           text(row.method),
           eur(row.amount),
-          bgn(row.amount),
           pct(safePercent(row.amount, collectedRevenue)),
         ])
-      : noDataRow(t, 4)),
-    [empty(), empty(), empty(), empty()],
+      : noDataRow(t, 3)),
+    [empty(), empty(), empty()],
     [
       text(ex("reconciliation.collected", "Collected")),
       eur(collectedRevenue),
-      bgn(collectedRevenue),
       empty(),
     ],
     [
       text(ex("reconciliation.refunded", "Refunded")),
       eur(refundedAmount),
-      bgn(refundedAmount),
       pct(refundRate),
     ],
   ];
@@ -801,25 +745,12 @@ export async function downloadAnalyticsExport(
   const sheets: { sheet: string; columns: { width: number }[]; data: any }[] = [
     {
       sheet: ex("sheets.summary", "Summary"),
-      columns: [
-        { width: 26 },
-        { width: 28 },
-        { width: 16 },
-        { width: 16 },
-        { width: 48 },
-      ],
+      columns: [{ width: 26 }, { width: 28 }, { width: 16 }, { width: 48 }],
       data: summarySheet as any,
     },
     {
       sheet: ex("sheets.revenueTrend", "Revenue Trend"),
-      columns: [
-        { width: 14 },
-        { width: 14 },
-        { width: 14 },
-        { width: 10 },
-        { width: 16 },
-        { width: 16 },
-      ],
+      columns: [{ width: 14 }, { width: 14 }, { width: 10 }, { width: 16 }],
       data: revenueTrendSheet as any,
     },
     {
@@ -827,7 +758,6 @@ export async function downloadAnalyticsExport(
       columns: [
         { width: 12 },
         { width: 10 },
-        { width: 14 },
         { width: 14 },
         { width: 14 },
         { width: 14 },
@@ -842,7 +772,6 @@ export async function downloadAnalyticsExport(
         { width: 38 },
         { width: 14 },
         { width: 14 },
-        { width: 14 },
         { width: 18 },
         { width: 14 },
       ],
@@ -850,7 +779,7 @@ export async function downloadAnalyticsExport(
     },
     {
       sheet: ex("sheets.categories", "Categories"),
-      columns: [{ width: 28 }, { width: 14 }, { width: 14 }, { width: 16 }],
+      columns: [{ width: 28 }, { width: 14 }, { width: 16 }],
       data: categoriesSheet as any,
     },
     {
@@ -858,7 +787,6 @@ export async function downloadAnalyticsExport(
       columns: [
         { width: 18 },
         { width: 10 },
-        { width: 14 },
         { width: 14 },
         { width: 16 },
         { width: 14 },
@@ -872,7 +800,7 @@ export async function downloadAnalyticsExport(
     },
     {
       sheet: ex("sheets.paymentMethods", "Payment Methods"),
-      columns: [{ width: 22 }, { width: 16 }, { width: 16 }, { width: 18 }],
+      columns: [{ width: 22 }, { width: 16 }, { width: 18 }],
       data: paymentMethodsSheet as any,
     },
     {
@@ -890,7 +818,6 @@ export async function downloadAnalyticsExport(
         { width: 22 },
         { width: 10 },
         { width: 14 },
-        { width: 14 },
         { width: 10 },
         { width: 10 },
       ],
@@ -899,7 +826,6 @@ export async function downloadAnalyticsExport(
           h(ex("columns.staffName", "Staff")),
           h(ex("columns.orders", "Orders")),
           h(ex("columns.revenueEur", "Revenue EUR")),
-          h(ex("columns.revenueBgn", "Revenue BGN")),
           h(ex("columns.pos", "POS")),
           h(ex("columns.qr", "QR")),
         ],
@@ -907,7 +833,6 @@ export async function downloadAnalyticsExport(
           text(s.staffName),
           num(s.totalOrders),
           eur(s.totalRevenue),
-          bgn(s.totalRevenue),
           num(s.posOrders),
           num(s.qrOrders),
         ]),
@@ -1002,7 +927,6 @@ export async function downloadAnalyticsExport(
         [
           h(ex("columns.revenueLost", "Revenue Lost")),
           eur(data.cancelAnalytics!.revenueLost),
-          bgn(data.cancelAnalytics!.revenueLost),
           empty(),
         ],
       ] as any,
@@ -1079,24 +1003,21 @@ export async function downloadAnalyticsExport(
   if (data.grossProfit) {
     sheets.push({
       sheet: ex("sheets.grossProfit", "Gross Profit"),
-      columns: [{ width: 22 }, { width: 16 }, { width: 16 }, { width: 16 }],
+      columns: [{ width: 22 }, { width: 16 }, { width: 16 }],
       data: [
         [
           h(ex("columns.metric", "Metric")),
           h(ex("columns.eur", "EUR")),
-          h(ex("columns.bgn", "BGN")),
           h(ex("columns.percentage", "Percentage")),
         ],
         [
           text(ex("labels.netSales", "Net Sales (excl. tips)")),
           eur(data.grossProfit.netSales),
-          bgn(data.grossProfit.netSales),
           empty(),
         ],
         [
           text(ex("labels.estimatedCOGS", "Est. COGS")),
           eur(data.grossProfit.estimatedCOGS),
-          bgn(data.grossProfit.estimatedCOGS),
           text(
             `${safePercent(data.grossProfit.estimatedCOGS, data.grossProfit.netSales)}%`,
           ),
@@ -1104,7 +1025,6 @@ export async function downloadAnalyticsExport(
         [
           text(ex("labels.grossProfit", "Gross Profit")),
           eur(data.grossProfit.grossProfit),
-          bgn(data.grossProfit.grossProfit),
           pct(data.grossProfit.grossMargin),
         ],
       ] as any,
@@ -1148,11 +1068,7 @@ export async function exportCloseoutXlsx(
     type: Number,
     format: EUR_FORMAT,
   });
-  const bgn = (v: number): Cell => ({
-    value: v * BGN_RATE,
-    type: Number,
-    format: BGN_FORMAT,
-  });
+
   const text = (v: string): Cell => ({ value: v, type: String });
   const bold = (v: string): Cell => ({
     value: v,
@@ -1166,66 +1082,50 @@ export async function exportCloseoutXlsx(
   const sheets = [
     {
       sheet: ex("closeout.sheetName", "Daily Closeout"),
-      columns: [{ width: 34 }, { width: 16 }, { width: 16 }],
+      columns: [{ width: 34 }, { width: 16 }],
       data: [
-        [bold(ex("closeout.date", "Date")), text(dateStr), empty()],
-        [empty(), empty(), empty()],
+        [bold(ex("closeout.date", "Date")), text(dateStr)],
+        [empty(), empty()],
         [bold(ex("closeout.revenue", "Revenue by Method"))],
-        ...closeout.revenueByMethod.map((m) => [
-          text(m.method),
-          eur(m.amount),
-          bgn(m.amount),
-        ]),
-        [empty(), empty(), empty()],
+        ...closeout.revenueByMethod.map((m) => [text(m.method), eur(m.amount)]),
+        [empty(), empty()],
         [bold(ex("closeout.totals", "Totals"))],
         [
           text(ex("closeout.totalCollected", "Total Collected")),
           eur(closeout.totalCollected),
-          bgn(closeout.totalCollected),
         ],
-        [
-          text(ex("closeout.totalTips", "Tips")),
-          eur(closeout.totalTips),
-          bgn(closeout.totalTips),
-        ],
+        [text(ex("closeout.totalTips", "Tips")), eur(closeout.totalTips)],
         [
           text(ex("closeout.orderedRevenue", "Ordered Revenue")),
           eur(closeout.orderedRevenue),
-          bgn(closeout.orderedRevenue),
         ],
         [
           text(
             ex("closeout.discountPointsRedeemed", "Discount points redeemed"),
           ),
           num(closeout.discountPointsRedeemed),
-          empty(),
         ],
         [
           text(ex("closeout.refundedAmount", "Refunded")),
           eur(closeout.refundedAmount),
-          bgn(closeout.refundedAmount),
         ],
         [
           text(ex("closeout.canceledRevenue", "Canceled Revenue")),
           eur(closeout.canceledRevenue),
-          bgn(closeout.canceledRevenue),
         ],
-        [empty(), empty(), empty()],
+        [empty(), empty()],
         [
           bold(ex("closeout.netRevenue", "Net Revenue")),
           eur(closeout.netRevenue),
-          bgn(closeout.netRevenue),
         ],
-        [empty(), empty(), empty()],
+        [empty(), empty()],
         [
           text(ex("closeout.totalOrders", "Non-canceled orders")),
           num(closeout.totalOrderCount),
-          empty(),
         ],
         [
           text(ex("closeout.canceledOrders", "Canceled Orders")),
           num(closeout.canceledOrderCount),
-          empty(),
         ],
       ] as any,
     },

@@ -49,7 +49,7 @@ Each ticket in the Orders view contains all necessary details:
 - **Staff Attribution**: If entered by waitstaff, displays the employee's name.
 - **Items & Options**: Detailed list of dishes, quantities, chosen variations (e.g., "Size: Large"), and extras (e.g., "Extra Cheese").
 - **Special Requests**: Any custom instructions typed by the guest are highlighted in prominent red text.
-- **Order Total**: Summarized in both primary and secondary currencies (e.g., EUR and BGN).
+- **Order Total**: Summarized in EUR.
 
 ---
 

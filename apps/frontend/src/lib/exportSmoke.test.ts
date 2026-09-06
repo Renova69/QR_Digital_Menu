@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { downloadAnalyticsExport } from "./analyticsExport";
+import { downloadAnalyticsExport, exportCloseoutXlsx } from "./analyticsExport";
 import { downloadMenuExport } from "./menuExport";
 import { downloadPaymentsExport } from "./paymentsExport";
 import type { AnalyticsData } from "../hooks/useAnalytics";
@@ -72,6 +72,16 @@ describe("XLSX export smoke coverage", () => {
   });
 
   afterEach(() => {
+    for (const [sheets] of xlsxMocks.writeXlsxFile.mock.calls) {
+      expect(JSON.stringify(sheets)).not.toMatch(/BGN|лв|1\.95583/i);
+      for (const sheet of sheets) {
+        expect(
+          sheet.data.every(
+            (row: unknown[]) => row.length <= sheet.columns.length,
+          ),
+        ).toBe(true);
+      }
+    }
     vi.useRealTimers();
     vi.clearAllMocks();
   });
@@ -108,6 +118,43 @@ describe("XLSX export smoke coverage", () => {
     );
     expect(xlsxMocks.toFile).toHaveBeenCalledWith(
       "payments-demo-restaurant-2026-06-12.xlsx",
+    );
+  });
+
+  it("exports EUR closeout totals and count rows with aligned columns", async () => {
+    await exportCloseoutXlsx(
+      {
+        date: "2026-06-12",
+        revenueByMethod: [{ method: "CASH", amount: 20 }],
+        totalCollected: 20,
+        totalTips: 2,
+        orderedRevenue: 22,
+        discountPointsRedeemed: 0,
+        refundedAmount: 0,
+        canceledRevenue: 0,
+        netRevenue: 20,
+        totalOrderCount: 2,
+        canceledOrderCount: 0,
+      },
+      t,
+    );
+    expect(xlsxMocks.toFile).toHaveBeenCalledWith("closeout-2026-06-12.xlsx");
+  });
+
+  it("exports empty analytics without misaligned placeholder rows", async () => {
+    await downloadAnalyticsExport(
+      {
+        ...analyticsData,
+        revenueTrend: [],
+        topItems: [],
+        peakHours: [],
+        categoryBreakdown: [],
+        ordersByTable: [],
+        paymentsByMethod: [],
+        ordersByStatus: [],
+      },
+      { restaurantName: "Empty", period: 7 },
+      t,
     );
   });
 

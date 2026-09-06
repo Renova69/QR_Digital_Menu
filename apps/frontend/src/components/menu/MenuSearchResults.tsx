@@ -90,8 +90,7 @@ export const MenuSearchResults: React.FC<MenuSearchResultsProps> = ({
               )}
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className="font-bold text-primary">
-                  {item.currency === "BGN" ? "лв" : "€"}
-                  {item.price.toFixed(2)}
+                  €{item.price.toFixed(2)}
                 </span>
                 {[...(item.dietaryTags ?? []), ...(item.allergens ?? [])].map(
                   (tag) => {
