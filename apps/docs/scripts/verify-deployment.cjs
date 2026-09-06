@@ -25,8 +25,7 @@ const findHtmlFiles = (directory) =>
 
 assert(
   frontendVercelConfig.redirects?.some(
-    ({ source, destination }) =>
-      source === "/docs" && destination === "/docs/",
+    ({ source, destination }) => source === "/docs" && destination === "/docs/",
   ),
   "The frontend must redirect /docs to the Docusaurus base URL /docs/.",
 );
@@ -51,7 +50,9 @@ assert(
   "The generated documentation does not use the /docs base URL.",
 );
 assert(
-  fs.existsSync(path.join(repositoryRoot, "apps/docs/build/getting-started.html")),
+  fs.existsSync(
+    path.join(repositoryRoot, "apps/docs/build/getting-started.html"),
+  ),
   "The docs origin is missing the proxied getting-started route.",
 );
 assert(
@@ -62,9 +63,17 @@ assert(
 const contentSecurityPolicy = frontendVercelConfig.headers
   .flatMap(({ headers }) => headers)
   .find(({ key }) => key === "Content-Security-Policy")?.value;
+const docsHeaders =
+  docsVercelConfig.headers?.flatMap(({ headers }) => headers) ?? [];
+const docsHeader = (name) =>
+  docsHeaders.find(({ key }) => key.toLowerCase() === name.toLowerCase())
+    ?.value;
+const docsContentSecurityPolicy = docsHeader("Content-Security-Policy");
 const executableInlineScripts = findHtmlFiles(docsBuildDirectory)
   .flatMap((htmlFile) => [
-    ...fs.readFileSync(htmlFile, "utf8").matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g),
+    ...fs
+      .readFileSync(htmlFile, "utf8")
+      .matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g),
   ])
   // JSON-LD is structured metadata, not executable JavaScript, so script-src
   // does not apply to it. External scripts have an empty inline body.
@@ -82,13 +91,45 @@ const inlineScriptHashes = [
   ),
 ];
 
-assert(contentSecurityPolicy, "The frontend Content-Security-Policy is missing.");
+assert(
+  contentSecurityPolicy,
+  "The frontend Content-Security-Policy is missing.",
+);
 const missingInlineScriptHashes = inlineScriptHashes.filter(
   (hash) => !contentSecurityPolicy.includes(`'${hash}'`),
 );
 assert(
   missingInlineScriptHashes.length === 0,
   `The frontend CSP does not permit these Docusaurus inline scripts: ${missingInlineScriptHashes.join(
+    ", ",
+  )}.`,
+);
+
+assert(
+  docsContentSecurityPolicy,
+  "The directly reachable docs origin Content-Security-Policy is missing.",
+);
+assert(
+  docsHeader("Content-Security-Policy-Report-Only") === undefined,
+  "The docs CSP must be enforced, not report-only.",
+);
+for (const directive of [
+  "default-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+]) {
+  assert(
+    docsContentSecurityPolicy.includes(directive),
+    `The docs CSP is missing the required directive: ${directive}.`,
+  );
+}
+const missingDocsInlineScriptHashes = inlineScriptHashes.filter(
+  (hash) => !docsContentSecurityPolicy.includes(`'${hash}'`),
+);
+assert(
+  missingDocsInlineScriptHashes.length === 0,
+  `The docs CSP does not permit these Docusaurus inline scripts: ${missingDocsInlineScriptHashes.join(
     ", ",
   )}.`,
 );

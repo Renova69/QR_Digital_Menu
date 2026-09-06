@@ -7,6 +7,7 @@
     "dev": "node scripts/dev-locales.cjs",
     "start": "node scripts/dev-locales.cjs",
     "build": "docusaurus build --no-minify",
+    "postbuild": "node scripts/verify-deployment.cjs",
     "swizzle": "docusaurus swizzle",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
