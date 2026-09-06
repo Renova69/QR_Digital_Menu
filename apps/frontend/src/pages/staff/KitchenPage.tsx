@@ -274,11 +274,23 @@ export default function KitchenPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 font-mono">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 px-2">
-        <h1 className="text-3xl font-black tracking-tight">
-          {t("auto.kITCHEN", "KITCHEN")}
-          <span className="text-blue-400">{t("auto.dISPLAY", "DISPLAY")}</span>
-        </h1>
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1 items-baseline gap-3">
+          <h1 className="shrink-0 text-3xl font-black tracking-tight">
+            {t("auto.kITCHEN", "KITCHEN")}
+            <span className="text-blue-400">
+              {t("auto.dISPLAY", "DISPLAY")}
+            </span>
+          </h1>
+          {activeRestaurant?.name && (
+            <span
+              className="truncate text-base font-semibold tracking-normal text-gray-400"
+              title={activeRestaurant.name}
+            >
+              {activeRestaurant.name}
+            </span>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-4">
           <KitchenClock />
           <button
             onClick={() => setShowHistory((v) => !v)}
