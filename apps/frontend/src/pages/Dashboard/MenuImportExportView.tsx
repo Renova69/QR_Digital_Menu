@@ -17,7 +17,6 @@ import { downloadMenuExport } from "../../lib/menuExport";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import RestaurantContext from "../../context/RestaurantContext";
-import { resolveTag } from "../../lib/menuTags";
 import {
   getImportApiKey,
   regenerateImportApiKey,
@@ -25,71 +24,24 @@ import {
   exportMenu,
 } from "../../lib/api";
 import { getApiError } from "../../lib/apiError";
+import {
+  IMPORT_ERROR_DEFAULTS,
+  type ImportErrorKey,
+  isImportErrorKey,
+  jsonToPayload,
+  normalizeImportCurrency,
+  normalizeImportTag,
+  parseImportPrice,
+  splitImportTags,
+} from "../../lib/menuImport";
 import { DashboardButton } from "../../components/dashboard/DashboardButton";
 import { dashboardSurface } from "../../components/dashboard/dashboardUi";
 
+export { jsonToPayload, parseImportPrice } from "../../lib/menuImport";
+
 type SubTabId = "import" | "export";
 
-const KNOWN_ALLERGENS = [
-  "nuts",
-  "dairy",
-  "soy",
-  "gluten",
-  "peanuts",
-  "shellfish",
-  "egg",
-];
 const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024; // 1MB — matches server body-parser limit
-const IMPORT_ERROR_DEFAULTS = {
-  "importExport.errors.csvUnclosedQuote":
-    "The CSV contains an unclosed quoted field.",
-  "importExport.errors.csvNoRows": "The CSV does not contain any data rows.",
-  "importExport.errors.csvMissingColumns":
-    "The CSV must include category and item_name columns.",
-  "importExport.errors.xlsxNoRows":
-    "The spreadsheet does not contain any data rows.",
-  "importExport.errors.xlsxMissingColumns":
-    "The spreadsheet must include category and item_name columns.",
-  "importExport.errors.parseFailed":
-    "The file could not be read. Check its format and try again.",
-  "importExport.errors.invalidPrice":
-    "Use a valid euro price with at most two decimal places (for example 12.50 or 12,50).",
-  "importExport.errors.eurOnly": "Only EUR prices can be imported.",
-} as const;
-
-type ImportErrorKey = keyof typeof IMPORT_ERROR_DEFAULTS;
-
-// Normalizes a raw imported tag to its canonical preset key (e.g. "Gluten" /
-// "gluten-free" / "без глутен" -> "gluten-free") when it matches a known
-// allergen/dietary preset; otherwise passes the trimmed text through
-// unchanged (legacy/custom tags keep working).
-function normalizeTag(raw: string): string {
-  const trimmed = raw.trim();
-  return resolveTag(trimmed)?.key ?? trimmed;
-}
-
-// Splits a single combined "tags" column into allergens vs. dietary tags —
-// used by import formats that don't separate the two (legacy CSV/XLSX/JSON).
-// Preset values are classified via the shared registry (and normalized to
-// their canonical key); anything unrecognized falls back to the old
-// substring heuristic so custom/legacy tags keep their prior behavior.
-function splitTags(tags: string[]) {
-  const allergens: string[] = [];
-  const dietaryTags: string[] = [];
-  for (const raw of tags) {
-    const preset = resolveTag(raw);
-    if (preset) {
-      (preset.kind === "allergen" ? allergens : dietaryTags).push(preset.key);
-      continue;
-    }
-    const trimmed = raw.trim();
-    const isKnownAllergen = KNOWN_ALLERGENS.some((a) =>
-      trimmed.toLowerCase().includes(a),
-    );
-    (isKnownAllergen ? allergens : dietaryTags).push(trimmed);
-  }
-  return { allergens, dietaryTags };
-}
 
 export function parseCSVRows(text: string): string[][] {
   const rows: string[][] = [];
@@ -139,49 +91,6 @@ function parseBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
-function normalizeCurrency(value: unknown): "EUR" {
-  const currency = String(value ?? "")
-    .trim()
-    .toUpperCase();
-  if (currency && currency !== "EUR") {
-    throw new Error("importExport.errors.eurOnly");
-  }
-  return "EUR";
-}
-
-// Accept explicit decimal/grouping formats; never truncate malformed money
-// or guess whether a lone separator followed by three digits means cents.
-export function parseImportPrice(value: unknown): number {
-  if (value == null || value === "") return 0;
-  if (typeof value === "number") {
-    if (Number.isFinite(value) && value >= 0) return value;
-    throw new Error("importExport.errors.invalidPrice");
-  }
-  if (typeof value !== "string") {
-    throw new Error("importExport.errors.invalidPrice");
-  }
-  const price = value
-    .trim()
-    .replace(/^(?:EUR|€)\s*|\s*(?:EUR|€)$/gi, "")
-    .trim();
-  let normalized: string;
-  if (/^\d+(?:[.,]\d{1,2})?$/.test(price)) {
-    normalized = price.replace(",", ".");
-  } else if (/^\d{1,3}(?:\.\d{3})+,\d{1,2}$/.test(price)) {
-    normalized = price.replace(/\./g, "").replace(",", ".");
-  } else if (/^\d{1,3}(?:,\d{3})+\.\d{1,2}$/.test(price)) {
-    normalized = price.replace(/,/g, "");
-  } else if (/^\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d{1,2})?$/.test(price)) {
-    normalized = price.replace(/[ \u00a0\u202f]/g, "").replace(",", ".");
-  } else {
-    throw new Error("importExport.errors.invalidPrice");
-  }
-  const amount = Number(normalized);
-  if (!Number.isFinite(amount))
-    throw new Error("importExport.errors.invalidPrice");
-  return amount;
-}
-
 function parseVariants(str: string) {
   if (!str) return [];
   return str
@@ -220,11 +129,11 @@ function resolveRowTags(row: Record<string, string>): {
     row["allergens"] !== undefined || row["dietary_tags"] !== undefined;
   if (hasSeparateColumns) {
     return {
-      allergens: splitCommaList(row["allergens"]).map(normalizeTag),
-      dietaryTags: splitCommaList(row["dietary_tags"]).map(normalizeTag),
+      allergens: splitCommaList(row["allergens"]).map(normalizeImportTag),
+      dietaryTags: splitCommaList(row["dietary_tags"]).map(normalizeImportTag),
     };
   }
-  return splitTags(splitCommaList(row["tags"]));
+  return splitImportTags(splitCommaList(row["tags"]));
 }
 
 export function csvToPayload(text: string): any[] {
@@ -255,7 +164,7 @@ export function csvToPayload(text: string): any[] {
       description: row["description"] || "",
       price: parseImportPrice(row["price"]),
       weight: row["weight"] || null,
-      currency: normalizeCurrency(row["currency"]),
+      currency: normalizeImportCurrency(row["currency"]),
       allergens,
       dietaryTags,
       options: variants.length
@@ -274,96 +183,6 @@ export function csvToPayload(text: string): any[] {
     order: i + 1,
     items,
   }));
-}
-
-export function jsonToPayload(text: string): any[] {
-  const obj = JSON.parse(text);
-  normalizeCurrency(obj.currency);
-  const cats = obj.categories || obj.menu || obj.sections || [];
-  return cats.map((cat: any, i: number) => {
-    const items = (cat.items || cat.dishes || cat.products || []).map(
-      (item: any) => {
-        let allergens = (item.allergens || []).map(normalizeTag);
-        let dietaryTags = (item.dietaryTags || []).map(normalizeTag);
-        if (item.tags && !item.allergens) {
-          const split = splitTags(item.tags);
-          allergens = split.allergens;
-          dietaryTags = split.dietaryTags;
-        }
-        const options =
-          item.options ||
-          (item.variants?.length
-            ? [
-                {
-                  name: "Size / Variant",
-                  type: "VARIATION",
-                  choices: item.variants.map((v: any) => ({
-                    name: v.name,
-                    priceModifier: v.priceModifier ?? v.price,
-                    weight: v.weight || null,
-                  })),
-                },
-              ]
-            : []);
-        return {
-          name: item.name,
-          description: item.description || "",
-          price: parseImportPrice(item.price),
-          ...(item.costPrice != null
-            ? { costPrice: parseImportPrice(item.costPrice) }
-            : {}),
-          weight: item.weight || null,
-          currency: normalizeCurrency(item.currency ?? obj.currency),
-          allergens,
-          dietaryTags,
-          options: options.map((option: any) => ({
-            ...option,
-            choices: (option.choices ?? []).map((choice: any) => ({
-              name: choice.name,
-              priceModifier: parseImportPrice(
-                choice.priceModifier ?? choice.price,
-              ),
-              ...(choice.weight ? { weight: choice.weight } : {}),
-            })),
-          })),
-          ...(item.translations ? { translations: item.translations } : {}),
-          ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
-          ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
-          ...(typeof item.isOutOfStock === "boolean"
-            ? { isOutOfStock: item.isOutOfStock }
-            : typeof item.isAvailable === "boolean"
-              ? { isOutOfStock: !item.isAvailable }
-              : {}),
-          ...(typeof item.isFeatured === "boolean"
-            ? { isFeatured: item.isFeatured }
-            : {}),
-          ...(item.rewardPointsMode
-            ? { rewardPointsMode: item.rewardPointsMode }
-            : {}),
-          ...(item.rewardPointsPrice
-            ? { rewardPointsPrice: item.rewardPointsPrice }
-            : {}),
-        };
-      },
-    );
-    return {
-      name: cat.name,
-      order: cat.sort_order || cat.order || i + 1,
-      items,
-      ...(cat.translations ? { translations: cat.translations } : {}),
-      ...(cat.availabilityType
-        ? { availabilityType: cat.availabilityType }
-        : {}),
-      ...(cat.imageUrl ? { imageUrl: cat.imageUrl } : {}),
-      ...(cat.thumbnailUrl ? { thumbnailUrl: cat.thumbnailUrl } : {}),
-      ...(cat.startTime ? { startTime: cat.startTime } : {}),
-      ...(cat.endTime ? { endTime: cat.endTime } : {}),
-      ...(cat.daysOfWeek?.length ? { daysOfWeek: cat.daysOfWeek } : {}),
-      ...(typeof cat.isDrinkCategory === "boolean"
-        ? { isDrinkCategory: cat.isDrinkCategory }
-        : {}),
-    };
-  });
 }
 
 // XLSX export column order: Category, Item Name, Description, Price, Weight, Currency, Tags, Variants
@@ -414,16 +233,16 @@ export async function xlsxToPayload(file: File): Promise<any[]> {
           )
             .map((t: string) => t.trim())
             .filter(Boolean)
-            .map(normalizeTag),
+            .map(normalizeImportTag),
           dietaryTags: (dietaryTagsIdx >= 0 && row[dietaryTagsIdx]
             ? String(row[dietaryTagsIdx]).split(",")
             : []
           )
             .map((t: string) => t.trim())
             .filter(Boolean)
-            .map(normalizeTag),
+            .map(normalizeImportTag),
         }
-      : splitTags(
+      : splitImportTags(
           tagsIdx >= 0 && row[tagsIdx]
             ? String(row[tagsIdx])
                 .split(",")
@@ -445,7 +264,7 @@ export async function xlsxToPayload(file: File): Promise<any[]> {
       description: descIdx >= 0 ? String(row[descIdx] ?? "").trim() : "",
       price: parseImportPrice(priceIdx >= 0 ? row[priceIdx] : undefined),
       weight: weightIdx >= 0 && row[weightIdx] ? String(row[weightIdx]) : null,
-      currency: normalizeCurrency(
+      currency: normalizeImportCurrency(
         currencyIdx >= 0 ? row[currencyIdx] : undefined,
       ),
       allergens,
@@ -654,11 +473,8 @@ function FileImporter({
   const getImportError = useCallback(
     (error: unknown) => {
       const message = error instanceof Error ? error.message : "";
-      const key: ImportErrorKey = Object.prototype.hasOwnProperty.call(
-        IMPORT_ERROR_DEFAULTS,
-        message,
-      )
-        ? (message as ImportErrorKey)
+      const key: ImportErrorKey = isImportErrorKey(message)
+        ? message
         : "importExport.errors.parseFailed";
       return t(key, IMPORT_ERROR_DEFAULTS[key]);
     },

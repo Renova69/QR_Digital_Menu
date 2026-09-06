@@ -823,7 +823,7 @@
   "dashboard": {
     "title": "餐厅仪表盘",
     "welcome": "欢迎回来，{{name}}",
-    "viewPublicMenu": "查看公开菜单",
+    "viewPublicMenu": "预览公开菜单",
     "overview": "概述",
     "viewFullAnalytics": "查看完整分析数据 →",
     "totalRevenue": "总收入",
@@ -3344,7 +3344,19 @@
     "keyConfigured": "密钥已配置。无法再次显示该密钥——请重新生成以获取新密钥。",
     "xlsxSheetCategories": "分类",
     "xlsxSheetItems": "项目",
-    "xlsxSheetOptions": "选项与选择"
+    "xlsxSheetOptions": "选项与选择",
+    "errors": {
+      "csvUnclosedQuote": "CSV 文件包含未闭合的引号字段。",
+      "csvNoRows": "CSV 文件不包含数据行。",
+      "csvMissingColumns": "CSV 文件必须包含 category 和 item_name 列。",
+      "xlsxNoRows": "电子表格不包含数据行。",
+      "xlsxMissingColumns": "电子表格必须包含 category 和 item_name 列。",
+      "parseFailed": "无法读取此菜单文件。请确认它是有效的 JSON、CSV 或 XLSX 文件，然后重试。",
+      "invalidJson": "无法读取此菜单文件。请确认它包含有效的 JSON，然后重试。",
+      "invalidPrice": "请输入有效的欧元价格，最多保留两位小数（例如 12.50 或 12,50）。",
+      "eurOnly": "只能导入 EUR 价格。",
+      "validationFailed": "部分菜单数据无效。请检查名称、EUR 价格和选项，然后重试。"
+    }
   },
   "onboarding": {
     "brand": "二维码菜单",

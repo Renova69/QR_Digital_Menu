@@ -121,7 +121,7 @@
   "dashboard": {
     "title": "Panou de Bord Restaurant",
     "welcome": "Bine ai revenit, {{name}}",
-    "viewPublicMenu": "Vezi Meniul Public",
+    "viewPublicMenu": "Previzualizează meniul public",
     "overview": "Prezentare generală",
     "viewFullAnalytics": " Vezi Analize Complete →",
     "totalRevenue": "Venit Total",
@@ -3300,7 +3300,19 @@
     "keyConfigured": "A fost configurată o cheie. Nu poate fi afișată din nou — generează pentru a emite una nouă.",
     "xlsxSheetCategories": "Categorii",
     "xlsxSheetItems": "Articole",
-    "xlsxSheetOptions": "Opțiuni și alegeri"
+    "xlsxSheetOptions": "Opțiuni și alegeri",
+    "errors": {
+      "csvUnclosedQuote": "Fișierul CSV conține un câmp între ghilimele care nu este închis.",
+      "csvNoRows": "Fișierul CSV nu conține rânduri de date.",
+      "csvMissingColumns": "Fișierul CSV trebuie să includă coloanele category și item_name.",
+      "xlsxNoRows": "Foaia de calcul nu conține rânduri de date.",
+      "xlsxMissingColumns": "Foaia de calcul trebuie să includă coloanele category și item_name.",
+      "parseFailed": "Nu am putut citi fișierul meniului. Asigură-te că este un fișier JSON, CSV sau XLSX valid și încearcă din nou.",
+      "invalidJson": "Nu am putut citi fișierul meniului. Asigură-te că acesta conține JSON valid și încearcă din nou.",
+      "invalidPrice": "Folosește un preț valid în euro, cu cel mult două zecimale (de exemplu 12.50 sau 12,50).",
+      "eurOnly": "Pot fi importate numai prețuri în EUR.",
+      "validationFailed": "Unele date din meniu nu sunt valide. Verifică denumirile, prețurile în EUR și opțiunile, apoi încearcă din nou."
+    }
   },
   "bulkEdit": {
     "title": "Editare în masă",

@@ -298,8 +298,16 @@ describe("DashboardPage navigation & header", () => {
     expect(
       screen.getByText(/Here's what's happening at/),
     ).toBeTruthy();
-    const menuLinks = screen.getAllByRole("link", { name: /View Menu/ });
+    const menuLinks = screen.getAllByRole("link", {
+      name: /Preview Public Menu/,
+    });
     expect(menuLinks[0].getAttribute("href")).toBe("/menu/cafe-nova");
+    expect(libMenu.buildMenuReturnUrl).toHaveBeenCalledWith(
+      "r1",
+      null,
+      null,
+      "cafe-nova",
+    );
     expect(
       screen.getAllByTestId("notification-bell").length,
     ).toBeGreaterThan(0);

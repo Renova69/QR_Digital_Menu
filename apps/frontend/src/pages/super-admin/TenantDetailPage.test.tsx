@@ -344,9 +344,112 @@ describe("TenantDetailPage menu import", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import Menu" }));
 
     expect(
-      screen.getByText("Invalid JSON — check the format and try again."),
+      screen.getByText(
+        "We couldn't read this menu file. Make sure it is valid JSON and try again.",
+      ),
     ).toBeTruthy();
     expect(api.importMenuForTenant).not.toHaveBeenCalled();
+  });
+
+  it("normalizes the same decimal and variant JSON accepted by the owner importer", async () => {
+    renderView();
+    await screen.findByRole("button", { name: "Import Menu" });
+
+    fireEvent.change(screen.getByPlaceholderText(/categories/), {
+      target: {
+        value: JSON.stringify({
+          currency: "EUR",
+          categories: [
+            {
+              name: "Mains",
+              items: [
+                {
+                  name: "Soup",
+                  price: "12,50",
+                  variants: [{ name: "Large", price: "1,25" }],
+                },
+              ],
+            },
+          ],
+        }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import Menu" }));
+
+    await waitFor(() =>
+      expect(api.importMenuForTenant).toHaveBeenCalledWith(
+        "t-1",
+        expect.objectContaining({
+          categories: [
+            expect.objectContaining({
+              name: "Mains",
+              items: [
+                expect.objectContaining({
+                  name: "Soup",
+                  price: 12.5,
+                  currency: "EUR",
+                  options: [
+                    expect.objectContaining({
+                      choices: [
+                        expect.objectContaining({
+                          name: "Large",
+                          priceModifier: 1.25,
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ),
+    );
+  });
+
+  it("rejects non-EUR JSON locally with a friendly message", async () => {
+    renderView();
+    await screen.findByRole("button", { name: "Import Menu" });
+
+    fireEvent.change(screen.getByPlaceholderText(/categories/), {
+      target: {
+        value: JSON.stringify({
+          currency: "BGN",
+          categories: [{ name: "Mains", items: [] }],
+        }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import Menu" }));
+
+    expect(screen.getByText("Only EUR prices can be imported.")).toBeTruthy();
+    expect(api.importMenuForTenant).not.toHaveBeenCalled();
+  });
+
+  it("does not expose raw validator arrays when imported data is invalid", async () => {
+    api.importMenuForTenant.mockRejectedValue({
+      response: {
+        data: {
+          message: [
+            "categories.0.items.0.price must not be less than 0",
+            "categories.0.items.0.price must be a number conforming to the specified constraints",
+          ],
+        },
+      },
+    });
+    renderView();
+    await screen.findByRole("button", { name: "Import Menu" });
+
+    fireEvent.change(screen.getByPlaceholderText(/categories/), {
+      target: { value: '{"categories":[{"name":"Mains","items":[]}]}' },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import Menu" }));
+
+    expect(
+      await screen.findByText(
+        "Some menu data is invalid. Check item names, EUR prices, and options, then try again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/categories\.0\.items\.0\.price/)).toBeNull();
   });
 
   it("imports valid JSON and shows the success summary", async () => {
@@ -361,7 +464,7 @@ describe("TenantDetailPage menu import", () => {
 
     await waitFor(() =>
       expect(api.importMenuForTenant).toHaveBeenCalledWith("t-1", {
-        categories: [{ name: "Starters", items: [] }],
+        categories: [{ name: "Starters", order: 1, items: [] }],
       }),
     );
     expect(await screen.findByText(/Import complete/)).toBeTruthy();

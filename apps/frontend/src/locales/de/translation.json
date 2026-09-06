@@ -823,7 +823,7 @@
   "dashboard": {
     "title": "Restaurant-Dashboard",
     "welcome": "Willkommen zurück, {{name}}",
-    "viewPublicMenu": "Öffentliches Menü anzeigen",
+    "viewPublicMenu": "Öffentliches Menü in Vorschau",
     "overview": "Übersicht",
     "viewFullAnalytics": "Vollständige Analysedaten anzeigen →",
     "totalRevenue": "Gesamtumsatz",
@@ -3344,7 +3344,19 @@
     "keyConfigured": "Ein Schlüssel wurde konfiguriert. Er kann nicht erneut angezeigt werden – generieren Sie ihn neu, um einen neuen Schlüssel zu erstellen.",
     "xlsxSheetCategories": "Kategorien",
     "xlsxSheetItems": "Artikel",
-    "xlsxSheetOptions": "Optionen und Auswahlmöglichkeiten"
+    "xlsxSheetOptions": "Optionen und Auswahlmöglichkeiten",
+    "errors": {
+      "csvUnclosedQuote": "Die CSV-Datei enthält ein nicht geschlossenes Feld in Anführungszeichen.",
+      "csvNoRows": "Die CSV-Datei enthält keine Datenzeilen.",
+      "csvMissingColumns": "Die CSV-Datei muss die Spalten category und item_name enthalten.",
+      "xlsxNoRows": "Die Tabelle enthält keine Datenzeilen.",
+      "xlsxMissingColumns": "Die Tabelle muss die Spalten category und item_name enthalten.",
+      "parseFailed": "Wir konnten diese Menüdatei nicht lesen. Stelle sicher, dass sie eine gültige JSON-, CSV- oder XLSX-Datei ist, und versuche es erneut.",
+      "invalidJson": "Wir konnten diese Menüdatei nicht lesen. Stelle sicher, dass sie gültiges JSON enthält, und versuche es erneut.",
+      "invalidPrice": "Verwende einen gültigen Europreis mit höchstens zwei Dezimalstellen (zum Beispiel 12.50 oder 12,50).",
+      "eurOnly": "Es können nur Preise in EUR importiert werden.",
+      "validationFailed": "Einige Menüdaten sind ungültig. Prüfe Namen, EUR-Preise und Optionen und versuche es erneut."
+    }
   },
   "onboarding": {
     "brand": "QR-Menü",
