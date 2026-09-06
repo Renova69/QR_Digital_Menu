@@ -78,4 +78,9 @@ if ($caughtMessage -notmatch 'Optional cleanup fixture' -or $caughtMessage -notm
     throw "Invoke-NativeOrThrow did not surface the expected recoverable failure: $caughtMessage"
 }
 
+# GitHub's pwsh runner propagates the last native process exit code after the
+# script returns. The exit 19 above is the fixture under test, not this test's
+# result, so clear the automatic variable once its value has been asserted.
+$global:LASTEXITCODE = 0
+
 Write-Host 'Deploy optional-cleanup failure handling checks passed.'
