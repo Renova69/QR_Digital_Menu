@@ -2,6 +2,7 @@ import { Moon, Search, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 import { usePosTheme } from "../../context/PosThemeContext";
+import { useRestaurantContext } from "../../context/RestaurantContext";
 import PosServiceRequests from "./PosServiceRequests";
 import PosSyncStatus from "./PosSyncStatus";
 
@@ -9,6 +10,7 @@ export default function PosTopBar() {
   const { t } = useTranslation();
   const { session, searchQuery, setSearchQuery } = usePos();
   const { theme, toggleTheme } = usePosTheme();
+  const { activeRestaurant } = useRestaurantContext();
 
   const handleOpenTableModal = () => {
     window.dispatchEvent(new CustomEvent("pos:open-table-modal"));
@@ -32,6 +34,15 @@ export default function PosTopBar() {
           <Moon className="h-5 w-5" />
         )}
       </button>
+
+      {activeRestaurant?.name && (
+        <div
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground sm:max-w-44 sm:flex-none"
+          title={activeRestaurant.name}
+        >
+          {activeRestaurant.name}
+        </div>
+      )}
 
       <div className="relative order-last min-w-0 basis-full sm:order-none sm:basis-auto sm:flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

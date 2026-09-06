@@ -63,6 +63,7 @@ describe("KitchenPage", () => {
     renderPage();
     expect(screen.getByText(/KITCHEN/i)).toBeDefined();
     expect(screen.getByText(/DISPLAY/i)).toBeDefined();
+    expect(screen.getByText("Test Rest")).toBeDefined();
     expect(screen.getByText(/Awaiting Payment/i)).toBeDefined();
     expect(screen.getByText(/New/i)).toBeDefined();
     expect(screen.getByText(/In Progress/i)).toBeDefined();
