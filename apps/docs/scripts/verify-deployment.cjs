@@ -4,9 +4,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repositoryRoot = path.resolve(__dirname, "../../..");
-const frontendVercelConfig = JSON.parse(
-  fs.readFileSync(path.join(repositoryRoot, "vercel.json"), "utf8"),
-);
+const verifyFrontendIntegration = !process.argv.includes("--docs-origin-only");
+const frontendVercelConfig = verifyFrontendIntegration
+  ? JSON.parse(
+      fs.readFileSync(path.join(repositoryRoot, "vercel.json"), "utf8"),
+    )
+  : undefined;
 const docsVercelConfig = JSON.parse(
   fs.readFileSync(path.join(repositoryRoot, "apps/docs/vercel.json"), "utf8"),
 );
@@ -23,27 +26,30 @@ const findHtmlFiles = (directory) =>
     return entry.name.endsWith(".html") ? [entryPath] : [];
   });
 
-assert(
-  frontendVercelConfig.redirects?.some(
-    ({ source, destination }) => source === "/docs" && destination === "/docs/",
-  ),
-  "The frontend must redirect /docs to the Docusaurus base URL /docs/.",
-);
+if (verifyFrontendIntegration) {
+  assert(
+    frontendVercelConfig.redirects?.some(
+      ({ source, destination }) =>
+        source === "/docs" && destination === "/docs/",
+    ),
+    "The frontend must redirect /docs to the Docusaurus base URL /docs/.",
+  );
 
-const docsRewriteIndex = frontendVercelConfig.rewrites.findIndex(
-  ({ source, destination }) =>
-    source === "/docs/(.*)" &&
-    destination === "https://qr-digital-menu-docs.vercel.app/$1",
-);
-const spaFallbackIndex = frontendVercelConfig.rewrites.findIndex(
-  ({ destination }) => destination === "/index.html",
-);
+  const docsRewriteIndex = frontendVercelConfig.rewrites.findIndex(
+    ({ source, destination }) =>
+      source === "/docs/(.*)" &&
+      destination === "https://qr-digital-menu-docs.vercel.app/$1",
+  );
+  const spaFallbackIndex = frontendVercelConfig.rewrites.findIndex(
+    ({ destination }) => destination === "/index.html",
+  );
 
-assert(docsRewriteIndex >= 0, "The frontend docs proxy rewrite is missing.");
-assert(
-  docsRewriteIndex < spaFallbackIndex,
-  "The docs proxy must run before the frontend SPA fallback.",
-);
+  assert(docsRewriteIndex >= 0, "The frontend docs proxy rewrite is missing.");
+  assert(
+    docsRewriteIndex < spaFallbackIndex,
+    "The docs proxy must run before the frontend SPA fallback.",
+  );
+}
 assert(
   docsHome.includes("href=/docs/assets/") &&
     docsHome.includes("href=/docs/getting-started"),
@@ -60,9 +66,6 @@ assert(
   "The docs origin must serve generated .html files through extensionless URLs.",
 );
 
-const contentSecurityPolicy = frontendVercelConfig.headers
-  .flatMap(({ headers }) => headers)
-  .find(({ key }) => key === "Content-Security-Policy")?.value;
 const docsHeaders =
   docsVercelConfig.headers?.flatMap(({ headers }) => headers) ?? [];
 const docsHeader = (name) =>
@@ -91,19 +94,24 @@ const inlineScriptHashes = [
   ),
 ];
 
-assert(
-  contentSecurityPolicy,
-  "The frontend Content-Security-Policy is missing.",
-);
-const missingInlineScriptHashes = inlineScriptHashes.filter(
-  (hash) => !contentSecurityPolicy.includes(`'${hash}'`),
-);
-assert(
-  missingInlineScriptHashes.length === 0,
-  `The frontend CSP does not permit these Docusaurus inline scripts: ${missingInlineScriptHashes.join(
-    ", ",
-  )}.`,
-);
+if (verifyFrontendIntegration) {
+  const contentSecurityPolicy = frontendVercelConfig.headers
+    .flatMap(({ headers }) => headers)
+    .find(({ key }) => key === "Content-Security-Policy")?.value;
+  assert(
+    contentSecurityPolicy,
+    "The frontend Content-Security-Policy is missing.",
+  );
+  const missingInlineScriptHashes = inlineScriptHashes.filter(
+    (hash) => !contentSecurityPolicy.includes(`'${hash}'`),
+  );
+  assert(
+    missingInlineScriptHashes.length === 0,
+    `The frontend CSP does not permit these Docusaurus inline scripts: ${missingInlineScriptHashes.join(
+      ", ",
+    )}.`,
+  );
+}
 
 assert(
   docsContentSecurityPolicy,
@@ -134,4 +142,8 @@ assert(
   )}.`,
 );
 
-console.log("Docs subpath, origin mapping, and CSP checks passed.");
+console.log(
+  verifyFrontendIntegration
+    ? "Docs subpath, origin mapping, and CSP checks passed."
+    : "Docs origin and CSP checks passed.",
+);
