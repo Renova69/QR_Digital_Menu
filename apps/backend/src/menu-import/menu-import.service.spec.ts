@@ -266,63 +266,59 @@ describe('MenuImportService', () => {
       );
     });
 
-    // F-FE-1/F-FE-3: EUR is the only transactional currency — a BGN-tagged
-    // import must be normalized to EUR, never stored as authoritative BGN.
-    it('normalizes a BGN-tagged import to EUR at the fixed rate', async () => {
-      const tx = makeTx();
-      mockPrisma.$transaction.mockImplementation(
-        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
-      );
-
-      await service.upsertMenu('rest-1', {
-        categories: [
-          {
-            name: 'BGN Menu',
-            availabilityType: AvailabilityType.ALWAYS,
-            items: [
+    it.each(['BGN', 'USD'])(
+      'rejects %s imports without changing menu prices',
+      async (currency) => {
+        const tx = makeTx();
+        mockPrisma.$transaction.mockImplementation(
+          async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+        );
+        await expect(
+          service.upsertMenu('rest-1', {
+            categories: [
               {
-                name: 'Item BGN',
-                price: 1.95583 * 2,
-                currency: 'BGN',
-                options: [],
+                name: 'Menu',
+                availabilityType: AvailabilityType.ALWAYS,
+                items: [
+                  {
+                    name: 'Soup',
+                    price: 12.5,
+                    currency: currency as Currency,
+                    options: [],
+                  },
+                ],
               },
             ],
-          },
-        ],
-      });
+          }),
+        ).rejects.toThrow('only EUR is accepted');
+        expect(tx.menuItem.create).not.toHaveBeenCalled();
+        expect(tx.menuItem.update).not.toHaveBeenCalled();
+      },
+    );
 
-      expect(tx.menuItem.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ currency: Currency.EUR, price: 2 }),
-        }),
-      );
-    });
-
-    // Security-review finding: choice price deltas live on the option, not
-    // the item, so the item-level BGN conversion above doesn't touch them —
-    // a BGN "+2 лв" upcharge must also convert, or it gets reinterpreted as
-    // "+2 EUR" downstream (order totals treat every stored number as EUR).
-    it('normalizes BGN choice price modifiers to EUR at the fixed rate', async () => {
+    it('preserves EUR modifiers and canonicalizes legacy external choice fields', async () => {
       const tx = makeTx();
       mockPrisma.$transaction.mockImplementation(
-        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
       );
-
       await service.upsertMenu('rest-1', {
         categories: [
           {
-            name: 'BGN Menu',
+            name: 'Menu',
             availabilityType: AvailabilityType.ALWAYS,
             items: [
               {
-                name: 'Pizza',
-                price: 1.95583 * 10,
-                currency: 'BGN',
+                name: 'Soup',
+                price: 12.5,
+                currency: Currency.EUR,
                 options: [
                   {
-                    name: 'Size',
+                    name: 'Extras',
                     type: 'ADDON',
-                    choices: [{ name: 'Large', price: 1.95583 * 2 }],
+                    choices: [
+                      { name: 'Large', price: 2.5 },
+                      { name: 'Cheese', priceModifier: 1.25, price: 99 },
+                    ],
                   },
                 ],
               },
@@ -330,19 +326,19 @@ describe('MenuImportService', () => {
           },
         ],
       });
-
       expect(tx.menuOption.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             choices: [
-              expect.objectContaining({ name: 'Large', priceModifier: 2 }),
+              { name: 'Large', priceModifier: 2.5 },
+              { name: 'Cheese', priceModifier: 1.25 },
             ],
           }),
         }),
       );
     });
 
-    it('uses EUR currency for non-BGN items', async () => {
+    it('uses EUR currency for imported items', async () => {
       const tx = makeTx();
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 

@@ -13,7 +13,7 @@ The **Menu Builder** is where you create, organize, and update your venue's digi
 ## What This Feature Does
 
 - **Structured Menu Hierarchy**: Organize your dishes into clear, ordered categories (such as Appetizers, Pasta, Grill, Desserts, Cocktails).
-- **Dish Details & Imagery**: Showcase mouthwatering photos, descriptions, and dual-currency pricing (e.g., EUR and BGN).
+- **Dish Details & Imagery**: Add photos, descriptions, and prices in EUR.
 - **Dietary & Allergen Transparency**: Tag items with dietary labels (Vegan, Vegetarian, Spicy) and official allergen disclosures (Gluten, Dairy, Nuts, Fish). Guests can filter your menu by these tags.
 - **Variations & Custom Add-Ons**: Allow guests to select dish sizes, preparation temperatures, or paid extras with automatic price adjustments.
 - **Stock Availability Toggles**: Quickly mark dishes as out of stock during a shift without deleting them.

@@ -60,7 +60,7 @@ The most efficient way to overhaul prices or add dozens of dishes at once is the
 ## Important Notes
 
 - **Preserve Column Headers**: When editing in Excel, do not rename, reorder, or delete the column header row at the top of each sheet. Renova relies on these exact headers to match each field.
-- **Price Formatting**: Use standard numeric values for prices (e.g., `12.50`). Do not type currency symbols like `€` or `лв.` into price cells.
+- **Price Formatting**: Prices must be in EUR. Decimal points and decimal commas are accepted (for example, `12.50` or `12,50`). In comma-delimited CSV files, quote prices that contain a comma. Malformed or ambiguous price strings are rejected before import.
 - **Automatic Translations**: If you add new items in your spreadsheet without translations, Renova's translation system will automatically generate translations in the background for your configured target languages.
 
 ---

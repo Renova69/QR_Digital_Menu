@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types";
-import { formatStackedDual, BGN_RATE } from "../../lib/currency";
+import { formatEuro } from "../../lib/currency";
 import {
   resolveCartChoiceName,
   resolveCartItemName,
@@ -148,20 +148,7 @@ const CartDrawer = ({
                       <div className="flex items-center gap-3">
                         <span className="text-right leading-tight">
                           <span className="block text-sm font-semibold text-primary">
-                            {
-                              formatStackedDual(
-                                drink.price ?? 0,
-                                drink.currency ?? "EUR",
-                              ).eur
-                            }
-                          </span>
-                          <span className="block text-[10px] text-muted-foreground">
-                            {
-                              formatStackedDual(
-                                drink.price ?? 0,
-                                drink.currency ?? "EUR",
-                              ).bgn
-                            }
+                            {formatEuro(drink.price ?? 0)}
                           </span>
                         </span>
                         <Button
@@ -172,12 +159,8 @@ const CartDrawer = ({
                               id: drink.id,
                               name: drink.originalName ?? drink.name,
                               originalName: drink.originalName ?? drink.name,
-                              // F-FE-1/F-FE-3: normalize to EUR — same rule
-                              // as buildMainCartItem/pairing upsell.
-                              price:
-                                drink.currency === "BGN"
-                                  ? drink.price / BGN_RATE
-                                  : drink.price,
+
+                              price: drink.price,
                               quantity: 1,
                               selectedOptions: [],
                               itemTranslations: drink.translations ?? null,
@@ -232,20 +215,7 @@ const CartDrawer = ({
                               )}{" "}
                               <span className="text-primary/70 font-semibold">
                                 (+
-                                {
-                                  formatStackedDual(
-                                    opt.priceModifier || 0,
-                                    "EUR",
-                                  ).eur
-                                }{" "}
-                                /{" "}
-                                {
-                                  formatStackedDual(
-                                    opt.priceModifier || 0,
-                                    "EUR",
-                                  ).bgn
-                                }
-                                )
+                                {formatEuro(opt.priceModifier || 0)})
                               </span>
                             </li>
                           ))}
@@ -255,16 +225,7 @@ const CartDrawer = ({
                   <div className="text-right flex flex-col justify-between shrink-0">
                     <span className="leading-tight">
                       <p className="font-bold text-base text-foreground">
-                        {
-                          formatStackedDual(item.price * item.quantity, "EUR")
-                            .eur
-                        }
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {
-                          formatStackedDual(item.price * item.quantity, "EUR")
-                            .bgn
-                        }
+                        {formatEuro(item.price * item.quantity)}
                       </p>
                     </span>
                     <button
@@ -294,10 +255,7 @@ const CartDrawer = ({
               </span>
               <span className="text-right leading-tight">
                 <span className="block text-base font-display font-black text-primary">
-                  {formatStackedDual(getTotal(), "EUR").eur}
-                </span>
-                <span className="block text-xs font-semibold text-muted-foreground">
-                  {formatStackedDual(getTotal(), "EUR").bgn}
+                  {formatEuro(getTotal())}
                 </span>
               </span>
             </div>

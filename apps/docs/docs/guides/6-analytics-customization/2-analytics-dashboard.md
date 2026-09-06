@@ -78,7 +78,7 @@ To generate an accounting-ready report:
 
 ## Important Notes
 
-- **Dual Currency Accounting**: Reports include figures in both your primary and secondary currencies (e.g., EUR and BGN), calculated using official fixed rates.
+- **Currency**: Reports and spreadsheet exports show all monetary amounts in EUR.
 - **Session Finalization**: Revenue numbers reflect completed orders and settled table sessions to ensure complete accounting accuracy.
 
 ---

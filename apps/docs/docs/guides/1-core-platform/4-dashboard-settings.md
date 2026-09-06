@@ -18,7 +18,7 @@ The **General** settings tab controls your venue's public identity, operating ti
 - **Social Media Icons**: Add links to your Instagram, Facebook, TikTok, YouTube, and official website. These display as interactive icons at the bottom of your digital menu.
 - **Timezone Configuration**: Ensure your local time is accurate so that time-based menu categories (dayparting), happy hour point bonuses, and daily sales cutoffs trigger at the exact local time.
 - **Languages & Translation**: Choose your staff's dashboard language and select target languages for automatic customer menu translation.
-- **Dual Currency Display**: Renova displays item prices with secondary currency equivalents automatically converted according to official fixed exchange rates (e.g., EUR and BGN).
+- **Currency**: Renova uses EUR for all menu prices, option modifiers, payments, and reports.
 
 ---
 

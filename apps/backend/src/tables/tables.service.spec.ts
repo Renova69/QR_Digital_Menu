@@ -888,6 +888,17 @@ describe('TablesService', () => {
   });
 
   describe('autoClosePaidSessions', () => {
+    it('bounds each cleanup and processes the oldest paid sessions first', async () => {
+      prisma.tableSession.findMany.mockResolvedValue([]);
+      await service.autoClosePaidSessions();
+      expect(prisma.tableSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 100,
+          orderBy: [{ paidAt: 'asc' }, { id: 'asc' }],
+        }),
+      );
+      expect(prisma.tableSession.updateMany).not.toHaveBeenCalled();
+    });
     it('isolates event failures after closing every eligible session', async () => {
       prisma.tableSession.findMany.mockResolvedValue([
         { id: 'session-1', restaurantId: 'rest-1', tableId: 'table-1' },
@@ -905,7 +916,11 @@ describe('TablesService', () => {
       await service.autoClosePaidSessions();
 
       expect(prisma.tableSession.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['session-1', 'session-2'] } },
+        where: {
+          id: { in: ['session-1', 'session-2'] },
+          status: 'PAID',
+          paidAt: { lt: expect.any(Date) },
+        },
         data: { status: 'CLOSED_PAID' },
       });
       expect(events.emitTableStatusChanged).toHaveBeenCalledTimes(2);

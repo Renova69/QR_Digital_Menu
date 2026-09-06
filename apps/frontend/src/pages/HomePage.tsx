@@ -560,8 +560,8 @@ function createMockItems(t: (key: string) => string): Item[] {
       id: "item-1",
       name: t("landing.phone.items.shopska.name"),
       description: t("landing.phone.items.shopska.description"),
-      price: 9.9,
-      currency: "BGN",
+      price: 5.06,
+      currency: "EUR",
       categoryId: "cat-salads",
       dietaryTags: [t("landing.phone.tags.vegetarian")],
       allergens: [t("landing.phone.allergens.milk")],
@@ -570,8 +570,8 @@ function createMockItems(t: (key: string) => string): Item[] {
       id: "item-2",
       name: t("landing.phone.items.kyufte.name"),
       description: t("landing.phone.items.kyufte.description"),
-      price: 15.9,
-      currency: "BGN",
+      price: 8.13,
+      currency: "EUR",
       categoryId: "cat-grill",
       allergens: [t("landing.phone.allergens.gluten")],
     },
@@ -579,8 +579,8 @@ function createMockItems(t: (key: string) => string): Item[] {
       id: "item-3",
       name: t("landing.phone.items.trout.name"),
       description: t("landing.phone.items.trout.description"),
-      price: 21.9,
-      currency: "BGN",
+      price: 11.2,
+      currency: "EUR",
       categoryId: "cat-popular",
       allergens: [t("landing.phone.allergens.fish")],
     },
@@ -588,8 +588,8 @@ function createMockItems(t: (key: string) => string): Item[] {
       id: "item-4",
       name: t("landing.phone.items.banitsa.name"),
       description: t("landing.phone.items.banitsa.description"),
-      price: 7.9,
-      currency: "BGN",
+      price: 4.04,
+      currency: "EUR",
       categoryId: "cat-popular",
       allergens: [
         t("landing.phone.allergens.gluten"),
@@ -600,8 +600,8 @@ function createMockItems(t: (key: string) => string): Item[] {
       id: "item-5",
       name: t("landing.phone.items.lemonade.name"),
       description: t("landing.phone.items.lemonade.description"),
-      price: 5.9,
-      currency: "BGN",
+      price: 3.02,
+      currency: "EUR",
       categoryId: "cat-drinks",
       dietaryTags: [t("landing.phone.tags.vegan")],
     },
@@ -740,7 +740,7 @@ function DashboardPreview() {
     },
     {
       label: t("landing.dashboardMock.kpis.revenue"),
-      value: "24 860 лв.",
+      value: "12710.72 €",
       trend: "+22.1%",
     },
     {
@@ -807,7 +807,7 @@ function DashboardPreview() {
       id: "#1254",
       table: t("landing.dashboardMock.table", { number: 12 }),
       items: t("landing.dashboardMock.items", { count: 2 }),
-      price: "24.90 лв.",
+      price: "12.73 €",
       status: t("landing.dashboardMock.status.preparing"),
       statusColor: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
     },
@@ -815,7 +815,7 @@ function DashboardPreview() {
       id: "#1255",
       table: t("landing.dashboardMock.table", { number: 5 }),
       items: t("landing.dashboardMock.items", { count: 3 }),
-      price: "33.60 лв.",
+      price: "17.18 €",
       status: t("landing.dashboardMock.status.preparing"),
       statusColor: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
     },
@@ -823,7 +823,7 @@ function DashboardPreview() {
       id: "#1256",
       table: t("landing.dashboardMock.table", { number: 8 }),
       items: t("landing.dashboardMock.items", { count: 1 }),
-      price: "18.20 лв.",
+      price: "9.31 €",
       status: t("landing.dashboardMock.status.ready"),
       statusColor: "bg-emerald-500/15 text-emerald-600",
     },
@@ -831,7 +831,7 @@ function DashboardPreview() {
       id: "#1257",
       table: t("landing.dashboardMock.table", { number: 3 }),
       items: t("landing.dashboardMock.items", { count: 4 }),
-      price: "52.00 лв.",
+      price: "26.59 €",
       status: t("landing.dashboardMock.status.new"),
       statusColor: "bg-primary/15 text-primary",
     },
@@ -1584,7 +1584,7 @@ const HomePage = () => {
                 ],
                 [
                   "landing.opsCenter.stats.payments",
-                  "2.8k лв.",
+                  "1.4k €",
                   t("landing.opsCenter.stats.today"),
                 ],
               ].map(([labelKey, value, meta]) => (
@@ -1886,12 +1886,36 @@ const HomePage = () => {
               </h5>
               <div className="space-y-3">
                 {[
-                  { label: t("landing.footer.legal.privacy", "Privacy"), to: "/privacy" },
-                  { label: t("landing.footer.legal.terms", "Terms"), to: "/terms" },
-                  { label: t("landing.footer.legal.cookies", "Cookies"), to: "/cookies" },
-                  { label: t("landing.footer.legal.dpa", "Data Processing Agreement"), to: "/dpa" },
-                  { label: t("landing.footer.legal.refund", "Refund Policy"), to: "/refund-policy" },
-                  { label: t("landing.footer.legal.msa", "Master Service Agreement"), to: "/msa" },
+                  {
+                    label: t("landing.footer.legal.privacy", "Privacy"),
+                    to: "/privacy",
+                  },
+                  {
+                    label: t("landing.footer.legal.terms", "Terms"),
+                    to: "/terms",
+                  },
+                  {
+                    label: t("landing.footer.legal.cookies", "Cookies"),
+                    to: "/cookies",
+                  },
+                  {
+                    label: t(
+                      "landing.footer.legal.dpa",
+                      "Data Processing Agreement",
+                    ),
+                    to: "/dpa",
+                  },
+                  {
+                    label: t("landing.footer.legal.refund", "Refund Policy"),
+                    to: "/refund-policy",
+                  },
+                  {
+                    label: t(
+                      "landing.footer.legal.msa",
+                      "Master Service Agreement",
+                    ),
+                    to: "/msa",
+                  },
                 ].map((item) => (
                   <Link
                     key={item.to}

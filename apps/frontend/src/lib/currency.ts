@@ -1,57 +1,5 @@
-// apps/frontend/src/lib/currency.ts
-
-/** Bulgarian National Bank fixed exchange rate: 1 EUR = 1.95583 BGN */
-export const BGN_RATE = 1.95583;
-
+/** All menu prices, option modifiers, and payments are denominated in EUR. */
 export function formatEuro(value: number): string {
   if (!Number.isFinite(value)) return "— €";
   return `${value.toFixed(2)} €`;
-}
-
-export function formatBgn(value: number): string {
-  if (!Number.isFinite(value)) return "— лв";
-  return `${(value * BGN_RATE).toFixed(2)} лв`;
-}
-
-/**
- * Returns primary + secondary price strings for dual-currency display.
- * Primary currency is determined by the item's currency field (EUR or BGN).
- */
-export function formatDualCurrency(
-  value: number,
-  primaryCurrency: "EUR" | "BGN" = "EUR",
-): { primary: string; secondary: string } {
-  if (primaryCurrency === "EUR") {
-    return { primary: formatEuro(value), secondary: formatBgn(value) };
-  }
-  // Value is already in BGN, format directly; derive EUR as secondary
-  return {
-    primary: `${value.toFixed(2)} лв`,
-    secondary: formatEuro(value / BGN_RATE),
-  };
-}
-
-/** Single-line inline format: "12.50 € / 24.45 лв" — reserved for tight
- * single-line contexts (e.g. inside a CTA button) where a 2-line stack
- * doesn't fit. Prefer formatStackedDual everywhere else. */
-export function formatInlineDual(
-  value: number,
-  primaryCurrency: "EUR" | "BGN" = "EUR",
-): string {
-  const { primary, secondary } = formatDualCurrency(value, primaryCurrency);
-  return `${primary} / ${secondary}`;
-}
-
-/**
- * Canonical two-line price pair: EUR always on top, BGN always underneath,
- * regardless of the item's stored currency — the layout every price display
- * (item cards, cart, checkout) should use for consistency. `value` is in
- * `currency`; normalizes to EUR first so the EUR line is always correct.
- */
-export function formatStackedDual(
-  value: number,
-  currency: "EUR" | "BGN" = "EUR",
-): { eur: string; bgn: string } {
-  const eurValue = currency === "BGN" ? value / BGN_RATE : value;
-  return { eur: formatEuro(eurValue), bgn: formatBgn(eurValue) };
 }

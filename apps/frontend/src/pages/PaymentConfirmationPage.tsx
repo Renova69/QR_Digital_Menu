@@ -29,8 +29,7 @@ import {
 // is deliberately NOT used: with an undefined locale it formatted per the
 // visitor's browser/OS locale, and even pinned to a locale it emits a
 // symbol-first "€24.50" that disagrees with the rest of the app. EUR is the
-// only transactional currency (create-item.dto enforces @IsIn([EUR]); BGN is
-// display-only), so the payment's currency field needs no branching here.
+// only currency used for transactions.
 
 // Widening retry ladder (ms) for the two server-resolved blocking states.
 // The first two steps cover the common provider-webhook lag; later steps back

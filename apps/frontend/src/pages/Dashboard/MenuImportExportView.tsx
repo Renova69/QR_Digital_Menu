@@ -52,6 +52,9 @@ const IMPORT_ERROR_DEFAULTS = {
     "The spreadsheet must include category and item_name columns.",
   "importExport.errors.parseFailed":
     "The file could not be read. Check its format and try again.",
+  "importExport.errors.invalidPrice":
+    "Use a valid euro price with at most two decimal places (for example 12.50 or 12,50).",
+  "importExport.errors.eurOnly": "Only EUR prices can be imported.",
 } as const;
 
 type ImportErrorKey = keyof typeof IMPORT_ERROR_DEFAULTS;
@@ -136,12 +139,47 @@ function parseBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
-function normalizeCurrency(value: unknown): "EUR" | "BGN" {
-  return String(value ?? "")
+function normalizeCurrency(value: unknown): "EUR" {
+  const currency = String(value ?? "")
     .trim()
-    .toUpperCase() === "BGN"
-    ? "BGN"
-    : "EUR";
+    .toUpperCase();
+  if (currency && currency !== "EUR") {
+    throw new Error("importExport.errors.eurOnly");
+  }
+  return "EUR";
+}
+
+// Accept explicit decimal/grouping formats; never truncate malformed money
+// or guess whether a lone separator followed by three digits means cents.
+export function parseImportPrice(value: unknown): number {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") {
+    if (Number.isFinite(value) && value >= 0) return value;
+    throw new Error("importExport.errors.invalidPrice");
+  }
+  if (typeof value !== "string") {
+    throw new Error("importExport.errors.invalidPrice");
+  }
+  const price = value
+    .trim()
+    .replace(/^(?:EUR|€)\s*|\s*(?:EUR|€)$/gi, "")
+    .trim();
+  let normalized: string;
+  if (/^\d+(?:[.,]\d{1,2})?$/.test(price)) {
+    normalized = price.replace(",", ".");
+  } else if (/^\d{1,3}(?:\.\d{3})+,\d{1,2}$/.test(price)) {
+    normalized = price.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d{1,3}(?:,\d{3})+\.\d{1,2}$/.test(price)) {
+    normalized = price.replace(/,/g, "");
+  } else if (/^\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d{1,2})?$/.test(price)) {
+    normalized = price.replace(/[ \u00a0\u202f]/g, "").replace(",", ".");
+  } else {
+    throw new Error("importExport.errors.invalidPrice");
+  }
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount))
+    throw new Error("importExport.errors.invalidPrice");
+  return amount;
 }
 
 function parseVariants(str: string) {
@@ -154,7 +192,7 @@ function parseVariants(str: string) {
       const parts = v.split(":");
       return {
         name: parts[0]?.trim() || "",
-        price: parseFloat(parts[1]) || 0,
+        priceModifier: parseImportPrice(parts[1]),
         weight: parts[2]?.trim() || null,
       };
     });
@@ -215,7 +253,7 @@ export function csvToPayload(text: string): any[] {
     catMap.get(catName)!.push({
       name: row["item_name"] || "",
       description: row["description"] || "",
-      price: parseFloat(row["price"]) || 0,
+      price: parseImportPrice(row["price"]),
       weight: row["weight"] || null,
       currency: normalizeCurrency(row["currency"]),
       allergens,
@@ -238,8 +276,9 @@ export function csvToPayload(text: string): any[] {
   }));
 }
 
-function jsonToPayload(text: string): any[] {
+export function jsonToPayload(text: string): any[] {
   const obj = JSON.parse(text);
+  normalizeCurrency(obj.currency);
   const cats = obj.categories || obj.menu || obj.sections || [];
   return cats.map((cat: any, i: number) => {
     const items = (cat.items || cat.dishes || cat.products || []).map(
@@ -260,7 +299,7 @@ function jsonToPayload(text: string): any[] {
                   type: "VARIATION",
                   choices: item.variants.map((v: any) => ({
                     name: v.name,
-                    price: v.price,
+                    priceModifier: v.priceModifier ?? v.price,
                     weight: v.weight || null,
                   })),
                 },
@@ -269,13 +308,24 @@ function jsonToPayload(text: string): any[] {
         return {
           name: item.name,
           description: item.description || "",
-          price: item.price ?? 0,
-          ...(item.costPrice ? { costPrice: item.costPrice } : {}),
+          price: parseImportPrice(item.price),
+          ...(item.costPrice != null
+            ? { costPrice: parseImportPrice(item.costPrice) }
+            : {}),
           weight: item.weight || null,
-          currency: obj.currency === "BGN" ? "BGN" : "EUR",
+          currency: normalizeCurrency(item.currency ?? obj.currency),
           allergens,
           dietaryTags,
-          options,
+          options: options.map((option: any) => ({
+            ...option,
+            choices: (option.choices ?? []).map((choice: any) => ({
+              name: choice.name,
+              priceModifier: parseImportPrice(
+                choice.priceModifier ?? choice.price,
+              ),
+              ...(choice.weight ? { weight: choice.weight } : {}),
+            })),
+          })),
           ...(item.translations ? { translations: item.translations } : {}),
           ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
           ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
@@ -317,7 +367,7 @@ function jsonToPayload(text: string): any[] {
 }
 
 // XLSX export column order: Category, Item Name, Description, Price, Weight, Currency, Tags, Variants
-async function xlsxToPayload(file: File): Promise<any[]> {
+export async function xlsxToPayload(file: File): Promise<any[]> {
   const rows = (await readXlsxSheet(file)) as unknown as any[][];
   if (rows.length < 2) throw new Error("importExport.errors.xlsxNoRows");
 
@@ -393,12 +443,7 @@ async function xlsxToPayload(file: File): Promise<any[]> {
     catMap.get(catName)!.push({
       name: String(row[nameIdx] ?? "").trim(),
       description: descIdx >= 0 ? String(row[descIdx] ?? "").trim() : "",
-      price:
-        priceIdx >= 0
-          ? typeof row[priceIdx] === "number"
-            ? row[priceIdx]
-            : parseFloat(String(row[priceIdx])) || 0
-          : 0,
+      price: parseImportPrice(priceIdx >= 0 ? row[priceIdx] : undefined),
       weight: weightIdx >= 0 && row[weightIdx] ? String(row[weightIdx]) : null,
       currency: normalizeCurrency(
         currencyIdx >= 0 ? row[currencyIdx] : undefined,
@@ -859,9 +904,7 @@ function PreviewTable({
                   <td
                     className={`px-4 py-2.5 font-mono text-sm ${!item.price ? "text-amber-500" : "text-foreground"}`}
                   >
-                    {item.price
-                      ? `${item.price} ${item.currency || "BGN"}`
-                      : "—"}
+                    {item.price ? `${item.price} EUR` : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
                     {item.weight || "—"}

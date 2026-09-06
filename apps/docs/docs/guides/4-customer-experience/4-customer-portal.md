@@ -39,7 +39,7 @@ The **Customer Profile Portal** at `/profile` is the self-service hub where dini
 
 ### 1. Order History & Receipts
 - Review past restaurant visits ordered chronologically.
-- Tap any order to expand the full itemized check, including dishes, customized options, order total in dual currencies (EUR / BGN), and whether the order was placed via QR menu or tableside POS.
+- Tap any order to expand the full itemized check, including dishes, customized options, the order total in EUR, and whether the order was placed via QR menu or tableside POS.
 
 ### 2. Loyalty Accounts & Expiry Countdowns
 - View your total points balance for each restaurant you patronize.

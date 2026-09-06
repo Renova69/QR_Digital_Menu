@@ -70,10 +70,17 @@ const LiveTablesView: React.FC = () => {
   React.useEffect(() => {
     if (!socket || !isConnected || !restaurantId) return;
 
+    let invalidationTimer: ReturnType<typeof setTimeout> | undefined;
     const handleTableInvalidation = () => {
-      queryClient.invalidateQueries({
-        queryKey: ["tableStatuses", restaurantId],
-      });
+      // Coalesce bursts within a fixed window. Continuous events cannot
+      // postpone a refresh indefinitely, as a trailing debounce would.
+      if (invalidationTimer !== undefined) return;
+      invalidationTimer = setTimeout(() => {
+        invalidationTimer = undefined;
+        void queryClient.invalidateQueries({
+          queryKey: ["tableStatuses", restaurantId],
+        });
+      }, 200);
     };
 
     socket.on("table:status-changed", handleTableInvalidation);
@@ -82,6 +89,7 @@ const LiveTablesView: React.FC = () => {
       queryKey: ["tableStatuses", restaurantId],
     });
     return () => {
+      clearTimeout(invalidationTimer);
       socket.off("table:status-changed", handleTableInvalidation);
       socket.off("table:updated", handleTableInvalidation);
     };

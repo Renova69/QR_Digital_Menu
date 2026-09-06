@@ -1,5 +1,7 @@
 # QR Menu — Product & Technical Due Diligence Report
 
+Current currency policy (2026-09-05): EUR only for menu prices, modifiers, imports, payments, receipts, and exports. Historical implementation notes below may describe retired conversion behavior.
+
 > **Prepared for:** Fortune 500 Acquisition Review
 > **Date:** July 26, 2026 (audited — all sections verified against codebase)
 > **Product Status:** V3.5 Platform Expansion Shipped | Reservations ✅ | Print Station ✅ | BORICA/ePay.bg/MyPOS ✅ | Split Bill ✅ | Service Points ✅ | Web Push ✅ | Translation Pipeline Rework ✅ | Allergen/Dietary Tags ✅ | Loyalty Checkout & Redemption ✅ | 12-Locale i18n ✅ | Analytics Deep-Dive v2/v3 ✅ | Dashboard Polish & Hardening ✅
@@ -13,7 +15,7 @@ QR Menu is a full-stack SaaS platform that digitizes restaurant dining. Restaura
 
 The product has completed its V1 MVP, V2 Premium features, and V2.5 Visual Polish milestone as of May 2026. The codebase demonstrates production-grade engineering across the full stack: a NestJS backend with 17 domain modules, a React frontend with 9 context providers and comprehensive i18n support (EN/BG/RO), real-time WebSocket updates via Socket.io, a FIFO loyalty point ledger with timezone-aware happy hour, server-side price validation to prevent manipulation, and a platform-managed DeepL translation pipeline with lazy on-demand caching.
 
-The platform currently targets the Bulgarian restaurant market (BG is the i18n fallback language, default currency EUR/BGN, Neon database hosted in Europe) but the architecture is market-agnostic. The React frontend uses a dual-layout system (AppLayout for dashboard, PublicLayout for customer-facing routes) that delivers a near-native mobile experience on the primary device for this use case — the customer's phone.
+The platform currently targets the Bulgarian restaurant market (BG is the i18n fallback language, currency EUR, Neon database hosted in Europe) but the architecture is market-agnostic. The React frontend uses a dual-layout system (AppLayout for dashboard, PublicLayout for customer-facing routes) that delivers a near-native mobile experience on the primary device for this use case — the customer's phone.
 
 Revenue potential is now realized through Stripe Connect integration (fully implemented May 2026). The platform charges a configurable platform fee on every payment processed through Stripe. The payment system uses a provider abstraction pattern (`IPaymentProvider`) enabling future payment method additions (MyPOS, Square, etc.). The loyalty program — FIFO point ledger, configurable VIP tiers, timezone-aware happy hour multipliers — is a retention engine atypical for a pre-revenue product.
 
@@ -393,7 +395,7 @@ sequenceDiagram
 - TopBar with full-width search, filter toggle, theme, language codes, table chip
 - FilterPanel with dietary toggles (Spicy, Vegan, New, Featured) and allergen exclusion pills
 - CategoryPills — horizontal scroll pill navigation replacing sticky IntersectionObserver nav
-- Horizontal item cards with dual-currency prices (EUR + BGN at BNB fixed rate 1.95583)
+- Horizontal item cards with EUR prices
 - Pill-shaped "+ Add" buttons replacing full-width solid blue "ADD TO CART" buttons
 - Slim TrendingCarousel with compact skeleton loader
 - Bottom nav regroup: profile/waiter left, cart/bill right
@@ -419,7 +421,7 @@ sequenceDiagram
 - `apps/frontend/src/pages/TopBar.tsx` — search, filter toggle, theme, language codes, table chip
 - `apps/frontend/src/pages/FilterPanel.tsx` — dietary toggles + allergen exclusion pills
 - `apps/frontend/src/pages/CategoryPills.tsx` — horizontal scroll pill navigation
-- `apps/frontend/src/lib/currency.ts` — dual EUR/BGN formatters at BNB fixed rate
+- `apps/frontend/src/lib/currency.ts` — EUR price formatting
 - `apps/frontend/src/components/menu/ItemWithOptions.tsx` — horizontal layout, dual-currency, pill +Add, pairings, toast, lightbox
 - `apps/frontend/src/components/menu/ImageLightbox.tsx` — pinch-zoom + swipe gesture engine
 - `apps/frontend/src/components/menu/TrendingCarousel.tsx` — slim horizontal scroll with compact skeleton

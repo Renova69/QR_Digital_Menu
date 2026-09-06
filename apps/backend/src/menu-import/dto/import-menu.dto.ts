@@ -13,11 +13,11 @@ import {
   ArrayMinSize,
   MaxLength,
   IsIn,
-  IsEnum,
   ArrayUnique,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Currency } from '@prisma/client';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   REWARD_POINTS_MODES,
   RewardPointsModeValue,
@@ -88,9 +88,10 @@ export class ImportItemDto {
   weight?: string;
 
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.toUpperCase() : value,
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
   )
-  @IsEnum(Currency)
+  @ApiPropertyOptional({ enum: [Currency.EUR] })
+  @IsIn([Currency.EUR], { message: 'currency must be EUR' })
   @IsOptional()
   currency?: Currency;
 

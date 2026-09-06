@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -62,15 +68,10 @@ vi.mock("../../components/tables/TableDetailModal", () => ({
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (
-      key: string,
-      fallback?: unknown,
-      options?: Record<string, unknown>,
-    ) => {
+    t: (key: string, fallback?: unknown, options?: Record<string, unknown>) => {
       if (typeof fallback === "string") {
-        return fallback.replace(
-          /\{\{(\w+)\}\}/g,
-          (_m, name: string) => String(options?.[name] ?? `{{${name}}}`),
+        return fallback.replace(/\{\{(\w+)\}\}/g, (_m, name: string) =>
+          String(options?.[name] ?? `{{${name}}}`),
         );
       }
       return key;
@@ -97,12 +98,14 @@ function makeTable(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderView(options: {
-  tables?: unknown[];
-  socket?: { on: () => void; off: () => void } | null;
-  isConnected?: boolean;
-  rejectStatuses?: boolean;
-} = {}) {
+function renderView(
+  options: {
+    tables?: unknown[];
+    socket?: { on: () => void; off: () => void } | null;
+    isConnected?: boolean;
+    rejectStatuses?: boolean;
+  } = {},
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -173,8 +176,22 @@ describe("LiveTablesView data states", () => {
 describe("LiveTablesView stats & filters", () => {
   const threeTables = () => [
     makeTable(),
-    makeTable({ id: "t-2", name: "Table 2", status: "empty", customerNames: [], totalAmount: 0, sessionToken: undefined }),
-    makeTable({ id: "t-3", name: "Table 3", status: "paid", customerNames: [], totalAmount: 12, sessionToken: undefined }),
+    makeTable({
+      id: "t-2",
+      name: "Table 2",
+      status: "empty",
+      customerNames: [],
+      totalAmount: 0,
+      sessionToken: undefined,
+    }),
+    makeTable({
+      id: "t-3",
+      name: "Table 3",
+      status: "paid",
+      customerNames: [],
+      totalAmount: 12,
+      sessionToken: undefined,
+    }),
   ];
 
   it("renders total, active and open-value stats", async () => {
@@ -227,9 +244,9 @@ describe("LiveTablesView table detail", () => {
 
     fireEvent.click(await screen.findByTestId("table-card-Table 1"));
 
-    expect(
-      screen.getByTestId("detail-modal").getAttribute("data-open"),
-    ).toBe("true");
+    expect(screen.getByTestId("detail-modal").getAttribute("data-open")).toBe(
+      "true",
+    );
     await waitFor(() =>
       expect(api.getTableOrders).toHaveBeenCalledWith("t-1", "rest-1"),
     );
@@ -242,27 +259,42 @@ describe("LiveTablesView table detail", () => {
 
   it("opens the modal without fetching orders for an empty table", async () => {
     renderView({
-      tables: [makeTable({ status: "empty", customerNames: [], sessionToken: undefined })],
+      tables: [
+        makeTable({
+          status: "empty",
+          customerNames: [],
+          sessionToken: undefined,
+        }),
+      ],
     });
 
     fireEvent.click(await screen.findByRole("button", { name: /All/ }));
     fireEvent.click(screen.getByTestId("table-card-Table 1"));
 
-    expect(
-      screen.getByTestId("detail-modal").getAttribute("data-open"),
-    ).toBe("true");
+    expect(screen.getByTestId("detail-modal").getAttribute("data-open")).toBe(
+      "true",
+    );
     expect(api.getTableOrders).not.toHaveBeenCalled();
   });
 
   it("ignores a stale orders response after switching tables", async () => {
     let resolveA!: (value: unknown) => void;
     api.getTableOrders
-      .mockImplementationOnce(() => new Promise((resolve) => (resolveA = resolve)))
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveA = resolve)),
+      )
       .mockResolvedValueOnce([{ id: "ord-b" }]);
     renderView({
       tables: [
         makeTable(),
-        makeTable({ id: "t-3", name: "Table 3", status: "paid", customerNames: [], totalAmount: 12, sessionToken: undefined }),
+        makeTable({
+          id: "t-3",
+          name: "Table 3",
+          status: "paid",
+          customerNames: [],
+          totalAmount: 12,
+          sessionToken: undefined,
+        }),
       ],
     });
 
@@ -298,14 +330,14 @@ describe("LiveTablesView table detail", () => {
     renderView({ tables: [makeTable()] });
 
     fireEvent.click(await screen.findByTestId("table-card-Table 1"));
-    expect(
-      screen.getByTestId("detail-modal").getAttribute("data-open"),
-    ).toBe("true");
+    expect(screen.getByTestId("detail-modal").getAttribute("data-open")).toBe(
+      "true",
+    );
 
     fireEvent.click(screen.getByTestId("modal-close"));
-    expect(
-      screen.getByTestId("detail-modal").getAttribute("data-open"),
-    ).toBe("false");
+    expect(screen.getByTestId("detail-modal").getAttribute("data-open")).toBe(
+      "false",
+    );
   });
 });
 
@@ -317,9 +349,7 @@ describe("LiveTablesView session close", () => {
     fireEvent.click(await screen.findByTestId("table-card-Table 1"));
     fireEvent.click(screen.getByTestId("modal-close-session"));
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Table 1"),
-    );
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("Table 1"));
     expect(api.closeSession).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
@@ -336,9 +366,9 @@ describe("LiveTablesView session close", () => {
       expect(api.closeSession).toHaveBeenCalledWith("tok-1", "rest-1"),
     );
     await waitFor(() =>
-      expect(
-        screen.getByTestId("detail-modal").getAttribute("data-open"),
-      ).toBe("false"),
+      expect(screen.getByTestId("detail-modal").getAttribute("data-open")).toBe(
+        "false",
+      ),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["tableStatuses", "rest-1"],
@@ -364,6 +394,44 @@ describe("LiveTablesView session close", () => {
 });
 
 describe("LiveTablesView socket integration", () => {
+  it("batches bursts, refreshes during continuous events, and cancels pending work on unmount", async () => {
+    const on = vi.fn(),
+      off = vi.fn();
+    const { client, unmount } = renderView({
+      tables: [makeTable()],
+      socket: { on, off },
+    });
+    await screen.findByTestId("table-card-Table 1");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const handler = on.mock.calls.find(
+      (call) => call[0] === "table:status-changed",
+    )![1];
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        for (let i = 0; i < 20; i++) handler();
+      });
+      expect(invalidate).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(199);
+        handler();
+      });
+      expect(invalidate).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(invalidate).toHaveBeenCalledTimes(1);
+      act(() => handler());
+      unmount();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      expect(invalidate).toHaveBeenCalledTimes(1);
+      expect(off).toHaveBeenCalledWith("table:status-changed", handler);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("invalidates table statuses when socket events arrive", async () => {
     const on = vi.fn();
     const off = vi.fn();

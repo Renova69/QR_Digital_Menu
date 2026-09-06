@@ -1,7 +1,6 @@
 import writeXlsxFile from "write-excel-file/browser";
 import type { TFunction } from "i18next";
 import type { PaymentRecord } from "../pages/Dashboard/paymentsShared";
-import { BGN_RATE } from "./currency";
 
 export interface PaymentsExportMeta {
   restaurantName: string;
@@ -24,7 +23,7 @@ const HEADER_BG = "#4f46e5";
 const SECTION_BG = "#ede9fe";
 const HEADER_FG = "#ffffff";
 const EUR_FORMAT = '"EUR "#,##0.00';
-const BGN_FORMAT = '#,##0.00" BGN"';
+
 const PCT_FORMAT = '0.0"%"';
 
 function h(value: string): Cell {
@@ -54,10 +53,6 @@ function section(value: string, cols: number): Cell[] {
 
 function eur(value: number): Cell {
   return { value, type: Number, format: EUR_FORMAT };
-}
-
-function bgn(eurValue: number): Cell {
-  return { value: eurValue * BGN_RATE, type: Number, format: BGN_FORMAT };
 }
 
 function int(value: number): Cell {
@@ -175,20 +170,12 @@ export async function downloadPaymentsExport(
     [text(ex("txCount", "Transaction Count")), int(payments.length), empty()],
     [empty(), empty(), empty()],
     section(ex("sectionRevenue", "Revenue"), 3),
-    [
-      h(ex("colMetric", "Metric")),
-      h(ex("colEur", "EUR")),
-      h(ex("colBgn", "BGN")),
-    ],
-    [
-      text(ex("totalRevenue", "Total Revenue")),
-      eur(totalRevenue),
-      bgn(totalRevenue),
-    ],
-    [text(ex("totalTips", "Total Tips")), eur(totalTips), bgn(totalTips)],
-    [text(ex("totalFees", "Platform Fees")), eur(totalFees), bgn(totalFees)],
-    [text(ex("netRevenue", "Net Revenue")), eur(netRevenue), bgn(netRevenue)],
-    [text(ex("avgTx", "Avg Transaction")), eur(avgTx), bgn(avgTx)],
+    [h(ex("colMetric", "Metric")), h(ex("colEur", "EUR"))],
+    [text(ex("totalRevenue", "Total Revenue")), eur(totalRevenue)],
+    [text(ex("totalTips", "Total Tips")), eur(totalTips)],
+    [text(ex("totalFees", "Platform Fees")), eur(totalFees)],
+    [text(ex("netRevenue", "Net Revenue")), eur(netRevenue)],
+    [text(ex("avgTx", "Avg Transaction")), eur(avgTx)],
     [empty(), empty(), empty()],
     section(ex("sectionByStatus", "By Status"), 3),
     [
@@ -212,7 +199,6 @@ export async function downloadPaymentsExport(
       h(ex("colTable", "Table")),
       h(ex("colMethod", "Method")),
       h(ex("colAmountEur", "Amount EUR")),
-      h(ex("colAmountBgn", "Amount BGN")),
       h(ex("colTipEur", "Tip EUR")),
       h(ex("colFeeEur", "Fee EUR")),
       h(ex("colNetEur", "Net EUR")),
@@ -234,7 +220,6 @@ export async function downloadPaymentsExport(
         text(p.tableNumber),
         text(p.provider),
         eur(p.amount),
-        bgn(p.amount),
         eur(p.tipAmount),
         eur(p.platformFeeAmount),
         eur(net),
@@ -248,7 +233,7 @@ export async function downloadPaymentsExport(
   if (payments.length === 0) {
     txSheet.push([
       text(ex("noData", "No transactions")),
-      ...Array(12).fill(empty()),
+      ...Array(11).fill(empty()),
     ]);
   }
 
@@ -264,7 +249,6 @@ export async function downloadPaymentsExport(
       h(ex("colMethod", "Method")),
       h(ex("colCount", "Count")),
       h(ex("colRevenueEur", "Revenue EUR")),
-      h(ex("colRevenueBgn", "Revenue BGN")),
       h(ex("colTipsEur", "Tips EUR")),
       h(ex("colNetEur", "Net EUR")),
       h(ex("colShare", "Share")),
@@ -273,7 +257,6 @@ export async function downloadPaymentsExport(
       text(method),
       int(agg.count),
       eur(agg.amount),
-      bgn(agg.amount),
       eur(agg.tips),
       eur(agg.amount - agg.fees),
       pct(safePercent(agg.amount, totalSucceededRevenue)),
@@ -283,7 +266,7 @@ export async function downloadPaymentsExport(
   if (Object.keys(byMethod).length === 0) {
     methodSheet.push([
       text(ex("noData", "No succeeded transactions")),
-      ...Array(6).fill(empty()),
+      ...Array(5).fill(empty()),
     ]);
   }
 
@@ -302,7 +285,6 @@ export async function downloadPaymentsExport(
         { width: 14 },
         { width: 12 },
         { width: 14 },
-        { width: 14 },
         { width: 12 },
         { width: 12 },
         { width: 12 },
@@ -317,7 +299,6 @@ export async function downloadPaymentsExport(
       columns: [
         { width: 14 },
         { width: 10 },
-        { width: 14 },
         { width: 14 },
         { width: 12 },
         { width: 12 },

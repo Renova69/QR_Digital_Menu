@@ -292,8 +292,7 @@ const ItemRow = ({
         </p>
 
         <span className="shrink-0 font-bold text-primary">
-          {item.currency === "BGN" ? "лв" : "€"}
-          {item.price.toFixed(2)}
+          €{item.price.toFixed(2)}
         </span>
       </div>
 

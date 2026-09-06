@@ -4,7 +4,7 @@ import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { useTranslation } from "react-i18next";
-import { formatEuro, formatBgn } from "../lib/currency";
+import { formatEuro } from "../lib/currency";
 import { orderStatusKeyMap } from "./Dashboard/analytics/shared";
 import DataPrivacyTab from "./profile/DataPrivacyTab";
 import LinkIdentityCard from "../components/profile/LinkIdentityCard";
@@ -378,9 +378,7 @@ export const CustomerProfilePage: React.FC = () => {
                     <p className="font-bold text-2xl">
                       {formatEuro(order.totalPrice)}
                     </p>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {formatBgn(order.totalPrice)}
-                    </p>
+
                     {order.status && (
                       <span className="mt-2 inline-block rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary">
                         {t(

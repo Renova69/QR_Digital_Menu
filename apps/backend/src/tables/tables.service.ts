@@ -62,12 +62,18 @@ export class TablesService {
       const expired = await this.prisma.tableSession.findMany({
         where: { status: 'PAID', paidAt: { lt: cutoff } },
         select: { id: true, restaurantId: true, tableId: true },
+        take: 100,
+        orderBy: [{ paidAt: 'asc' }, { id: 'asc' }],
       });
 
       if (expired.length === 0) return;
 
       await this.prisma.tableSession.updateMany({
-        where: { id: { in: expired.map((s) => s.id) } },
+        where: {
+          id: { in: expired.map((s) => s.id) },
+          status: 'PAID',
+          paidAt: { lt: cutoff },
+        },
         data: { status: 'CLOSED_PAID' },
       });
 

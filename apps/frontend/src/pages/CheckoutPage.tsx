@@ -19,7 +19,7 @@ import { Zap, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { PaymentModal } from "../components/payment/PaymentModal";
-import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
+import { formatEuro } from "../lib/currency";
 import { getCustomerFacingOrderSourceLabel } from "../lib/orderSourceLabel";
 import { Toggle } from "../components/ui/Toggle";
 import type { FeatureFlag } from "../hooks/useFeature";
@@ -910,11 +910,6 @@ const CheckoutPage = () => {
                               (it.unitPrice ?? 0) * (it.quantity ?? 1),
                             )}
                           </span>
-                          <span className="block text-xs font-medium text-muted-foreground">
-                            {formatBgn(
-                              (it.unitPrice ?? 0) * (it.quantity ?? 1),
-                            )}
-                          </span>
                         </span>
                       </div>
                     ))}
@@ -934,18 +929,13 @@ const CheckoutPage = () => {
                         sessionBill.remaining ?? sessionBill.subtotal ?? 0,
                       )}
                     </span>
-                    <span className="block text-xs font-medium text-muted-foreground">
-                      {formatBgn(
-                        sessionBill.remaining ?? sessionBill.subtotal ?? 0,
-                      )}
-                    </span>
                   </span>
                 </div>
                 {sessionBill.paidSubtotal > 0 && (
                   <p className="mt-1 text-right text-sm text-muted-foreground">
                     {t("checkout.alreadyPaid", {
                       defaultValue: "{{amount}} already paid",
-                      amount: formatInlineDual(sessionBill.paidSubtotal),
+                      amount: formatEuro(sessionBill.paidSubtotal),
                     })}
                   </p>
                 )}
@@ -960,7 +950,7 @@ const CheckoutPage = () => {
                     className="w-full py-4 rounded-xl brand-cta text-white font-bold text-base min-h-[52px]"
                   >
                     {t("payment.pay", "Pay Now")} ·{" "}
-                    {formatInlineDual(
+                    {formatEuro(
                       sessionBill.remaining ?? sessionBill.subtotal ?? 0,
                     )}
                   </button>
@@ -1096,7 +1086,7 @@ const CheckoutPage = () => {
                           )}{" "}
                           <span className="text-primary/80 font-semibold">
                             (+
-                            {formatInlineDual(opt.priceModifier ?? 0, "EUR")})
+                            {formatEuro(opt.priceModifier ?? 0)})
                           </span>
                         </li>
                       ))}
@@ -1170,16 +1160,6 @@ const CheckoutPage = () => {
                               0,
                             ) * item.quantity,
                           )}
-                          <span className="block text-xs">
-                            +
-                            {formatBgn(
-                              item.selectedOptions.reduce(
-                                (sum, option) =>
-                                  sum + (option.priceModifier || 0),
-                                0,
-                              ) * item.quantity,
-                            )}
-                          </span>
                         </span>
                       )}
                     </>
@@ -1187,9 +1167,6 @@ const CheckoutPage = () => {
                     <>
                       <span className="block">
                         {formatEuro(item.price * item.quantity)}
-                      </span>
-                      <span className="block text-sm font-normal text-muted-foreground">
-                        {formatBgn(item.price * item.quantity)}
                       </span>
                     </>
                   )}
@@ -1201,9 +1178,6 @@ const CheckoutPage = () => {
             <span>{t("cart.total")}:</span>
             <div className="text-right whitespace-nowrap">
               <div>{formatEuro(getTotal(redeemedCartIds))}</div>
-              <span className="text-sm text-muted-foreground">
-                {formatBgn(getTotal(redeemedCartIds))}
-              </span>
             </div>
           </div>
 
@@ -1368,9 +1342,6 @@ const CheckoutPage = () => {
                     <span className="block">
                       -{formatEuro(getEstimatedPointsDiscount())}
                     </span>
-                    <span className="block text-xs font-medium opacity-80">
-                      -{formatBgn(getEstimatedPointsDiscount())}
-                    </span>
                   </span>
                 </div>
               )}
@@ -1383,11 +1354,6 @@ const CheckoutPage = () => {
                       getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
                     )}
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {formatBgn(
-                      getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
-                    )}
-                  </span>
                 </div>
               </div>
 

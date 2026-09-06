@@ -8,12 +8,7 @@ import {
 } from "../../context/CartContext";
 import { useTranslation } from "react-i18next";
 import { ImageLightbox } from "./ImageLightbox";
-import {
-  formatEuro,
-  formatBgn,
-  formatInlineDual,
-  BGN_RATE,
-} from "../../lib/currency";
+import { formatEuro } from "../../lib/currency";
 import { getImageUrl as resolveImageUrl } from "../../lib/getImageUrl";
 import { getTranslatedField, getTranslatedArray } from "../../lib/translation";
 import { cn } from "../../lib/utils";
@@ -61,8 +56,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const [imageInView, setImageInView] = useState(!item.imageUrl);
   const { t, i18n } = useTranslation();
   const currentLang = lang || i18n.language;
-  const priceEuro =
-    item.currency === "BGN" ? item.price / BGN_RATE : item.price;
+  const priceEuro = item.price;
   const itemName =
     getTranslatedField(item, currentLang, "name") ||
     item.originalName ||
@@ -198,9 +192,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       id: item.id,
       name: item.originalName ?? item.name,
       originalName: item.originalName ?? item.name,
-      // F-FE-1/F-FE-3: cart/order totals are EUR-only — normalize a
-      // BGN-tagged item price (legacy/import data) rather than storing it
-      // raw, which getTotal() would otherwise sum as if it were EUR.
+
       price: priceEuro,
       quantity: 1,
       selectedOptions: optionsWithDetails,
@@ -298,10 +290,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
         id: pairing.id,
         name: pairing.originalName ?? pairing.name,
         originalName: pairing.originalName ?? pairing.name,
-        // F-FE-1/F-FE-3: same EUR normalization as buildMainCartItem — the
-        // pairing upsell item can carry a BGN-tagged price too.
-        price:
-          pairing.currency === "BGN" ? pairing.price / BGN_RATE : pairing.price,
+
+        price: pairing.price,
         quantity: 1,
         selectedOptions: [],
         itemTranslations: pairing.translations ?? null,
@@ -443,9 +433,6 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
               >
                 {formatEuro(priceEuro)}
               </div>
-              <div className="text-[11px] text-muted-foreground font-medium">
-                {formatBgn(priceEuro)}
-              </div>
             </div>
             {ordersEnabled && (
               <button
@@ -563,11 +550,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                               {pairingName}
                             </h4>
                             <p className="text-primary font-black text-sm mt-1">
-                              +
-                              {formatInlineDual(
-                                pairing.price,
-                                pairing.currency,
-                              )}
+                              +{formatEuro(pairing.price)}
                             </p>
                           </div>
                         </div>
