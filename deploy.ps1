@@ -109,6 +109,34 @@ function Invoke-Native {
     }
 }
 
+function Invoke-NativeOrThrow {
+    <#
+    .SYNOPSIS
+      Run an external command and surface a non-zero exit as a catchable error.
+
+    .DESCRIPTION
+      This preserves Invoke-Native's Windows PowerShell stderr handling, but it
+      throws instead of terminating the deployment process. Use it only for
+      explicitly best-effort work contained by a local try/catch.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Description,
+        [Parameter(Mandatory)][scriptblock]$Command
+    )
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Command
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Description failed (exit $LASTEXITCODE)"
+    }
+}
+
 # --- 0. Prove this exact source revision passed mandatory CI ---------------
 # Production deploys must come from the clean, current origin/main commit.
 # The GitHub check lookup is intentionally fail-closed: no network, stale
@@ -554,17 +582,17 @@ Invoke-Native -Description "Traffic shift ($previousRevision may still be servin
 
 # Sweep any tag left behind by an earlier deploy that predates the cleanup
 # above, so the exposure cannot silently rebuild.
-$staleTagsJson = Invoke-Native -Description "Listing leftover revision tags" -Command {
-    & $GCLOUD run services describe $SERVICE `
-        --project=$PROJECT --region=$REGION --format=json
-}
 try {
+    $staleTagsJson = Invoke-NativeOrThrow -Description "Listing leftover revision tags" -Command {
+        & $GCLOUD run services describe $SERVICE `
+            --project=$PROJECT --region=$REGION --format=json
+    }
     $staleTags = ($staleTagsJson | ConvertFrom-Json).status.traffic |
         Where-Object { $_.tag } |
         ForEach-Object { $_.tag }
     if ($staleTags) {
         Write-Host "==> Removing $($staleTags.Count) leftover tag(s) from earlier deploys ..."
-        Invoke-Native -Description "Stale tag cleanup" -Command {
+        Invoke-NativeOrThrow -Description "Stale tag cleanup" -Command {
             & $GCLOUD run services update-traffic $SERVICE `
                 --project=$PROJECT --region=$REGION `
                 --remove-tags ($staleTags -join ',')

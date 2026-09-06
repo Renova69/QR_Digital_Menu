@@ -1,14 +1,15 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** September 4, 2026
+> **Last Updated:** September 6, 2026
 > **MVP Status:** ✅ Complete
 > **V2 Status:** ✅ Phases 9–14 Complete
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete
 > **V3 Growth:** ✅ Phases 18–19 (Staff Roles, Stripe Payments) Complete
 > **Security Hardening:** ✅ P0–P3 engineering complete
 > **V3.5 Platform:** ✅ Phases 22–36 Complete (Payment Providers, Print Station, Reservations, Split Bill, Service Points, Web Push, Translation Rework, Allergen Tags, Loyalty Checkout, Dashboard Polish)
-> **Current Focus:** operational close-out: the remaining P3-1/P3-6 manual
-> checks. Final-domain, isolated-staging and credential-retirement gates remain
+> **Current Focus:** single-restaurant product development and pre-launch
+> readiness. P0–P3 are operationally closed for the current application scope.
+> Final-domain, isolated-staging and credential-retirement gates remain
 > deliberately deferred pre-launch.
 
 ---
@@ -25,9 +26,10 @@
   checks. DMARC remains deferred until the final product domain is active.
 - **Pre-launch gates:** P2-8 isolated staging activation, remaining P2-10
   credential-retirement checks, DMARC, and final-domain edge controls.
-- **P3-1:** merged and deployed. Two simultaneous browser sessions were manually
-  confirmed; the revocation/socket/legacy remainder stays on
-  [the rollout checklist](ops/db-safety/P3_SESSION_ROLLOUT.md).
+- **P3-1:** merged, deployed, and operationally closed for application scope.
+  The revocation, socket, sign-out-everywhere, cross-account, PIN re-login, and
+  step-up session matrix passed. See
+  [the rollout evidence](ops/db-safety/P3_SESSION_ROLLOUT.md).
 - **P3-2:** shared 25-second HTTP deadline, cancellation propagated to foreground
   provider calls/retries, and explicit background-work separation are merged
   and deployed. See [the request-budget contract](ops/runtime/REQUEST_BUDGETS.md).
@@ -52,8 +54,8 @@
   archive. A 2 Sep disposable-local restore drill verified the newest archive's
   SHA-256, all manifest counts, 76 migration ledger rows with zero unresolved
   migrations, constraints, materialized views and all database-loss guards.
-- **Next gate:** reconcile the remaining P3-1/P3-6 manual checks with recorded
-  verification, then choose the next single-restaurant product slice.
+- **Next gate:** choose the next single-restaurant product slice while retaining
+  the explicitly deferred pre-launch gates above.
   Multi-location / franchise management is out of scope at this stage by
   owner decision (4 Sep 2026); it is not the next development task.
 

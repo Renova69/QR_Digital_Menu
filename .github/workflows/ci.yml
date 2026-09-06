@@ -86,7 +86,7 @@ jobs:
       - name: Reject destructive migration SQL
         run: node scripts/check-migration-safety.js apps/backend/prisma/migrations
 
-      - name: Validate deployment script syntax
+      - name: Validate deployment scripts
         shell: pwsh
         run: |
           $scripts = @(
@@ -107,6 +107,7 @@ jobs:
               throw "$script contains PowerShell parse errors"
             }
           }
+          ./scripts/test-deploy-optional-cleanup.ps1
 
       # Cloud Build submits apps/backend as its Docker context, so the nested
       # lockfile is a separate deployment contract from the root workspace
